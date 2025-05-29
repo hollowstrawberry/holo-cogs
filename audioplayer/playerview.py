@@ -102,8 +102,8 @@ class PlayerView(View):
 
         # convert command responses into interaction responses
         async def send(self, *args, **kwargs):
-            content = f"-# Requested by {inter.user.display_name}"
-            await inter.response.send_message(content, embed=kwargs.get("embed"), ephemeral=ephemeral)
+            content = f"-# {inter.user.mention} pressed a button" if not ephemeral else ""
+            await inter.response.send_message(content, embed=kwargs.get("embed"), ephemeral=ephemeral, allowed_mentions=discord.AllowedMentions.none)
         ctx.send = types.MethodType(send, ctx)
 
         return ctx
