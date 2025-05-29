@@ -13,15 +13,16 @@ log = logging.getLogger("red.holo-cogs.audioplayer")
 
 
 class PlayerView(View):
-    def __init__(self, cog):
-        super().__init__(timeout=60)
+    def __init__(self, cog, paused: bool):
+        super().__init__(timeout=20)
         self.cog = cog
+        self.pause.emoji = "▶️" if paused else "⏸️"
         self.message: Optional[discord.Message] = None
 
     @discord.ui.button(emoji="🔽", style=discord.ButtonStyle.grey)
     async def queue(self, inter: discord.Interaction, _):
         audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
-        ctx = await self.get_context(inter, audio, "queue", ephemeral=True)
+        ctx = await self.get_context(inter, "queue", ephemeral=True)
         if not await self.can_run_command(ctx, "queue"):
             await inter.response.send_message("You're not allowed to perform this action.")
             return
@@ -34,7 +35,7 @@ class PlayerView(View):
     @discord.ui.button(emoji="⏪", style=discord.ButtonStyle.grey)
     async def previous(self, inter: discord.Interaction, _):
         audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
-        ctx = await self.get_context(inter, audio, "prev", ephemeral=False)
+        ctx = await self.get_context(inter, "prev", ephemeral=False)
         if not await self.can_run_command(ctx, "prev"):
             await inter.response.send_message("You're not allowed to perform this action.")
             return
@@ -46,10 +47,10 @@ class PlayerView(View):
         else:
             await self.update_player(ctx, audio)
 
-    @discord.ui.button(emoji="⏸️", style=discord.ButtonStyle.grey)
+    @discord.ui.button(style=discord.ButtonStyle.grey)
     async def pause(self, inter: discord.Interaction, _):
         audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
-        ctx = await self.get_context(inter, audio, "pause", ephemeral=True)
+        ctx = await self.get_context(inter, "pause", ephemeral=True)
         if not await self.can_run_command(ctx, "pause"):
             await inter.response.send_message("You're not allowed to perform this action.")
             return
@@ -64,7 +65,7 @@ class PlayerView(View):
     @discord.ui.button(emoji="⏩", style=discord.ButtonStyle.grey)
     async def skip(self, inter: discord.Interaction, _):
         audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
-        ctx = await self.get_context(inter, audio, "skip", ephemeral=False)
+        ctx = await self.get_context(inter, "skip", ephemeral=False)
         if not await self.can_run_command(ctx, "skip"):
             await inter.response.send_message("You're not allowed to perform this action.")
             return
@@ -79,7 +80,7 @@ class PlayerView(View):
     @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.grey)
     async def stop(self, inter: discord.Interaction, _):
         audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
-        ctx = await self.get_context(inter, audio, "stop", ephemeral=False)
+        ctx = await self.get_context(inter, "stop", ephemeral=False)
         if not await self.can_run_command(ctx, "stop"):
             await inter.response.send_message("You're not allowed to perform this action.")
             return
@@ -91,7 +92,7 @@ class PlayerView(View):
         else:
             await self.update_player(ctx, audio)
 
-    async def get_context(self, inter: discord.Interaction, cog: Audio, command_name: str, ephemeral: bool) -> commands.Context:
+    async def get_context(self, inter: discord.Interaction, command_name: str, ephemeral: bool) -> commands.Context:
         prefix = await self.cog.bot.get_prefix(self.message)
         prefix = prefix[0] if isinstance(prefix, list) else prefix
         fake_message = copy(self.message)

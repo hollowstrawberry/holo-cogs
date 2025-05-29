@@ -132,7 +132,7 @@ class AudioPlayer(Cog):
             embed.description += f"\n\nNo more in queue"
         if player.current.thumbnail:
             embed.set_thumbnail(url=player.current.thumbnail)
-        view = PlayerView(self)
+        view = PlayerView(self, player.paused)
 
         # Update the player message
         last_message = await anext(channel.history(limit=1))
