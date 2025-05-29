@@ -1,6 +1,7 @@
+import types
 import logging
 import discord
-import types
+import lavalink
 from copy import copy
 from typing import Optional
 from discord.ui import View
@@ -42,7 +43,12 @@ class PlayerView(View):
             log.error("previous button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
-            await self.cog.update_player(ctx.guild, ctx.channel, audio)
+            try:
+                player = lavalink.get_player(ctx.guild.id)
+            except lavalink.errors.PlayerNotFound:
+                pass
+            else:
+                await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
 
     @discord.ui.button(emoji="⏸️", style=discord.ButtonStyle.grey)
     async def pause(self, inter: discord.Interaction, _):
@@ -57,7 +63,12 @@ class PlayerView(View):
             log.error("pause button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
-            await self.cog.update_player(ctx.guild, ctx.channel, audio)
+            try:
+                player = lavalink.get_player(ctx.guild.id)
+            except lavalink.errors.PlayerNotFound:
+                pass
+            else:
+                await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
 
     @discord.ui.button(emoji="⏩", style=discord.ButtonStyle.grey)
     async def skip(self, inter: discord.Interaction, _):
@@ -72,7 +83,12 @@ class PlayerView(View):
             log.error("skip button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
-            await self.cog.update_player(ctx.guild, ctx.channel, audio)
+            try:
+                player = lavalink.get_player(ctx.guild.id)
+            except lavalink.errors.PlayerNotFound:
+                pass
+            else:
+                await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
 
     @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.grey)
     async def stop(self, inter: discord.Interaction, _):
@@ -87,7 +103,12 @@ class PlayerView(View):
             log.error("stop button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
-            await self.cog.update_player(ctx.guild, ctx.channel, audio)
+            try:
+                player = lavalink.get_player(ctx.guild.id)
+            except lavalink.errors.PlayerNotFound:
+                pass
+            else:
+                await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
 
     async def get_context(self, inter: discord.Interaction, cog: Audio, command_name: str, ephemeral: bool) -> commands.Context:
         prefix = await self.cog.bot.get_prefix(self.message)
