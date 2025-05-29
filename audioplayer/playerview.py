@@ -102,7 +102,7 @@ class PlayerView(View):
 
         # convert command responses into interaction responses
         async def send(self, *args, **kwargs):
-            await inter.response.send_message(*args, **kwargs, ephemeral=ephemeral)
+            await inter.response.send_message(content=kwargs.get("content"), embed=kwargs.get("embed"), ephemeral=ephemeral)
         ctx.send = types.MethodType(send, ctx)
 
         return ctx
