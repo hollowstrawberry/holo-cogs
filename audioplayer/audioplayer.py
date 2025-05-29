@@ -1,8 +1,10 @@
 import re
 import logging
+import asyncio
 import discord
 import lavalink
 from typing import Optional
+from datetime import datetime
 from builtins import anext
 
 from discord.ext import tasks
@@ -15,7 +17,8 @@ from audioplayer.playerview import PlayerView
 
 log = logging.getLogger("red.holo-cogs.audioplayer")
 
-PLAYER_WIDTH = 21
+INTERVAL = 10
+PLAYER_WIDTH = 19
 LINE_SYMBOL = "⎯"
 MARKER_SYMBOL = "💠"
 
@@ -29,6 +32,8 @@ class AudioPlayer(Cog):
         self.config = Config.get_conf(self, identifier=772413491)
         self.channel: dict[int, int] = {}
         self.last_player: dict[int, int] = {}
+        self.last_song: dict[int, lavalink.Track] = {}
+        self.last_updated: dict[int, datetime] = {}
         self.config.register_guild(**{
             "channel": 0,
         })
@@ -43,13 +48,15 @@ class AudioPlayer(Cog):
     async def cog_unload(self):
         self.player_loop.stop()
 
-    @tasks.loop(seconds=5, reconnect=True)
+    @tasks.loop(seconds=1, reconnect=True)
     async def player_loop(self):
         if not self.channel:
             return
         audio: Optional[Audio] = self.bot.get_cog("Audio")
         if not audio:
             return
+        
+        tasks: list[asyncio.Task] = []
         for guild_id, channel_id in self.channel.items():
             guild = self.bot.get_guild(guild_id)
             if not guild:
@@ -57,23 +64,34 @@ class AudioPlayer(Cog):
             channel = guild.get_channel(channel_id)
             if not channel:
                 continue
-            try:
-                await self.update_player(guild, channel, audio)
-            except Exception: # dont kill the task
-                log.error("player loop", exc_info=True)
-                continue
 
-    async def update_player(self, guild: discord.Guild, channel: discord.TextChannel, audio: Audio):
-        try:
-            player = lavalink.get_player(guild.id)
-        except lavalink.errors.PlayerNotFound:
-            player = None
+            try:
+                player = lavalink.get_player(guild.id)
+            except lavalink.errors.PlayerNotFound:
+                player = None
+            changed_song = (player.current if player else None) != self.last_song.get(guild.id)
+            update_due = (datetime.utcnow() - self.last_updated.get(guild.id, datetime.min)).total_seconds() >= INTERVAL
+            if not update_due and not changed_song:
+                continue
+            self.last_updated[guild.id] = datetime.utcnow()
+            self.last_song[guild.id] = player.current if player else None
+            tasks.append(self.update_player(guild, channel, audio, player))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for result in results:
+            if isinstance(result, Exception):
+                log.error(result)
+
+    async def update_player(self, guild: discord.Guild, channel: discord.TextChannel, audio: Audio, player: lavalink.Player):
+        # Remove orphan player
         if not player or not player.current:
             if self.last_player.get(guild.id):
                 message = await channel.fetch_message(self.last_player[guild.id])
                 if message:
                     await message.delete()
                 del self.last_player[guild.id]
+                if self.last_song.get(guild.id):
+                    del self.last_song[guild.id]
             return
         
         # Format the player message
@@ -114,7 +132,7 @@ class AudioPlayer(Cog):
             embed.description += f"\n\nNo more in queue"
         if player.current.thumbnail:
             embed.set_thumbnail(url=player.current.thumbnail)
-        view = PlayerView(self)
+        view = PlayerView(self, player.paused)
 
         # Update the player message
         last_message = await anext(channel.history(limit=1))
