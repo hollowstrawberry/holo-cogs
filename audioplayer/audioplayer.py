@@ -21,7 +21,6 @@ INTERVAL = 10
 PLAYER_WIDTH = 19
 LINE_SYMBOL = "⎯"
 MARKER_SYMBOL = "💠"
-EMPTY_NAME = "ᅠ"
 
 
 class AudioPlayer(Cog):
@@ -106,24 +105,20 @@ class AudioPlayer(Cog):
             embed.url = title_match.group(2)
         else:
             embed.title = f"{icon} {track_name}"
+        embed.description = ""
         if player.current.requester:
-            embed.description = f"\n-# Requested by {player.current.requester}\n\n"
-        if player.current.thumbnail:
-            embed.set_thumbnail(url=player.current.thumbnail)
-
-        desc = ""
+            embed.description += f"\n-# Requested by {player.current.requester}\n\n"
         if not player.current.is_stream and player.current.length and player.current.length != 0:
             ratio = player.position / player.current.length
             pos = round(player.position / 1000)
             length = round(player.current.length / 1000)
             line = (round(PLAYER_WIDTH * ratio) * LINE_SYMBOL) + MARKER_SYMBOL + ((PLAYER_WIDTH - 1 - round(PLAYER_WIDTH * ratio)) * LINE_SYMBOL)
-            desc += f"`{pos//60:02}:{pos%60:02}{line}{length//60:02}:{length%60:02}`"
+            embed.description += f"`{pos//60:02}:{pos%60:02}{line}{length//60:02}:{length%60:02}`"
         else:
             pos = round(player.position / 1000)
             length = 0
             line = ((PLAYER_WIDTH // 2) * LINE_SYMBOL) + MARKER_SYMBOL + ((PLAYER_WIDTH // 2) * LINE_SYMBOL)
-            desc += f"`{pos//60:02}:{pos%60:02}{line}unknown`"
-            
+            embed.description += f"`{pos//60:02}:{pos%60:02}{line}unknown`"
         if player.queue:
             total_length = round(sum(track.length or 180000 for track in player.queue) / 1000)
             if length > 0:
@@ -132,12 +127,11 @@ class AudioPlayer(Cog):
             if total_length // 3600:
                 formatted_time += f"{total_length // 3600}:"
             formatted_time += f"{total_length//60%60:02}:{total_length%60:02}"
-            desc += f"\n\n{len(player.queue)} more in queue ({formatted_time})"
+            embed.description += f"\n\n{len(player.queue)} more in queue ({formatted_time})"
         else:
-            desc += f"\n\nNo more in queue"
-        
-        embed.add_field(name=EMPTY_NAME, value=desc)
-
+            embed.description += f"\n\nNo more in queue"
+        if player.current.thumbnail:
+            embed.set_thumbnail(url=player.current.thumbnail)
         view = PlayerView(self, player.paused)
 
         # Update the player message
