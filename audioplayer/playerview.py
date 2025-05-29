@@ -1,10 +1,10 @@
 import types
 import logging
-import datetime
 import discord
 import lavalink
 from copy import copy
 from typing import Optional
+from datetime import datetime
 from discord.ui import View
 from redbot.core import commands
 from redbot.cogs.audio.core import Audio
