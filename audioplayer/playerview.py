@@ -7,7 +7,7 @@ from discord.ui import View
 from redbot.core import commands
 from redbot.cogs.audio.core import Audio
 
-log = logging.getLogger("red.crab-cogs.audioplayer")
+log = logging.getLogger("red.holo-cogs.audioplayer")
 
 
 class PlayerView(View):

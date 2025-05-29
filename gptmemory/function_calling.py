@@ -12,7 +12,7 @@ from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.constants import FARENHEIT_PATTERN
 from gptmemory.utils import farenheit_to_celsius
 
-log = logging.getLogger("red.crab-cogs.gptmemory")
+log = logging.getLogger("red.holo-cogs.gptmemory")
 
 
 class FunctionCallBase(ABC):

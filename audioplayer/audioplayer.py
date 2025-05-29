@@ -13,7 +13,7 @@ from redbot.cogs.audio.core import Audio
 
 from audioplayer.playerview import PlayerView
 
-log = logging.getLogger("red.crab-cogs.audioplayer")
+log = logging.getLogger("red.holo-cogs.audioplayer")
 
 PLAYER_WIDTH = 21
 LINE_SYMBOL = "⎯"

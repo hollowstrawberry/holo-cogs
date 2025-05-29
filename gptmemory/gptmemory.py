@@ -20,7 +20,7 @@ from gptmemory.schema import MemoryRecall, MemoryChangeList
 from gptmemory.function_calling import all_function_calls
 from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, IMAGE_EXTENSIONS, DISCORD_MESSAGE_LENGTH
 
-log = logging.getLogger("red.crab-cogs.gptmemory")
+log = logging.getLogger("red.holo-cogs.gptmemory")
 
 GptImageContent = List[Dict[str, str]]
 GptMessage = Dict[str, Union[str, GptImageContent]]
