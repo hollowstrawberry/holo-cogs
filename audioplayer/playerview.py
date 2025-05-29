@@ -1,5 +1,6 @@
 import types
 import logging
+import datetime
 import discord
 import lavalink
 from copy import copy
@@ -43,12 +44,7 @@ class PlayerView(View):
             log.error("previous button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
-            try:
-                player = lavalink.get_player(ctx.guild.id)
-            except lavalink.errors.PlayerNotFound:
-                pass
-            else:
-                await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
+            await self.update_player(ctx, audio)
 
     @discord.ui.button(emoji="⏸️", style=discord.ButtonStyle.grey)
     async def pause(self, inter: discord.Interaction, _):
@@ -63,12 +59,7 @@ class PlayerView(View):
             log.error("pause button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
-            try:
-                player = lavalink.get_player(ctx.guild.id)
-            except lavalink.errors.PlayerNotFound:
-                pass
-            else:
-                await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
+            await self.update_player(ctx, audio)
 
     @discord.ui.button(emoji="⏩", style=discord.ButtonStyle.grey)
     async def skip(self, inter: discord.Interaction, _):
@@ -83,12 +74,7 @@ class PlayerView(View):
             log.error("skip button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
-            try:
-                player = lavalink.get_player(ctx.guild.id)
-            except lavalink.errors.PlayerNotFound:
-                pass
-            else:
-                await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
+            await self.update_player(ctx, audio)
 
     @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.grey)
     async def stop(self, inter: discord.Interaction, _):
@@ -103,12 +89,7 @@ class PlayerView(View):
             log.error("stop button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
-            try:
-                player = lavalink.get_player(ctx.guild.id)
-            except lavalink.errors.PlayerNotFound:
-                pass
-            else:
-                await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
+            await self.update_player(ctx, audio)
 
     async def get_context(self, inter: discord.Interaction, cog: Audio, command_name: str, ephemeral: bool) -> commands.Context:
         prefix = await self.cog.bot.get_prefix(self.message)
@@ -117,9 +98,12 @@ class PlayerView(View):
         fake_message.content = prefix + command_name
         fake_message.author = inter.user
         ctx: commands.Context = await self.cog.bot.get_context(fake_message)  # noqa
+
+        # convert command responses into interaction responses
         async def send(self, *args, **kwargs):
-            await inter.response.send_message(content=kwargs.get("content"), embed=kwargs.get("embed"), ephemeral=ephemeral)
-        ctx.send = types.MethodType(send, ctx)  # prevent pause/skip buttons from sending a message
+            await inter.response.send_message(*args, **kwargs, ephemeral=ephemeral)
+        ctx.send = types.MethodType(send, ctx)
+
         return ctx
 
     async def can_run_command(self, ctx: commands.Context, command_name: str) -> bool:
@@ -128,6 +112,14 @@ class PlayerView(View):
             can = await command.can_run(ctx, check_all_parents=True, change_permission_state=False)
         except commands.CommandError:
             can = False
-        if not can:
-            await ctx.send("You do not have permission to do this.", ephemeral=True)
         return can
+    
+    async def update_player(self, ctx: commands.Context, audio: Audio):
+        try:
+            player = lavalink.get_player(ctx.guild.id)
+        except lavalink.errors.PlayerNotFound:
+            pass
+        else:
+            self.cog.last_updated[ctx.guild.id] = datetime.utcnow()
+            self.cog.last_song[ctx.guild.id] = player.current if player else None
+            await self.cog.update_player(ctx.guild, ctx.channel, audio, player)
