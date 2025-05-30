@@ -71,7 +71,7 @@ class AudioPlayer(Cog):
 
             try:
                 player = lavalink.get_player(guild.id)
-            except lavalink.errors.PlayerNotFound:
+            except lavalink.errors.RedLavalinkException:
                 player = None
             changed_song = (player.current if player else None) != self.last_song.get(guild.id)
             update_due = (datetime.utcnow() - self.last_updated.get(guild.id, datetime.min)).total_seconds() >= INTERVAL
