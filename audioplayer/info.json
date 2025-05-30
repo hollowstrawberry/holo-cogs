@@ -2,7 +2,7 @@
     "author": ["hollowstrawberry"],
     "min_bot_version": "3.5.0",
     "min_python_version": [3,9,0],
-    "description": "Live player interface for the audio cog. Updates every 10 seconds or whenever the song changes or you press a button. Stays at the bottom of chat.",
+    "description": "Live player interface for the audio cog. Updates every 10 seconds or whenever the song changes or you press a button. Stays at the bottom of chat for as long as there is audio playing.",
     "hidden": false,
     "install_msg": "🎶 __**AudioPlayer**__\n:warning: **Important:** Discord doesn't like when things update periodically without human input, even when it follows ratelimits, so use this at your own risk. ```Cog installed. Instructions:\n1. Load it with [p]load audioplayer\n2. Enable in a server with [p]audioplayer channel [channel]```",
     "required_cogs": {},

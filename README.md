@@ -19,7 +19,7 @@ You may be prompted to respond with "I agree" after the second command.
 
 ## 🎶 audioplayer
 
-Live audio player, updates every 10 seconds, or when the song changes or you press a button. Stays at the bottom of the designated chat.
+Live audio player, updates every 10 seconds, or when the song changes or you press a button. Stays at the bottom of the designated chat for as long as there is audio playing.
 
 ⚠️ Discord doesn't like when things update periodically without human input, even when it follows ratelimits, so use this at your own risk.
 
