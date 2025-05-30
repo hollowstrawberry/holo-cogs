@@ -27,7 +27,7 @@ class AudioPlayer(Cog):
     """
     Live player interface for the audio cog.
     Updates every 10 seconds or whenever the song changes or you press a button.
-    Stays at the bottom of chat.
+    Stays at the bottom of chat for as long as there is audio playing.
     """
 
     def __init__(self, bot: Red, *args, **kwargs):

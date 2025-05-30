@@ -16,16 +16,17 @@ To add one of these cogs to your instance of Red, send the following commands on
 
 You may be prompted to respond with "I agree" after the second command.
 
+&nbsp;
 
 ## 🎶 audioplayer
 
-Live audio player, updates every 10 seconds, or when the song changes or you press a button. Stays at the bottom of the designated chat.
+Live audio player, updates every 10 seconds, or when the song changes or you press a button. Stays at the bottom of the designated chat for as long as there is audio playing.
 
 ⚠️ Discord doesn't like when things update periodically without human input, even when it follows ratelimits, so use this at your own risk.
 
 ![image](https://github.com/user-attachments/assets/7c77467c-7cac-4dac-a02e-ca06b9f296b5)
 
-# 🚪 gptwelcome
+## 🚪 gptwelcome
 
 Uses AI to give a unique welcome message for each new user, according to their username and avatar. This may sound useless at first, but generic welcome messages are often ignored, and even something simple as saying something unique about someone may catch their attention. The prompt is customizable, you should read the default one first. Make sure your server has welcome messages enabled, as the bot replies to those.
 
