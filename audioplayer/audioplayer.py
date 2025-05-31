@@ -17,7 +17,7 @@ from audioplayer.playerview import AudioPlayerView
 
 log = logging.getLogger("red.holo-cogs.audioplayer")
 
-INTERVAL = 2.5
+INTERVAL = 9.5
 PLAYER_WIDTH = 19
 LINE_SYMBOL = "⎯"
 MARKER_SYMBOL = "💠"
