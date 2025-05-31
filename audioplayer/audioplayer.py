@@ -13,11 +13,11 @@ from redbot.core.bot import Red, Config
 from redbot.core.commands import Cog
 from redbot.cogs.audio.core import Audio
 
-from audioplayer.playerview import PlayerView
+from audioplayer.playerview import AudioPlayerView
 
 log = logging.getLogger("red.holo-cogs.audioplayer")
 
-INTERVAL = 9.5
+INTERVAL = 2.5
 PLAYER_WIDTH = 19
 LINE_SYMBOL = "⎯"
 MARKER_SYMBOL = "💠"
@@ -35,7 +35,8 @@ class AudioPlayer(Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=772413491)
         self.channel: dict[int, int] = {}
-        self.last_player: dict[int, int] = {}
+        self.last_message: dict[int, discord.Message] = {}
+        self.last_view: dict[int, AudioPlayerView] = {}
         self.last_song: dict[int, lavalink.Track] = {}
         self.last_updated: dict[int, datetime] = {}
         self.config.register_guild(**{
@@ -89,13 +90,12 @@ class AudioPlayer(Cog):
     async def update_player(self, guild: discord.Guild, channel: discord.TextChannel, audio: Audio, player: lavalink.Player):
         # Remove orphan player
         if not player or not player.current:
-            if self.last_player.get(guild.id):
-                message = await channel.fetch_message(self.last_player[guild.id])
-                if message:
-                    await message.delete()
-                del self.last_player[guild.id]
+            latest_message = self.last_message[guild.id]
+            if latest_message:
+                del self.last_message[guild.id]
                 if self.last_song.get(guild.id):
                     del self.last_song[guild.id]
+                await latest_message.delete()
             return
         
         # Format the player message
@@ -136,26 +136,25 @@ class AudioPlayer(Cog):
             embed.description += f"\n\nNo more in queue"
         if player.current.thumbnail:
             embed.set_thumbnail(url=player.current.thumbnail)
-        view = PlayerView(self, player.paused)
 
+        if not self.last_view.get(guild.id):
+            self.last_view[guild.id] = AudioPlayerView(self)
+        view = self.last_view[guild.id]
+        view.set_paused(player.paused)
+        
         # Update the player message
-        last_message = await anext(channel.history(limit=1))
-        if last_message.id == self.last_player.get(guild.id, 0):
-            message = await channel.fetch_message(last_message.id)
-            if message:
-                view.message = message
-                await message.edit(embed=embed, view=view)
-            else:
-                message = await channel.send(embed=embed, view=view)
-                self.last_player[guild.id] = message.id
-                view.message = message
+        latest_message: discord.Message = await anext(channel.history(limit=1))
+        last_message = self.last_message.get(guild.id)
+        if latest_message == last_message:
+            await last_message.edit(embed=embed)
         else:
-            if self.last_player.get(guild.id, 0):
-                old_message = await channel.fetch_message(self.last_player[guild.id])
-                if old_message:
-                    await old_message.delete()
+            if last_message:
+                try:
+                    await last_message.delete()
+                except discord.DiscordException:
+                    pass
             message = await channel.send(embed=embed, view=view)
-            self.last_player[guild.id] = message.id
+            self.last_message[guild.id] = message
             view.message = message
 
     @commands.group(name="audioplayer")
@@ -167,13 +166,13 @@ class AudioPlayer(Cog):
     @command_audioplayer.command(name="channel")
     async def command_audioplayer_channel(self, ctx: commands.Context, channel: Optional[discord.TextChannel]):
         """Sets the channel being used for AudioPlayer. Passing no arguments clears the channel, disabling the cog in this server."""
-        if self.last_player.get(ctx.guild.id):
+        if self.last_message.get(ctx.guild.id):
             player_channel = ctx.guild.get_channel(self.channel.get(ctx.guild.id, 0))
             if player_channel:
-                message = await player_channel.fetch_message(self.last_player[ctx.guild.id])
+                message = await player_channel.fetch_message(self.last_message[ctx.guild.id])
                 if message:
                     await message.delete()
-                del self.last_player[ctx.guild.id]
+                del self.last_message[ctx.guild.id]
         if not channel:
             channel_id = await self.config.guild(ctx.guild).channel()
             self.channel[ctx.guild.id] = channel.id

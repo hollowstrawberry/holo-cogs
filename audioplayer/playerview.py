@@ -12,12 +12,14 @@ from redbot.cogs.audio.core import Audio
 log = logging.getLogger("red.holo-cogs.audioplayer")
 
 
-class PlayerView(View):
-    def __init__(self, cog, paused: bool):
-        super().__init__(timeout=20)
+class AudioPlayerView(View):
+    def __init__(self, cog):
+        super().__init__(timeout=None)
         self.cog = cog
-        self.pause.emoji = "▶️" if paused else "⏸️"
         self.message: Optional[discord.Message] = None
+
+    def set_paused(self, paused: bool):
+        self.pause.emoji = "▶️" if paused else "⏸️"
 
     @discord.ui.button(emoji="🔽", style=discord.ButtonStyle.grey)
     async def queue(self, inter: discord.Interaction, _):
