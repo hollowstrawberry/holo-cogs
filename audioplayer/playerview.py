@@ -18,9 +18,6 @@ class AudioPlayerView(View):
         self.cog = cog
         self.message: Optional[discord.Message] = None
 
-    def set_paused(self, paused: bool):
-        self.pause.emoji = "▶️" if paused else "⏸️"
-
     @discord.ui.button(emoji="🔽", style=discord.ButtonStyle.grey)
     async def queue(self, inter: discord.Interaction, _):
         audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
@@ -49,7 +46,7 @@ class AudioPlayerView(View):
         else:
             await self.update_player(ctx, audio)
 
-    @discord.ui.button(style=discord.ButtonStyle.grey)
+    @discord.ui.button(emoji="⏸️", style=discord.ButtonStyle.grey)
     async def pause(self, inter: discord.Interaction, _):
         audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "pause", ephemeral=True)

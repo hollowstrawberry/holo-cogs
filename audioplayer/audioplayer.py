@@ -36,7 +36,6 @@ class AudioPlayer(Cog):
         self.config = Config.get_conf(self, identifier=772413491)
         self.channel: dict[int, int] = {}
         self.last_message: dict[int, discord.Message] = {}
-        self.last_view: dict[int, AudioPlayerView] = {}
         self.last_song: dict[int, lavalink.Track] = {}
         self.last_updated: dict[int, datetime] = {}
         self.config.register_guild(**{
@@ -137,10 +136,6 @@ class AudioPlayer(Cog):
         if player.current.thumbnail:
             embed.set_thumbnail(url=player.current.thumbnail)
 
-        if not self.last_view.get(guild.id):
-            self.last_view[guild.id] = AudioPlayerView(self)
-        view = self.last_view[guild.id]
-        view.set_paused(player.paused)
         
         # Update the player message
         latest_message: discord.Message = await anext(channel.history(limit=1))
@@ -153,6 +148,7 @@ class AudioPlayer(Cog):
                     await last_message.delete()
                 except discord.DiscordException:
                     pass
+            view = AudioPlayerView(self)
             message = await channel.send(embed=embed, view=view)
             self.last_message[guild.id] = message
             view.message = message
