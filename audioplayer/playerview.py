@@ -101,7 +101,7 @@ class AudioPlayerView(View):
         fake_message = copy(self.message)
         fake_message.content = prefix + command_name
         fake_message.author = inter.user
-        ctx: commands.Context = await self.cog.bot.get_context(fake_message)  # noqa
+        ctx: commands.Context = await self.cog.bot.get_context(fake_message)
 
         # convert command responses into interaction responses
         async def send(self, *args, **kwargs):

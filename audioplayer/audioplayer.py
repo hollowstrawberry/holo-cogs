@@ -51,12 +51,13 @@ class AudioPlayer(Cog):
 
     async def cog_unload(self):
         self.player_loop.stop()
+        await asyncio.gather(*[msg.delete() for msg in self.last_message.values() if msg is not None], return_exceptions=True)
 
     @tasks.loop(seconds=1, reconnect=True)
     async def player_loop(self):
         if not self.channel:
             return
-        audio: Optional[Audio] = self.bot.get_cog("Audio")  # type: ignore
+        audio: Optional[Audio] = self.bot.get_cog("Audio") # type: ignore
         if not audio:
             return
         
@@ -103,7 +104,7 @@ class AudioPlayer(Cog):
         embed = discord.Embed()
         embed.color = await self.bot.get_embed_color(channel)
         icon = "⏸️" if player.paused else "▶️"
-        track_name = await audio.get_track_description(player.current, audio.local_folder_current_path)  # type: ignore
+        track_name = await audio.get_track_description(player.current, audio.local_folder_current_path) # type: ignore
         title_match = re.match(r"^\[(.*)\]\((.*)\)$", track_name.strip(" *") if track_name else "")
         if title_match:
             embed.title = f"{icon} {title_match.group(1)}"
