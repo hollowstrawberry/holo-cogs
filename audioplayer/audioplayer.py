@@ -3,9 +3,8 @@ import logging
 import asyncio
 import discord
 import lavalink
-from typing import Optional
+from typing import Coroutine, Optional
 from datetime import datetime
-from builtins import anext
 
 from discord.ext import tasks
 from redbot.core import commands
@@ -13,7 +12,7 @@ from redbot.core.bot import Red, Config
 from redbot.core.commands import Cog
 from redbot.cogs.audio.core import Audio
 
-from audioplayer.playerview import PlayerView
+from audioplayer.playerview import AudioPlayerView
 
 log = logging.getLogger("red.holo-cogs.audioplayer")
 
@@ -35,8 +34,9 @@ class AudioPlayer(Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=772413491)
         self.channel: dict[int, int] = {}
-        self.last_player: dict[int, int] = {}
-        self.last_song: dict[int, lavalink.Track] = {}
+        self.view: dict[int, Optional[AudioPlayerView]] = {}
+        self.last_message: dict[int, Optional[discord.Message]] = {}
+        self.last_song: dict[int, Optional[lavalink.Track]] = {}
         self.last_updated: dict[int, datetime] = {}
         self.config.register_guild(**{
             "channel": 0,
@@ -51,22 +51,23 @@ class AudioPlayer(Cog):
 
     async def cog_unload(self):
         self.player_loop.stop()
+        await asyncio.gather(*[msg.delete() for msg in self.last_message.values() if msg is not None], return_exceptions=True)
 
     @tasks.loop(seconds=1, reconnect=True)
     async def player_loop(self):
         if not self.channel:
             return
-        audio: Optional[Audio] = self.bot.get_cog("Audio")
+        audio: Optional[Audio] = self.bot.get_cog("Audio") # type: ignore
         if not audio:
             return
         
-        tasks: list[asyncio.Task] = []
+        tasks: list[Coroutine] = []
         for guild_id, channel_id in self.channel.items():
             guild = self.bot.get_guild(guild_id)
             if not guild:
                 continue
             channel = guild.get_channel(channel_id)
-            if not channel:
+            if not channel or not isinstance(channel, discord.TextChannel):
                 continue
 
             try:
@@ -86,24 +87,25 @@ class AudioPlayer(Cog):
             if isinstance(result, Exception):
                 log.error(result)
 
-    async def update_player(self, guild: discord.Guild, channel: discord.TextChannel, audio: Audio, player: lavalink.Player):
+    async def update_player(self, guild: discord.Guild, channel: discord.TextChannel, audio: Audio, player: Optional[lavalink.Player]):
         # Remove orphan player
         if not player or not player.current:
-            if self.last_player.get(guild.id):
-                message = await channel.fetch_message(self.last_player[guild.id])
-                if message:
-                    await message.delete()
-                del self.last_player[guild.id]
+            last_message = self.last_message[guild.id]
+            if last_message:
+                del self.last_message[guild.id]
                 if self.last_song.get(guild.id):
                     del self.last_song[guild.id]
+                if self.view.get(guild.id):
+                    del self.view[guild.id]
+                await last_message.delete()
             return
         
         # Format the player message
         embed = discord.Embed()
         embed.color = await self.bot.get_embed_color(channel)
         icon = "⏸️" if player.paused else "▶️"
-        track_name = await audio.get_track_description(player.current, audio.local_folder_current_path)
-        title_match = re.match(r"^\[(.*)\]\((.*)\)$", track_name.strip(" *"))
+        track_name = await audio.get_track_description(player.current, audio.local_folder_current_path) # type: ignore
+        title_match = re.match(r"^\[(.*)\]\((.*)\)$", track_name.strip(" *") if track_name else "")
         if title_match:
             embed.title = f"{icon} {title_match.group(1)}"
             embed.url = title_match.group(2)
@@ -136,30 +138,29 @@ class AudioPlayer(Cog):
             embed.description += f"\n\nNo more in queue"
         if player.current.thumbnail:
             embed.set_thumbnail(url=player.current.thumbnail)
-        view = PlayerView(self, player.paused)
+
+        view = self.view.get(guild.id) or AudioPlayerView(self)
+        self.view[guild.id] = view
+        view.set_paused(player.paused)
 
         # Update the player message
-        last_message = await anext(channel.history(limit=1))
-        if last_message.id == self.last_player.get(guild.id, 0):
-            message = await channel.fetch_message(last_message.id)
-            if message:
-                view.message = message
-                await message.edit(embed=embed, view=view)
-            else:
-                message = await channel.send(embed=embed, view=view)
-                self.last_player[guild.id] = message.id
-                view.message = message
+        latest_message = await channel.history(limit=1).__anext__()
+        last_message = self.last_message.get(guild.id)
+        if latest_message == last_message:
+            await latest_message.edit(embed=embed, view=view)
         else:
-            if self.last_player.get(guild.id, 0):
-                old_message = await channel.fetch_message(self.last_player[guild.id])
-                if old_message:
-                    await old_message.delete()
+            if last_message:
+                try:
+                    await last_message.delete()
+                except discord.DiscordException:
+                    pass
             message = await channel.send(embed=embed, view=view)
-            self.last_player[guild.id] = message.id
+            self.last_message[guild.id] = message
             view.message = message
 
-    @commands.group(name="audioplayer")
+    @commands.group(name="audioplayer")  # type: ignore
     @commands.admin()
+    @commands.guild_only()
     async def command_audioplayer(self, _: commands.Context):
         """Configuration commands for AudioPlayer"""
         pass
@@ -167,16 +168,17 @@ class AudioPlayer(Cog):
     @command_audioplayer.command(name="channel")
     async def command_audioplayer_channel(self, ctx: commands.Context, channel: Optional[discord.TextChannel]):
         """Sets the channel being used for AudioPlayer. Passing no arguments clears the channel, disabling the cog in this server."""
-        if self.last_player.get(ctx.guild.id):
+        assert ctx.guild is not None
+        if self.last_message.get(ctx.guild.id):
             player_channel = ctx.guild.get_channel(self.channel.get(ctx.guild.id, 0))
             if player_channel:
-                message = await player_channel.fetch_message(self.last_player[ctx.guild.id])
+                message = self.last_message.get(ctx.guild.id)
                 if message:
                     await message.delete()
-                del self.last_player[ctx.guild.id]
+                del self.last_message[ctx.guild.id]
         if not channel:
             channel_id = await self.config.guild(ctx.guild).channel()
-            self.channel[ctx.guild.id] = channel.id
+            self.channel[ctx.guild.id] = channel_id
             await self.config.guild(ctx.guild).channel.set(0)
             if channel_id == 0:
                 await ctx.reply("AudioPlayer is not set to any channel. The player will not appear in this server.")
@@ -186,6 +188,6 @@ class AudioPlayer(Cog):
             await self.config.guild(ctx.guild).channel.set(channel.id)
             self.channel[ctx.guild.id] = channel.id
             await ctx.reply(f"The player will appear in {channel.mention} while audio is playing.")
-        audio: Optional[Audio] = self.bot.get_cog("Audio")
+        audio: Optional[Audio] = self.bot.get_cog("Audio")  # type: ignore
         if not audio:
             await ctx.send("Warning: Audio cog is not enabled, contact the bot owner for more information.")

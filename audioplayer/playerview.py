@@ -12,16 +12,18 @@ from redbot.cogs.audio.core import Audio
 log = logging.getLogger("red.holo-cogs.audioplayer")
 
 
-class PlayerView(View):
-    def __init__(self, cog, paused: bool):
-        super().__init__(timeout=20)
+class AudioPlayerView(View):
+    def __init__(self, cog):
+        super().__init__(timeout=None)
         self.cog = cog
-        self.pause.emoji = "▶️" if paused else "⏸️"
         self.message: Optional[discord.Message] = None
+
+    def set_paused(self, paused: bool):
+        self.pause.emoji = "▶️" if paused else "⏸️"
 
     @discord.ui.button(emoji="🔽", style=discord.ButtonStyle.grey)
     async def queue(self, inter: discord.Interaction, _):
-        audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
+        audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "queue", ephemeral=True)
         if not await self.can_run_command(ctx, "queue"):
             await inter.response.send_message("You're not allowed to perform this action.")
@@ -34,7 +36,7 @@ class PlayerView(View):
 
     @discord.ui.button(emoji="⏪", style=discord.ButtonStyle.grey)
     async def previous(self, inter: discord.Interaction, _):
-        audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
+        audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "prev", ephemeral=False)
         if not await self.can_run_command(ctx, "prev"):
             await inter.response.send_message("You're not allowed to perform this action.")
@@ -49,7 +51,7 @@ class PlayerView(View):
 
     @discord.ui.button(style=discord.ButtonStyle.grey)
     async def pause(self, inter: discord.Interaction, _):
-        audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
+        audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "pause", ephemeral=True)
         if not await self.can_run_command(ctx, "pause"):
             await inter.response.send_message("You're not allowed to perform this action.")
@@ -64,7 +66,7 @@ class PlayerView(View):
 
     @discord.ui.button(emoji="⏩", style=discord.ButtonStyle.grey)
     async def skip(self, inter: discord.Interaction, _):
-        audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
+        audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "skip", ephemeral=False)
         if not await self.can_run_command(ctx, "skip"):
             await inter.response.send_message("You're not allowed to perform this action.")
@@ -79,7 +81,7 @@ class PlayerView(View):
 
     @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.grey)
     async def stop(self, inter: discord.Interaction, _):
-        audio: Optional[Audio] = self.cog.bot.get_cog("Audio")
+        audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "stop", ephemeral=False)
         if not await self.can_run_command(ctx, "stop"):
             await inter.response.send_message("You're not allowed to perform this action.")
@@ -95,15 +97,16 @@ class PlayerView(View):
     async def get_context(self, inter: discord.Interaction, command_name: str, ephemeral: bool) -> commands.Context:
         prefix = await self.cog.bot.get_prefix(self.message)
         prefix = prefix[0] if isinstance(prefix, list) else prefix
+        assert self.message is not None
         fake_message = copy(self.message)
         fake_message.content = prefix + command_name
         fake_message.author = inter.user
-        ctx: commands.Context = await self.cog.bot.get_context(fake_message)  # noqa
+        ctx: commands.Context = await self.cog.bot.get_context(fake_message)
 
         # convert command responses into interaction responses
         async def send(self, *args, **kwargs):
             content = f"-# {inter.user.mention} pressed a button" if not ephemeral else ""
-            await inter.response.send_message(content, embed=kwargs.get("embed"), ephemeral=ephemeral, allowed_mentions=discord.AllowedMentions.none())
+            await inter.response.send_message(content, embed=kwargs.get("embed"), ephemeral=ephemeral, allowed_mentions=discord.AllowedMentions.none()) # type: ignore
         ctx.send = types.MethodType(send, ctx)
 
         return ctx
@@ -117,6 +120,7 @@ class PlayerView(View):
         return can
     
     async def update_player(self, ctx: commands.Context, audio: Audio):
+        assert ctx.guild is not None
         try:
             player = lavalink.get_player(ctx.guild.id)
         except lavalink.errors.PlayerNotFound:
