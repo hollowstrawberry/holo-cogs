@@ -32,7 +32,7 @@ class GptMemory(GptMemoryBase):
     def __init__(self, bot: Red):
         super().__init__(bot)
         self.openai_client: Optional[AsyncOpenAI] = None
-        self.image_cache = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
+        self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
         self.available_function_calls = set(all_function_calls)
 
     async def cog_load(self):
@@ -83,6 +83,8 @@ class GptMemory(GptMemoryBase):
             return False
         if ctx.author.bot:
             return False
+        if not ctx.guild:
+            return False
 
         channel_mode = await self.config.guild(ctx.guild).channel_mode()
         channel_list = await self.config.guild(ctx.guild).channels()
@@ -116,6 +118,7 @@ class GptMemory(GptMemoryBase):
 
 
     async def run_response(self, ctx: commands.Context):
+        assert ctx.guild
         if ctx.guild.id not in self.memory:
             self.memory[ctx.guild.id] = {}
         memories = ", ".join(self.memory[ctx.guild.id].keys())
@@ -133,6 +136,7 @@ class GptMemory(GptMemoryBase):
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a parsed string of memories and their contents as chosen by the LLM.
         """
+        assert ctx.guild and self.openai_client
         if not memories:
             return ""
             
@@ -149,7 +153,7 @@ class GptMemory(GptMemoryBase):
             response_format=MemoryRecall,
         )
         completion = response.choices[0].message
-        memories_to_recall = list(set(completion.parsed.memory_names)) if not completion.refusal else []
+        memories_to_recall = list(set(completion.parsed.memory_names)) if completion.parsed and not completion.refusal else []
         log.info(f"{memories_to_recall=}")
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
@@ -161,6 +165,7 @@ class GptMemory(GptMemoryBase):
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
         """
+        assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, discord.TextChannel)
         tools = [t for t in self.available_function_calls
                  if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
         system_prompt = {
@@ -179,18 +184,18 @@ class GptMemory(GptMemoryBase):
         model = await self.config.guild(ctx.guild).model_responder()
         response = await self.openai_client.chat.completions.create(
             model=model,
-            messages=temp_messages,
+            messages=temp_messages, # type: ignore
             max_tokens=await self.config.guild(ctx.guild).response_tokens(),
-            tools=[t.asdict() for t in tools],
+            tools=[t.asdict() for t in tools], # type: ignore
         )
 
         if response.choices[0].message.tool_calls:
-            temp_messages.append(response.choices[0].message)
+            temp_messages.append(response.choices[0].message) # type: ignore
             for call in response.choices[0].message.tool_calls:
                 try:
                     cls = next(t for t in tools if t.schema.function.name == call.function.name)
                     args = json.loads(call.function.arguments)
-                    tool_result = await cls(ctx).run(args)
+                    tool_result = await cls(ctx).run(args) # type: ignore
                 except Exception:  # noqa, reason: tools should handle specific errors internally, but broad errors should not stop the responder
                     tool_result = "Error"
                     log.exception("Calling tool")
@@ -209,11 +214,11 @@ class GptMemory(GptMemoryBase):
             model = await self.config.guild(ctx.guild).model_responder()
             response = await self.openai_client.chat.completions.create(
                 model=model,
-                messages=temp_messages,
+                messages=temp_messages, # type: ignore
                 max_tokens=await self.config.guild(ctx.guild).response_tokens(),
             )
 
-        completion = response.choices[0].message.content
+        completion = response.choices[0].message.content or ""
         log.info(f"{completion=}")
 
         first_reply = True
@@ -229,13 +234,13 @@ class GptMemory(GptMemoryBase):
                 first_reply = False
                 await ctx.reply(chunk, mention_author=False)
             else:
-                await ctx.send_message(chunk)
+                await ctx.channel.send(chunk)
             
         response_message = {
             "role": "assistant",
             "content": reply_content
         }
-        return response_message
+        return response_message # type: ignore
 
 
     async def execute_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: str, recalled_memories: str) -> None:
@@ -243,6 +248,7 @@ class GptMemory(GptMemoryBase):
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
         """
+        assert ctx.guild and self.openai_client
         if not await self.config.guild(ctx.guild).allow_memorizer():
             return
 
@@ -302,6 +308,7 @@ class GptMemory(GptMemoryBase):
 
 
     async def get_message_history(self, ctx: commands.Context) -> List[GptMessage]:
+        assert ctx.guild and self.bot.user
         backread = [message async for message in ctx.channel.history(
             limit=await self.config.guild(ctx.guild).backread_messages(),
             before=ctx.message,
@@ -316,8 +323,8 @@ class GptMemory(GptMemoryBase):
 
         for n, backmsg in enumerate(backread):
             try:
-                quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id)
-                # This will prevent chaining message quotes that are already consecutive
+                quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id) # type: ignore
+                # This would prevent chaining message quotes that are already consecutive
                 # if len(backread) > n+1 and quote == backread[n+1]:
                 #    quote = None
             except (AttributeError, discord.DiscordException):
@@ -345,7 +352,7 @@ class GptMemory(GptMemoryBase):
         return list(reversed(messages))
 
 
-    async def extract_images(self, message: discord.Message, quote: discord.Message, processed_sources: List[Union[str, discord.Attachment]]) -> GptImageContent:
+    async def extract_images(self, message: discord.Message, quote: Optional[discord.Message], processed_sources: List[Union[str, discord.Attachment]]) -> GptImageContent:
         if message.id in self.image_cache:
             log.info("Retrieving cached image(s)")
             return self.image_cache[message.id]

@@ -16,7 +16,7 @@ log = logging.getLogger("red.holo-cogs.gptmemory")
 
 
 class FunctionCallBase(ABC):
-    schema: ToolCall = None
+    schema: ToolCall = None # type: ignore
     apis: List[Tuple[str, str]] = []
 
     def __init__(self, ctx: commands.Context):
