@@ -72,6 +72,8 @@ class GptWelcome(commands.Cog):
             await self.initialize_openai_client()
         if not self.openai_client:
             return
+        if not ctx.guild:
+            return
         
         prompt = await self.config.guild(ctx.guild).prompt()
         if not prompt:
@@ -106,12 +108,13 @@ class GptWelcome(commands.Cog):
         model = await self.config.guild(ctx.guild).model()
         response = await self.openai_client.beta.chat.completions.parse(
             model=model,
-            messages=messages
+            messages=messages # type: ignore
         )
         completion = response.choices[0].message.content
         await ctx.reply(content=completion, mention_author=True)
 
     @commands.group(name="gptwelcome", aliases=["aiwelcome", "llmwelcome"])
+    @commands.guild_only()
     async def gptwelcome(self, _: commands.Context):
         """Base command for configuring the GPT Welcome cog."""
         pass
@@ -120,6 +123,7 @@ class GptWelcome(commands.Cog):
     @commands.is_owner()
     async def gptwelcome_enable(self, ctx: commands.Context):
         """Enables GPT Welcome for this server."""
+        assert ctx.guild
         await self.config.guild(ctx.guild).enabled.set(True)
         await ctx.tick(message="Enabled")
 
@@ -127,6 +131,7 @@ class GptWelcome(commands.Cog):
     @commands.has_permissions(manage_guild=True)
     async def gptwelcome_disable(self, ctx: commands.Context):
         """Disable GPT Welcome for this server."""
+        assert ctx.guild
         await self.config.guild(ctx.guild).enabled.set(False)
         await ctx.tick(message="Disabled")
 
@@ -134,6 +139,7 @@ class GptWelcome(commands.Cog):
     @commands.is_owner()
     async def gptwelcome_model(self, ctx: commands.Context, model: Optional[str]):
         """Views or changes the OpenAI model being used for welcoming."""
+        assert ctx.guild
         if not model or not model.strip():
             model = await self.config.guild(ctx.guild).model()
             await ctx.reply(f"Current model for the welcomer is {model}")
@@ -147,6 +153,7 @@ class GptWelcome(commands.Cog):
     @commands.has_permissions(manage_guild=True)
     async def gptwelcome_prompt(self, ctx: commands.Context, *, prompt: Optional[str]):
         """Gives you the current prompt or sets a new prompt for the AI welcomer. Use "reset" to reset."""
+        assert ctx.guild
         if not prompt or not prompt.strip():
             prompt = await self.config.guild(ctx.guild).prompt()
             await ctx.reply(f"`current welcomer prompt`\n>>> {prompt or '*None*'}", mention_author=False)
@@ -160,6 +167,7 @@ class GptWelcome(commands.Cog):
     @gptwelcome.command(name="test")
     async def gptwelcome_test(self, ctx: commands.Context):
         """Simulates you joining the server"""
+        assert ctx.guild
         if not await self.config.guild(ctx.guild).enabled():
             await ctx.reply("GPT welcomer not enabled.")
             return
