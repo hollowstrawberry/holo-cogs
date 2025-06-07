@@ -453,11 +453,28 @@ class GptMemory(GptMemoryBase):
             if embed.description:
                 content += f" [Embed Content: {sanitize(embed.description)}]"
 
+        text_attachments = [att for att in message.attachments if att.content_type and att.content_type.startswith("text")]
+        total_file_length = 0
+        for text_file in text_attachments:
+            fp = BytesIO()
+            try:
+                await text_file.save(fp, seek_begin=True)
+                file_content = fp.getvalue().decode('utf-8')
+            except (discord.DiscordException, UnicodeDecodeError):
+                log.warning("Processing text attachments", exc_info=True)
+            else:
+                if len(file_content) > 4010:
+                    file_content = f"{file_content[:2000]}\n(...)\n{file_content[2000:]}"
+                total_file_length += len(file_content)
+                content += f"\n[[[Content of {text_file.filename}: {file_content}]]]"
+                if total_file_length > 4000:
+                    break
+
         if quote and recursive:
             quote_content = (await self.parse_discord_message(quote, recursive=False)).replace("\n", " ")
             if len(quote_content) > defaults.QUOTE_LENGTH:
                 quote_content = quote_content[:defaults.QUOTE_LENGTH-3] + "..."
-            content += f"\n[[[Replying to: {quote_content}]]]"
+            content += f"\n[[[Replying to: {quote_content}]]]"            
 
         if len(content) == starting_len:
             content += " [Message empty or not supported]"
