@@ -15,10 +15,10 @@ from redbot.core.bot import Red
 
 import gptmemory.defaults as defaults
 from gptmemory.commands import GptMemoryBase
-from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents
+from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryRecall, MemoryChangeList
 from gptmemory.function_calling import all_function_calls
-from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, IMAGE_EXTENSIONS, DISCORD_MESSAGE_LENGTH
+from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, IMAGE_EXTENSIONS
 
 log = logging.getLogger("red.holo-cogs.gptmemory")
 
@@ -220,22 +220,9 @@ class GptMemory(GptMemoryBase):
 
         completion = response.choices[0].message.content or ""
         log.info(f"{completion=}")
+        reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
+        await chunk_and_send(ctx, reply_content)
 
-        first_reply = True
-        limit = 2000
-        reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)[:DISCORD_MESSAGE_LENGTH]
-        while len(reply_content) > 0:
-            chunk = reply_content[:limit]
-            if len(reply_content) > limit:
-                reply_content = reply_content[limit:]
-            else:
-                reply_content = ""
-            if first_reply:
-                first_reply = False
-                await ctx.reply(chunk, mention_author=False)
-            else:
-                await ctx.channel.send(chunk)
-            
         response_message = {
             "role": "assistant",
             "content": reply_content

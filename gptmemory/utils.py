@@ -1,9 +1,12 @@
+import discord
+import discord.ext.commands as commands
 from io import BytesIO
 from re import Match
 from base64 import b64encode
 from typing import Optional, List
 from PIL import Image, UnidentifiedImageError
 
+from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
 
 def sanitize(text: str) -> str:
     special_characters = "[]"
@@ -54,3 +57,51 @@ def get_text_contents(messages: List[dict]):
                     })
                 break
     return temp_messages
+
+async def chunk_and_send(ctx: commands.Context, full_text: str):
+    base_lines = full_text.splitlines(keepends=True)
+    lines = []
+    for base_line in base_lines:
+        while len(base_line) > MAX_MESSAGE_LENGTH:
+            lines.append(base_line)
+            base_line = base_line[:MAX_MESSAGE_LENGTH]
+        else:
+            lines.append(base_line)
+
+    chunks = []
+    current = ""
+    in_code = False
+    code_lang = ""
+
+    def flush_chunk():
+        nonlocal current, in_code, code_lang
+        if in_code:
+            current += "```\n"  # close open fence
+        if current:
+            chunks.append(current)
+        # start new
+        current = ""
+        if in_code:
+            # re-open fence with language
+            current += f"```{code_lang}\n"
+    
+    for line in lines:
+        if m := CODEBLOCK_PATTERN.match(line):
+            if m.group(1):
+                in_code = True
+                code_lang = m.group(1)
+            else:
+                in_code = not in_code
+        if len(current) + len(line) > MAX_MESSAGE_LENGTH:
+            flush_chunk()
+        current += line
+
+    flush_chunk()
+
+    first_reply = True
+    for chunk in chunks:
+        if first_reply:
+            await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
+            first_reply = False
+        else:
+            await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
