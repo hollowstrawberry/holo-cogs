@@ -85,12 +85,12 @@ class AudioPlayer(Cog):
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for result in results:
             if isinstance(result, Exception):
-                log.error(result)
+                log.error(f"{type(result).__name__}: {result}")
 
     async def update_player(self, guild: discord.Guild, channel: discord.TextChannel, audio: Audio, player: Optional[lavalink.Player]):
         # Remove orphan player
         if not player or not player.current:
-            last_message = self.last_message[guild.id]
+            last_message = self.last_message.get(guild.id)
             if last_message:
                 del self.last_message[guild.id]
                 if self.last_song.get(guild.id):
