@@ -151,6 +151,7 @@ class GptMemory(GptMemoryBase):
             model=model,
             messages=temp_messages,
             response_format=MemoryRecall,
+            reasoning_effort=await self.config.guild(ctx.guild).effort_recaller() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message
         memories_to_recall = list(set(completion.parsed.memory_names)) if completion.parsed and not completion.refusal else []
@@ -189,7 +190,7 @@ class GptMemory(GptMemoryBase):
             model=model,
             messages=temp_messages, # type: ignore
             max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
-            max_completion_tokens=NotGiven() if "gpt-5" not in model else await self.config.guild(ctx.guild).response_tokens(),
+            max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
             tools=[t.asdict() for t in tools], # type: ignore
         )
 
@@ -197,8 +198,8 @@ class GptMemory(GptMemoryBase):
             temp_messages.append(response.choices[0].message) # type: ignore
             for call in response.choices[0].message.tool_calls:
                 try:
-                    cls = next(t for t in tools if t.schema.function.name == call.function.name)
-                    args = json.loads(call.function.arguments)
+                    cls = next(t for t in tools if t.schema.function.name == call.function.name) # type: ignore
+                    args = json.loads(call.function.arguments) # type: ignore
                     tool_result = await cls(ctx).run(args) # type: ignore
                 except Exception:  # noqa, reason: tools should handle specific errors internally, but broad errors should not stop the responder
                     tool_result = "Error"
@@ -219,7 +220,9 @@ class GptMemory(GptMemoryBase):
             response = await self.openai_client.chat.completions.create(
                 model=model,
                 messages=temp_messages, # type: ignore
-                max_tokens=await self.config.guild(ctx.guild).response_tokens(),
+                max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
+                max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
+                reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
             )
 
         completion = response.choices[0].message.content or ""
@@ -258,6 +261,7 @@ class GptMemory(GptMemoryBase):
             model=model,
             messages=temp_messages,
             response_format=MemoryChangeList,
+            reasoning_effort=await self.config.guild(ctx.guild).effort_memorizer() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message
         if completion.refusal:

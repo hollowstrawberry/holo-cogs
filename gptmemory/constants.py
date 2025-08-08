@@ -18,3 +18,10 @@ VISION_MODELS = [
     "gpt-5-mini",
     "gpt-5-nano",
 ]
+
+EFFORT_VALUES = [
+    "minimal",
+    "low",
+    "medium",
+    "high",
+]

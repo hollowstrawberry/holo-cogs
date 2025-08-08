@@ -23,6 +23,9 @@ class GptMemoryBase(commands.Cog):
             "prompt_recaller": defaults.PROMPT_RECALLER,
             "prompt_responder": defaults.PROMPT_RESPONDER,
             "prompt_memorizer": defaults.PROMPT_MEMORIZER,
+            "effort_recaller": defaults.EFFORT_RECALLER,
+            "effort_responder": defaults.EFFORT_RESPONDER,
+            "effort_memorizer": defaults.EFFORT_MEMORIZER,
             "response_tokens": defaults.RESPONSE_TOKENS,
             "backread_tokens": defaults.BACKREAD_TOKENS,
             "backread_messages": defaults.BACKREAD_MESSAGES,
@@ -132,6 +135,29 @@ class GptMemoryBase(commands.Cog):
         else:
             await model_setter.set(model.strip().lower())
             await ctx.tick(message="Model changed")
+
+    @memoryconfig.command("effort")
+    @commands.is_owner()
+    async def gptmemory_effort(self, ctx: commands.Context, module: PromptTypes, effort: Optional[str]):
+        """Views or changes the reasoning effort for the recaller, responder, or memorizer."""
+        assert ctx.guild
+        if module == "recaller":
+            effort_value = await self.config.guild(ctx.guild).effort_recaller()
+            effort_setter = self.config.guild(ctx.guild).effort_recaller
+        elif module == "responder":
+            effort_value = await self.config.guild(ctx.guild).effort_responder()
+            effort_setter = self.config.guild(ctx.guild).effort_responder
+        elif module == "memorizer":
+            effort_value = await self.config.guild(ctx.guild).effort_memorizer()
+            effort_setter = self.config.guild(ctx.guild).effort_memorizer
+
+        if not effort or not effort.strip():
+            await ctx.reply(f"Current effort for the {module} is {effort_value}")
+        elif effort.strip().lower() not in constants.EFFORT_VALUES:
+            await ctx.reply("Invalid value!\nValid values are " + ",".join([f"`{m}`" for m in constants.EFFORT_VALUES]))
+        else:
+            await effort_setter.set(effort.strip().lower())
+            await ctx.tick(message="Reasoning effort changed")
 
 
     @memoryconfig_prompt.command(name="show", aliases=["view"])
