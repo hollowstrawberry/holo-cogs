@@ -5,7 +5,7 @@ from typing import Optional
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, NotGiven
 
 VISION_MODELS = [
     "gpt-4o",
@@ -111,7 +111,8 @@ class GptWelcome(commands.Cog):
         model = await self.config.guild(ctx.guild).model()
         response = await self.openai_client.beta.chat.completions.parse(
             model=model,
-            messages=messages # type: ignore
+            messages=messages, # type: ignore
+            reasoning_effort="minimal" if "GPT-5" in model else NotGiven()
         )
         completion = response.choices[0].message.content
         await ctx.reply(content=completion, mention_author=True)
