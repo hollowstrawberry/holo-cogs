@@ -8,7 +8,7 @@ from datetime import datetime
 from difflib import get_close_matches
 from typing import Optional, Union, List, Dict
 from expiringdict import ExpiringDict
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, NotGiven
 from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -166,10 +166,11 @@ class GptMemory(GptMemoryBase):
         and returns a response message after sending it to the user.
         """
         assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, discord.TextChannel)
-        tools = [t for t in self.available_function_calls
-                 if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
+        
+        model = await self.config.guild(ctx.guild).model_responder()
+        
         system_prompt = {
-            "role": "system",
+            "role": "developer" if "gpt-5" in model else "system",
             "content": (await self.config.guild(ctx.guild).prompt_responder()).format(
                 botname=self.bot.user.name,
                 servername=ctx.guild.name,
@@ -181,11 +182,14 @@ class GptMemory(GptMemoryBase):
         temp_messages = [msg for msg in messages]
         temp_messages.insert(0, system_prompt)
 
-        model = await self.config.guild(ctx.guild).model_responder()
+        tools = [t for t in self.available_function_calls
+            if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
+
         response = await self.openai_client.chat.completions.create(
             model=model,
             messages=temp_messages, # type: ignore
-            max_tokens=await self.config.guild(ctx.guild).response_tokens(),
+            max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
+            max_completion_tokens=NotGiven() if "gpt-5" not in model else await self.config.guild(ctx.guild).response_tokens(),
             tools=[t.asdict() for t in tools], # type: ignore
         )
 
