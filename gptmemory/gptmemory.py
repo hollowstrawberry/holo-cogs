@@ -239,7 +239,6 @@ class GptMemory(GptMemoryBase):
 
             completion = response.choices[0].message.content
             if completion:
-                log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 await chunk_and_send(ctx, reply_content)
 

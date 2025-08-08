@@ -125,7 +125,7 @@ class ScrapeFunctionCall(FunctionCallBase):
                 async with session.get(url) as response:
                     response.raise_for_status()
                     content_type = response.headers.get('Content-Type', '').lower()
-                    if 'text/html' not in content_type:
+                    if 'text' not in content_type:
                         return f"Contents of {url} is not text/html"
                     content = trafilatura.extract(await response.text())
         except aiohttp.ClientError:
