@@ -184,4 +184,5 @@ class GptWelcome(commands.Cog):
         if not ctx.guild.system_channel.permissions_for(ctx.guild.me).send_messages:
             await ctx.reply(f"The bot doesn't have permission to send messages in the {ctx.guild.system_channel.mention} channel, which is where your server is configured to send welcome messages.")
             return
+        await ctx.message.add_reaction("⏳")
         await self.welcome_user(ctx)
