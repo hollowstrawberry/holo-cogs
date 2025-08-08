@@ -10,7 +10,7 @@ from openai import AsyncOpenAI, APIError, APIStatusError
 
 log = logging.getLogger("red.crab-cogs.gpthink")
 
-MODELS = ["o3", "o4-mini"]
+MODELS = ["o3", "o4-mini", "gpt-5", "gpt-5-mini", "gpt-5-nano"]
 EMPTY = "ᅠ"
 CODE_REGEX = re.compile(r"^```(\w*)\s*$")
 MAX_MESSAGE_LENGTH = 1950
