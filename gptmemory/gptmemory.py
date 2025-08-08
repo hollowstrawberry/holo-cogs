@@ -133,7 +133,6 @@ class GptMemory(GptMemoryBase):
         results = await asyncio.gather(
             self.execute_responder(ctx, messages, recalled_memories),
             self.execute_memorizer(ctx, messages, memories, recalled_memories),
-            loop=self.bot.loop,
             return_exceptions=True
         )
         for idx, result in enumerate(results):
