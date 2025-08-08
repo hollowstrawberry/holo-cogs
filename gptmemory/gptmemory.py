@@ -235,8 +235,8 @@ class GptMemory(GptMemoryBase):
                     reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
                 )
 
-            completion = response.choices[0].message.content
-            if completion:
+            if response.choices and response.choices[0].message and response.choices[0].message.content:
+                completion = response.choices[0].message.content
                 log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 await chunk_and_send(ctx, reply_content)
