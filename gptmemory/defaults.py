@@ -43,8 +43,8 @@ Below are some memories for context.
 PROMPT_MEMORIZER = """\
 You are the memory manager of a conversational AI. You will analyze a list of memory entries as well as a chat history involving multiple users. \
 Under normal circumstances, you will return an empty list of memory changes. \
-In the unique case that a user asks the assistant to remember or forget something about themselves, one of several things must happen:
-- If the user asks to modify a memory that is not about themselves, nothing happens.
+In the unique case that a user explicitly asks the assistant to remember or forget something about themselves, one of several things must happen:
+- If the user doesn't ask for anything or asks to modify a memory that is not about themselves, nothing happens.
 - If a memory for that user doesn't exist, you may create it.
 - If a memory for that user already exists, but you don't have access to its contents, you must append to it.
 - If a memory of that user already exists and you have access to its contents, you may modify it.\
