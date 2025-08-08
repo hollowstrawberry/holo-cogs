@@ -114,7 +114,7 @@ class GptMemory(GptMemoryBase):
                 return ctx
             await asyncio.sleep(1)
             ctx.message = await ctx.channel.fetch_message(ctx.message.id)
-        return ctx
+        return ctx        
 
 
     async def run_response(self, ctx: commands.Context):
@@ -123,12 +123,22 @@ class GptMemory(GptMemoryBase):
             self.memory[ctx.guild.id] = {}
         memories = ", ".join(self.memory[ctx.guild.id].keys())
 
-        async with ctx.channel.typing():
-            messages = await self.get_message_history(ctx)
-            recalled_memories = await self.execute_recaller(ctx, messages, memories)
-            response_message = await self.execute_responder(ctx, messages, recalled_memories)
-        messages.append(response_message)
-        await self.execute_memorizer(ctx, messages, memories, recalled_memories)
+        await ctx.channel.typing()
+        messages = await self.get_message_history(ctx)
+        recalled_memories = await self.execute_recaller(ctx, messages, memories)
+        await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories)
+
+
+    async def execute_responder_and_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: str, recalled_memories: str):
+        results = await asyncio.gather(
+            self.execute_responder(ctx, messages, recalled_memories),
+            self.execute_memorizer(ctx, messages, memories, recalled_memories),
+            loop=self.bot.loop,
+            return_exceptions=True
+        )
+        for idx, result in enumerate(results):
+            if isinstance(result, BaseException):
+                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(result).__name__}", result)
 
 
     async def execute_recaller(self, ctx: commands.Context, messages: List[GptMessage], memories: str) -> str:
