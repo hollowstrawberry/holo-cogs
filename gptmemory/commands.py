@@ -274,12 +274,12 @@ class GptMemoryBase(commands.Cog):
         await ctx.reply(f"`[memorizer_alerts:]` {value}", mention_author=False)
 
     @memoryconfig_prompt.command(name="emotes")
-    async def memoryconfig_emotes(self, ctx: commands.Context, *, emotes):
-        """A list of emotes to show the responder."""
+    async def memoryconfig_emotes(self, ctx: commands.Context, *, emotes: Optional[str]):
+        """Shows or sets a list of emotes to show the responder."""
         assert ctx.guild
-        emotes = emotes.strip()
         if not emotes:
             emotes = await self.config.guild(ctx.guild).emotes()
         else:
+            emotes = emotes.strip()
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
