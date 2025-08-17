@@ -319,7 +319,7 @@ class ArcencielFunctionCall(FunctionCallBase):
 
         results = []
         for result in data["data"]:
-            if not data['versions']:
+            if not result.get('versions', None):
                 continue
             latest_version = sorted(result['versions'], key=lambda v: v['id'], reverse=True)[0]
             results.append(f"[[[ [Model URL: https://arcenciel.io/models/{result['id']}] " +
