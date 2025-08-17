@@ -366,7 +366,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 properties={
                     "prompt": {
                         "type": "string",
-                        "description": "The prompt for image generation. Uses booru tags instead of natural language. Example: 1girl, cowboy shot, white dress"
+                        "description": "The prompt for image generation. Uses booru tags instead of natural language. Example: 1girl, cowboy shot, white dress, hatsune miku \\(vocaloid\\)"
                     },
                     "existing": {
                         "type": "string",
