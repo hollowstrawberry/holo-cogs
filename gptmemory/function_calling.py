@@ -7,7 +7,7 @@ import trafilatura
 import xml.etree.ElementTree as ElementTree
 import discord
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 from dataclasses import asdict
 from rapidfuzz import process, fuzz
@@ -333,20 +333,28 @@ class ArcencielFunctionCall(FunctionCallBase):
                            f"[Model name:] {result['title']} ]]]")
         return '\n'.join(results)
 
-    
+
 @dataclass
 class ImageGenParams:
     prompt: str
     negative_prompt: Optional[str] = None
+    style: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
     cfg: Optional[int] = None
     sampler: Optional[str] = None
     scheduler: Optional[str] = None
     steps: Optional[int] = None
+    seed: int = -1
+    variation: int = 0
+    variation_seed: int = -1
     checkpoint: Optional[str] = None
     vae: Optional[str] = None
-    seed: int = -1
+    lora: str = ""
+    subseed: int = -1
+    subseed_strength: float = 0.0
+    init_image: bytes = field(default_factory=bytes)
+    denoising: Optional[float] = None
 
 
 class StableDiffusionFunctionCall(FunctionCallBase):
@@ -416,7 +424,6 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             params = ImageGenParams(prompt=prompt)
 
         asyncio.create_task(aimage.generate_image(self.ctx, params=params)) # type: ignore
-
 
         return "[Image generation started successfully]"
         
