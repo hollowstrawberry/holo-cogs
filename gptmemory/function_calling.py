@@ -298,7 +298,7 @@ class ArcencielFunctionCall(FunctionCallBase):
                            f"[Model type: {result['type']}] " +
                            f"[Model uploader: {result['uploader']['username']}]" +
                            f"[Versions: {'/'.join(set(version['baseModel'] for version in result['versions']))}] " +
-                           f"[Model name:] {result['name']} ]]]")
+                           f"[Model name:] {result['title']} ]]]")
         return '\n'.join(results)
 
 
