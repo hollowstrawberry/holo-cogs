@@ -384,10 +384,10 @@ class StableDiffusionFunctionCall(FunctionCallBase):
         existing = arguments.get("existing", "")
         if not prompt:
             return "[No prompt provided]"
-        aimage: Optional[commands.Cog] = await self.ctx.bot.get_cog("AImage")
+        aimage: Optional[commands.Cog] = self.ctx.bot.get_cog("AImage")
         if not aimage:
             return "[`aimage` cog not installed, please notify the bot owner]"
-        imagescanner: Optional[commands.Cog] = await self.ctx.bot.get_cog("ImageScanner")
+        imagescanner: Optional[commands.Cog] = self.ctx.bot.get_cog("ImageScanner")
         if not aimage:
             return "[`imagescanner` cog not installed, please notify the bot owner]"
         
