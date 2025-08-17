@@ -366,11 +366,11 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 properties={
                     "prompt": {
                         "type": "string",
-                        "description": "The prompt for image generation. Example: 1girl, cowboy shot, white dress"
+                        "description": "The prompt for image generation. Uses booru tags instead of natural language. Example: 1girl, cowboy shot, white dress"
                     },
                     "existing": {
                         "type": "string",
-                        "description": "The filename of an existing image to revise. If included, the prompt should be a revised prompt of the original image."
+                        "description": "The filename of an existing image to revise. If this is included, the prompt should be a revised prompt of the original image."
                     },
                 },
                 required=["prompt"],
