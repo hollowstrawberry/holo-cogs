@@ -284,7 +284,7 @@ class ArcencielFunctionCall(FunctionCallBase):
 
     async def run(self, arguments: dict) -> str:
         query = arguments["query"]
-        user = arguments["user"]
+        user = arguments.get("user", None)
         found_user: Optional[int] = None
 
         if user:
