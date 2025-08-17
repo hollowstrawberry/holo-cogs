@@ -33,7 +33,7 @@ class GptMemoryBase(commands.Cog):
             "backread_memorizer": defaults.BACKREAD_MEMORIZER,
             "allow_memorizer": defaults.ALLOW_MEMORIZER,
             "memorizer_alerts": defaults.MEMORIZER_ALERTS,
-            "disabled_functions": defaults.DISABLED_FUNCTIONS,
+            "disabled_functions": list(defaults.DISABLED_FUNCTIONS),
             "emotes": "",
         })
         self.memory: Dict[int, Dict[str, str]] = {}
