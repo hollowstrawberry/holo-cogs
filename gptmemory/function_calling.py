@@ -4,6 +4,7 @@ import aiohttp
 import itertools
 import trafilatura
 import xml.etree.ElementTree as ElementTree
+import discord
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Set, Tuple
 from dataclasses import asdict
@@ -330,5 +331,39 @@ class ArcencielFunctionCall(FunctionCallBase):
                            f"[Model name:] {result['title']} ]]]")
         return '\n'.join(results)
 
+
+class StableDiffusionFunctionCall(FunctionCallBase):
+    schema = ToolCall(
+        Function(
+            name="generate_stable_diffusion",
+            description="Generate an image with Stable Diffusion. Optionally, adjusts an existing image.",
+            parameters=Parameters(
+                properties={
+                    "prompt": {
+                        "type": "string",
+                        "description": "The prompt for image generation. Example: 1girl, cowboy shot, white dress"
+                    },
+                    "existing": {
+                        "type": "string",
+                        "description": "The filename of an existing image to revise."
+                    },
+                },
+                required=["prompt"],
+            )))
+
+    async def find_attachment(filename: str) -> Tuple[bool, Optional[discord.Attachment]]:
+        messages = [message async for message in interaction.channel.history(limit=20)]
+        if self.ctx.message and self.ctx.message.reference:
+            quoted = await self.ctx.channel.fetch_message(interaction.message.reference.message_id)
+            messages.append(quoted)
+        for message in messages:
+            for attachment in message.attachments:
+                if attachment.filename == filename:
+                    return (message.author.id == self.ctx.bot.id, attachment)
+        return (False, None)
+
+    async def run(self, arguments: dict) -> str:
+        return ""
+        
 
 all_function_calls = FunctionCallBase.__subclasses__()
