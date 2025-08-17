@@ -9,7 +9,8 @@ from typing import Any, Dict, List, Set, Tuple
 from dataclasses import asdict
 from rapidfuzz import process, fuzz
 from redbot.core import commands
-from redbot.core.data_manager import cog_data_path
+from redbot.core.bot import Red
+from redbot.core.data_manager import bundled_data_path
 
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.constants import FARENHEIT_PATTERN
@@ -244,7 +245,9 @@ class BooruTagsFunctionCall(FunctionCallBase):
 
     def run(self, query: str) -> str:
         if not self.tag_groups:
-            with open(cog_data_path(raw_name="gptmemory").absolute() / "tag_groups.json", "r") as fp:
+            bot: Red = self.ctx.bot
+            cog: commands.Cog = bot.get_cog("GptMemory") # type: ignore
+            with open(bundled_data_path(cog).absolute() / "data/tag_groups.json", "r") as fp:
                 data = json.load(fp)
             self.build_index(data)
 
