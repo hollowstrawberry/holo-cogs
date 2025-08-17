@@ -229,7 +229,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
         
     @classmethod
     def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> List[str]:
-        query = cls.normalize()
+        query = cls.normalize(query)
 
         matches: Set[str] = set()
 
@@ -245,7 +245,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
 
     async def run(self, arguments: dict) -> str:
         query = arguments["query"]
-        
+
         if not self.tag_groups:
             bot: Red = self.ctx.bot
             cog: commands.Cog = bot.get_cog("GptMemory") # type: ignore
