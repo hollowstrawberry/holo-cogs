@@ -6,6 +6,7 @@ from redbot.core.bot import Red
 
 import gptmemory.defaults as defaults
 import gptmemory.constants as constants
+from gptmemory.function_calling import all_function_calls
 
 
 class GptMemoryBase(commands.Cog):
@@ -283,3 +284,39 @@ class GptMemoryBase(commands.Cog):
             emotes = emotes.strip()
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
+
+    @memoryconfig.group(name="functions")
+    async def memoryconfig_functions(self, _: commands.Context):
+        pass
+
+    @memoryconfig_functions.command(name="list")
+    async def memoryconfig_functions_list(self, ctx: commands.Context):
+        """Shows all functions and whether they are active."""
+        disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
+        functions = []
+        for function in all_function_calls:
+            name = function.schema.function.name
+            s = f"`{name}`: {'disabled' if name in disabled_functions else 'enabled'}"
+            for api in function.apis:
+                secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
+                if not secret:
+                    s += f" (API not set: {api[0]} {api[1]})"
+            functions.append(s)
+        await ctx.send(">>> " + "\n".join(functions))
+
+    @memoryconfig_functions.command(name="toggle")
+    async def memoryconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
+        """Enables or disables a function"""
+        all_function_names = [f.schema.function.name for f in all_function_calls]
+        if function_name not in all_function_names:
+            await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_function_names]))
+            return
+        disabled_functions: list[str] = await self.config.guild(ctx.guild).disabled_functions()
+        enabled = function_name in disabled_functions
+        if enabled:
+            disabled_functions.append(function_name)
+        else:
+            disabled_functions.remove(function_name)
+        await self.config.guild(ctx.guild).disabled_functions.set(disabled_functions)
+        enabled = not enabled
+        await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")

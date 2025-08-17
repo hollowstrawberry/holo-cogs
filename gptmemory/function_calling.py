@@ -258,6 +258,48 @@ class BooruTagsFunctionCall(FunctionCallBase):
             return ", ".join(results)
         else:
             return "(No results)"
+        
+class ArcencielFunctionCall(FunctionCallBase):
+    schema = ToolCall(
+        Function(
+            name="search_models_arcenciel",
+            description="Searches stable diffusion models on Arc en Ciel.",
+            parameters=Parameters(
+                properties={
+                    "query": {
+                        "type": "string",
+                        "description": "Content to search in model titles, tags, descriptions, etc. You can use tags like #style or #character",
+                    }},
+                required=["query"],
+            )))
+    
+    HEADERS = {
+        "User-Agent": "holo-cogs/v1 (https://github.com/hollowstrawberry/holo-cogs);"
+    }
+
+    async def run(self, arguments: dict) -> str:
+        query = arguments["query"]
+        url = f"https://arcenciel.io/api/models/search?search={query}"
+        try:
+            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
+                async with session.get(url) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json()
+        except aiohttp.ClientError:
+            log.exception("Trying to grab model from Arc en Ciel")
+            return "Error trying to grab model from Arc en Ciel"
+        
+        if not data["data"]:
+            return "(No results)"
+
+        results = []
+        for result in data["data"]:
+            results.append(f"[[[ [Model URL: https://arcenciel.io/models/{result['id']}] " +
+                           f"[Model type: {result['type']}] " +
+                           f"[Model uploader: {result['uploader']['username']}]" +
+                           f"[Versions: {'/'.join(set(version['baseModel'] for version in result['versions']))}] " +
+                           f"[Model name:] {result['name']} ]]]")
+        return '\n'.join(results)
 
 
 all_function_calls = FunctionCallBase.__subclasses__()
