@@ -228,8 +228,8 @@ class BooruTagsFunctionCall(FunctionCallBase):
         cls.all_tags = list(itertools.chain.from_iterable(cls.tag_groups.values()))                
         
     @classmethod
-    def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> List[str]:
-        query = cls.normalize(query)
+    def search_booru_tags(cls, arguments: dict, fuzzy_threshold: int = 80) -> List[str]:
+        query = cls.normalize(arguments["query"])
 
         matches: Set[str] = set()
 
