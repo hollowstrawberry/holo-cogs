@@ -244,7 +244,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
 
     def run(self, query: str) -> str:
         if not self.tag_groups:
-            with open(cog_data_path(raw_name="GptMemory").absolute() / "tag_groups.json", "r") as fp:
+            with open(cog_data_path(raw_name="gptmemory").absolute() / "tag_groups.json", "r") as fp:
                 data = json.load(fp)
             self.build_index(data)
 
