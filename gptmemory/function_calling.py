@@ -268,7 +268,7 @@ class ArcencielFunctionCall(FunctionCallBase):
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "Search in model titles.",
+                        "description": "Search in model titles. Leave empty if searching all models from a user.",
                     },
                     "user": {
                         "type": "string",
