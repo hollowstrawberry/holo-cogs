@@ -3463,7 +3463,7 @@
     "leash": {
       "base": ["leash", "chain_leash"]
     },
-    "leggings": {
+    "leggings_legwear": {
       "base": ["black_leggings", "blue_leggings", "leggings", "striped_leggings", "white_leggings"],
       "modifier": ["detached_leggings", "leggings_under_shorts"]
     },
@@ -4787,7 +4787,7 @@
     "teacher": {
       "base": ["kindergarten_teacher", "teacher"]
     },
-    "thighhighs": {
+    "thighhighs_legwear": {
       "base": [
         "aqua_thighhighs",
         "black_thighhighs",
@@ -7692,7 +7692,7 @@
         "furry_with_furry"
       ]
     },
-    "image_composition": [
+    "image_composition_camera_angles_perspectives_views": [
       "abstract",
       "acrylic_paint_(medium)",
       "afterword",
@@ -10302,7 +10302,7 @@
     "wax": {
       "base": ["candle_wax", "wax"]
     },
-    "weapon": {
+    "weapons": {
       "base": ["weapon"],
       "modifier": [
         "adapted_weapon",
