@@ -15660,7 +15660,7 @@
       "base": ["colored_eyelashes", "eyelashes"],
       "modifier": ["long_eyelashes", "mismatched_eyelashes", "thick_eyelashes"]
     },
-    "eyes": {
+    "eyes_eye_color": {
       "base": [
         "aqua_eyes",
         "black_eyes",
@@ -15786,7 +15786,7 @@
         "sparse_pubic_hair"
       ]
     },
-    "hair": {
+    "hair_hair_colors_hairstyles_hair_styles": {
       "base": [
         "aqua_hair",
         "black_hair",
