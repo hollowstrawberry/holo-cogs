@@ -6,7 +6,7 @@ import discord
 from io import BytesIO
 from datetime import datetime
 from difflib import get_close_matches
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Any
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
 from tiktoken import encoding_for_model
@@ -438,6 +438,8 @@ class GptMemory(GptMemoryBase):
 
 
     async def parse_discord_message(self, message: discord.Message, quote: discord.Message = None, recursive=True) -> str:
+        assert message.guild
+
         content = f"[Username: {sanitize(message.author.name)}]"
         if isinstance(message.author, discord.Member) and message.author.nick:
             content += f" [Alias: {sanitize(message.author.nick)}]"
@@ -451,8 +453,16 @@ class GptMemory(GptMemoryBase):
         elif message.content:
             content += f" [said:] {message.content}"
 
-        for attachment in message.attachments:
-            content += f" [Attachment: {attachment.filename}]"
+        is_generated_image = False
+        if message.author == message.guild.me and message.attachments and len(message.attachments) == 1:
+            imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
+            metadata: dict[str, Any] = imagescanner.grab_metadata_dict(message) # type: ignore
+            if metadata and metadata.get("Prompt", None):
+                is_generated_image = True
+                content += f"[[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
+        if not is_generated_image:
+            for attachment in message.attachments:
+                content += f" [Attachment: {attachment.filename}]"
         for sticker in message.stickers:
             content += f" [Sticker: {sticker.name}]"
         for embed in message.embeds:
