@@ -268,7 +268,7 @@ class ArcencielFunctionCall(FunctionCallBase):
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "Content to search in model titles, tags, descriptions, etc. You can use tags like #style or #character",
+                        "description": "Content to search in model titles, tags, descriptions, etc. You can use tags like #style or #character, but not usernames.",
                     },
                     "user": {
                         "type": "string",
