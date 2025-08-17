@@ -5,7 +5,7 @@ import itertools
 import trafilatura
 import xml.etree.ElementTree as ElementTree
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from dataclasses import asdict
 from rapidfuzz import process, fuzz
 from redbot.core import commands
@@ -269,7 +269,12 @@ class ArcencielFunctionCall(FunctionCallBase):
                     "query": {
                         "type": "string",
                         "description": "Content to search in model titles, tags, descriptions, etc. You can use tags like #style or #character",
-                    }},
+                    },
+                    "user": {
+                        "type": "string",
+                        "description": "Name of a user to search, if included, only models by this user will be shown.",
+                    }
+                },
                 required=["query"],
             )))
     
@@ -279,7 +284,27 @@ class ArcencielFunctionCall(FunctionCallBase):
 
     async def run(self, arguments: dict) -> str:
         query = arguments["query"]
+        user = arguments["user"]
+        found_user: Optional[int] = None
+
+        if user:
+            url = f"https://arcenciel.io/api/users/search?search={query}"
+            try:
+                async with aiohttp.ClientSession(headers=self.HEADERS) as session:
+                    async with session.get(url) as resp:
+                        resp.raise_for_status()
+                        data = await resp.json()
+            except aiohttp.ClientError:
+                log.exception("Trying to grab user from Arc en Ciel")
+                return "Error trying to grab user from Arc en Ciel"
+            if data['data']:
+                found_user = data['data'][0]['id']
+            else:
+                return "[User not found]"
+
         url = f"https://arcenciel.io/api/models/search?search={query}"
+        if found_user is not None:
+            url += f"&userId={found_user}"
         try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
                 async with session.get(url) as resp:
@@ -290,13 +315,17 @@ class ArcencielFunctionCall(FunctionCallBase):
             return "Error trying to grab model from Arc en Ciel"
         
         if not data["data"]:
-            return "(No results)"
+            return "[No results]"
 
         results = []
         for result in data["data"]:
+            if not data['versions']:
+                continue
+            latest_version = sorted(result['versions'], key=lambda v: v['id'], reverse=True)[0]
             results.append(f"[[[ [Model URL: https://arcenciel.io/models/{result['id']}] " +
                            f"[Model type: {result['type']}] " +
                            f"[Model uploader: {result['uploader']['username']}]" +
+                           f"[Date updated: {latest_version['publishedAt']}]"
                            f"[Versions: {'/'.join(set(version['baseModel'] for version in result['versions']))}] " +
                            f"[Model name:] {result['title']} ]]]")
         return '\n'.join(results)
