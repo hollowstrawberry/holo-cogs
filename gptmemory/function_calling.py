@@ -297,8 +297,8 @@ class ArcencielFunctionCall(FunctionCallBase):
             except aiohttp.ClientError:
                 log.exception("Trying to grab user from Arc en Ciel")
                 return "Error trying to grab user from Arc en Ciel"
-            if data['data']:
-                found_user = data['data'][0]['id']
+            if data:
+                found_user = data[0]['id']
             else:
                 return "[User not found]"
 
