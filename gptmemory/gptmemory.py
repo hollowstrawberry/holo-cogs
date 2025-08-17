@@ -456,15 +456,18 @@ class GptMemory(GptMemoryBase):
         is_generated_image = False
         if message.author == message.guild.me and message.attachments and len(message.attachments) == 1:
             imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
-            metadata: dict[str, Any] = imagescanner.grab_metadata_dict(message) # type: ignore
+            metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
             if metadata and metadata.get("Prompt", None):
                 is_generated_image = True
                 content += f"[[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
+        
         if not is_generated_image:
             for attachment in message.attachments:
                 content += f" [Attachment: {attachment.filename}]"
+        
         for sticker in message.stickers:
             content += f" [Sticker: {sticker.name}]"
+        
         for embed in message.embeds:
             if embed.title:
                 content += f" [Embed Title: {sanitize(embed.title)}]"
