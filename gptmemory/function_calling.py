@@ -1,12 +1,16 @@
 import json
 import logging
 import aiohttp
+import itertools
 import trafilatura
 import xml.etree.ElementTree as ElementTree
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import Any, Dict, List, Set, Tuple
 from dataclasses import asdict
+from rapidfuzz import process, fuzz
 from redbot.core import commands
+from redbot.core.bot import Red
+from redbot.core.data_manager import bundled_data_path
 
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.constants import FARENHEIT_PATTERN
@@ -125,7 +129,7 @@ class ScrapeFunctionCall(FunctionCallBase):
                 async with session.get(url) as response:
                     response.raise_for_status()
                     content_type = response.headers.get('Content-Type', '').lower()
-                    if 'text/html' not in content_type:
+                    if 'text' not in content_type:
                         return f"Contents of {url} is not text/html"
                     content = trafilatura.extract(await response.text())
         except aiohttp.ClientError:
@@ -140,7 +144,7 @@ class WolframAlphaFunctionCall(FunctionCallBase):
     schema = ToolCall(
         Function(
             name="ask_wolframalpha",
-            description="Asks Wolfram Alpha about math, exchange rates, or the weather.",
+            description="Asks Wolfram Alpha about math, exchange rates, or the weather. Do not use for price checks or other searches.",
             parameters=Parameters(
                 properties={
                     "query": {
@@ -183,6 +187,119 @@ class WolframAlphaFunctionCall(FunctionCallBase):
             content = FARENHEIT_PATTERN.sub(farenheit_to_celsius, content)
 
         return f"[Wolfram Alpha] [Question: {query}] [Answer:] {content}"
+    
+
+class BooruTagsFunctionCall(FunctionCallBase):
+    schema = ToolCall(
+        Function(
+            name="search_booru_tags",
+            description="Searches booru tags and tag groups. Tag groups may include many types of clothes like hat or legwear, as well as gestures, actions, expressions, locations, styles, body parts, animals, positions, composition, etc.",
+            parameters=Parameters(
+                properties={
+                    "query": {
+                        "type": "string",
+                        "description": "A short term to search for matches among booru tags and tag groups.",
+                    }},
+                required=["query"],
+            )))
+
+    tag_groups: dict = {}
+    all_tags: list = []
+
+    @classmethod
+    def normalize(cls, tag: str) -> str:
+        tag = tag.lower()
+        if len(tag) > 3:
+            tag = tag.replace("_", " ")
+        return tag
+    
+    @classmethod
+    def build_index(cls, data: Dict[str, Any]):
+        cls.tag_groups = {}
+        for group_name, group_content in data.items():
+            for subgroup_name, subgroup_content in group_content.items():
+                if isinstance(subgroup_content, dict):
+                    vals = [v if isinstance(v, (list, tuple)) else [v]
+                            for v in subgroup_content.values()]
+                    merged = list(itertools.chain.from_iterable(vals))
+                    cls.tag_groups[cls.normalize(subgroup_name)] = [cls.normalize(t) for t in merged if t is not None]
+                elif isinstance(subgroup_content, list):
+                    cls.tag_groups[cls.normalize(subgroup_name)] = [cls.normalize(tag) for tag in subgroup_content]
+        cls.all_tags = list(itertools.chain.from_iterable(cls.tag_groups.values()))                
+        
+    @classmethod
+    def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> List[str]:
+        query = cls.normalize(query)
+
+        matches: Set[str] = set()
+
+        for group, tags in cls.tag_groups.items():
+            if query in group:
+                matches.update(tags)
+        
+        fuzzy = process.extract(query, cls.all_tags, scorer=fuzz.WRatio, score_cutoff=fuzzy_threshold, limit=None)
+        for tag, _, _ in fuzzy:
+            matches.add(tag)
+
+        return sorted(matches)
+
+    async def run(self, arguments: dict) -> str:
+        query = arguments["query"]
+
+        if not self.tag_groups:
+            bot: Red = self.ctx.bot
+            cog: commands.Cog = bot.get_cog("GptMemory") # type: ignore
+            with open(bundled_data_path(cog).absolute() / "tag_groups.json", "r") as fp:
+                data = json.load(fp)
+            self.build_index(data)
+
+        results = self.search_booru_tags(query)
+        if results:
+            return ", ".join(results)
+        else:
+            return "(No results)"
+        
+class ArcencielFunctionCall(FunctionCallBase):
+    schema = ToolCall(
+        Function(
+            name="search_models_arcenciel",
+            description="Searches stable diffusion models on Arc en Ciel.",
+            parameters=Parameters(
+                properties={
+                    "query": {
+                        "type": "string",
+                        "description": "Content to search in model titles, tags, descriptions, etc. You can use tags like #style or #character",
+                    }},
+                required=["query"],
+            )))
+    
+    HEADERS = {
+        "User-Agent": "holo-cogs/v1 (https://github.com/hollowstrawberry/holo-cogs);"
+    }
+
+    async def run(self, arguments: dict) -> str:
+        query = arguments["query"]
+        url = f"https://arcenciel.io/api/models/search?search={query}"
+        try:
+            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
+                async with session.get(url) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json()
+        except aiohttp.ClientError:
+            log.exception("Trying to grab model from Arc en Ciel")
+            return "Error trying to grab model from Arc en Ciel"
+        
+        if not data["data"]:
+            return "(No results)"
+
+        results = []
+        for result in data["data"]:
+            results.append(f"[[[ [Model URL: https://arcenciel.io/models/{result['id']}] " +
+                           f"[Model type: {result['type']}] " +
+                           f"[Model uploader: {result['uploader']['username']}]" +
+                           f"[Versions: {'/'.join(set(version['baseModel'] for version in result['versions']))}] " +
+                           f"[Model name:] {result['title']} ]]]")
+        return '\n'.join(results)
 
 
 all_function_calls = FunctionCallBase.__subclasses__()

@@ -5,7 +5,7 @@ from typing import Optional
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, NotGiven
 
 VISION_MODELS = [
     "gpt-4o",
@@ -13,6 +13,9 @@ VISION_MODELS = [
     "gpt-4.1",
     "gpt-4.1-mini",
     "gpt-4.1-nano",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
 ]
 DEFAULT_MODEL = "gpt-4.1-mini"
 DEFAULT_PROMPT = """
@@ -108,7 +111,8 @@ class GptWelcome(commands.Cog):
         model = await self.config.guild(ctx.guild).model()
         response = await self.openai_client.beta.chat.completions.parse(
             model=model,
-            messages=messages # type: ignore
+            messages=messages, # type: ignore
+            reasoning_effort="low" if "GPT-5" in model else NotGiven()
         )
         completion = response.choices[0].message.content
         await ctx.reply(content=completion, mention_author=True)
@@ -180,4 +184,5 @@ class GptWelcome(commands.Cog):
         if not ctx.guild.system_channel.permissions_for(ctx.guild.me).send_messages:
             await ctx.reply(f"The bot doesn't have permission to send messages in the {ctx.guild.system_channel.mention} channel, which is where your server is configured to send welcome messages.")
             return
+        await ctx.message.add_reaction("⏳")
         await self.welcome_user(ctx)

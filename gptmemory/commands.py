@@ -6,6 +6,7 @@ from redbot.core.bot import Red
 
 import gptmemory.defaults as defaults
 import gptmemory.constants as constants
+from gptmemory.function_calling import all_function_calls
 
 
 class GptMemoryBase(commands.Cog):
@@ -23,13 +24,16 @@ class GptMemoryBase(commands.Cog):
             "prompt_recaller": defaults.PROMPT_RECALLER,
             "prompt_responder": defaults.PROMPT_RESPONDER,
             "prompt_memorizer": defaults.PROMPT_MEMORIZER,
+            "effort_recaller": defaults.EFFORT_RECALLER,
+            "effort_responder": defaults.EFFORT_RESPONDER,
+            "effort_memorizer": defaults.EFFORT_MEMORIZER,
             "response_tokens": defaults.RESPONSE_TOKENS,
             "backread_tokens": defaults.BACKREAD_TOKENS,
             "backread_messages": defaults.BACKREAD_MESSAGES,
             "backread_memorizer": defaults.BACKREAD_MEMORIZER,
             "allow_memorizer": defaults.ALLOW_MEMORIZER,
             "memorizer_alerts": defaults.MEMORIZER_ALERTS,
-            "disabled_functions": defaults.DISABLED_FUNCTIONS,
+            "disabled_functions": list(defaults.DISABLED_FUNCTIONS),
             "emotes": "",
         })
         self.memory: Dict[int, Dict[str, str]] = {}
@@ -132,6 +136,29 @@ class GptMemoryBase(commands.Cog):
         else:
             await model_setter.set(model.strip().lower())
             await ctx.tick(message="Model changed")
+
+    @memoryconfig.command("effort")
+    @commands.is_owner()
+    async def gptmemory_effort(self, ctx: commands.Context, module: PromptTypes, effort: Optional[str]):
+        """Views or changes the reasoning effort for the recaller, responder, or memorizer."""
+        assert ctx.guild
+        if module == "recaller":
+            effort_value = await self.config.guild(ctx.guild).effort_recaller()
+            effort_setter = self.config.guild(ctx.guild).effort_recaller
+        elif module == "responder":
+            effort_value = await self.config.guild(ctx.guild).effort_responder()
+            effort_setter = self.config.guild(ctx.guild).effort_responder
+        elif module == "memorizer":
+            effort_value = await self.config.guild(ctx.guild).effort_memorizer()
+            effort_setter = self.config.guild(ctx.guild).effort_memorizer
+
+        if not effort or not effort.strip():
+            await ctx.reply(f"Current effort for the {module} is {effort_value}")
+        elif effort.strip().lower() not in constants.EFFORT_VALUES:
+            await ctx.reply("Invalid value!\nValid values are " + ",".join([f"`{m}`" for m in constants.EFFORT_VALUES]))
+        else:
+            await effort_setter.set(effort.strip().lower())
+            await ctx.tick(message="Reasoning effort changed")
 
 
     @memoryconfig_prompt.command(name="show", aliases=["view"])
@@ -248,12 +275,48 @@ class GptMemoryBase(commands.Cog):
         await ctx.reply(f"`[memorizer_alerts:]` {value}", mention_author=False)
 
     @memoryconfig_prompt.command(name="emotes")
-    async def memoryconfig_emotes(self, ctx: commands.Context, *, emotes):
-        """A list of emotes to show the responder."""
+    async def memoryconfig_emotes(self, ctx: commands.Context, *, emotes: Optional[str]):
+        """Shows or sets a list of emotes to show the responder."""
         assert ctx.guild
-        emotes = emotes.strip()
         if not emotes:
             emotes = await self.config.guild(ctx.guild).emotes()
         else:
+            emotes = emotes.strip()
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
+
+    @memoryconfig.group(name="functions")
+    async def memoryconfig_functions(self, _: commands.Context):
+        pass
+
+    @memoryconfig_functions.command(name="list")
+    async def memoryconfig_functions_list(self, ctx: commands.Context):
+        """Shows all functions and whether they are active."""
+        disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
+        functions = []
+        for function in all_function_calls:
+            name = function.schema.function.name
+            s = f"`{name}`: {'disabled' if name in disabled_functions else 'enabled'}"
+            for api in function.apis:
+                secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
+                if not secret:
+                    s += f" (API not set: {api[0]} {api[1]})"
+            functions.append(s)
+        await ctx.send(">>> " + "\n".join(functions))
+
+    @memoryconfig_functions.command(name="toggle")
+    async def memoryconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
+        """Enables or disables a function"""
+        all_function_names = [f.schema.function.name for f in all_function_calls]
+        if function_name not in all_function_names:
+            await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_function_names]))
+            return
+        disabled_functions: list[str] = await self.config.guild(ctx.guild).disabled_functions()
+        enabled = function_name not in disabled_functions
+        if enabled:
+            disabled_functions.append(function_name)
+        else:
+            disabled_functions.remove(function_name)
+        await self.config.guild(ctx.guild).disabled_functions.set(disabled_functions)
+        enabled = not enabled
+        await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")

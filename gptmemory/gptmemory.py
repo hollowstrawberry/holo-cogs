@@ -8,7 +8,7 @@ from datetime import datetime
 from difflib import get_close_matches
 from typing import Optional, Union, List, Dict
 from expiringdict import ExpiringDict
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, NotGiven
 from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -114,7 +114,7 @@ class GptMemory(GptMemoryBase):
                 return ctx
             await asyncio.sleep(1)
             ctx.message = await ctx.channel.fetch_message(ctx.message.id)
-        return ctx
+        return ctx        
 
 
     async def run_response(self, ctx: commands.Context):
@@ -123,12 +123,21 @@ class GptMemory(GptMemoryBase):
             self.memory[ctx.guild.id] = {}
         memories = ", ".join(self.memory[ctx.guild.id].keys())
 
-        async with ctx.channel.typing():
-            messages = await self.get_message_history(ctx)
-            recalled_memories = await self.execute_recaller(ctx, messages, memories)
-            response_message = await self.execute_responder(ctx, messages, recalled_memories)
-        messages.append(response_message)
-        await self.execute_memorizer(ctx, messages, memories, recalled_memories)
+        await ctx.channel.typing()
+        messages = await self.get_message_history(ctx)
+        recalled_memories = await self.execute_recaller(ctx, messages, memories)
+        await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories)
+
+
+    async def execute_responder_and_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: str, recalled_memories: str):
+        results = await asyncio.gather(
+            self.execute_responder(ctx, messages, recalled_memories),
+            self.execute_memorizer(ctx, messages, memories, recalled_memories),
+            return_exceptions=True
+        )
+        for idx, result in enumerate(results):
+            if isinstance(result, BaseException):
+                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(result).__name__}", result)
 
 
     async def execute_recaller(self, ctx: commands.Context, messages: List[GptMessage], memories: str) -> str:
@@ -151,6 +160,7 @@ class GptMemory(GptMemoryBase):
             model=model,
             messages=temp_messages,
             response_format=MemoryRecall,
+            reasoning_effort=await self.config.guild(ctx.guild).effort_recaller() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message
         memories_to_recall = list(set(completion.parsed.memory_names)) if completion.parsed and not completion.refusal else []
@@ -166,10 +176,11 @@ class GptMemory(GptMemoryBase):
         and returns a response message after sending it to the user.
         """
         assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, discord.TextChannel)
-        tools = [t for t in self.available_function_calls
-                 if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
+        
+        model = await self.config.guild(ctx.guild).model_responder()
+        
         system_prompt = {
-            "role": "system",
+            "role": "developer" if "gpt-5" in model else "system",
             "content": (await self.config.guild(ctx.guild).prompt_responder()).format(
                 botname=self.bot.user.name,
                 servername=ctx.guild.name,
@@ -181,47 +192,56 @@ class GptMemory(GptMemoryBase):
         temp_messages = [msg for msg in messages]
         temp_messages.insert(0, system_prompt)
 
-        model = await self.config.guild(ctx.guild).model_responder()
-        response = await self.openai_client.chat.completions.create(
-            model=model,
-            messages=temp_messages, # type: ignore
-            max_tokens=await self.config.guild(ctx.guild).response_tokens(),
-            tools=[t.asdict() for t in tools], # type: ignore
-        )
+        tools = [t for t in self.available_function_calls
+            if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
-        if response.choices[0].message.tool_calls:
-            temp_messages.append(response.choices[0].message) # type: ignore
-            for call in response.choices[0].message.tool_calls:
-                try:
-                    cls = next(t for t in tools if t.schema.function.name == call.function.name)
-                    args = json.loads(call.function.arguments)
-                    tool_result = await cls(ctx).run(args) # type: ignore
-                except Exception:  # noqa, reason: tools should handle specific errors internally, but broad errors should not stop the responder
-                    tool_result = "Error"
-                    log.exception("Calling tool")
-
-                tool_result = tool_result.strip()
-                if len(tool_result) > defaults.TOOL_CALL_LENGTH:
-                    tool_result = tool_result[:defaults.TOOL_CALL_LENGTH-3] + "..."
-                log.info(f"{tool_result=}")
-
-                temp_messages.append({
-                    "role": "tool",
-                    "content": tool_result,
-                    "tool_call_id": call.id,
-                })
-
-            model = await self.config.guild(ctx.guild).model_responder()
+        async with ctx.channel.typing():
             response = await self.openai_client.chat.completions.create(
                 model=model,
                 messages=temp_messages, # type: ignore
-                max_tokens=await self.config.guild(ctx.guild).response_tokens(),
+                max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
+                max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
+                tools=[t.asdict() for t in tools], # type: ignore
             )
 
-        completion = response.choices[0].message.content or ""
-        log.info(f"{completion=}")
-        reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
-        await chunk_and_send(ctx, reply_content)
+            if response.choices[0].message.tool_calls:
+                temp_messages.append(response.choices[0].message) # type: ignore
+                for call in response.choices[0].message.tool_calls:
+                    try:
+                        cls = next(t for t in tools if t.schema.function.name == call.function.name) # type: ignore
+                        args = json.loads(call.function.arguments) # type: ignore
+                        tool_result = await cls(ctx).run(args) # type: ignore
+                    except Exception:  # noqa, reason: tools should handle specific errors internally, but broad errors should not stop the responder
+                        tool_result = "Error"
+                        log.exception("Calling tool")
+
+                    tool_result = tool_result.strip()
+                    if len(tool_result) > defaults.TOOL_CALL_LENGTH:
+                        tool_result = tool_result[:defaults.TOOL_CALL_LENGTH-3] + "..."
+                    log.info(f"{call.function.arguments=}") # type: ignore
+                    log.info(f"{tool_result=}")
+
+                    temp_messages.append({
+                        "role": "tool",
+                        "content": tool_result,
+                        "tool_call_id": call.id,
+                    })
+
+                model = await self.config.guild(ctx.guild).model_responder()
+                response = await self.openai_client.chat.completions.create(
+                    model=model,
+                    messages=temp_messages, # type: ignore
+                    max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
+                    max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
+                    reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
+                )
+
+            log.info(response)
+
+            completion = response.choices[0].message.content
+            if completion:
+                reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
+                await chunk_and_send(ctx, reply_content)
 
         response_message = {
             "role": "assistant",
@@ -254,6 +274,7 @@ class GptMemory(GptMemoryBase):
             model=model,
             messages=temp_messages,
             response_format=MemoryChangeList,
+            reasoning_effort=await self.config.guild(ctx.guild).effort_memorizer() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message
         if completion.refusal:

@@ -10,7 +10,7 @@ from openai import AsyncOpenAI, APIError, APIStatusError
 
 log = logging.getLogger("red.crab-cogs.gpthink")
 
-MODELS = ["o3-mini", "o4-mini", "o3"]
+MODELS = ["o3", "o4-mini", "gpt-5", "gpt-5-mini", "gpt-5-nano"]
 EMPTY = "ᅠ"
 CODE_REGEX = re.compile(r"^```(\w*)\s*$")
 MAX_MESSAGE_LENGTH = 1950
@@ -142,7 +142,7 @@ class GptThink(commands.Cog):
         defaults_global = {
             "vip": [],
             "cooldown": 0,
-            "model": "o4-mini",
+            "model": "gpt-5-mini",
         }
         self.config.register_global(**defaults_global)
 
