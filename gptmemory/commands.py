@@ -312,7 +312,7 @@ class GptMemoryBase(commands.Cog):
             await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_function_names]))
             return
         disabled_functions: list[str] = await self.config.guild(ctx.guild).disabled_functions()
-        enabled = function_name in disabled_functions
+        enabled = function_name not in disabled_functions
         if enabled:
             disabled_functions.append(function_name)
         else:
