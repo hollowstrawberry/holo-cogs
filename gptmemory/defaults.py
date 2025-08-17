@@ -11,11 +11,11 @@ BACKREAD_TOKENS = 1000
 BACKREAD_MESSAGES = 20
 BACKREAD_MEMORIZER = 10
 QUOTE_LENGTH = 300
-TOOL_CALL_LENGTH = 2000
+TOOL_CALL_LENGTH = 8000
 IMAGES_PER_MESSAGE = 2
 ALLOW_MEMORIZER = True
 MEMORIZER_ALERTS = True
-DISABLED_FUNCTIONS = []
+DISABLED_FUNCTIONS = ["BooruTagsFunctionCall"]
 
 PROMPT_RECALLER = """\
 You are the memory manager of a conversational AI. You must extract a list of entries relevant to the conversation below, \
