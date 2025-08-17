@@ -218,6 +218,7 @@ class GptMemory(GptMemoryBase):
                     tool_result = tool_result.strip()
                     if len(tool_result) > defaults.TOOL_CALL_LENGTH:
                         tool_result = tool_result[:defaults.TOOL_CALL_LENGTH-3] + "..."
+                    log.info(f"{call.function.arguments=}") # type: ignore
                     log.info(f"{tool_result=}")
 
                     temp_messages.append({
