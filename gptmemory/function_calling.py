@@ -288,7 +288,7 @@ class ArcencielFunctionCall(FunctionCallBase):
         found_user: Optional[int] = None
 
         if user:
-            url = f"https://arcenciel.io/api/users/search?search={query}"
+            url = f"https://arcenciel.io/api/users/search?q={query}"
             try:
                 async with aiohttp.ClientSession(headers=self.HEADERS) as session:
                     async with session.get(url) as resp:
