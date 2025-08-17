@@ -247,7 +247,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
         if not self.tag_groups:
             bot: Red = self.ctx.bot
             cog: commands.Cog = bot.get_cog("GptMemory") # type: ignore
-            with open(bundled_data_path(cog).absolute() / "data/tag_groups.json", "r") as fp:
+            with open(bundled_data_path(cog).absolute() / "tag_groups.json", "r") as fp:
                 data = json.load(fp)
             self.build_index(data)
 
