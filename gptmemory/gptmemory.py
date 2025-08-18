@@ -6,7 +6,7 @@ import discord
 from io import BytesIO
 from datetime import datetime
 from difflib import get_close_matches
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Any
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
 from tiktoken import encoding_for_model
@@ -369,23 +369,32 @@ class GptMemory(GptMemoryBase):
 
         # Attachments
         if message.attachments or quote and quote.attachments:
-            attachments = (message.attachments or []) + (quote.attachments if quote and quote.attachments else [])
-            images = [att for att in attachments if att.content_type and att.content_type.startswith('image/')]
+            attachments = enumerate((message.attachments or []) + (quote.attachments if quote and quote.attachments else []))
+            images = [(i, att) for i, att in attachments if att.content_type and att.content_type.startswith('image/')]
 
-            for image in images[:defaults.IMAGES_PER_MESSAGE]:
+            for i, image in images[:defaults.IMAGES_PER_MESSAGE]:
                 if image in processed_sources:
                     continue
                 processed_sources.append(image)
+                
                 fp_before = BytesIO()
-                try:
-                    await image.save(fp_before, seek_begin=True)
-                except discord.DiscordException:
-                    log.warning("Processing image attachments", exc_info=True)
-                    break
+                imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
+                if imagescanner and message.id in imagescanner.image_cache: # type: ignore
+                    _, image_bytes = self.image_cache.get(message.id, ({}, {}))
+                    if i in image_bytes:
+                        fp_before = BytesIO(image_bytes[i]) # type: ignore
+                if fp_before.getbuffer().nbytes == 0:
+                    try:
+                        await image.save(fp_before, seek_begin=True)
+                    except discord.DiscordException:
+                        log.warning("Processing image attachments", exc_info=True)
+                        continue
+
                 fp_after = process_image(fp_before)
                 del fp_before
                 if not fp_after:
                     continue
+
                 image_contents.append(make_image_content(fp_after))
                 del fp_after
                 log.info(image.filename)
@@ -438,6 +447,8 @@ class GptMemory(GptMemoryBase):
 
 
     async def parse_discord_message(self, message: discord.Message, quote: discord.Message = None, recursive=True) -> str:
+        assert message.guild
+
         content = f"[Username: {sanitize(message.author.name)}]"
         if isinstance(message.author, discord.Member) and message.author.nick:
             content += f" [Alias: {sanitize(message.author.nick)}]"
@@ -451,10 +462,25 @@ class GptMemory(GptMemoryBase):
         elif message.content:
             content += f" [said:] {message.content}"
 
-        for attachment in message.attachments:
-            content += f" [Attachment: {attachment.filename}]"
+        is_generated_image = False
+        if message.attachments and len(message.attachments) == 1:
+            imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
+            metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
+            if metadata and metadata.get("Prompt", None):
+                is_generated_image = True
+                if message.author == message.guild.me:
+                    content += f"[[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
+                else:
+                    content += f"[[ [Image with prompt:] {metadata['Prompt']} ]]"
+            
+        
+        if not is_generated_image:
+            for attachment in message.attachments:
+                content += f" [Attachment: {attachment.filename}]"
+        
         for sticker in message.stickers:
             content += f" [Sticker: {sticker.name}]"
+        
         for embed in message.embeds:
             if embed.title:
                 content += f" [Embed Title: {sanitize(embed.title)}]"

@@ -292,6 +292,7 @@ class GptMemoryBase(commands.Cog):
     @memoryconfig_functions.command(name="list")
     async def memoryconfig_functions_list(self, ctx: commands.Context):
         """Shows all functions and whether they are active."""
+        assert ctx.guild
         disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
         functions = []
         for function in all_function_calls:
@@ -306,6 +307,7 @@ class GptMemoryBase(commands.Cog):
 
     @memoryconfig_functions.command(name="toggle")
     async def memoryconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
+        assert ctx.guild
         """Enables or disables a function"""
         all_function_names = [f.schema.function.name for f in all_function_calls]
         if function_name not in all_function_names:
