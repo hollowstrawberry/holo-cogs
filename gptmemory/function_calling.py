@@ -341,7 +341,7 @@ class ImageGenParams:
     style: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
-    cfg: Optional[int] = None
+    cfg: Optional[float] = None
     sampler: Optional[str] = None
     scheduler: Optional[str] = None
     steps: Optional[int] = None
@@ -410,14 +410,14 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             params = ImageGenParams(
                 prompt=prompt,
                 negative_prompt=metadata.get("Negative Prompt", ""),
-                cfg=metadata.get("CFG scale", 5),
+                cfg=float(metadata.get("CFG scale", 5)),
                 checkpoint=metadata.get("Model", ""),
                 width=width,
                 height=height,
                 sampler=metadata.get("Sampler", ""),
                 scheduler=metadata.get("Schedule type", ""),
-                seed=metadata.get("Seed", -1),
-                steps=metadata.get("Steps", 30),
+                seed=int(metadata.get("Seed", -1)),
+                steps=int(metadata.get("Steps", 30)),
                 vae=metadata.get("VAE", metadata.get("vae", ""))
             )
         else:
