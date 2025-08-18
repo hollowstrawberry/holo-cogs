@@ -374,7 +374,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                     },
                     "negative_prompt": {
                         "type": "string",
-                        "description": "Additional terms you don't want to appear in the image. Use this instead of putting things like 'no x' in the prompt."
+                        "description": "Additional terms you don't want to appear in the image. Instead of putting terms like 'no x' in the prompt, just put 'x' in the negative prompt."
                     },
                     "resolution": {
                         "type": "string",
