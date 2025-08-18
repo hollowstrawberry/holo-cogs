@@ -369,23 +369,32 @@ class GptMemory(GptMemoryBase):
 
         # Attachments
         if message.attachments or quote and quote.attachments:
-            attachments = (message.attachments or []) + (quote.attachments if quote and quote.attachments else [])
-            images = [att for att in attachments if att.content_type and att.content_type.startswith('image/')]
+            attachments = enumerate((message.attachments or []) + (quote.attachments if quote and quote.attachments else []))
+            images = [(i, att) for i, att in attachments if att.content_type and att.content_type.startswith('image/')]
 
-            for image in images[:defaults.IMAGES_PER_MESSAGE]:
+            for i, image in images[:defaults.IMAGES_PER_MESSAGE]:
                 if image in processed_sources:
                     continue
                 processed_sources.append(image)
+                
                 fp_before = BytesIO()
-                try:
-                    await image.save(fp_before, seek_begin=True)
-                except discord.DiscordException:
-                    log.warning("Processing image attachments", exc_info=True)
-                    break
+                imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
+                if imagescanner and message.id in imagescanner.image_cache: # type: ignore
+                    _, image_bytes = self.image_cache.get(message.id, ({}, {}))
+                    if i in image_bytes:
+                        fp_before = BytesIO(image_bytes[i]) # type: ignore
+                if fp_before.getbuffer().nbytes == 0:
+                    try:
+                        await image.save(fp_before, seek_begin=True)
+                    except discord.DiscordException:
+                        log.warning("Processing image attachments", exc_info=True)
+                        continue
+
                 fp_after = process_image(fp_before)
                 del fp_before
                 if not fp_after:
                     continue
+
                 image_contents.append(make_image_content(fp_after))
                 del fp_after
                 log.info(image.filename)

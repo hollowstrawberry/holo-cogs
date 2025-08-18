@@ -396,7 +396,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
         if not aimage:
             return "[`aimage` cog not installed, please notify the bot owner]"
         imagescanner: Optional[commands.Cog] = self.ctx.bot.get_cog("ImageScanner")
-        if not aimage:
+        if not imagescanner:
             return "[`imagescanner` cog not installed, please notify the bot owner]"
         
         if existing:
