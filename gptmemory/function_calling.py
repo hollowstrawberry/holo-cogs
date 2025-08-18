@@ -425,7 +425,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
 
         asyncio.create_task(aimage.generate_image(self.ctx, params=params)) # type: ignore
 
-        return "[Image generation started successfully]"
+        return f"[Image generation started successfully] [Prompt:] {prompt}"
         
 
 
