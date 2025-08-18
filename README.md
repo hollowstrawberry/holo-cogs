@@ -20,7 +20,7 @@ You may be prompted to respond with "I agree" after the second command.
 
 ## 🎶 audioplayer
 
-Live audio player, updates every 10 seconds, or when the song changes or you press a button. Stays at the bottom of the designated chat for as long as there is audio playing.
+Live audio player, updates every 10 seconds, or when the song changes, or you press a button. Stays at the bottom of the designated chat for as long as there is audio playing.
 
 ⚠️ Discord doesn't like when things update periodically without human input, even when it follows ratelimits, so use this at your own risk.
 
@@ -38,7 +38,6 @@ Uses AI to give a unique welcome message for each new user, according to their u
 
 The gptmemory cog will let you use your Discord Bot as an artificial user in your server, typically serving as an assistant. It features memories which may be manually set or automatically created by the bot, and recalled according to the context of the conversation. It is also capable of viewing images and using the internet. I have found that the more context you provide to a chatbot agent, the more natural its responses will be. Because of the additional context that memories provide, me and my peers have had a lot of fun with this cog.
 
+A new feature allows it to interface with [my fork of bz-cogs]()'s aimage and [crab-cogs]()'s imagescanner to generate and revise Stable Diffusion images using natural conversation.
+
 ⚠️ This cog is **not meant for public use**, you are using it at your own risk. There are **no safeguards and no limits.** It uses GPT models, and the approach to memory means it will use as much as 3 times as many input tokens as you would expect, so you may face large monetary charges to your OpenAI api project. It also optionally stores text-based \"memories\" which may contain information about users and their conversations. These memories as well as the recent chat logs are sent to OpenAI servers every time the bot user is pinged. As the bot's owner you become wholly responsible for the data of your users and the money that user interactions will consume.
-
-
-
