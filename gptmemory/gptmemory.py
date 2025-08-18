@@ -327,6 +327,7 @@ class GptMemory(GptMemoryBase):
         messages = []
         processed_image_sources = []
         tokens = 0
+        total_images = 0
         encoding = encoding_for_model("gpt-4o")  # same for gpt-4.1 and their variants
 
         for n, backmsg in enumerate(backread):
@@ -338,7 +339,11 @@ class GptMemory(GptMemoryBase):
             except (AttributeError, discord.DiscordException):
                 quote = None
 
-            image_contents = await self.extract_images(backmsg, quote, processed_image_sources)
+            if total_images < defaults.IMAGES_PER_CONTEXT:
+                image_contents = await self.extract_images(backmsg, quote, processed_image_sources)
+                total_images += len(image_contents)
+            else:
+                image_contents = []
             text_content = await self.parse_discord_message(backmsg, quote=quote)
             if image_contents:
                 image_contents.insert(0, {"type": "text", "text": text_content})
@@ -352,7 +357,7 @@ class GptMemory(GptMemoryBase):
                     "content": text_content
                 })
 
-            tokens += len(encoding.encode(text_content)) + 255 * len(image_contents)
+            tokens += len(encoding.encode(text_content)) + 425 * len(image_contents)
             if n > 0 and tokens > await self.config.guild(ctx.guild).backread_tokens():
                 break
 
