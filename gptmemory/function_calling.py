@@ -420,11 +420,16 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             
             metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
             width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]
+
+            # add negative tags that weren't already in the existing negative prompt
             negative_prompt = metadata.get("Negative Prompt", "")
             if not negative_prompt:
                 negative_prompt = negative_prompt_extra
-            elif negative_prompt_extra and negative_prompt_extra not in negative_prompt:
-                negative_prompt += f", {negative_prompt_extra}"
+            elif negative_prompt_extra:
+                tags = [tag.strip() for tag in negative_prompt_extra.split(",")]
+                for tag in tags:
+                    if tag not in negative_prompt:
+                        negative_prompt += f", {tag}"
 
             params = ImageGenParams(
                 prompt=prompt,
@@ -449,9 +454,16 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             else:
                 width, height = None, None
 
+            # add negative tags that weren't already in the default negative prompt
+            default_negative_prompt = aimage.config.guild(self.ctx.guild).negative_prompt() # type: ignore
+            negative_prompt = ""
+            if negative_prompt_extra:
+                tags = [tag.strip() for tag in negative_prompt_extra.split(",")]
+                negative_prompt = ", ".join([tag.strip() for tag in tags if tag.strip() not in default_negative_prompt])
+
             params = ImageGenParams(
                 prompt=prompt,
-                negative_prompt=negative_prompt_extra,
+                negative_prompt=negative_prompt or None,
                 width=width,
                 height=height
             )
