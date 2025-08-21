@@ -503,7 +503,7 @@ class GptMemory(GptMemoryBase):
                 log.warning("Processing text attachments", exc_info=True)
             else:
                 if len(file_content) > 4010:
-                    file_content = f"{file_content[:2000]}\n(...)\n{file_content[2000:]}"
+                    file_content = f"{file_content[:2000]}\n(...)\n{file_content[-2000:]}"
                 total_file_length += len(file_content)
                 content += f"\n[[[Content of {text_file.filename}: {file_content}]]]"
                 if total_file_length > 4000:
