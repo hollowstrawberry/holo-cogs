@@ -164,6 +164,7 @@ class GptMemory(GptMemoryBase):
         completion = response.choices[0].message.content
         log.info(f"Memory completion = \"{completion}\"")
         memories_to_recall = [memory for memory in memories if memory.lower() in completion.lower()] if completion else []
+        log.info(f"{memories_to_recall=}")
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         return recalled_memories_str or "[None]"
