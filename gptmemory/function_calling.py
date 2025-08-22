@@ -441,6 +441,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 sampler=metadata.get("Sampler", ""),
                 scheduler=metadata.get("Schedule type", ""),
                 seed=int(metadata.get("Seed", -1)),
+                subseed=int(metadata.get("Variation seed", -1)),
+                subseed_strength=float(metadata.get("Variation seed strength", 0)),
                 steps=int(metadata.get("Steps", 30)),
                 vae=metadata.get("VAE", metadata.get("vae", ""))
             )
