@@ -16,7 +16,7 @@ from redbot.core.bot import Red
 import gptmemory.defaults as defaults
 from gptmemory.commands import GptMemoryBase
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
-from gptmemory.schema import MemoryRecall, MemoryChangeList
+from gptmemory.schema import MemoryChangeList
 from gptmemory.function_calling import all_function_calls
 from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, IMAGE_EXTENSIONS
 
@@ -156,14 +156,14 @@ class GptMemory(GptMemoryBase):
         temp_messages = get_text_contents(messages)
         temp_messages.insert(0, system_prompt)
         model = await self.config.guild(ctx.guild).model_recaller()
-        response = await self.openai_client.beta.chat.completions.parse(
+        response = await self.openai_client.beta.chat.completions.create(
             model=model,
             messages=temp_messages,
-            response_format=MemoryRecall,
             reasoning_effort=await self.config.guild(ctx.guild).effort_recaller() if "gpt-5" in model else NotGiven()
         )
-        completion = response.choices[0].message
-        memories_to_recall = list(set(completion.parsed.memory_names)) if completion.parsed and not completion.refusal else []
+        completion = response.choices[0].message.content
+        memories_list = [memory.strip() for memory in memories.split(",")]
+        memories_to_recall = [memory for memory in memories_list if memory.lower() in completion.lower()] if completion else []
         log.info(f"{memories_to_recall=}")
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
@@ -236,10 +236,10 @@ class GptMemory(GptMemoryBase):
                     reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
                 )
 
-            log.info(response)
 
             completion = response.choices[0].message.content
             if completion:
+                log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 await chunk_and_send(ctx, reply_content)
 

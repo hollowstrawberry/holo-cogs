@@ -5,9 +5,6 @@ from dataclasses import dataclass, field
 
 # Structured Outputs
 
-class MemoryRecall(BaseModel):
-    memory_names: List[str]
-
 class MemoryChange(BaseModel):
     action_type: Literal["create", "adjust", "append", "delete"]
     memory_name: str
