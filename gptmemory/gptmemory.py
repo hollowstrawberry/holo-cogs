@@ -162,7 +162,6 @@ class GptMemory(GptMemoryBase):
             reasoning_effort=await self.config.guild(ctx.guild).effort_recaller() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message.content
-        log.info(f"Memory completion = \"{completion}\"")
         memories_list = [memory.strip() for memory in memories.split(",")]
         memories_to_recall = [memory for memory in memories_list if memory.lower() in completion.lower()] if completion else []
         log.info(f"{memories_to_recall=}")
