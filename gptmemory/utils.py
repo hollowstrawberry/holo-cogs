@@ -27,14 +27,14 @@ def make_image_content(fp: BytesIO) -> dict:
         }
     }
 
-def process_image(buffer: BytesIO) -> Optional[BytesIO]:
+def process_image(buffer: BytesIO, size=768) -> Optional[BytesIO]:
     try:
         image = Image.open(buffer)
     except UnidentifiedImageError:
         return None
     width, height = image.size
     image_resolution = width * height
-    target_resolution = 1024*1024
+    target_resolution = size*size
     if image_resolution > target_resolution:
         scale_factor = (target_resolution / image_resolution) ** 0.5
         image = image.resize((int(width * scale_factor), int(height * scale_factor)), Image.Resampling.LANCZOS)
