@@ -13,7 +13,6 @@ from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
-import gptmemory.defaults as defaults
 from gptmemory.commands import GptMemoryBase
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
@@ -206,6 +205,7 @@ class GptMemory(GptMemoryBase):
 
             if response.choices[0].message.tool_calls:
                 temp_messages.append(response.choices[0].message) # type: ignore
+                max_tool_length = await self.config.guild(ctx.guild).max_tool()
                 for call in response.choices[0].message.tool_calls:
                     try:
                         cls = next(t for t in tools if t.schema.function.name == call.function.name) # type: ignore
@@ -216,8 +216,8 @@ class GptMemory(GptMemoryBase):
                         log.exception("Calling tool")
 
                     tool_result = tool_result.strip()
-                    if len(tool_result) > defaults.TOOL_CALL_LENGTH:
-                        tool_result = tool_result[:defaults.TOOL_CALL_LENGTH-3] + "..."
+                    if len(tool_result) > max_tool_length:
+                        tool_result = tool_result[:max_tool_length-3] + "..."
                     log.info(f"{call.function.arguments=}") # type: ignore
                     log.info(f"{tool_result=}")
 
@@ -330,6 +330,11 @@ class GptMemory(GptMemoryBase):
         total_images = 0
         encoding = encoding_for_model("gpt-4o")  # same for gpt-4.1 and their variants
 
+        max_image_size = await self.config.guild(ctx.guild).max_image_resolution()
+        max_images = await self.config.guild(ctx.guild).max_images()
+        max_images_per_message = await self.config.guild(ctx.guild).max_images_per_message()
+        max_quote_length = await self.config.guild(ctx.guild).max_quote()
+        max_file_length = await self.config.guild(ctx.guild).max_text_file()
         for n, backmsg in enumerate(backread):
             try:
                 quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id) # type: ignore
@@ -339,12 +344,13 @@ class GptMemory(GptMemoryBase):
             except (AttributeError, discord.DiscordException):
                 quote = None
 
-            if total_images < defaults.IMAGES_PER_CONTEXT:
-                image_contents = await self.extract_images(backmsg, quote, processed_image_sources)
+            if total_images < max_images:
+                image_contents = await self.extract_images(backmsg, quote, processed_image_sources, max_images_per_message, max_image_size)
                 total_images += len(image_contents)
             else:
                 image_contents = []
-            text_content = await self.parse_discord_message(backmsg, quote=quote)
+            trim_quote = quote is not None and quote in backread
+            text_content = await self.parse_discord_message(backmsg, quote, trim_quote, True, max_quote_length, max_file_length)
             if image_contents:
                 image_contents.insert(0, {"type": "text", "text": text_content})
                 messages.append({
@@ -365,7 +371,14 @@ class GptMemory(GptMemoryBase):
         return list(reversed(messages))
 
 
-    async def extract_images(self, message: discord.Message, quote: Optional[discord.Message], processed_sources: List[Union[str, discord.Attachment]]) -> GptImageContent:
+    async def extract_images(self,
+                             message: discord.Message,
+                             quote: Optional[discord.Message],
+                             processed_sources: List[Union[str, discord.Attachment]],
+                             max_images_per_message: bool,
+                             max_image_size: int,
+                            ) -> GptImageContent:
+        
         if message.id in self.image_cache:
             log.info("Retrieving cached image(s)")
             return self.image_cache[message.id]
@@ -377,7 +390,7 @@ class GptMemory(GptMemoryBase):
             attachments = enumerate((message.attachments or []) + (quote.attachments if quote and quote.attachments else []))
             images = [(i, att) for i, att in attachments if att.content_type and att.content_type.startswith('image/')]
 
-            for i, image in images[:defaults.IMAGES_PER_MESSAGE]:
+            for i, image in images[:max_images_per_message]:
                 if image in processed_sources:
                     continue
                 processed_sources.append(image)
@@ -395,7 +408,7 @@ class GptMemory(GptMemoryBase):
                         log.warning("Processing image attachments", exc_info=True)
                         continue
 
-                fp_after = process_image(fp_before)
+                fp_after = process_image(fp_before, max_image_size)
                 del fp_before
                 if not fp_after:
                     continue
@@ -425,7 +438,7 @@ class GptMemory(GptMemoryBase):
             return image_contents
 
         async with aiohttp.ClientSession() as session:
-            for url in image_url[:defaults.IMAGES_PER_MESSAGE]:
+            for url in image_url[:max_images_per_message]:
                 if url in processed_sources:
                     continue
                 processed_sources.append(url)
@@ -437,7 +450,7 @@ class GptMemory(GptMemoryBase):
                 except aiohttp.ClientError:
                     log.warning("Processing image URL", exc_info=True)
                     continue
-                fp_after = process_image(fp_before)
+                fp_after = process_image(fp_before, max_image_size)
                 del fp_before
                 if not fp_after:
                     continue
@@ -451,7 +464,14 @@ class GptMemory(GptMemoryBase):
         return image_contents
 
 
-    async def parse_discord_message(self, message: discord.Message, quote: discord.Message = None, recursive=True) -> str:
+    async def parse_discord_message(self,
+                                    message: discord.Message,
+                                    quote: Optional[discord.Message],
+                                    trim_quote: bool,
+                                    recursive: bool,
+                                    max_quote_length: int,
+                                    max_file_length: int,
+                                    ) -> str:
         assert message.guild
 
         content = f"[Username: {sanitize(message.author.name)}]"
@@ -474,10 +494,9 @@ class GptMemory(GptMemoryBase):
             if metadata and metadata.get("Prompt", None):
                 is_generated_image = True
                 if message.author == message.guild.me:
-                    content += f"[[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
+                    content += f" [[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
                 else:
-                    content += f"[[ [Image with prompt:] {metadata['Prompt']} ]]"
-            
+                    content += f" [[ [Image with prompt:] {metadata['Prompt']} ]]"
         
         if not is_generated_image:
             for attachment in message.attachments:
@@ -502,18 +521,19 @@ class GptMemory(GptMemoryBase):
             except (discord.DiscordException, UnicodeDecodeError):
                 log.warning("Processing text attachments", exc_info=True)
             else:
-                if len(file_content) > 4010:
-                    file_content = f"{file_content[:2000]}\n(...)\n{file_content[-2000:]}"
+                if len(file_content) > max_file_length + 10:
+                    file_content = f"{file_content[:max_file_length//2]}\n(...)\n{file_content[-max_file_length//2:]}"
                 total_file_length += len(file_content)
-                content += f"\n[[[Content of {text_file.filename}: {file_content}]]]"
+                content += f"\n[[[ Content of {text_file.filename}: {file_content} ]]]"
                 if total_file_length > 4000:
                     break
 
         if quote and recursive:
-            quote_content = (await self.parse_discord_message(quote, recursive=False)).replace("\n", " ")
-            if len(quote_content) > defaults.QUOTE_LENGTH:
-                quote_content = quote_content[:defaults.QUOTE_LENGTH-3] + "..."
-            content += f"\n[[[Replying to: {quote_content}]]]"            
+            quote_content = await self.parse_discord_message(quote, None, trim_quote, False, max_quote_length, max_file_length)
+            quote_content = quote_content.replace("\n", " ")
+            if trim_quote and len(quote_content) > max_quote_length:
+                quote_content = quote_content[:max_quote_length-3] + "..."
+            content += f"\n[[[ Replying to: {quote_content} ]]]"            
 
         if len(content) == starting_len:
             content += " [Message empty or not supported]"

@@ -6,21 +6,25 @@ EFFORT_RECALLER = "minimal"
 EFFORT_RESPONDER = "minimal"
 EFFORT_MEMORIZER = "low"
 
-RESPONSE_TOKENS = 1000
-BACKREAD_TOKENS = 1000
+RESPONSE_TOKENS = 2000
+BACKREAD_TOKENS = 2000
 BACKREAD_MESSAGES = 20
 BACKREAD_MEMORIZER = 10
-QUOTE_LENGTH = 200
+QUOTE_LENGTH = 400
 TOOL_CALL_LENGTH = 4000
-IMAGES_PER_MESSAGE = 2
-IMAGES_PER_CONTEXT = 3
+TEXT_FILE_LENGTH = 4000
+IMAGES_PER_MESSAGE = 4
+IMAGES_PER_CONTEXT = 4
+IMAGE_SIZE = 1024
+
 ALLOW_MEMORIZER = True
 MEMORIZER_ALERTS = True
 DISABLED_FUNCTIONS = ["search_booru_tags", "search_models_arcenciel", "generate_stable_diffusion"]
 
 PROMPT_RECALLER = """\
-You are the memory manager of a conversational AI. You must extract a list of entries relevant to the conversation below, \
-always including entries of the usernames involved, and any entries of relevant topics being discussed. The available entries are:
+You are the memory manager of a conversational AI. You will be shown a chat history and a list of memory names, \
+and you must return a list of all relevant memories to the current conversation, always including entries of the usernames involved. \
+Here are all the available entries, separated by commas:
 {0}
 """
 
