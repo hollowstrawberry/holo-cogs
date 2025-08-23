@@ -90,7 +90,7 @@ class GptMemoryBase(commands.Cog):
         self.memory[ctx.guild.id][name] = content
         await ctx.tick(message="Memory set")
 
-    @commands.group(name="gptmemory", aliases=["memoryconfig"]) # type: ignore
+    @commands.group(name="gpt", aliases=["gptmemory", "memoryconfig"]) # type: ignore
     @commands.is_owner()
     @commands.guild_only()
     async def memoryconfig(self, ctx: commands.Context):
@@ -122,7 +122,7 @@ class GptMemoryBase(commands.Cog):
 
     @memoryconfig.command("model")
     @commands.is_owner()
-    async def gptmemory_model(self, ctx: commands.Context, module: PromptTypes, model: Optional[str]):
+    async def memoryconfig_model(self, ctx: commands.Context, module: PromptTypes, model: Optional[str]):
         """Views or changes the OpenAI model being used for the recaller, responder, or memorizer."""
         assert ctx.guild
         if module == "recaller":
@@ -145,7 +145,7 @@ class GptMemoryBase(commands.Cog):
 
     @memoryconfig.command("effort")
     @commands.is_owner()
-    async def gptmemory_effort(self, ctx: commands.Context, module: PromptTypes, effort: Optional[str]):
+    async def memoryconfig_effort(self, ctx: commands.Context, module: PromptTypes, effort: Optional[str]):
         """Views or changes the reasoning effort for the recaller, responder, or memorizer."""
         assert ctx.guild
         if module == "recaller":
