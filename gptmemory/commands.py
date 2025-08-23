@@ -240,6 +240,7 @@ class GptMemoryBase(commands.Cog):
 
     @memoryconfig.group(name="functions")
     async def memoryconfig_functions(self, _: commands.Context):
+        """List or toggle function calls used by the responder."""
         pass
 
     @memoryconfig_functions.command(name="list")
