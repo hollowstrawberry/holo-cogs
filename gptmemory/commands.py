@@ -35,6 +35,12 @@ class GptMemoryBase(commands.Cog):
             "memorizer_alerts": defaults.MEMORIZER_ALERTS,
             "disabled_functions": list(defaults.DISABLED_FUNCTIONS),
             "emotes": "",
+            "max_images_per_message": defaults.IMAGES_PER_MESSAGE,
+            "max_images": defaults.IMAGES_PER_CONTEXT,
+            "max_quote": defaults.QUOTE_LENGTH,
+            "max_tool": defaults.TOOL_CALL_LENGTH,
+            "max_text_file": defaults.TEXT_FILE_LENGTH,
+            "max_image_resolution": defaults.IMAGE_SIZE,
         })
         self.memory: Dict[int, Dict[str, str]] = {}
 
@@ -160,7 +166,6 @@ class GptMemoryBase(commands.Cog):
             await effort_setter.set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
 
-
     @memoryconfig_prompt.command(name="show", aliases=["view"])
     async def memoryconfig_prompt_show(self, ctx: commands.Context, module: PromptTypes):
         """
@@ -201,58 +206,6 @@ class GptMemoryBase(commands.Cog):
             await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
 
         await ctx.reply(f"`[New {module} prompt]`\n>>> {prompt}", mention_author=False)
-
-    @memoryconfig.command(name="response_tokens")
-    async def memoryconfig_response_tokens(self, ctx: commands.Context, value: Optional[int]):
-        """Hard limit on the number of tokens the responder will send."""
-        assert ctx.guild
-        if not value:
-            value = await self.config.guild(ctx.guild).response_tokens()
-        elif value < 100 or value > 10000:
-            await ctx.reply("Value must be between 100 and 10000", mention_author=False)
-            return
-        else:
-            await self.config.guild(ctx.guild).response_tokens.set(value)
-        await ctx.reply(f"`[response_tokens:]` {value}", mention_author=False)
-
-    @memoryconfig.command(name="backread_tokens")
-    async def memoryconfig_backread_tokens(self, ctx: commands.Context, value: Optional[int]):
-        """Soft limit on the number of tokens the LLM will read from the chat history."""
-        assert ctx.guild
-        if not value:
-            value = await self.config.guild(ctx.guild).backread_tokens()
-        elif value < 100 or value > 10000:
-            await ctx.reply("Value must be between 100 and 10000", mention_author=False)
-            return
-        else:
-            await self.config.guild(ctx.guild).backread_tokens.set(value)
-        await ctx.reply(f"`[backread_tokens:]` {value}", mention_author=False)
-
-    @memoryconfig.command(name="backread_messages")
-    async def memoryconfig_backread_messages(self, ctx: commands.Context, value: Optional[int]):
-        """How many messages in chat the recaller and responder will read."""
-        assert ctx.guild
-        if not value:
-            value = await self.config.guild(ctx.guild).backread_messages()
-        elif value < 0 or value > 100:
-            await ctx.reply("Value must be between 0 and 100", mention_author=False)
-            return
-        else:
-            await self.config.guild(ctx.guild).backread_messages.set(value)
-        await ctx.reply(f"`[backread_messages:]` {value}", mention_author=False)
-
-    @memoryconfig.command(name="backread_memorizer")
-    async def memoryconfig_backread_memorizer(self, ctx: commands.Context, value: Optional[int]):
-        """How many messages in chat the memorizer will read."""
-        assert ctx.guild
-        if value is None:
-            value = await self.config.guild(ctx.guild).backread_memorizer()
-        elif value < 0 or value > 100:
-            await ctx.reply("Value must be between 0 and 100", mention_author=False)
-            return
-        else:
-            await self.config.guild(ctx.guild).backread_memorizer.set(value)
-        await ctx.reply(f"`[backread_memorizer:]` {value}", mention_author=False)
 
     @memoryconfig.command(name="allow_memorizer")
     async def memoryconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
@@ -322,3 +275,138 @@ class GptMemoryBase(commands.Cog):
         await self.config.guild(ctx.guild).disabled_functions.set(disabled_functions)
         enabled = not enabled
         await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")
+
+    @memoryconfig.group(name="limits")
+    async def memoryconfig_limits(self, _: commands.Context):
+        """Base command for limits intended as cost-saving measures."""
+        pass
+
+    @memoryconfig_limits.command(name="response_tokens")
+    async def memoryconfig_response_tokens(self, ctx: commands.Context, value: Optional[int]):
+        """Hard limit on the number of tokens the responder will send."""
+        assert ctx.guild
+        if not value:
+            value = await self.config.guild(ctx.guild).response_tokens()
+        elif value < 1000 or value > 20000:
+            await ctx.reply("Value must be between 1000 and 20000", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).response_tokens.set(value)
+        await ctx.reply(f"`[response_tokens:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="backread_tokens")
+    async def memoryconfig_backread_tokens(self, ctx: commands.Context, value: Optional[int]):
+        """Soft limit on the number of tokens the LLM will read from the chat history."""
+        assert ctx.guild
+        if not value:
+            value = await self.config.guild(ctx.guild).backread_tokens()
+        elif value < 100 or value > 10000:
+            await ctx.reply("Value must be between 100 and 10000", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).backread_tokens.set(value)
+        await ctx.reply(f"`[backread_tokens:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="backread_messages")
+    async def memoryconfig_backread_messages(self, ctx: commands.Context, value: Optional[int]):
+        """How many messages in chat the recaller and responder will read."""
+        assert ctx.guild
+        if not value:
+            value = await self.config.guild(ctx.guild).backread_messages()
+        elif value < 0 or value > 100:
+            await ctx.reply("Value must be between 0 and 100", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).backread_messages.set(value)
+        await ctx.reply(f"`[backread_messages:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="backread_memorizer")
+    async def memoryconfig_backread_memorizer(self, ctx: commands.Context, value: Optional[int]):
+        """How many messages in chat the memorizer will read."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).backread_memorizer()
+        elif value < 0 or value > 100:
+            await ctx.reply("Value must be between 0 and 100", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).backread_memorizer.set(value)
+        await ctx.reply(f"`[backread_memorizer:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="max_images")
+    async def memoryconfig_max_images(self, ctx: commands.Context, value: Optional[int]):
+        """How many images to extract from the whole chat history."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).max_images()
+        elif value < 0 or value > 100:
+            await ctx.reply("Value must be between 0 and 100", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).max_images.set(value)
+        await ctx.reply(f"`[max_images:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="max_images_per_message")
+    async def memoryconfig_max_images_per_message(self, ctx: commands.Context, value: Optional[int]):
+        """How many images to extract from each message."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).max_images_per_message()
+        elif value < 1 or value > 10:
+            await ctx.reply("Value must be between 1 and 10", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).max_images_per_message.set(value)
+        await ctx.reply(f"`[max_images_per_message:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="max_tool")
+    async def memoryconfig_max_tool(self, ctx: commands.Context, value: Optional[int]):
+        """Character limit for function calls."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).max_tool()
+        elif value < 1000 or value > 20000:
+            await ctx.reply("Value must be between 1000 and 20000", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).max_tool.set(value)
+        await ctx.reply(f"`[max_tool:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="max_quote")
+    async def memoryconfig_max_quote(self, ctx: commands.Context, value: Optional[int]):
+        """Character limit for message replies."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).max_quote()
+        elif value < 200 or value > 10000:
+            await ctx.reply("Value must be between 200 and 10000", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).max_quote.set(value)
+        await ctx.reply(f"`[max_quote:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="max_text_file")
+    async def memoryconfig_max_text_file(self, ctx: commands.Context, value: Optional[int]):
+        """Character limit for text files."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).max_text_file()
+        elif value < 2000 or value > 20000:
+            await ctx.reply("Value must be between 2000 and 20000", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).max_text_file.set(value)
+        await ctx.reply(f"`[max_text_file:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="max_image_resolution")
+    async def memoryconfig_max_image_resolution(self, ctx: commands.Context, value: Optional[int]):
+        """Images will be resized to this resolution before being sent to OpenAI."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).max_image_resolution()
+        elif value < 512 or value > 2048:
+            await ctx.reply("Value must be between 512 and 2048", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).max_image_resolution.set(value)
+        await ctx.reply(f"`[max_image_resolution:]` {value}", mention_author=False)

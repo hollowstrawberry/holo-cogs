@@ -27,7 +27,7 @@ def make_image_content(fp: BytesIO) -> dict:
         }
     }
 
-def process_image(buffer: BytesIO, size=768) -> Optional[BytesIO]:
+def process_image(buffer: BytesIO, size: int) -> Optional[BytesIO]:
     try:
         image = Image.open(buffer)
     except UnidentifiedImageError:
