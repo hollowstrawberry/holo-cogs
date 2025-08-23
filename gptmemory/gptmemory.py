@@ -344,7 +344,8 @@ class GptMemory(GptMemoryBase):
                 total_images += len(image_contents)
             else:
                 image_contents = []
-            text_content = await self.parse_discord_message(backmsg, quote=quote)
+            trim_quote = quote is not None and quote in backread
+            text_content = await self.parse_discord_message(backmsg, quote, trim_quote, recursive=True)
             if image_contents:
                 image_contents.insert(0, {"type": "text", "text": text_content})
                 messages.append({
@@ -451,7 +452,7 @@ class GptMemory(GptMemoryBase):
         return image_contents
 
 
-    async def parse_discord_message(self, message: discord.Message, quote: discord.Message = None, recursive=True) -> str:
+    async def parse_discord_message(self, message: discord.Message, quote: discord.Message = None, trim_quote=True, recursive=True) -> str:
         assert message.guild
 
         content = f"[Username: {sanitize(message.author.name)}]"
@@ -474,10 +475,9 @@ class GptMemory(GptMemoryBase):
             if metadata and metadata.get("Prompt", None):
                 is_generated_image = True
                 if message.author == message.guild.me:
-                    content += f"[[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
+                    content += f" [[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
                 else:
-                    content += f"[[ [Image with prompt:] {metadata['Prompt']} ]]"
-            
+                    content += f" [[ [Image with prompt:] {metadata['Prompt']} ]]"
         
         if not is_generated_image:
             for attachment in message.attachments:
@@ -505,15 +505,15 @@ class GptMemory(GptMemoryBase):
                 if len(file_content) > 4010:
                     file_content = f"{file_content[:2000]}\n(...)\n{file_content[-2000:]}"
                 total_file_length += len(file_content)
-                content += f"\n[[[Content of {text_file.filename}: {file_content}]]]"
+                content += f"\n[[[ Content of {text_file.filename}: {file_content} ]]]"
                 if total_file_length > 4000:
                     break
 
         if quote and recursive:
             quote_content = (await self.parse_discord_message(quote, recursive=False)).replace("\n", " ")
-            if len(quote_content) > defaults.QUOTE_LENGTH:
+            if trim_quote and len(quote_content) > defaults.QUOTE_LENGTH:
                 quote_content = quote_content[:defaults.QUOTE_LENGTH-3] + "..."
-            content += f"\n[[[Replying to: {quote_content}]]]"            
+            content += f"\n[[[ Replying to: {quote_content} ]]]"            
 
         if len(content) == starting_len:
             content += " [Message empty or not supported]"
