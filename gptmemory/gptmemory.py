@@ -297,17 +297,22 @@ class GptMemory(GptMemoryBase):
                 if action == "delete":
                     del memory[name]
                     del self.memory[ctx.guild.id][name]
-                    log.info(f"memory {name} deleted")
-                elif action == "append" and name in memory:
-                    memory[name] = memory[name] + " ... " + content
-                    self.memory[ctx.guild.id][name] = memory[name]
-                    log.info(f"memory {name} = \"{memory[name]}\"")
-                elif name in memory and memory[name] == content:
-                    continue
-                else:
+                    log.info(f"delete memory {name=}")
+
+                elif action == "create" and name not in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.info(f"memory {name} = \"{content}\"")
+                    log.info(f"create memory {name=} {content=}")
+
+                elif action == "modify" and name in memory:
+                    memory[name] = content
+                    self.memory[ctx.guild.id][name] = content
+                    log.info(f"modify memory {name=} {content=}")
+                    
+                else:
+                    memory[name] += " ... " + content
+                    self.memory[ctx.guild.id][name] += "..." + content
+                    log.info(f"append memory {name=} {content=}")
 
                 memory_changes.append(name)
 

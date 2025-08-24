@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 # Structured Outputs
 
 class MemoryChange(BaseModel):
-    action_type: Literal["create", "adjust", "append", "delete"]
+    action_type: Literal["create", "append", "modify", "delete"]
     memory_name: str
     memory_content: str
 
