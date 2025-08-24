@@ -53,7 +53,6 @@ class GptMemory(GptMemoryBase):
                 secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
                 if not secret:
                     self.available_function_calls.discard(function)
-        log.info(f"{self.available_function_calls=}")
 
     async def initialize_openai_client(self):
         api_key = (await self.bot.get_shared_api_tokens("openai")).get("api_key")
