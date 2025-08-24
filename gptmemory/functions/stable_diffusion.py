@@ -149,7 +149,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 height=height
             )
 
-        message_content = f"Result of {self.ctx.message.jump_url} requested by {self.ctx.author.mention}"
+        message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
         task = aimage.generate_image(self.ctx, params=params, message_content=message_content) # type: ignore
         asyncio.create_task(task)
 
