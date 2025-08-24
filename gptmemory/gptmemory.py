@@ -299,22 +299,22 @@ class GptMemory(GptMemoryBase):
                 if action == "delete":
                     del memory[name]
                     del self.memory[ctx.guild.id][name]
-                    log.info(f"delete memory {name=}")
+                    log.info(f"delete memory / {name=}")
 
                 elif action == "create" and name not in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.info(f"create memory {name=} {content=}")
+                    log.info(f"create memory / {name=} / {content=}")
 
                 elif action == "modify" and name in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.info(f"modify memory {name=} {content=}")
+                    log.info(f"modify memory / {name=} / {content=}")
 
                 else:
                     memory[name] += " ... " + content
-                    self.memory[ctx.guild.id][name] += "..." + content
-                    log.info(f"append memory {name=} {content=}")
+                    self.memory[ctx.guild.id][name] += " ... " + content
+                    log.info(f"append memory / {name=} / {content=}")
 
                 memory_changes.append(name)
 
@@ -374,7 +374,8 @@ class GptMemory(GptMemoryBase):
             if n > 0 and tokens > await self.config.guild(ctx.guild).backread_tokens():
                 break
 
-        log.info(f"{len(messages)=} / {tokens=}")
+        log.info(f"{len(messages)=} / {total_images=} / {tokens=} ")
+
         return list(reversed(messages))
 
 
@@ -387,7 +388,6 @@ class GptMemory(GptMemoryBase):
                             ) -> GptImageContent:
         
         if message.id in self.image_cache:
-            log.info("Retrieving cached image(s)")
             return self.image_cache[message.id]
 
         image_contents = []
@@ -422,7 +422,6 @@ class GptMemory(GptMemoryBase):
 
                 image_contents.append(make_image_content(fp_after))
                 del fp_after
-                log.info(image.filename)
 
         if image_contents:
             self.image_cache[message.id] = [cnt for cnt in image_contents]
@@ -463,7 +462,6 @@ class GptMemory(GptMemoryBase):
                     continue
                 image_contents.append(make_image_content(fp_after))
                 del fp_after
-                log.info(url)
 
         if image_contents:
             self.image_cache[message.id] = [cnt for cnt in image_contents]
