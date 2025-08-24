@@ -1,5 +1,6 @@
 
 import logging
+import asyncio
 import discord
 from typing import Any, Optional, Tuple
 from dataclasses import dataclass, field
@@ -147,6 +148,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 height=height
             )
 
-        asyncio.create_task(aimage.generate_image(self.ctx, params=params)) # type: ignore
+        message_content = f"Requested by {self.ctx.author} at {self.ctx.message.jump_url}"
+        task = aimage.generate_image(self.ctx, params=params, message_content=message_content) # type: ignore
+        asyncio.create_task(task)
 
         return f"[Image generation started successfully] [Prompt:] {prompt}"
