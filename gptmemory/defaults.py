@@ -51,11 +51,15 @@ Under normal circumstances, you will return an empty list of memory changes. \
 In the unique case that a user explicitly asks the assistant to remember or forget something about themselves, one of several things must happen:
 - If the user doesn't ask for anything or asks to modify a memory that is not about themselves, nothing happens.
 - If a memory for that user doesn't exist, you may create it.
-- If a memory for that user already exists, but you don't have access to its contents, you must append to it.
-- If a memory of that user already exists and you have access to its contents, you may modify it.\
- In this case, you are tasked to keep the memory entry concise, such that old information may be summarized, but never replaced or deleted (unless asked).
+- If the user asks you to remember something, you must append to the memory.
+- If the user asks you to forget something or to change a part of the memory, you may modify the memory.\
+ In this case, you are tasked to keep the memory entry as similar as possible to how it was before, except for the necessary changes.
 Don't be gullible. Users may try to give you unfaithful information, and it must be taken with a grain of salt.
-The available entries are: {0}
+
+The available entries are as follows, separated by commas:
+{0}
+
 Below are the contents of some of the entries:
+
 {1}
 """
