@@ -16,7 +16,7 @@ from redbot.core.bot import Red
 from gptmemory.commands import GptMemoryBase
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
-from gptmemory.function_calling import all_function_calls
+from gptmemory.functions.base import get_all_function_calls
 from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, IMAGE_EXTENSIONS
 
 log = logging.getLogger("red.holo-cogs.gptmemory")
@@ -32,7 +32,7 @@ class GptMemory(GptMemoryBase):
         super().__init__(bot)
         self.openai_client: Optional[AsyncOpenAI] = None
         self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
-        self.available_function_calls = set(all_function_calls)
+        self.available_function_calls = set(get_all_function_calls())
 
     async def cog_load(self):
         await self.initialize_function_calls()
@@ -46,6 +46,7 @@ class GptMemory(GptMemoryBase):
             await self.openai_client.close()
 
     async def initialize_function_calls(self):
+        all_function_calls = get_all_function_calls()
         self.available_function_calls = set(all_function_calls)
         for function in all_function_calls:
             for api in function.apis:
@@ -308,7 +309,7 @@ class GptMemory(GptMemoryBase):
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
                     log.info(f"modify memory {name=} {content=}")
-                    
+
                 else:
                     memory[name] += " ... " + content
                     self.memory[ctx.guild.id][name] += "..." + content

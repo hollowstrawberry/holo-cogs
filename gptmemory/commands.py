@@ -6,7 +6,7 @@ from redbot.core.bot import Red
 
 import gptmemory.defaults as defaults
 import gptmemory.constants as constants
-from gptmemory.function_calling import all_function_calls
+from gptmemory.functions.base import get_all_function_calls
 
 
 class GptMemoryBase(commands.Cog):
@@ -249,7 +249,7 @@ class GptMemoryBase(commands.Cog):
         assert ctx.guild
         disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
         functions = []
-        for function in all_function_calls:
+        for function in get_all_function_calls():
             name = function.schema.function.name
             s = f"`{name}`: {'disabled' if name in disabled_functions else 'enabled'}"
             for api in function.apis:
@@ -263,7 +263,7 @@ class GptMemoryBase(commands.Cog):
     async def memoryconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
         assert ctx.guild
         """Enables or disables a function"""
-        all_function_names = [f.schema.function.name for f in all_function_calls]
+        all_function_names = [f.schema.function.name for f in get_all_function_calls()]
         if function_name not in all_function_names:
             await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_function_names]))
             return
