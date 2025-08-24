@@ -1,6 +1,9 @@
 from .gptmemory import GptMemory
 from redbot.core.utils import get_end_user_data_statement
 
+import logging
+logging.getLogger("httpx").setLevel(logging.ERROR)
+
 __red_end_user_data_statement__ = get_end_user_data_statement(__file__)
 
 async def setup(bot):
