@@ -2,6 +2,7 @@ import discord
 import discord.ext.commands as commands
 from io import BytesIO
 from re import Match
+from copy import deepcopy
 from base64 import b64encode
 from typing import Optional, List
 from PIL import Image, UnidentifiedImageError
@@ -44,15 +45,22 @@ def process_image(buffer: BytesIO, size: int) -> Optional[BytesIO]:
     return fp
 
 def get_text_contents(messages: List[dict]):
+    """
+    Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
+    and overrides all the message roles to user.
+    """
     temp_messages = []
-    for msg in messages:
+    for msg in deepcopy(messages):
         if isinstance(msg["content"], str):
-            temp_messages.append(msg)
+            temp_messages.append({
+                "role": "user",
+                "content": msg["content"]
+            })
         else:
             for cnt in msg["content"]:
                 if "text" in cnt:
                     temp_messages.append({
-                        "role": msg["role"],
+                        "role": "user",
                         "content": cnt["text"]
                     })
                 break
