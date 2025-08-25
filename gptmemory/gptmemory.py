@@ -422,6 +422,7 @@ class GptMemory(GptMemoryBase):
             if images_left > 0:
                 image_contents = await self.extract_images(backmsg, quote, processed_image_sources, images_left, max_image_size)
                 total_images += len(image_contents)
+                log.info(f"{max_images} {max_images_per_message} {total_images=} {images_left=}")
             else:
                 image_contents = []
             trim_quote = quote is not None and quote in backread
