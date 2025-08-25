@@ -22,9 +22,9 @@ MEMORIZER_ALERTS = True
 DISABLED_FUNCTIONS = ["search_booru_tags", "search_models_arcenciel", "generate_stable_diffusion"]
 
 PROMPT_RECALLER = """\
-You are the memory manager of a conversational AI. You will be shown a chat history and a list of memory names, \
-and you must return a list of all relevant memories to the current conversation, always including entries of the usernames involved. \
-Here are all the available entries, separated by commas:
+You are a conversation parser. You will be given a list of topics as well as a conversation between various users, \
+and your objective is to provide the names of the topics relevant to the conversation. \
+Here are all the available topics, separated by commas:
 {0}
 """
 
