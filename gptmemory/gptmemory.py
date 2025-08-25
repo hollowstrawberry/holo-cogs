@@ -382,7 +382,7 @@ class GptMemory(GptMemoryBase):
             await ctx.send(f"`Revised memories: {', '.join(memory_changes)}`")
 
 
-    async def get_message_history(self, ctx: commands.Context) -> List[GptMessage]:
+    async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> List[GptMessage]:
         assert ctx.guild and self.bot.user
         backread = [message async for message in ctx.channel.history(
             limit=await self.config.guild(ctx.guild).backread_messages(),
@@ -411,7 +411,7 @@ class GptMemory(GptMemoryBase):
             except (AttributeError, discord.DiscordException):
                 quote = None
 
-            images_left = max_images - total_images
+            images_left = min(max_images - total_images, max_images_per_message)
             if images_left > 0:
                 image_contents = await self.extract_images(backmsg, quote, processed_image_sources, images_left, max_image_size)
                 total_images += len(image_contents)
@@ -435,7 +435,9 @@ class GptMemory(GptMemoryBase):
             if n > 0 and tokens > await self.config.guild(ctx.guild).backread_tokens():
                 break
 
-        log.info(f"{len(messages)=} / {total_images=} / {tokens=} ")
+        result.tokens_backread = tokens
+        result.images = total_images
+        result.messages = len(messages)
 
         return list(reversed(messages))
 
