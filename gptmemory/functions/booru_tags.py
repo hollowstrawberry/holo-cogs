@@ -10,7 +10,7 @@ from redbot.core.data_manager import bundled_data_path
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
-log = logging.getLogger("red.holo-cogs.gptmemory")
+log = logging.getLogger("gptmemory.boorutags")
 
 
 class BooruTagsFunctionCall(FunctionCallBase):

@@ -7,6 +7,7 @@ from io import BytesIO
 from datetime import datetime
 from difflib import get_close_matches
 from typing import Optional, Union, List, Dict, Any
+from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
 from tiktoken import encoding_for_model
@@ -19,10 +20,22 @@ from gptmemory.schema import MemoryChangeList
 from gptmemory.functions.base import get_all_function_calls
 from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, IMAGE_EXTENSIONS
 
-log = logging.getLogger("red.holo-cogs.gptmemory")
+log = logging.getLogger("gptmemory")
 
 GptImageContent = List[Dict[str, str]]
 GptMessage = Dict[str, Union[str, GptImageContent]]
+
+
+@dataclass
+class GptMemoryResult:
+    messages: int = 0
+    images: int = 0
+    tokens_backread: int = 0
+    tokens_recaller: int = 0
+    tokens_system: int = 0
+    tokens_responder: int = 0
+    tokens_after_tools: int = 0
+    tokens_memorizer: int = 0
 
 
 class GptMemory(GptMemoryBase):
@@ -125,23 +138,19 @@ class GptMemory(GptMemoryBase):
         memories = list(self.memory[ctx.guild.id].keys())
 
         await ctx.channel.typing()
+        result = GptMemoryResult()
         messages = await self.get_message_history(ctx)
-        recalled_memories = await self.execute_recaller(ctx, messages, memories)
-        await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories)
+        recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
+        await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories, result)
+        log.info(result)
 
 
-    async def execute_responder_and_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: List[str], recalled_memories: str):
-        results = await asyncio.gather(
-            self.execute_responder(ctx, messages, recalled_memories),
-            self.execute_memorizer(ctx, messages, memories, recalled_memories),
-            return_exceptions=True
-        )
-        for idx, result in enumerate(results):
-            if isinstance(result, BaseException):
-                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(result).__name__}", result)
-
-
-    async def execute_recaller(self, ctx: commands.Context, messages: List[GptMessage], memories: List[str]) -> str:
+    async def execute_recaller(self,
+                               ctx: commands.Context,
+                               messages: List[GptMessage],
+                               memories: List[str],
+                               result: GptMemoryResult
+                               ) -> str:
         """
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a parsed string of memories and their contents as chosen by the LLM.
@@ -175,16 +184,37 @@ class GptMemory(GptMemoryBase):
         if completion:
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         if response.usage:
-            recaller_tokens = response.usage.completion_tokens
-            log.info(f"{recaller_tokens=}")
-        log.info(f"{memories_to_recall=}")
+            result.tokens_recaller = response.usage.completion_tokens
+        log.debug(f"{memories_to_recall=}")
 
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         return recalled_memories_str or "[None]"
 
 
-    async def execute_responder(self, ctx: commands.Context, messages: List[GptMessage], recalled_memories: str) -> GptMessage:
+    async def execute_responder_and_memorizer(self,
+                                              ctx: commands.Context,
+                                              messages: List[GptMessage],
+                                              memories: List[str],
+                                              recalled_memories: str,
+                                              result: GptMemoryResult
+                                              ) -> None:
+        task_results = await asyncio.gather(
+            self.execute_responder(ctx, messages, recalled_memories, result),
+            self.execute_memorizer(ctx, messages, memories, recalled_memories, result),
+            return_exceptions=True
+        )
+        for idx, res in enumerate(task_results):
+            if isinstance(res, BaseException):
+                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", res)
+
+
+    async def execute_responder(self,
+                                ctx: commands.Context,
+                                messages: List[GptMessage],
+                                recalled_memories: str,
+                                result: GptMemoryResult
+                                ) -> GptMessage:
         """
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
@@ -202,9 +232,8 @@ class GptMemory(GptMemoryBase):
             memories=recalled_memories,
         )
         encoding = encoding_for_model("gpt-4o")
-        system_tokens = len(encoding.encode(system_content))
-        log.info(f"{system_tokens=}")
-
+        result.tokens_system = len(encoding.encode(system_content))
+        
         system_prompt = {
             "role": "developer" if "gpt-5" in model else "system",
             "content": system_content
@@ -224,8 +253,7 @@ class GptMemory(GptMemoryBase):
                 tools=[t.asdict() for t in tools], # type: ignore
             )
             if response.usage:
-                response_tokens = response.usage.completion_tokens
-                log.info(f"{response_tokens=}")
+                result.tokens_responder = response.usage.completion_tokens
 
             if response.choices[0].message.tool_calls:
                 temp_messages.append(response.choices[0].message) # type: ignore
@@ -242,8 +270,8 @@ class GptMemory(GptMemoryBase):
                     tool_result = tool_result.strip()
                     if len(tool_result) > max_tool_length:
                         tool_result = tool_result[:max_tool_length-3] + "..."
-                    log.info(f"{call.function.arguments=}") # type: ignore
-                    log.info(f"{tool_result=}")
+                    log.debug(f"{call.function.arguments=}") # type: ignore
+                    log.debug(f"{tool_result=}")
 
                     temp_messages.append({
                         "role": "tool",
@@ -260,12 +288,11 @@ class GptMemory(GptMemoryBase):
                     reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
                 )
                 if response.usage:
-                    response_tokens_2 = response.usage.completion_tokens
-                    log.info(f"{response_tokens_2=}")
+                    result.tokens_after_tools = response.usage.completion_tokens
 
             completion = response.choices[0].message.content
             if completion:
-                log.info(f"{completion=}")
+                log.debug(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 await chunk_and_send(ctx, reply_content)
 
@@ -276,7 +303,13 @@ class GptMemory(GptMemoryBase):
         return response_message # type: ignore
 
 
-    async def execute_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: List[str], recalled_memories: str) -> None:
+    async def execute_memorizer(self,
+                                ctx: commands.Context,
+                                messages: List[GptMessage],
+                                memories: List[str],
+                                recalled_memories: str,
+                                result: GptMemoryResult
+                                ) -> None:
         """
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
@@ -305,8 +338,7 @@ class GptMemory(GptMemoryBase):
         )
         completion = response.choices[0].message
         if response.usage:
-            memorizer_tokens = response.usage.completion_tokens
-            log.info(f"{memorizer_tokens=}")
+            result.tokens_memorizer = response.usage.completion_tokens
         if completion.refusal:
             log.warning(completion.refusal)
             return
@@ -327,22 +359,22 @@ class GptMemory(GptMemoryBase):
                 if action == "delete":
                     del memory[name]
                     del self.memory[ctx.guild.id][name]
-                    log.info(f"delete memory / {name=}")
+                    log.debug(f"delete memory / {name=}")
 
                 elif action == "create" and name not in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.info(f"create memory / {name=} / {content=}")
+                    log.debug(f"create memory / {name=} / {content=}")
 
                 elif action == "modify" and name in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.info(f"modify memory / {name=} / {content=}")
+                    log.debug(f"modify memory / {name=} / {content=}")
 
                 else:
                     memory[name] += " ... " + content
                     self.memory[ctx.guild.id][name] += " ... " + content
-                    log.info(f"append memory / {name=} / {content=}")
+                    log.debug(f"append memory / {name=} / {content=}")
 
                 memory_changes.append(name)
 

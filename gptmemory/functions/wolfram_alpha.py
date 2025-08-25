@@ -7,7 +7,7 @@ from gptmemory.utils import farenheit_to_celsius
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
-log = logging.getLogger("red.holo-cogs.gptmemory")
+log = logging.getLogger("gptmemory.wolframalpha")
 
 
 class WolframAlphaFunctionCall(FunctionCallBase):

@@ -9,7 +9,7 @@ from redbot.core import commands
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
-log = logging.getLogger("red.holo-cogs.gptmemory")
+log = logging.getLogger("gptmemory.stablediffusion")
 
 
 @dataclass
@@ -70,7 +70,6 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             messages.append(quoted)
         for message in messages:
             for attachment in message.attachments:
-                log.info(filename)
                 if attachment.filename == filename and self.ctx.guild:
                     return (message.author.id == self.ctx.guild.me.id, message)
         return (False, None)
