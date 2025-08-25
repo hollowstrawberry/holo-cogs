@@ -1,4 +1,4 @@
-MODEL_RECALLER = "gpt-4.1"
+MODEL_RECALLER = "gpt-4.1-mini"
 MODEL_RESPONDER = "gpt-4.1"
 MODEL_MEMORIZER = "gpt-5-mini"
 
