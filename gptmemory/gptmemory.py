@@ -178,6 +178,7 @@ class GptMemory(GptMemoryBase):
         )
         completion = response.choices[0].message.content
         if completion:
+            log.info(f"recaller {completion=}")
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         if response.usage:
             recaller_tokens = response.usage.completion_tokens
