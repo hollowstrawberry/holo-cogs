@@ -156,12 +156,13 @@ class GptMemory(GptMemoryBase):
         for memory in memories:
             # If messages contain memory name as substring, recall the memory and don't include it in the prompt.
             # Messages will also contain the usernames.
-            if any(memory in msg["content"] for msg in temp_messages):
-                log.info(f"pre-recall {memory=}")
-                temp_memories.remove(memory)
-                memories_to_recall.add(memory)
+            for message in temp_messages:
+                if memory in message["content"]:
+                    log.info(f"pre-recall {memory=}")
+                    temp_memories.remove(memory)
+                    memories_to_recall.add(memory)
             # If memory name is a username, don't include it in the prompt.
-            elif any(member.name == memory for member in ctx.guild.members):
+            if any(member.name == memory for member in ctx.guild.members):
                 temp_memories.remove(memory)
 
         temp_memories_str = ", ".join(temp_memories)
