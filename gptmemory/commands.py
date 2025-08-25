@@ -249,10 +249,10 @@ class GptMemoryBase(commands.Cog):
         assert ctx.guild
         disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
         functions = []
-        for function in get_all_function_calls():
-            name = function.schema.function.name
+        for tool in get_all_function_calls():
+            name = tool.schema.function.name
             s = f"`{name}`: {'disabled' if name in disabled_functions else 'enabled'}"
-            for api in function.apis:
+            for api in tool.apis:
                 secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
                 if not secret:
                     s += f" (API not set: {api[0]} {api[1]})"

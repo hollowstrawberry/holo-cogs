@@ -33,7 +33,7 @@ class GptMemory(GptMemoryBase):
         self.openai_client: Optional[AsyncOpenAI] = None
         self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
         self.available_function_calls = set(get_all_function_calls())
-        all_function_names = [function.schema.function.name for function in self.available_function_calls]
+        all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
         log.info(f"{all_function_names=}")
 
     async def cog_load(self):
@@ -195,16 +195,22 @@ class GptMemory(GptMemoryBase):
         
         model = await self.config.guild(ctx.guild).model_responder()
         
+        system_content = (await self.config.guild(ctx.guild).prompt_responder()).format(
+            botname=self.bot.user.name,
+            servername=ctx.guild.name,
+            channelname=ctx.channel.name,
+            emotes=(await self.config.guild(ctx.guild).emotes()) or "[None]",
+            currentdatetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z"),
+            memories=recalled_memories,
+        )
+        encoding = encoding_for_model("gpt-4o")
+        system_tokens = len(encoding.encode(system_content))
+        log.info(f"{system_tokens=}")
+
         system_prompt = {
             "role": "developer" if "gpt-5" in model else "system",
-            "content": (await self.config.guild(ctx.guild).prompt_responder()).format(
-                botname=self.bot.user.name,
-                servername=ctx.guild.name,
-                channelname=ctx.channel.name,
-                emotes=(await self.config.guild(ctx.guild).emotes()) or "[None]",
-                currentdatetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z"),
-                memories=recalled_memories,
-            )}
+            "content": system_content
+        }
         temp_messages = [msg for msg in messages]
         temp_messages.insert(0, system_prompt)
 
@@ -252,7 +258,6 @@ class GptMemory(GptMemoryBase):
                     max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
                     reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
                 )
-
 
             completion = response.choices[0].message.content
             if completion:
