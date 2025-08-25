@@ -51,7 +51,12 @@ class GptMemoryBase(commands.Cog):
         assert ctx.guild
         if not name:
             if ctx.guild.id in self.memory and self.memory[ctx.guild.id]:
-                return await ctx.send(", ".join(f"`{mem}`" for mem in self.memory[ctx.guild.id].keys()))
+                memories = self.memory[ctx.guild.id].keys()
+                user_memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
+                memories = [memory for memory in memories if memory not in user_memories]
+                reply = "`[Memories:]`\n> " + ", ".join(f"`{mem}`" for mem in memories) \
+                    + "\n\n`[User memories:]`\n> " + ", ".join(f"`{mem}`" for mem in user_memories)
+                return await ctx.send(reply)
             else:
                 return await ctx.send("No memories...")
         if ctx.guild.id in self.memory:
