@@ -185,7 +185,7 @@ class GptMemory(GptMemoryBase):
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         if response.usage:
             result.tokens_recaller = response.usage.completion_tokens
-        log.debug(f"{memories_to_recall=}")
+        log.info(f"{memories_to_recall=}")
 
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
@@ -270,8 +270,8 @@ class GptMemory(GptMemoryBase):
                     tool_result = tool_result.strip()
                     if len(tool_result) > max_tool_length:
                         tool_result = tool_result[:max_tool_length-3] + "..."
-                    log.debug(f"{call.function.arguments=}") # type: ignore
-                    log.debug(f"{tool_result=}")
+                    log.info(f"{call.function.arguments=}") # type: ignore
+                    log.info(f"{tool_result=}")
 
                     temp_messages.append({
                         "role": "tool",
@@ -292,7 +292,7 @@ class GptMemory(GptMemoryBase):
 
             completion = response.choices[0].message.content
             if completion:
-                log.debug(f"{completion=}")
+                log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 await chunk_and_send(ctx, reply_content)
 
@@ -359,22 +359,22 @@ class GptMemory(GptMemoryBase):
                 if action == "delete":
                     del memory[name]
                     del self.memory[ctx.guild.id][name]
-                    log.debug(f"delete memory / {name=}")
+                    log.info(f"delete memory / {name=}")
 
                 elif action == "create" and name not in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.debug(f"create memory / {name=} / {content=}")
+                    log.info(f"create memory / {name=} / {content=}")
 
                 elif action == "modify" and name in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.debug(f"modify memory / {name=} / {content=}")
+                    log.info(f"modify memory / {name=} / {content=}")
 
                 else:
                     memory[name] += " ... " + content
                     self.memory[ctx.guild.id][name] += " ... " + content
-                    log.debug(f"append memory / {name=} / {content=}")
+                    log.info(f"append memory / {name=} / {content=}")
 
                 memory_changes.append(name)
 
