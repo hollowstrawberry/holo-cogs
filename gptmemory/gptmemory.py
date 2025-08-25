@@ -168,9 +168,10 @@ class GptMemory(GptMemoryBase):
                 memories_to_recall.add(memory)
 
         temp_memories_str = ", ".join(temp_memories)
+        system_content = (await self.config.guild(ctx.guild).prompt_recaller()).format(temp_memories_str)
         system_prompt = {
             "role": "system",
-            "content": (await self.config.guild(ctx.guild).prompt_recaller()).format(temp_memories_str)
+            "content": system_content
         }
         temp_messages.insert(0, system_prompt)
 
@@ -319,9 +320,14 @@ class GptMemory(GptMemoryBase):
             return
 
         memories_str = ", ".join(memories)
+        system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
+            memories_str,
+            recalled_memories,
+            botname=ctx.me.name
+        )
         system_prompt = {
             "role": "system",
-            "content": (await self.config.guild(ctx.guild).prompt_memorizer()).format(memories_str, recalled_memories)
+            "content": system_content
         }
         temp_messages = get_text_contents(messages)
         num_backread = await self.config.guild(ctx.guild).backread_memorizer()
@@ -402,6 +408,7 @@ class GptMemory(GptMemoryBase):
         max_images_per_message = await self.config.guild(ctx.guild).max_images_per_message()
         max_quote_length = await self.config.guild(ctx.guild).max_quote()
         max_file_length = await self.config.guild(ctx.guild).max_text_file()
+        max_backread_tokens = await self.config.guild(ctx.guild).backread_tokens()
         for n, backmsg in enumerate(backread):
             try:
                 quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id) # type: ignore
@@ -432,7 +439,7 @@ class GptMemory(GptMemoryBase):
                 })
 
             tokens += len(encoding.encode(text_content)) + 425 * len(image_contents)
-            if n > 0 and tokens > await self.config.guild(ctx.guild).backread_tokens():
+            if n > 0 and tokens > max_backread_tokens:
                 break
 
         result.tokens_backread = tokens
