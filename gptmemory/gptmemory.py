@@ -139,7 +139,7 @@ class GptMemory(GptMemoryBase):
 
         await ctx.channel.typing()
         result = GptMemoryResult()
-        messages = await self.get_message_history(ctx)
+        messages = await self.get_message_history(ctx, result)
         recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
         await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories, result)
         log.info(result)
