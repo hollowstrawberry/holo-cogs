@@ -379,8 +379,9 @@ class GptMemory(GptMemoryBase):
             except (AttributeError, discord.DiscordException):
                 quote = None
 
-            if total_images < max_images:
-                image_contents = await self.extract_images(backmsg, quote, processed_image_sources, max_images_per_message, max_image_size)
+            images_left = max_images - total_images
+            if images_left > 0:
+                image_contents = await self.extract_images(backmsg, quote, processed_image_sources, images_left, max_image_size)
                 total_images += len(image_contents)
             else:
                 image_contents = []
@@ -411,7 +412,7 @@ class GptMemory(GptMemoryBase):
                              message: discord.Message,
                              quote: Optional[discord.Message],
                              processed_sources: List[Union[str, discord.Attachment]],
-                             max_images_per_message: bool,
+                             max_images: int,
                              max_image_size: int,
                             ) -> GptImageContent:
         
@@ -425,7 +426,7 @@ class GptMemory(GptMemoryBase):
             attachments = enumerate((message.attachments or []) + (quote.attachments if quote and quote.attachments else []))
             images = [(i, att) for i, att in attachments if att.content_type and att.content_type.startswith('image/')]
 
-            for i, image in images[:max_images_per_message]:
+            for i, image in images[:max_images]:
                 if image in processed_sources:
                     continue
                 processed_sources.append(image)
@@ -472,7 +473,7 @@ class GptMemory(GptMemoryBase):
             return image_contents
 
         async with aiohttp.ClientSession() as session:
-            for url in image_url[:max_images_per_message]:
+            for url in image_url[:max_images]:
                 if url in processed_sources:
                     continue
                 processed_sources.append(url)
