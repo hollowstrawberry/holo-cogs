@@ -157,6 +157,7 @@ class GptMemory(GptMemoryBase):
             # If messages contain memory name as substring, recall the memory and don't include it in the prompt.
             # Messages will also contain the usernames.
             if any(memory in msg["content"] for msg in temp_messages):
+                log.info(f"pre-recall {memory=}")
                 temp_memories.remove(memory)
                 memories_to_recall.add(memory)
             # If memory name is a username, don't include it in the prompt.
@@ -178,7 +179,6 @@ class GptMemory(GptMemoryBase):
         )
         completion = response.choices[0].message.content
         if completion:
-            log.info(f"recaller {completion=}")
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         if response.usage:
             recaller_tokens = response.usage.completion_tokens
