@@ -182,9 +182,6 @@ class GptMemory(GptMemoryBase):
         if response.usage:
             recaller_tokens = response.usage.completion_tokens
             log.info(f"{recaller_tokens=}")
-            if response.usage.completion_tokens_details:
-                recaller_reasoning_tokens = response.usage.completion_tokens_details.reasoning_tokens
-                log.info(f"{recaller_reasoning_tokens=}")
         log.info(f"{memories_to_recall=}")
 
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
@@ -231,6 +228,9 @@ class GptMemory(GptMemoryBase):
                 max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
                 tools=[t.asdict() for t in tools], # type: ignore
             )
+            if response.usage:
+                response_tokens = response.usage.completion_tokens
+                log.info(f"{response_tokens=}")
 
             if response.choices[0].message.tool_calls:
                 temp_messages.append(response.choices[0].message) # type: ignore
@@ -264,6 +264,9 @@ class GptMemory(GptMemoryBase):
                     max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
                     reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
                 )
+                if response.usage:
+                    response_tokens_2 = response.usage.completion_tokens
+                    log.info(f"{response_tokens_2=}")
 
             completion = response.choices[0].message.content
             if completion:
@@ -306,6 +309,9 @@ class GptMemory(GptMemoryBase):
             reasoning_effort=await self.config.guild(ctx.guild).effort_memorizer() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message
+        if response.usage:
+            memorizer_tokens = response.usage.completion_tokens
+            log.info(f"{memorizer_tokens=}")
         if completion.refusal:
             log.warning(completion.refusal)
             return
