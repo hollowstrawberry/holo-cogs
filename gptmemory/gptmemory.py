@@ -122,7 +122,7 @@ class GptMemory(GptMemoryBase):
         assert ctx.guild
         if ctx.guild.id not in self.memory:
             self.memory[ctx.guild.id] = {}
-        memories = ", ".join(self.memory[ctx.guild.id].keys())
+        memories = list(self.memory[ctx.guild.id].keys())
 
         await ctx.channel.typing()
         messages = await self.get_message_history(ctx)
@@ -130,7 +130,7 @@ class GptMemory(GptMemoryBase):
         await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories)
 
 
-    async def execute_responder_and_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: str, recalled_memories: str):
+    async def execute_responder_and_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: List[str], recalled_memories: str):
         results = await asyncio.gather(
             self.execute_responder(ctx, messages, recalled_memories),
             self.execute_memorizer(ctx, messages, memories, recalled_memories),
@@ -141,7 +141,7 @@ class GptMemory(GptMemoryBase):
                 log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(result).__name__}", result)
 
 
-    async def execute_recaller(self, ctx: commands.Context, messages: List[GptMessage], memories: str) -> str:
+    async def execute_recaller(self, ctx: commands.Context, messages: List[GptMessage], memories: List[str]) -> str:
         """
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a parsed string of memories and their contents as chosen by the LLM.
@@ -149,13 +149,27 @@ class GptMemory(GptMemoryBase):
         assert ctx.guild and self.openai_client
         if not memories:
             return ""
-            
+
+        temp_messages = get_text_contents(messages)
+        temp_memories = list(memories)
+        memories_to_recall = set()
+        for memory in memories:
+            # If messages contain memory name as substring, recall the memory and don't include it in the prompt.
+            # Messages will also contain the usernames.
+            if any(memory in msg["content"] for msg in temp_messages):
+                temp_memories.remove(memory)
+                memories_to_recall.add(memory)
+            # If memory name is a username, don't include it in the prompt.
+            elif any(member.name == memory for member in ctx.guild.members):
+                temp_memories.remove(memory)
+
+        temp_memories_str = ", ".join(temp_memories)
         system_prompt = {
             "role": "system",
-            "content": (await self.config.guild(ctx.guild).prompt_recaller()).format(memories)
+            "content": (await self.config.guild(ctx.guild).prompt_recaller()).format(temp_memories_str)
         }
-        temp_messages = get_text_contents(messages)
         temp_messages.insert(0, system_prompt)
+
         model = await self.config.guild(ctx.guild).model_recaller()
         response = await self.openai_client.beta.chat.completions.create(
             model=model,
@@ -163,9 +177,10 @@ class GptMemory(GptMemoryBase):
             reasoning_effort=await self.config.guild(ctx.guild).effort_recaller() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message.content
-        memories_list = [memory.strip() for memory in memories.split(",")]
-        memories_to_recall = [memory for memory in memories_list if memory.lower() in completion.lower()] if completion else []
+        if completion:
+            memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         log.info(f"{memories_to_recall=}")
+
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         return recalled_memories_str or "[None]"
@@ -252,7 +267,7 @@ class GptMemory(GptMemoryBase):
         return response_message # type: ignore
 
 
-    async def execute_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: str, recalled_memories: str) -> None:
+    async def execute_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: List[str], recalled_memories: str) -> None:
         """
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
@@ -261,9 +276,10 @@ class GptMemory(GptMemoryBase):
         if not await self.config.guild(ctx.guild).allow_memorizer():
             return
 
+        memories_str = ", ".join(memories)
         system_prompt = {
             "role": "system",
-            "content": (await self.config.guild(ctx.guild).prompt_memorizer()).format(memories, recalled_memories)
+            "content": (await self.config.guild(ctx.guild).prompt_memorizer()).format(memories_str, recalled_memories)
         }
         temp_messages = get_text_contents(messages)
         num_backread = await self.config.guild(ctx.guild).backread_memorizer()
