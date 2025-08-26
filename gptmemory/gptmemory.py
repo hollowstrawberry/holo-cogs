@@ -439,7 +439,7 @@ class GptMemory(GptMemoryBase):
                 })
 
             text_tokens = len(encoding.encode(text_content))
-            log.info(f"{n=} {text_tokens=} {len(image_contents)=} {text_content=}")
+            log.info(f"{n=} {text_tokens=} {len(image_contents)=}")
             tokens += text_tokens + 425 * len(image_contents)
             if n > 0 and tokens > max_backread_tokens:
                 break
@@ -473,6 +473,7 @@ class GptMemory(GptMemoryBase):
                 if image in processed_sources:
                     continue
                 processed_sources.append(image)
+                log.info(f"Processed source: {image.filename}")
                 
                 fp_before = BytesIO()
                 imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
@@ -497,6 +498,7 @@ class GptMemory(GptMemoryBase):
 
         if image_contents:
             self.image_cache[message.id] = [cnt for cnt in image_contents]
+            log.info(f"extract_images {len(image_contents)=}")
             return image_contents
 
         # URLs
@@ -520,6 +522,7 @@ class GptMemory(GptMemoryBase):
                 if url in processed_sources:
                     continue
                 processed_sources.append(url)
+                log.info(f"Processed source: {url}")
                 
                 try:
                     async with session.get(url) as response:
