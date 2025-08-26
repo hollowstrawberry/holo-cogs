@@ -438,7 +438,9 @@ class GptMemory(GptMemoryBase):
                     "content": text_content
                 })
 
-            tokens += len(encoding.encode(text_content)) + 425 * len(image_contents)
+            text_tokens = len(encoding.encode(text_content))
+            log.info(f"{n=} {text_tokens=} {len(image_contents)=} {text_content=}")
+            tokens += text_tokens + 425 * len(image_contents)
             if n > 0 and tokens > max_backread_tokens:
                 break
 
