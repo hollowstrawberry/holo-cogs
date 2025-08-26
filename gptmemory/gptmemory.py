@@ -150,14 +150,14 @@ class GptMemory(GptMemoryBase):
                                messages: List[GptMessage],
                                memories: List[str],
                                result: GptMemoryResult
-                               ) -> str:
+                               ) -> Dict[str, str]:
         """
         Runs an openai completion with the chat history and a list of memories from the database
-        and returns a parsed string of memories and their contents as chosen by the LLM.
+        and returns a dictionary of memories and their contents as chosen by the LLM.
         """
         assert ctx.guild and self.openai_client
         if not memories:
-            return ""
+            return {}
 
         temp_messages = get_text_contents(messages)
         temp_memories = list(memories)
@@ -189,15 +189,14 @@ class GptMemory(GptMemoryBase):
         log.info(f"{memories_to_recall=}")
 
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
-        recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
-        return recalled_memories_str or "[None]"
+        return recalled_memories or {}
 
 
     async def execute_responder_and_memorizer(self,
                                               ctx: commands.Context,
                                               messages: List[GptMessage],
                                               memories: List[str],
-                                              recalled_memories: str,
+                                              recalled_memories: Dict[str, str],
                                               result: GptMemoryResult
                                               ) -> None:
         task_results = await asyncio.gather(
@@ -213,7 +212,7 @@ class GptMemory(GptMemoryBase):
     async def execute_responder(self,
                                 ctx: commands.Context,
                                 messages: List[GptMessage],
-                                recalled_memories: str,
+                                recalled_memories: Dict[str, str],
                                 result: GptMemoryResult
                                 ) -> GptMessage:
         """
@@ -223,14 +222,14 @@ class GptMemory(GptMemoryBase):
         assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, discord.TextChannel)
         
         model = await self.config.guild(ctx.guild).model_responder()
-        
+        recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         system_content = (await self.config.guild(ctx.guild).prompt_responder()).format(
             botname=self.bot.user.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,
             emotes=(await self.config.guild(ctx.guild).emotes()) or "[None]",
             currentdatetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z"),
-            memories=recalled_memories,
+            memories=recalled_memories_str,
         )
         encoding = encoding_for_model("gpt-4o")
         result.tokens_system = len(encoding.encode(system_content))
@@ -308,7 +307,7 @@ class GptMemory(GptMemoryBase):
                                 ctx: commands.Context,
                                 messages: List[GptMessage],
                                 memories: List[str],
-                                recalled_memories: str,
+                                recalled_memories: Dict[str, str],
                                 result: GptMemoryResult
                                 ) -> None:
         """
@@ -322,11 +321,13 @@ class GptMemory(GptMemoryBase):
         if await self.config.guild(ctx.guild).memorizer_user_only():
             memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
         memories_str = ", ".join(memories)
+        recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items() if k in memories)
         system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
             memories_str,
-            recalled_memories,
+            recalled_memories_str,
             botname=ctx.me.name
         )
+        log.info(f"{system_content=}")
         system_prompt = {
             "role": "system",
             "content": system_content
