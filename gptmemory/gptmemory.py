@@ -319,6 +319,8 @@ class GptMemory(GptMemoryBase):
         if not await self.config.guild(ctx.guild).allow_memorizer():
             return
 
+        if await self.config.guild(ctx.guild).memorizer_user_only():
+            memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
         memories_str = ", ".join(memories)
         system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
             memories_str,

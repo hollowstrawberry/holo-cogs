@@ -18,6 +18,7 @@ IMAGES_PER_CONTEXT = 4
 IMAGE_SIZE = 1024
 
 ALLOW_MEMORIZER = True
+MEMORIZER_USER_ONLY = True
 MEMORIZER_ALERTS = True
 DISABLED_FUNCTIONS = ["search_booru_tags", "search_models_arcenciel", "generate_stable_diffusion"]
 

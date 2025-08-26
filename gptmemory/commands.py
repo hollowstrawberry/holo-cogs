@@ -32,6 +32,7 @@ class GptMemoryBase(commands.Cog):
             "backread_messages": defaults.BACKREAD_MESSAGES,
             "backread_memorizer": defaults.BACKREAD_MEMORIZER,
             "allow_memorizer": defaults.ALLOW_MEMORIZER,
+            "memorizer_user_only": defaults.MEMORIZER_USER_ONLY,
             "memorizer_alerts": defaults.MEMORIZER_ALERTS,
             "disabled_functions": list(defaults.DISABLED_FUNCTIONS),
             "emotes": "",
@@ -221,6 +222,16 @@ class GptMemoryBase(commands.Cog):
         else:
             await self.config.guild(ctx.guild).allow_memorizer.set(value)
         await ctx.reply(f"`[allow_memorizer:]` {value}", mention_author=False)
+
+    @memoryconfig.command(name="memorizer_user_only")
+    async def memoryconfig_memorizeR_user_only(self, ctx: commands.Context, value: Optional[bool]):
+        """If enabled, only memories of usernames will be passed to the memorizer."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).memorizer_user_only()
+        else:
+            await self.config.guild(ctx.guild).memorizer_user_only.set(value)
+        await ctx.reply(f"`[memorizer_user_only:]` {value}", mention_author=False)
 
     @memoryconfig.command(name="memorizer_alerts")
     async def memoryconfig_memorizer_alerts(self, ctx: commands.Context, value: Optional[bool]):
