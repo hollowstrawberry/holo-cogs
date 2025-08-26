@@ -327,7 +327,6 @@ class GptMemory(GptMemoryBase):
             recalled_memories_str,
             botname=ctx.me.name
         )
-        log.info(f"{system_content=}")
         system_prompt = {
             "role": "system",
             "content": system_content
