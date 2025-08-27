@@ -4,9 +4,12 @@ MAX_MESSAGE_LENGTH = 1950
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 
 RESPONSE_CLEANUP_PATTERN = re.compile(r"(^(\[[^[\]]+\]\s?)+|\[\[\[[\s\S]+\]\]\])", re.MULTILINE)
-URL_PATTERN = re.compile(r"(https?://\S+)")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 CODEBLOCK_PATTERN = re.compile(r"^```(\w*)\s*$")
+
+URL_PATTERN = re.compile(r"(https?://\S+)")
+GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")
+ARCENCIEL_MODEL_URL_PATTERN = re.compile(r"(https?://)?arcenciel.io/models/(?P<id>\d+)")
 DISCORD_MESSAGE_LINK_PATTERN = re.compile(r"(https?://)?discord.com/channels/(?P<guild_id>\d+)/(?P<channel_id>\d+)/(?P<message_id>\d+)")
 
 VISION_MODELS = [
