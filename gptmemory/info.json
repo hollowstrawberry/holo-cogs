@@ -2,12 +2,12 @@
     "author": ["hollowstrawberry"],
     "min_bot_version": "3.5.0",
     "min_python_version": [3,9,0],
-    "description": "OpenAI-powered user with persistent memory. Experimental.",
+    "description": "OpenAI-powered user with persistent memory and various tools. Experimental.",
     "hidden": false,
     "install_msg": "\uD83E\uDD16 The gptmemory cog will let you use your Discord Bot as an artificial user in your server, typically serving as an assistant. It features memories which may be manually set or automatically created by the bot, and recalled according to the context of the conversation. It is also capable of viewing images and using the internet. I have found that the more context you provide to a chatbot agent, the more natural its responses will be. Because of the additional context that memories provide, me and my peers have had a lot of fun with this cog.\n:warning: **Important:** This cog is NOT MEANT FOR PUBLIC USE, you are using it at your own risk. There are **no safeguards and no limits.**\nIt uses GPT models, and the approach to memory means it will use as much as 3 times as many input tokens as you would expect, so you may face large monetary charges to your OpenAI api project. It also optionally stores text-based \"memories\" which may contain information about users and their conversations. These memories as well as the recent chat logs are sent to OpenAI servers every time the bot user is pinged. As the bot's owner you become wholly responsible for the data of your users and the money that user interactions will consume.\n\n__Set up:__\n1. You'll need to set an openai api_key, and optionally a serper api_key for google searches and a wolframalpha appid for math and weather operations. Do this with the `[p]set api` command.\n2. Use the `[p]gptmemory channels` command to set the allowed channels for the current server, with either a whitelist or a blacklist.\n3. Take a few minutes to read the prompts for the bot within `[p]gptmemory prompt show` to understand how it works, and consider customizing them to your liking.\n4. You can create memories manually with `[p]setmemory` and view them with `[p]memory`",
     "required_cogs": {},
     "requirements": ["openai", "tiktoken", "expiringdict", "trafilatura", "rapidfuzz"],
-    "short": "OpenAI-powered user with persistent memory. Experimental.",
+    "short": "OpenAI-powered user with persistent memory and various tools. Experimental.",
     "end_user_data_statement": "This cog sends the recent chat history to OpenAI servers for the AI to process. It may also store text-based memories containing information about users and past conversations. It is not meant for public use.",
     "tags": ["holo", "ai", "gpt", "llm", "chatgpt", "chatbot", "openai"]
 }
