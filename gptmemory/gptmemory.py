@@ -626,7 +626,7 @@ class GptMemory(GptMemoryBase):
             else:
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
 
-        if (message_link := DISCORD_MESSAGE_LINK_PATTERN.search(content)):
+        for message_link in DISCORD_MESSAGE_LINK_PATTERN.finditer(content):
             guild_id = int(message_link.group("guild_id"))
             channel_id = int(message_link.group("channel_id"))
             if message.guild.id != guild_id:
