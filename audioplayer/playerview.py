@@ -30,7 +30,7 @@ class AudioPlayerView(View):
             return
         try:
             await audio.command_queue(ctx)
-        except Exception as error: # user-facing error
+        except Exception: # user-facing error
             log.error("queue button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
 
@@ -43,7 +43,7 @@ class AudioPlayerView(View):
             return
         try:
             await audio.command_prev(ctx)
-        except Exception as error: # user-facing error
+        except Exception: # user-facing error
             log.error("previous button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
@@ -58,7 +58,7 @@ class AudioPlayerView(View):
             return
         try:
             await audio.command_pause(ctx)
-        except Exception as error: # user-facing error
+        except Exception: # user-facing error
             log.error("pause button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
@@ -73,7 +73,7 @@ class AudioPlayerView(View):
             return
         try:
             await audio.command_skip(ctx)
-        except Exception as error: # user-facing error
+        except Exception: # user-facing error
             log.error("skip button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
@@ -88,7 +88,7 @@ class AudioPlayerView(View):
             return
         try:
             await audio.command_stop(ctx)
-        except Exception as error: # user-facing error
+        except Exception: # user-facing error
             log.error("stop button", exc_info=True)
             await inter.response.send_message("Oops! Try again.")
         else:
