@@ -300,7 +300,7 @@ class GptMemory(GptMemoryBase):
             "role": "assistant",
             "content": reply_content
         }
-        return response_message # type: ignore
+        return response_message
 
 
     async def execute_memorizer(self,
@@ -387,7 +387,7 @@ class GptMemory(GptMemoryBase):
                 memory_changes.append(name)
 
         if memory_changes and await self.config.guild(ctx.guild).memorizer_alerts():
-            await ctx.send(f"`Revised memories: {', '.join(memory_changes)}`")
+            await ctx.send(f"-# Revised memories: {', '.join(memory_changes)}")
 
 
     async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> List[GptMessage]:
