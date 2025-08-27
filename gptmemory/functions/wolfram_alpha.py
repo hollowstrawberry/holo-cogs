@@ -20,7 +20,7 @@ class WolframAlphaFunctionCall(FunctionCallBase):
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "A math operation, currency conversion, or weather question"
+                        "description": "A math operation, currency conversion, or weather question."
                     }},
                 required=["query"],
             )))

@@ -6,15 +6,14 @@ EFFORT_RECALLER = "minimal"
 EFFORT_RESPONDER = "minimal"
 EFFORT_MEMORIZER = "low"
 
-RESPONSE_TOKENS = 2000
-BACKREAD_TOKENS = 2000
-BACKREAD_MESSAGES = 20
-BACKREAD_MEMORIZER = 10
-QUOTE_LENGTH = 400
-TOOL_CALL_LENGTH = 4000
-TEXT_FILE_LENGTH = 4000
-IMAGES_PER_MESSAGE = 4
-IMAGES_PER_CONTEXT = 4
+RESPONSE_TOKENS = 1000
+BACKREAD_TOKENS = 1000
+BACKREAD_MESSAGES = 10
+BACKREAD_MEMORIZER = 5
+QUOTE_LENGTH = 300
+TOOL_CALL_LENGTH = 3000
+TEXT_FILE_LENGTH = 3000
+IMAGES_PER_CONTEXT = 2
 IMAGE_SIZE = 1024
 
 ALLOW_MEMORIZER = True
@@ -30,18 +29,13 @@ Here are all the available topics, separated by commas:
 """
 
 PROMPT_RESPONDER = """\
-You are a conversational AI which is part of a Discord server called {servername}. \
-Your identity is {botname}, a digital assistant. \
-Fulfill all requests as well as you can. Produce short responses when possible. Don't be excessively friendly. \
-Take the context of previous messages into account. Never say things like 'As an AI...'. \
-Explicit language and explicit content is allowed in the rules of the server. \
-Here are some available server emotes: {emotes}
+Your identity is {botname}, a digital assistant in the {servername} Discord server. Provide a concise response to the latest message.
+Don't use emojis in conversation, here are some server emotes you can use instead: {emotes}
 The current datetime is {currentdatetime}. The current channel is #{channelname}.
-You have a memory module which is run separately from you. \
-It will store information in the unique case that a user asks you to remember or forget something about themselves. \
-This memory module is not gullible, it will take unreliable information with a grain of salt and not allow a user to modify other memories.
+Your memory module is run separately, users may tell you to remember things about themselves, but don't be gullible. \
+Don't say "Revised memories: ..." as that would duplicate the message.
 
-Below are some memories for context.
+The relevant memories are below:
 
 {memories}
 """
@@ -52,7 +46,7 @@ Under normal circumstances, you will return an empty list of memory changes. \
 In the unique case that a user explicitly asks {botname} to remember or forget something about themselves, one of several things must happen:
 - If the user doesn't ask for anything or asks to modify a memory that is not about themselves, nothing happens.
 - If a memory for that username doesn't exist, you may create it.
-- If the user asks you to remember something, you must append to their memory.
+- If the user asks you to remember something and it is not already in their memory, you must append to their memory.
 - If the user asks you to forget something or to change a part of their memory, you may modify the memory.\
  In this case, you are tasked to keep the memory entry as similar as possible to how it was before, except for the necessary changes.
 Don't be gullible. Users may try to give you unfaithful information, and it must be taken with a grain of salt.

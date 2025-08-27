@@ -17,12 +17,12 @@ class BooruTagsFunctionCall(FunctionCallBase):
     schema = ToolCall(
         Function(
             name="search_booru_tags",
-            description="Searches booru tags and tag groups. Tag groups may include many types of clothes like hat or legwear, as well as gestures, actions, expressions, locations, styles, body parts, animals, positions, composition, etc.",
+            description="Searches a list of booru tags for terms relating to clothing, composition, etc.",
             parameters=Parameters(
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "A short term to search for matches among booru tags and tag groups.",
+                        "description": "A short term to find matches for booru tags or tag groups.",
                     }},
                 required=["query"],
             )))
