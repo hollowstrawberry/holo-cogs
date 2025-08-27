@@ -102,17 +102,18 @@ class GptMemory(GptMemoryBase):
 
     
     @commands.Cog.listener()
-    async def on_member_update(self, before: discord.Member, after: discord.Member):
-        guild = after.guild
-        if before.name != after.name:
-            async with self.config.guild(guild).memory() as memory:
-                if before.name in memory:
-                    memory[after.name] = memory[before.name]
-                    del memory[before.name]
-            if before.name in self.memory[guild.id]:
-                    self.memory[guild.id][after.name] = self.memory[guild.id][before.name]
-                    del self.memory[guild.id][before.name]
-            log.info(f"Moved user memory {before.name=} {after.name=}")
+    async def on_user_update(self, before: discord.User, after: discord.User):
+        if before.name == after.name:
+            return
+        for guild in self.bot.guilds:
+            if before.name in self.memory.get(guild.id, {}):
+                self.memory[guild.id][after.name] = self.memory[guild.id][before.name]
+                del self.memory[guild.id][before.name]
+                async with self.config.guild(guild).memory() as memory:
+                    if before.name in memory:
+                        memory[after.name] = memory[before.name]
+                        del memory[before.name]
+                log.info(f"Moved user memory {before.name=} {after.name=}")
 
 
     async def is_valid_trigger(self, ctx: commands.Context) -> bool:
