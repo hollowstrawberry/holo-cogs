@@ -89,12 +89,14 @@ class GptMemory(GptMemoryBase):
 
     @commands.Cog.listener()
     async def on_message_without_command(self, message: discord.Message):
-        ctx: commands.Context = await self.bot.get_context(message)  # noqa
+        ctx: commands.Context = await self.bot.get_context(message) 
         if not await self.is_valid_trigger(ctx):
             return
-
-        if URL_PATTERN.search(message.content):
-            ctx = await self.wait_for_embed(ctx)
+        
+        await ctx.channel.typing()
+        if match := URL_PATTERN.search(message.content):
+            if f"<{match.group(0)}>" not in message.content: # non-embedding links
+                ctx = await self.wait_for_embed(ctx)
 
         await self.run_response(ctx)
 
@@ -159,7 +161,6 @@ class GptMemory(GptMemoryBase):
             self.memory[ctx.guild.id] = {}
         memories = list(self.memory[ctx.guild.id].keys())
 
-        await ctx.channel.typing()
         result = GptMemoryResult()
         messages = await self.get_message_history(ctx, result)
         recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
@@ -285,7 +286,7 @@ class GptMemory(GptMemoryBase):
                         cls = next(t for t in tools if t.schema.function.name == call.function.name) # type: ignore
                         args = json.loads(call.function.arguments) # type: ignore
                         tool_result = await cls(ctx).run(args) # type: ignore
-                    except Exception:  # noqa, reason: tools should handle specific errors internally, but broad errors should not stop the responder
+                    except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                         tool_result = "Error"
                         log.exception("Calling tool")
 
@@ -640,7 +641,7 @@ class GptMemory(GptMemoryBase):
         if len(content) == starting_len:
             content += " [Message empty or not supported]"
 
-        mentions = message.mentions + message.role_mentions + message.channel_mentions  # noqa
+        mentions = message.mentions + message.role_mentions + message.channel_mentions
         for mentioned in mentions:
             if mentioned in message.channel_mentions:
                 content = content.replace(mentioned.mention, f'#{mentioned.name}')
