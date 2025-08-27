@@ -60,7 +60,7 @@ class GptWelcome(commands.Cog):
         if message.type != discord.MessageType.new_member:
             return
         
-        ctx: commands.Context = await self.bot.get_context(message)  # noqa
+        ctx: commands.Context = await self.bot.get_context(message)
         if await self.bot.cog_disabled_in_guild(self, ctx.guild):
             return
         if not await self.bot.ignored_channel_or_guild(ctx):

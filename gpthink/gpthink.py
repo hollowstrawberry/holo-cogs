@@ -105,7 +105,7 @@ class GptThinkModal(discord.ui.Modal):
             return await inter.followup.send(f":warning: Failed to process prompt: {msg}", ephemeral=True)
         except APIError as e:
             return await inter.followup.send(content=f":warning: Failed to process prompt: {e.message}")
-        except Exception:  # noqa, reason: user-facing error
+        except Exception:  # user-facing error
             log.exception(msg="Trying to process prompt with OpenAI", stack_info=True)
         finally:
             self.cog.generating[inter.user.id] = False
