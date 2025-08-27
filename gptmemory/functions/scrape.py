@@ -55,12 +55,11 @@ class ScrapeFunctionCall(FunctionCallBase):
                     if 'text' not in content_type:
                         return f"[Contents of {url} is not text]"
                     text = await response.text()
-                    content = trafilatura.extract(text) or text                        
+                    content = trafilatura.extract(text) or text
         except aiohttp.ClientError:
             log.warning(f"Opening {url}", exc_info=True)
             return f"[Failed to open URL]"
-        
-        return content
+        return content or "[Empty page]"
     
     async def scrape_github_file(self, match: re.Match) -> str:
         user = match.group("user")
