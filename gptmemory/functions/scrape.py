@@ -31,7 +31,8 @@ class ScrapeFunctionCall(FunctionCallBase):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
     }
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.custom_scrapers: Dict[re.Pattern, Callable[[re.Match], Awaitable[str]]] = OrderedDict({
             GITHUB_FILE_URL_PATTERN: self.scrape_github_file,
             ARCENCIEL_MODEL_URL_PATTERN: self.scrape_arcenciel_model,
