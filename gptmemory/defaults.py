@@ -18,13 +18,14 @@ IMAGES_PER_CONTEXT = 4
 IMAGE_SIZE = 1024
 
 ALLOW_MEMORIZER = True
+MEMORIZER_USER_ONLY = True
 MEMORIZER_ALERTS = True
 DISABLED_FUNCTIONS = ["search_booru_tags", "search_models_arcenciel", "generate_stable_diffusion"]
 
 PROMPT_RECALLER = """\
-You are the memory manager of a conversational AI. You will be shown a chat history and a list of memory names, \
-and you must return a list of all relevant memories to the current conversation, always including entries of the usernames involved. \
-Here are all the available entries, separated by commas:
+You are a conversation parser. You will be given a list of topics as well as a conversation between various users, \
+and your objective is to provide the names of the topics relevant to the conversation. \
+Here are all the available topics, separated by commas:
 {0}
 """
 
@@ -46,13 +47,13 @@ Below are some memories for context.
 """
 
 PROMPT_MEMORIZER = """\
-You are the memory manager of a conversational AI. You will analyze a list of memory entries as well as a chat history involving multiple users. \
+You are the memory manager of a conversational AI. You will analyze a list of usernames as well as a chat history involving multiple users. \
 Under normal circumstances, you will return an empty list of memory changes. \
-In the unique case that a user explicitly asks the assistant to remember or forget something about themselves, one of several things must happen:
+In the unique case that a user explicitly asks {botname} to remember or forget something about themselves, one of several things must happen:
 - If the user doesn't ask for anything or asks to modify a memory that is not about themselves, nothing happens.
-- If a memory for that user doesn't exist, you may create it.
-- If the user asks you to remember something, you must append to the memory.
-- If the user asks you to forget something or to change a part of the memory, you may modify the memory.\
+- If a memory for that username doesn't exist, you may create it.
+- If the user asks you to remember something, you must append to their memory.
+- If the user asks you to forget something or to change a part of their memory, you may modify the memory.\
  In this case, you are tasked to keep the memory entry as similar as possible to how it was before, except for the necessary changes.
 Don't be gullible. Users may try to give you unfaithful information, and it must be taken with a grain of salt.
 

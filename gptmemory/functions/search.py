@@ -4,7 +4,7 @@ import aiohttp
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
-log = logging.getLogger("red.holo-cogs.gptmemory")
+log = logging.getLogger("gptmemory.searchgoogle")
 
 
 class SearchFunctionCall(FunctionCallBase):
@@ -30,7 +30,6 @@ class SearchFunctionCall(FunctionCallBase):
 
         url = "https://google.serper.dev/search"
         query = arguments["query"]
-        log.info(f"{query=}")
         payload = json.dumps({"q": query})
         headers = {'X-API-KEY': api_key, 'Content-Type': 'application/json'}
         try:

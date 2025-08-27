@@ -9,7 +9,7 @@ from redbot.core import commands
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
-log = logging.getLogger("red.holo-cogs.gptmemory")
+log = logging.getLogger("gptmemory.stablediffusion")
 
 
 @dataclass
@@ -70,7 +70,6 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             messages.append(quoted)
         for message in messages:
             for attachment in message.attachments:
-                log.info(filename)
                 if attachment.filename == filename and self.ctx.guild:
                     return (message.author.id == self.ctx.guild.me.id, message)
         return (False, None)
@@ -153,4 +152,4 @@ class StableDiffusionFunctionCall(FunctionCallBase):
         task = aimage.generate_image(self.ctx, params=params, message_content=message_content) # type: ignore
         asyncio.create_task(task)
 
-        return f"[Image generation started successfully] [Prompt:] {prompt}"
+        return f"[Image generation started successfully]"

@@ -5,7 +5,7 @@ from typing import Optional
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
-log = logging.getLogger("red.holo-cogs.gptmemory")
+log = logging.getLogger("gptmemory.arcenciel")
 
 
 class ArcencielFunctionCall(FunctionCallBase):

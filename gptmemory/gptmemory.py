@@ -7,6 +7,7 @@ from io import BytesIO
 from datetime import datetime
 from difflib import get_close_matches
 from typing import Optional, Union, List, Dict, Any
+from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
 from tiktoken import encoding_for_model
@@ -17,12 +18,24 @@ from gptmemory.commands import GptMemoryBase
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
 from gptmemory.functions.base import get_all_function_calls
-from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, IMAGE_EXTENSIONS
+from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
 
-log = logging.getLogger("red.holo-cogs.gptmemory")
+log = logging.getLogger("gptmemory")
 
 GptImageContent = List[Dict[str, str]]
 GptMessage = Dict[str, Union[str, GptImageContent]]
+
+
+@dataclass
+class GptMemoryResult:
+    messages: int = 0
+    images: int = 0
+    tokens_backread: int = 0
+    tokens_recaller: int = 0
+    tokens_system: int = 0
+    tokens_responder: int = 0
+    tokens_after_tools: int = 0
+    tokens_memorizer: int = 0
 
 
 class GptMemory(GptMemoryBase):
@@ -33,7 +46,7 @@ class GptMemory(GptMemoryBase):
         self.openai_client: Optional[AsyncOpenAI] = None
         self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
         self.available_function_calls = set(get_all_function_calls())
-        all_function_names = [function.schema.function.name for function in self.available_function_calls]
+        all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
         log.info(f"{all_function_names=}")
 
     async def cog_load(self):
@@ -122,40 +135,46 @@ class GptMemory(GptMemoryBase):
         assert ctx.guild
         if ctx.guild.id not in self.memory:
             self.memory[ctx.guild.id] = {}
-        memories = ", ".join(self.memory[ctx.guild.id].keys())
+        memories = list(self.memory[ctx.guild.id].keys())
 
         await ctx.channel.typing()
-        messages = await self.get_message_history(ctx)
-        recalled_memories = await self.execute_recaller(ctx, messages, memories)
-        await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories)
+        result = GptMemoryResult()
+        messages = await self.get_message_history(ctx, result)
+        recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
+        await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories, result)
+        log.info(result)
 
 
-    async def execute_responder_and_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: str, recalled_memories: str):
-        results = await asyncio.gather(
-            self.execute_responder(ctx, messages, recalled_memories),
-            self.execute_memorizer(ctx, messages, memories, recalled_memories),
-            return_exceptions=True
-        )
-        for idx, result in enumerate(results):
-            if isinstance(result, BaseException):
-                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(result).__name__}", result)
-
-
-    async def execute_recaller(self, ctx: commands.Context, messages: List[GptMessage], memories: str) -> str:
+    async def execute_recaller(self,
+                               ctx: commands.Context,
+                               messages: List[GptMessage],
+                               memories: List[str],
+                               result: GptMemoryResult
+                               ) -> Dict[str, str]:
         """
         Runs an openai completion with the chat history and a list of memories from the database
-        and returns a parsed string of memories and their contents as chosen by the LLM.
+        and returns a dictionary of memories and their contents as chosen by the LLM.
         """
         assert ctx.guild and self.openai_client
         if not memories:
-            return ""
-            
+            return {}
+
+        temp_messages = get_text_contents(messages)
+        temp_memories = list(memories)
+        memories_to_recall = set()
+        for memory in memories:
+            if any(f"[Username: {memory}]" in msg["content"] for msg in temp_messages):
+                temp_memories.remove(memory)
+                memories_to_recall.add(memory)
+
+        temp_memories_str = ", ".join(temp_memories)
+        system_content = (await self.config.guild(ctx.guild).prompt_recaller()).format(temp_memories_str)
         system_prompt = {
             "role": "system",
-            "content": (await self.config.guild(ctx.guild).prompt_recaller()).format(memories)
+            "content": system_content
         }
-        temp_messages = get_text_contents(messages)
         temp_messages.insert(0, system_prompt)
+
         model = await self.config.guild(ctx.guild).model_recaller()
         response = await self.openai_client.beta.chat.completions.create(
             model=model,
@@ -163,15 +182,39 @@ class GptMemory(GptMemoryBase):
             reasoning_effort=await self.config.guild(ctx.guild).effort_recaller() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message.content
-        memories_list = [memory.strip() for memory in memories.split(",")]
-        memories_to_recall = [memory for memory in memories_list if memory.lower() in completion.lower()] if completion else []
+        if completion:
+            memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
+        if response.usage:
+            result.tokens_recaller = response.usage.completion_tokens
         log.info(f"{memories_to_recall=}")
+
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
-        recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
-        return recalled_memories_str or "[None]"
+        return recalled_memories or {}
 
 
-    async def execute_responder(self, ctx: commands.Context, messages: List[GptMessage], recalled_memories: str) -> GptMessage:
+    async def execute_responder_and_memorizer(self,
+                                              ctx: commands.Context,
+                                              messages: List[GptMessage],
+                                              memories: List[str],
+                                              recalled_memories: Dict[str, str],
+                                              result: GptMemoryResult
+                                              ) -> None:
+        task_results = await asyncio.gather(
+            self.execute_responder(ctx, messages, recalled_memories, result),
+            self.execute_memorizer(ctx, messages, memories, recalled_memories, result),
+            return_exceptions=True
+        )
+        for idx, res in enumerate(task_results):
+            if isinstance(res, BaseException):
+                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", res)
+
+
+    async def execute_responder(self,
+                                ctx: commands.Context,
+                                messages: List[GptMessage],
+                                recalled_memories: Dict[str, str],
+                                result: GptMemoryResult
+                                ) -> GptMessage:
         """
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
@@ -179,17 +222,22 @@ class GptMemory(GptMemoryBase):
         assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, discord.TextChannel)
         
         model = await self.config.guild(ctx.guild).model_responder()
+        recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
+        system_content = (await self.config.guild(ctx.guild).prompt_responder()).format(
+            botname=self.bot.user.name,
+            servername=ctx.guild.name,
+            channelname=ctx.channel.name,
+            emotes=(await self.config.guild(ctx.guild).emotes()) or "[None]",
+            currentdatetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z"),
+            memories=recalled_memories_str,
+        )
+        encoding = encoding_for_model("gpt-4o")
+        result.tokens_system = len(encoding.encode(system_content))
         
         system_prompt = {
             "role": "developer" if "gpt-5" in model else "system",
-            "content": (await self.config.guild(ctx.guild).prompt_responder()).format(
-                botname=self.bot.user.name,
-                servername=ctx.guild.name,
-                channelname=ctx.channel.name,
-                emotes=(await self.config.guild(ctx.guild).emotes()) or "[None]",
-                currentdatetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z"),
-                memories=recalled_memories,
-            )}
+            "content": system_content
+        }
         temp_messages = [msg for msg in messages]
         temp_messages.insert(0, system_prompt)
 
@@ -204,6 +252,8 @@ class GptMemory(GptMemoryBase):
                 max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
                 tools=[t.asdict() for t in tools], # type: ignore
             )
+            if response.usage:
+                result.tokens_responder = response.usage.completion_tokens
 
             if response.choices[0].message.tool_calls:
                 temp_messages.append(response.choices[0].message) # type: ignore
@@ -237,7 +287,8 @@ class GptMemory(GptMemoryBase):
                     max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
                     reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
                 )
-
+                if response.usage:
+                    result.tokens_after_tools = response.usage.completion_tokens
 
             completion = response.choices[0].message.content
             if completion:
@@ -249,10 +300,16 @@ class GptMemory(GptMemoryBase):
             "role": "assistant",
             "content": reply_content
         }
-        return response_message # type: ignore
+        return response_message
 
 
-    async def execute_memorizer(self, ctx: commands.Context, messages: List[GptMessage], memories: str, recalled_memories: str) -> None:
+    async def execute_memorizer(self,
+                                ctx: commands.Context,
+                                messages: List[GptMessage],
+                                memories: List[str],
+                                recalled_memories: Dict[str, str],
+                                result: GptMemoryResult
+                                ) -> None:
         """
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
@@ -261,9 +318,18 @@ class GptMemory(GptMemoryBase):
         if not await self.config.guild(ctx.guild).allow_memorizer():
             return
 
+        if await self.config.guild(ctx.guild).memorizer_user_only():
+            memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
+        memories_str = ", ".join(memories)
+        recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items() if k in memories)
+        system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
+            memories_str,
+            recalled_memories_str,
+            botname=ctx.me.name
+        )
         system_prompt = {
             "role": "system",
-            "content": (await self.config.guild(ctx.guild).prompt_memorizer()).format(memories, recalled_memories)
+            "content": system_content
         }
         temp_messages = get_text_contents(messages)
         num_backread = await self.config.guild(ctx.guild).backread_memorizer()
@@ -279,6 +345,8 @@ class GptMemory(GptMemoryBase):
             reasoning_effort=await self.config.guild(ctx.guild).effort_memorizer() if "gpt-5" in model else NotGiven()
         )
         completion = response.choices[0].message
+        if response.usage:
+            result.tokens_memorizer = response.usage.completion_tokens
         if completion.refusal:
             log.warning(completion.refusal)
             return
@@ -319,10 +387,10 @@ class GptMemory(GptMemoryBase):
                 memory_changes.append(name)
 
         if memory_changes and await self.config.guild(ctx.guild).memorizer_alerts():
-            await ctx.send(f"`Revised memories: {', '.join(memory_changes)}`")
+            await ctx.send(f"-# Revised memories: {', '.join(memory_changes)}")
 
 
-    async def get_message_history(self, ctx: commands.Context) -> List[GptMessage]:
+    async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> List[GptMessage]:
         assert ctx.guild and self.bot.user
         backread = [message async for message in ctx.channel.history(
             limit=await self.config.guild(ctx.guild).backread_messages(),
@@ -342,6 +410,7 @@ class GptMemory(GptMemoryBase):
         max_images_per_message = await self.config.guild(ctx.guild).max_images_per_message()
         max_quote_length = await self.config.guild(ctx.guild).max_quote()
         max_file_length = await self.config.guild(ctx.guild).max_text_file()
+        max_backread_tokens = await self.config.guild(ctx.guild).backread_tokens()
         for n, backmsg in enumerate(backread):
             try:
                 quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id) # type: ignore
@@ -351,8 +420,9 @@ class GptMemory(GptMemoryBase):
             except (AttributeError, discord.DiscordException):
                 quote = None
 
-            if total_images < max_images:
-                image_contents = await self.extract_images(backmsg, quote, processed_image_sources, max_images_per_message, max_image_size)
+            images_left = min(max_images - total_images, max_images_per_message)
+            if images_left > 0:
+                image_contents = await self.extract_images(backmsg, quote, processed_image_sources, images_left, max_image_size)
                 total_images += len(image_contents)
             else:
                 image_contents = []
@@ -370,11 +440,15 @@ class GptMemory(GptMemoryBase):
                     "content": text_content
                 })
 
-            tokens += len(encoding.encode(text_content)) + 425 * len(image_contents)
-            if n > 0 and tokens > await self.config.guild(ctx.guild).backread_tokens():
+            text_tokens = len(encoding.encode(text_content))
+            image_tokens = 425 * max(0, len(image_contents) - 1)
+            tokens += text_tokens + image_tokens
+            if n > 0 and tokens > max_backread_tokens:
                 break
 
-        log.info(f"{len(messages)=} / {total_images=} / {tokens=} ")
+        result.tokens_backread = tokens
+        result.images = total_images
+        result.messages = len(messages)
 
         return list(reversed(messages))
 
@@ -383,7 +457,7 @@ class GptMemory(GptMemoryBase):
                              message: discord.Message,
                              quote: Optional[discord.Message],
                              processed_sources: List[Union[str, discord.Attachment]],
-                             max_images_per_message: bool,
+                             max_images: int,
                              max_image_size: int,
                             ) -> GptImageContent:
         
@@ -397,7 +471,7 @@ class GptMemory(GptMemoryBase):
             attachments = enumerate((message.attachments or []) + (quote.attachments if quote and quote.attachments else []))
             images = [(i, att) for i, att in attachments if att.content_type and att.content_type.startswith('image/')]
 
-            for i, image in images[:max_images_per_message]:
+            for i, image in images[:max_images]:
                 if image in processed_sources:
                     continue
                 processed_sources.append(image)
@@ -444,7 +518,7 @@ class GptMemory(GptMemoryBase):
             return image_contents
 
         async with aiohttp.ClientSession() as session:
-            for url in image_url[:max_images_per_message]:
+            for url in image_url[:max_images]:
                 if url in processed_sources:
                     continue
                 processed_sources.append(url)
@@ -551,5 +625,17 @@ class GptMemory(GptMemoryBase):
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
             else:
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
+
+        for message_link in DISCORD_MESSAGE_LINK_PATTERN.finditer(content):
+            guild_id = int(message_link.group("guild_id"))
+            channel_id = int(message_link.group("channel_id"))
+            if message.guild.id != guild_id:
+                replacement = "[Link to message outside server]"
+            elif message.channel.id != channel_id:
+                channel = message.guild.get_channel_or_thread(channel_id)
+                replacement = f"[Link to message in #{channel.name}]" if channel else "[Link to message]"
+            else:
+                replacement = f"[Link to message]"
+            content = content.replace(message_link.group(0), replacement)
 
         return content.strip()
