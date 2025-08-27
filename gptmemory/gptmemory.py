@@ -628,7 +628,7 @@ class GptMemory(GptMemoryBase):
 
         if (message_link := DISCORD_MESSAGE_LINK_PATTERN.search(content)):
             guild_id = int(message_link.group("guild_id"))
-            channel_id = int(message_link.group("guild_id"))
+            channel_id = int(message_link.group("channel_id"))
             if message.guild.id != guild_id:
                 replacement = "[Link to message outside server]"
             elif message.channel.id != channel_id:
@@ -637,6 +637,5 @@ class GptMemory(GptMemoryBase):
             else:
                 replacement = f"[Link to message]"
             content = content.replace(message_link.group(0), replacement)
-            log.info(f"detected message link {content=}")
 
         return content.strip()
