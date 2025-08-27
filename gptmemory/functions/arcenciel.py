@@ -74,7 +74,7 @@ class ArcencielFunctionCall(FunctionCallBase):
             results.append(f"[[[ [Model URL: https://arcenciel.io/models/{result['id']}] " +
                            f"[Model type: {result['type']}] " +
                            f"[Model uploader: {result['uploader']['username']}]" +
-                           f"[Date updated: {latest_version['publishedAt']}]"
+                           f"[Date updated: {latest_version['publishedAt']}] " +
                            f"[Versions: {'/'.join(set(version['baseModel'] for version in result['versions']))}] " +
                            f"[Model name:] {result['title']} ]]]")
         return '\n'.join(results)
