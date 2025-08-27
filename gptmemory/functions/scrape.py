@@ -15,7 +15,7 @@ class ScrapeFunctionCall(FunctionCallBase):
     schema = ToolCall(
         Function(
             name="open_url",
-            description="Opens a URL and returns its contents. Does not support non-text content types.",
+            description="Opens a URL and returns its text-based content.",
             parameters=Parameters(
                 properties={
                     "url": {

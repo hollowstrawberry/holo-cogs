@@ -44,19 +44,19 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 properties={
                     "existing": {
                         "type": "string",
-                        "description": "The filename of an existing image to revise. If this is included, the prompt should be a revised prompt of the original image."
+                        "description": "The filename of an existing image to revise."
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "The prompt for image generation. Uses booru tags instead of natural language. Example: 1girl, cowboy shot, white dress, hatsune miku \\(vocaloid\\)"
+                        "description": "The prompt for image generation. Uses booru tags instead of sentences."
                     },
                     "negative_prompt": {
                         "type": "string",
-                        "description": "Additional terms you don't want to appear in the image. Instead of putting terms like 'no x' in the prompt, just put 'x' in the negative prompt."
+                        "description": "Additional terms you don't want to appear in the image."
                     },
                     "resolution": {
                         "type": "string",
-                        "description": "The aspect ratio of the image, default handled by internal settings. Not compatible with an existing image.",
+                        "description": "Image resolution. Not compatible with an existing image.",
                         "enum": ["square", "portrait", "landscape"]
                     },
                 },
