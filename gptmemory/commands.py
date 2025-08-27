@@ -36,7 +36,6 @@ class GptMemoryBase(commands.Cog):
             "memorizer_alerts": defaults.MEMORIZER_ALERTS,
             "disabled_functions": list(defaults.DISABLED_FUNCTIONS),
             "emotes": "",
-            "max_images_per_message": defaults.IMAGES_PER_MESSAGE,
             "max_images": defaults.IMAGES_PER_CONTEXT,
             "max_quote": defaults.QUOTE_LENGTH,
             "max_tool": defaults.TOOL_CALL_LENGTH,
@@ -362,19 +361,6 @@ class GptMemoryBase(commands.Cog):
         else:
             await self.config.guild(ctx.guild).max_images.set(value)
         await ctx.reply(f"`[max_images:]` {value}", mention_author=False)
-
-    @memoryconfig_limits.command(name="max_images_per_message")
-    async def memoryconfig_max_images_per_message(self, ctx: commands.Context, value: Optional[int]):
-        """How many images to extract from each message."""
-        assert ctx.guild
-        if value is None:
-            value = await self.config.guild(ctx.guild).max_images_per_message()
-        elif value < 1 or value > 10:
-            await ctx.reply("Value must be between 1 and 10", mention_author=False)
-            return
-        else:
-            await self.config.guild(ctx.guild).max_images_per_message.set(value)
-        await ctx.reply(f"`[max_images_per_message:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_tool")
     async def memoryconfig_max_tool(self, ctx: commands.Context, value: Optional[int]):
