@@ -39,7 +39,7 @@ class GptMemoryResult:
 
 
 class GptMemory(GptMemoryBase):
-    """OpenAI-powered user with persistent memory."""
+    """OpenAI-powered user with persistent memory and various tools."""
 
     def __init__(self, bot: Red):
         super().__init__(bot)
@@ -49,6 +49,7 @@ class GptMemory(GptMemoryBase):
         all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
         log.info(f"{all_function_names=}")
 
+
     async def cog_load(self):
         await self.initialize_function_calls()
         await self.initialize_openai_client()
@@ -56,9 +57,11 @@ class GptMemory(GptMemoryBase):
         for guild_id, config in all_config.items():
             self.memory[guild_id] = config["memory"]
 
+
     async def cog_unload(self):
         if self.openai_client:
             await self.openai_client.close()
+
 
     async def initialize_function_calls(self):
         all_function_calls = get_all_function_calls()
@@ -69,17 +72,20 @@ class GptMemory(GptMemoryBase):
                 if not secret:
                     self.available_function_calls.discard(function)
 
+
     async def initialize_openai_client(self):
         api_key = (await self.bot.get_shared_api_tokens("openai")).get("api_key")
         if not api_key:
             return
         self.openai_client = AsyncOpenAI(api_key=api_key)
 
+
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name, _):
         await self.initialize_function_calls()
         if service_name == "openai":
             await self.initialize_openai_client()
+
 
     @commands.Cog.listener()
     async def on_message_without_command(self, message: discord.Message):
@@ -91,6 +97,21 @@ class GptMemory(GptMemoryBase):
             ctx = await self.wait_for_embed(ctx)
 
         await self.run_response(ctx)
+
+    
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        guild = after.guild
+        if before.name != after.name:
+            async with self.config.guild(guild).memory() as memory:
+                if before.name in memory:
+                    memory[after.name] = memory[before.name]
+                    del memory[before.name]
+            if before.name in self.memory[guild.id]:
+                    self.memory[guild.id][after.name] = self.memory[guild.id][before.name]
+                    del self.memory[guild.id][before.name]
+            log.info(f"Moved user memory {before.name=} {after.name=}")
+
 
     async def is_valid_trigger(self, ctx: commands.Context) -> bool:
         if self.bot.user not in ctx.message.mentions:
@@ -120,6 +141,7 @@ class GptMemory(GptMemoryBase):
             return False
 
         return True
+
 
     @staticmethod
     async def wait_for_embed(ctx: commands.Context) -> commands.Context:
