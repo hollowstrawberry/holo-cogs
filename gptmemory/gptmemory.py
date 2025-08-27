@@ -18,7 +18,7 @@ from gptmemory.commands import GptMemoryBase
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
 from gptmemory.functions.base import get_all_function_calls
-from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, IMAGE_EXTENSIONS
+from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
 
 log = logging.getLogger("gptmemory")
 
@@ -625,5 +625,18 @@ class GptMemory(GptMemoryBase):
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
             else:
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
+
+        if (message_link := DISCORD_MESSAGE_LINK_PATTERN.search(content)):
+            guild_id = int(message_link.group("guild_id"))
+            channel_id = int(message_link.group("guild_id"))
+            if message.guild.id != guild_id:
+                replacement = "[Link to message outside server]"
+            elif message.channel.id != channel_id:
+                channel = message.guild.get_channel_or_thread(channel_id)
+                replacement = f"[Link to message in #{channel.name}]" if channel else "[Link to message]"
+            else:
+                replacement = f"[Link to message]"
+            content = content.replace(message_link.group(0), replacement)
+            log.info(f"detected message link {content=}")
 
         return content.strip()

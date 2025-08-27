@@ -7,6 +7,7 @@ RESPONSE_CLEANUP_PATTERN = re.compile(r"(^(\[[^[\]]+\]\s?)+|\[\[\[[\s\S]+\]\]\])
 URL_PATTERN = re.compile(r"(https?://\S+)")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 CODEBLOCK_PATTERN = re.compile(r"^```(\w*)\s*$")
+DISCORD_MESSAGE_LINK_PATTERN = re.compile(r"(https?://)?discord.com/channels/(?P<guild_id>\d+)/(?P<channel_id>\d+)/(?P<message_id>\d+)")
 
 VISION_MODELS = [
     "gpt-4o",
