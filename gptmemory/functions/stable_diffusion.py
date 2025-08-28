@@ -102,7 +102,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             sent_by_me, message = await self.find_attachment(existing)
         else:
             sent_by_me, message = False, None
-        if message and sent_by_me 
+        if message and sent_by_me:
             metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
             width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]
 
