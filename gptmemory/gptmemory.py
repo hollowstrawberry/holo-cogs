@@ -288,7 +288,7 @@ class GptMemory(GptMemoryCommands):
                     try:
                         cls = next(t for t in tools if t.schema.function.name == call.function.name)
                         args = json.loads(call.function.arguments)
-                        tool_result = await cls(ctx, self).run(**args)
+                        tool_result = await cls(ctx, self).run(args)
                     except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                         tool_result = "[Error]"
                         log.exception("Calling tool")
