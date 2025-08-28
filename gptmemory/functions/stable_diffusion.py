@@ -79,9 +79,9 @@ class StableDiffusionFunctionCall(FunctionCallBase):
         channel_mode = await self.cog.config.guild(self.ctx.guild).generation_channel_mode()
         channel_list = await self.cog.config.guild(self.ctx.guild).generation_channels()
         if channel_mode == "blacklist" and self.ctx.channel.id in channel_list:
-            return f"[Image generation is not allowed in the following channels, including this one: {' '.join(f'<#{c.id}>' for c in channel_list)}]"
+            return f"[Image generation is not allowed in the following channels, including this one: {' '.join(f'<#{id}>' for id in channel_list)}]"
         elif channel_mode == "whitelist" and self.ctx.channel.id not in channel_list:
-            return f"[Image generation is not allowed in this channel, please go to one of these: {' '.join(f'<#{c.id}>' for c in channel_list)}]"
+            return f"[Image generation is not allowed in this channel, please go to one of these: {' '.join(f'<#{id}>' for id in channel_list)}]"
 
         existing = arguments.get("existing", "")
         prompt = arguments.get("prompt", "")
