@@ -4,14 +4,14 @@ from dataclasses import asdict
 from discord.ext import commands
 
 from gptmemory.schema import ToolCall
-from gptmemory.commands import GptMemoryBase
+from gptmemory.config import GptMemoryConfig
 
 
 class FunctionCallBase(ABC):
     schema: ToolCall = None # type: ignore
     apis: List[Tuple[str, str]] = []
 
-    def __init__(self, ctx: commands.Context, cog: GptMemoryBase):
+    def __init__(self, ctx: commands.Context, cog: GptMemoryConfig):
         self.ctx = ctx
         self.cog = cog
 

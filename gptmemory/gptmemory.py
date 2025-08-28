@@ -15,7 +15,7 @@ from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
-from gptmemory.commands import GptMemoryBase
+from gptmemory.commands import GptMemoryCommands
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
 from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
@@ -39,7 +39,7 @@ class GptMemoryResult:
     tokens_memorizer: int = 0
 
 
-class GptMemory(GptMemoryBase):
+class GptMemory(GptMemoryCommands):
     """OpenAI-powered user with persistent memory and various tools."""
 
     def __init__(self, bot: Red):
