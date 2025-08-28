@@ -3,15 +3,15 @@ from typing import List, Tuple, Type
 from dataclasses import asdict
 from discord.ext import commands
 
-import gptmemory.commands
 from gptmemory.schema import ToolCall
+from gptmemory.commands import GptMemoryBase
 
 
 class FunctionCallBase(ABC):
     schema: ToolCall = None # type: ignore
     apis: List[Tuple[str, str]] = []
 
-    def __init__(self, ctx: commands.Context, cog: gptmemory.commands.GptMemoryBase):
+    def __init__(self, ctx: commands.Context, cog: GptMemoryBase):
         self.ctx = ctx
         self.cog = cog
 

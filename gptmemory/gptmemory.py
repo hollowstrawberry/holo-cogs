@@ -15,11 +15,11 @@ from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
-import gptmemory.functions.base
 from gptmemory.commands import GptMemoryBase
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
 from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
+from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
 
@@ -46,7 +46,7 @@ class GptMemory(GptMemoryBase):
         super().__init__(bot)
         self.openai_client: Optional[AsyncOpenAI] = None
         self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
-        self.available_function_calls = set(gptmemory.functions.base.get_all_function_calls())
+        self.available_function_calls = set(get_all_function_calls())
         all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
         log.info(f"{all_function_names=}")
 
@@ -65,7 +65,7 @@ class GptMemory(GptMemoryBase):
 
 
     async def initialize_function_calls(self):
-        all_function_calls = gptmemory.functions.base.get_all_function_calls()
+        all_function_calls = get_all_function_calls()
         self.available_function_calls = set(all_function_calls)
         for function in all_function_calls:
             for api in function.apis:
