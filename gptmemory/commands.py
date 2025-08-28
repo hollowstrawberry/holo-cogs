@@ -17,6 +17,8 @@ class GptMemoryBase(commands.Cog):
         self.config.register_guild(**{
             "channel_mode": "whitelist",
             "channels": [],
+            "generation_channel_mode": "blacklist",
+            "generation_channels": [],
             "memory": {},
             "model_recaller": defaults.MODEL_RECALLER,
             "model_responder": defaults.MODEL_RESPONDER,
@@ -95,6 +97,8 @@ class GptMemoryBase(commands.Cog):
         self.memory[ctx.guild.id][name] = content
         await ctx.tick(message="Memory set")
 
+    # Config
+
     @commands.group(name="gpt", aliases=["gptmemory", "memoryconfig"]) # type: ignore
     @commands.is_owner()
     @commands.guild_only()
@@ -102,21 +106,35 @@ class GptMemoryBase(commands.Cog):
         """Base command for configuring the GPT Memory cog."""
         pass
 
+    channel_mode = Literal["whitelist", "blacklist", "show"]
+
     @memoryconfig.command(name="channels")
-    async def memoryconfig_channels(self, ctx: commands.Context, mode: Literal["whitelist", "blacklist", "show"], channels: commands.Greedy[discord.TextChannel]):
-        """Resets the channels the bot has access to."""
+    async def memoryconfig_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
+        """Shows or sets the channels the bot has access to."""
         assert ctx.guild
         if mode == "show":
             mode = await self.config.guild(ctx.guild).channel_mode()
-            channels = await self.config.guild(ctx.guild).channels()
+            channel_ids = await self.config.guild(ctx.guild).channels()
         else:
-            channels = [c.id for c in channels] # type: ignore
+            channel_ids = [c.id for c in channels] # type: ignore
             await self.config.guild(ctx.guild).channel_mode.set(mode)
-            await self.config.guild(ctx.guild).channels.set(channels)
+            await self.config.guild(ctx.guild).channels.set(channel_ids)
         
-        await ctx.reply(f"`[channel_mode:]` {mode}\n`[channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channels]), mention_author=False)
+        await ctx.reply(f"`[channel_mode:]` {mode}\n`[channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
-    # Config
+    @memoryconfig.command(name="generation_channels")
+    async def memoryconfig_generation_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
+        """Shows or sets the channels the stable diffusion generation tool has access to."""
+        assert ctx.guild
+        if mode == "show":
+            mode = await self.config.guild(ctx.guild).generation_channel_mode()
+            channel_ids = await self.config.guild(ctx.guild).generation_channels()
+        else:
+            channel_ids = [c.id for c in channels]
+            await self.config.guild(ctx.guild).generation_channel_mode.set(mode)
+            await self.config.guild(ctx.guild).generation_channels.set(channel_ids)
+        
+        await ctx.reply(f"`[generation_channel_mode:]` {mode}\n`[generation_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
     @memoryconfig.group(name="prompt")
     async def memoryconfig_prompt(self, ctx: commands.Context):

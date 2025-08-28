@@ -10,6 +10,7 @@ from typing import Optional, Union, List, Dict, Any
 from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
+from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -17,8 +18,8 @@ from redbot.core.bot import Red
 from gptmemory.commands import GptMemoryBase
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
-from gptmemory.functions.base import get_all_function_calls
 from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
+from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
 
@@ -283,18 +284,19 @@ class GptMemory(GptMemoryBase):
                 temp_messages.append(response.choices[0].message) # type: ignore
                 max_tool_length = await self.config.guild(ctx.guild).max_tool()
                 for call in response.choices[0].message.tool_calls:
+                    assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                     try:
-                        cls = next(t for t in tools if t.schema.function.name == call.function.name) # type: ignore
-                        args = json.loads(call.function.arguments) # type: ignore
-                        tool_result = await cls(ctx).run(args) # type: ignore
+                        cls = next(t for t in tools if t.schema.function.name == call.function.name)
+                        args = json.loads(call.function.arguments)
+                        tool_result = await cls(ctx, self).run(**args)
                     except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
-                        tool_result = "Error"
+                        tool_result = "[Error]"
                         log.exception("Calling tool")
 
                     tool_result = tool_result.strip()
                     if len(tool_result) > max_tool_length:
                         tool_result = tool_result[:max_tool_length-3] + "..."
-                    log.info(f"{call.function.arguments=}") # type: ignore
+                    log.info(f"{call.function.arguments=}")
                     log.info(f"{tool_result=}")
 
                     temp_messages.append({
