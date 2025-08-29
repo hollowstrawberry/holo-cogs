@@ -421,6 +421,7 @@ class GptMemory(GptMemoryCommands):
         backread = [message async for message in ctx.channel.history(
             limit=await self.config.guild(ctx.guild).backread_messages(),
             before=ctx.message,
+            after=self.channel_start.get(ctx.channel.id, None),
             oldest_first=False
         )]
         backread.insert(0, ctx.message)

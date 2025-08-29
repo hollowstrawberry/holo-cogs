@@ -10,6 +10,12 @@ from gptmemory.functions.base import get_all_function_calls
 
 class GptMemoryCommands(GptMemoryConfig):
 
+    @commands.command(name="forget")
+    async def command_forget(self, ctx: commands.Context):
+        """Temporarily makes the bot only read messages past a certain point."""
+        self.channel_start[ctx.channel.id] = ctx.message.created_at # resets when cog restarts
+        await ctx.tick(message="✅")
+
     @commands.command(name="memory", aliases=["memories"], invoke_without_subcommand=True)
     @commands.guild_only()
     async def command_memory(self, ctx: commands.Context, *, name: Optional[str]):

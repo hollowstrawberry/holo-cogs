@@ -1,4 +1,5 @@
 from typing import Dict
+from datetime import datetime
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
@@ -41,3 +42,4 @@ class GptMemoryConfig(commands.Cog):
             "max_image_resolution": defaults.IMAGE_SIZE,
         })
         self.memory: Dict[int, Dict[str, str]] = {}
+        self.channel_start: Dict[int, datetime] = {}
