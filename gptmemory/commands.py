@@ -90,7 +90,7 @@ class GptMemoryCommands(GptMemoryConfig):
         response = ">>> # GptMemory Settings"
         response += "\n`[whitelisted_channels:]` " if settings["channel_mode"] == "whitelist" else "\n`[blacklisted_channels:]` " 
         response += " ".join([f"<#{cid}>" for cid in settings["channels"]])
-        if "stable_diffusion_generate" in functions:
+        if "generate_stable_diffusion" in functions:
             response += "\n`[whitelisted_generation_channels:]` " if settings["generation_channel_mode"] == "whitelist" else "\n`[blacklisted_generation_channels:]` " 
             response += " ".join([f"<#{cid}>" for cid in settings["generation_channels"]])
         response += f"\n`[model_recaller:]` {settings['model_recaller']} `[effort_recaller:]` {settings['effort_recaller']}"
