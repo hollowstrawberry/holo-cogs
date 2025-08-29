@@ -70,6 +70,44 @@ class GptMemoryCommands(GptMemoryConfig):
         """Base command for configuring the GPT Memory cog."""
         pass
 
+    @commands.command(name="config", aliases=["settings"])
+    async def memoryconfig_config(self, ctx: commands.Context):
+        """View all settings"""
+        assert ctx.guild
+        settings = await self.config.guild(ctx.guild).all()
+        functions = []
+        for tool in get_all_function_calls():
+            name = tool.schema.function.name
+            if name in settings["disabled_functions"]:
+                continue
+            for api in tool.apis:
+                secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
+                if not secret:
+                    break
+            else:
+                functions.append(name)
+
+        response = ">>> # GptMemory Settings"
+        response += "\n`[whitelisted_channels:]` " if settings["channel_mode"] == "whitelist" else "\n`[blacklisted_channels:]` " 
+        response += " ".join([f"<#{cid}>" for cid in settings["channels"]])
+        if "stable_diffusion_generate" in functions:
+            response += "\n`[whitelisted_generation_channels:]` " if settings["generation_channel_mode"] == "whitelist" else "\n`[blacklisted_generation_channels:]` " 
+            response += " ".join([f"<#{cid}>" for cid in settings["generation_channels"]])
+        response += f"\n`[model_recaller:]` {settings['model_recaller']} `[effort_recaller:]` {settings['effort_recaller']}"
+        response += f"\n`[model_responder:]` {settings['model_responder']} `[effort_responder:]` {settings['effort_responder']}"
+        response += f"\n`[model_memorizer:]` {settings['model_memorizer']} `[effort_memorizer:]` {settings['effort_memorizer']}"
+        response += f"\n`[allow_memorizer:]` {settings['allow_memorizer']} `[memorizer_alerts:]` {settings['memorizer_alerts']} `[memorizer_user_only:]` {settings['memorizer_user_only']}"
+        response += f"\n`[functions:]` {', '.join(functions)}" 
+        response += f"\n`[emotes:]` {settings['emotes']}"
+        response += "## Limits"
+        response += f"\n`[response_tokens:]` {settings['response_tokens']} [backread_tokens:]` {settings['backread_tokens']}"
+        response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_memorizer:]` {settings['backread_memorizer']}"
+        response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
+        response += f"\n`[max_quote:]` {settings['max_quote']} `[max_tool:]` {settings['max_tool']}"
+        response += f"\n`[max_text_file:]` {settings['max_text_file']}"
+
+        await ctx.send(response)
+
     channel_mode = Literal["whitelist", "blacklist", "show"]
 
     @memoryconfig.command(name="channels")
@@ -205,7 +243,7 @@ class GptMemoryCommands(GptMemoryConfig):
         await ctx.reply(f"`[allow_memorizer:]` {value}", mention_author=False)
 
     @memoryconfig.command(name="memorizer_user_only")
-    async def memoryconfig_memorizeR_user_only(self, ctx: commands.Context, value: Optional[bool]):
+    async def memoryconfig_memorizer_user_only(self, ctx: commands.Context, value: Optional[bool]):
         """If enabled, only memories of usernames will be passed to the memorizer."""
         assert ctx.guild
         if value is None:
