@@ -97,12 +97,13 @@ class GptMemoryCommands(GptMemoryConfig):
         response += f"\n`[model_responder:]` {settings['model_responder']} `[effort_responder:]` {settings['effort_responder']}"
         response += f"\n`[model_memorizer:]` {settings['model_memorizer']} `[effort_memorizer:]` {settings['effort_memorizer']}"
         response += f"\n`[allow_memorizer:]` {settings['allow_memorizer']} `[memorizer_alerts:]` {settings['memorizer_alerts']} `[memorizer_user_only:]` {settings['memorizer_user_only']}"
-        response += f"\n`[functions:]` {', '.join(functions)}" 
+        response += f"\n`[functions:]` {' / '.join(functions)}" 
         response += f"\n`[emotes:]` {settings['emotes']}"
         response += "\n## Limits"
         response += f"\n`[response_tokens:]` {settings['response_tokens']} `[backread_tokens:]` {settings['backread_tokens']}"
         response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_memorizer:]` {settings['backread_memorizer']}"
-        response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']} `[max_text_file:]` {settings['max_text_file']}"
+        response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
+        response += f"\n`[max_quote:]` {settings['max_quote']} `[max_tool:]` {settings['max_tool']} `[max_text_file:]` {settings['max_text_file']}"
 
         await ctx.send(response)
 
