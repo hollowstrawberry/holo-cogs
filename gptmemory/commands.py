@@ -100,11 +100,9 @@ class GptMemoryCommands(GptMemoryConfig):
         response += f"\n`[functions:]` {', '.join(functions)}" 
         response += f"\n`[emotes:]` {settings['emotes']}"
         response += "\n## Limits"
-        response += f"\n`[response_tokens:]` {settings['response_tokens']} [backread_tokens:]` {settings['backread_tokens']}"
+        response += f"\n`[response_tokens:]` {settings['response_tokens']} `[backread_tokens:]` {settings['backread_tokens']}"
         response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_memorizer:]` {settings['backread_memorizer']}"
-        response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
-        response += f"\n`[max_quote:]` {settings['max_quote']} `[max_tool:]` {settings['max_tool']}"
-        response += f"\n`[max_text_file:]` {settings['max_text_file']}"
+        response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']} `[max_text_file:]` {settings['max_text_file']}"
 
         await ctx.send(response)
 
