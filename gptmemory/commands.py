@@ -70,7 +70,7 @@ class GptMemoryCommands(GptMemoryConfig):
         """Base command for configuring the GPT Memory cog."""
         pass
 
-    @commands.command(name="config", aliases=["settings"])
+    @memoryconfig.command(name="config", aliases=["settings"])
     async def memoryconfig_config(self, ctx: commands.Context):
         """View all settings"""
         assert ctx.guild
