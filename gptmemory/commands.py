@@ -99,7 +99,7 @@ class GptMemoryCommands(GptMemoryConfig):
         response += f"\n`[allow_memorizer:]` {settings['allow_memorizer']} `[memorizer_alerts:]` {settings['memorizer_alerts']} `[memorizer_user_only:]` {settings['memorizer_user_only']}"
         response += f"\n`[functions:]` {', '.join(functions)}" 
         response += f"\n`[emotes:]` {settings['emotes']}"
-        response += "## Limits"
+        response += "\n## Limits"
         response += f"\n`[response_tokens:]` {settings['response_tokens']} [backread_tokens:]` {settings['backread_tokens']}"
         response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_memorizer:]` {settings['backread_memorizer']}"
         response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
