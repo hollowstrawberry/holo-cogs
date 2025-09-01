@@ -15,8 +15,8 @@ class GptMemoryCommands(GptMemoryConfig):
         """Temporarily makes the bot only read messages past a certain point."""
         assert ctx.guild
         self.channel_start[ctx.channel.id] = ctx.message.created_at
-        async with self.config.guild(ctx.guild).channel_start() as channel_start:
-            channel_start[ctx.channel.id] = ctx.message.created_at
+        async with self.config.channel_start() as channel_start:
+            channel_start[ctx.channel.id] = ctx.message.created_at.isoformat()
         await ctx.tick(message="✅")
 
     @commands.has_permissions(manage_messages=True)
@@ -25,7 +25,7 @@ class GptMemoryCommands(GptMemoryConfig):
         """Undoes the effect of [p]forget"""
         assert ctx.guild
         del self.channel_start[ctx.channel.id]
-        async with self.config.guild(ctx.guild).channel_start() as channel_start:
+        async with self.config.channel_start() as channel_start:
             del channel_start[ctx.channel.id]
         await ctx.tick(message="✅")
         # remove the previous [p]forget, this is not perfect but it's not important anyway

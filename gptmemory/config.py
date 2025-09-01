@@ -17,7 +17,6 @@ class GptMemoryConfig(commands.Cog):
             "generation_channel_mode": "blacklist",
             "generation_channels": [],
             "memory": {},
-            "channel_start": {},
             "model_recaller": defaults.MODEL_RECALLER,
             "model_responder": defaults.MODEL_RESPONDER,
             "model_memorizer": defaults.MODEL_MEMORIZER,
@@ -41,6 +40,9 @@ class GptMemoryConfig(commands.Cog):
             "max_tool": defaults.TOOL_CALL_LENGTH,
             "max_text_file": defaults.TEXT_FILE_LENGTH,
             "max_image_resolution": defaults.IMAGE_SIZE,
+        })
+        self.config.register_global(**{
+            "channel_start": {},
         })
         self.memory: Dict[int, Dict[str, str]] = {}
         self.channel_start: Dict[int, datetime] = {}

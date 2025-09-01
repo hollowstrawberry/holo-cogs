@@ -54,10 +54,10 @@ class GptMemory(GptMemoryCommands):
     async def cog_load(self):
         await self.initialize_function_calls()
         await self.initialize_openai_client()
+        self.channel_start = {cid: datetime.fromisoformat(date) for cid, date in await self.config.channel_start()}
         all_config = await self.config.all_guilds()
         for guild_id, config in all_config.items():
             self.memory[guild_id] = config["memory"]
-            self.channel_start[guild_id] = config["channel_start"]
 
 
     async def cog_unload(self):
