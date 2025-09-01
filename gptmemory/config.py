@@ -1,5 +1,6 @@
-from typing import Dict
 from datetime import datetime
+from typing import Dict
+from discord.utils import DISCORD_EPOCH
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
@@ -42,6 +43,6 @@ class GptMemoryConfig(commands.Cog):
             "max_image_resolution": defaults.IMAGE_SIZE,
         })
         self.config.register_channel(**{
-            "start": datetime.min.isoformat(),
+            "start": datetime.fromtimestamp(DISCORD_EPOCH).isoformat(),
         })
         self.memory: Dict[int, Dict[str, str]] = {}
