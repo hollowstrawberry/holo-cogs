@@ -452,12 +452,11 @@ class GptMemory(GptMemoryCommands):
                 total_images += len(image_contents)
             else:
                 image_contents = []
-            trim_quote = quote is not None and quote in backread
-            text_content = await self.parse_discord_message(backmsg, quote, trim_quote, True, max_quote_length, max_file_length)
+            text_content = await self.parse_discord_message(backmsg, quote, backread, True, max_quote_length, max_file_length)
             if image_contents:
                 image_contents.insert(0, {"type": "text", "text": text_content})
                 messages.append({
-                    "role": "user",
+                    "role": "user", # assistant can't have image contents
                     "content": image_contents
                 })
             else:
@@ -574,7 +573,7 @@ class GptMemory(GptMemoryCommands):
     async def parse_discord_message(self,
                                     message: discord.Message,
                                     quote: Optional[discord.Message],
-                                    trim_quote: bool,
+                                    backread: List[discord.Message],
                                     recursive: bool,
                                     max_quote_length: int,
                                     max_file_length: int,
@@ -636,9 +635,9 @@ class GptMemory(GptMemoryCommands):
                     break
 
         if quote and recursive:
-            quote_content = await self.parse_discord_message(quote, None, trim_quote, False, max_quote_length, max_file_length)
+            quote_content = await self.parse_discord_message(quote, None, backread, False, max_quote_length, max_file_length)
             quote_content = quote_content.replace("\n", " ")
-            if trim_quote and len(quote_content) > max_quote_length:
+            if quote in backread and len(quote_content) > max_quote_length:
                 quote_content = quote_content[:max_quote_length-3] + "..."
             content += f"\n[[[ Replying to: {quote_content} ]]]"            
 
@@ -654,9 +653,10 @@ class GptMemory(GptMemoryCommands):
             else:
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
 
-        for message_link in DISCORD_MESSAGE_LINK_PATTERN.finditer(content):
+        for i, message_link in enumerate(DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
             guild_id = int(message_link.group("guild_id"))
             channel_id = int(message_link.group("channel_id"))
+            message_id = int(message_link.group("message_id"))
             if message.guild.id != guild_id:
                 replacement = "[Link to message outside server]"
             elif message.channel.id != channel_id:
@@ -665,5 +665,16 @@ class GptMemory(GptMemoryCommands):
             else:
                 replacement = f"[Link to message]"
             content = content.replace(message_link.group(0), replacement)
+            # Add quote for linked message if it is the first
+            if i == 0 and recursive:
+                try:
+                    linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
+                except AttributeError:
+                    continue
+                linked_content = await self.parse_discord_message(linked, None, backread, False, max_quote_length, max_file_length)
+                linked_content = quote_content.replace("\n", " ")
+                if linked in backread and len(linked_content) > max_quote_length:
+                    linked_content = linked_content[:max_quote_length-3] + "..."
+                content += f"\n[[[ Linked message: {linked_content} ]]]"  
 
         return content.strip()
