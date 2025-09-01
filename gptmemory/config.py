@@ -1,10 +1,9 @@
 from typing import Dict
-from datetime import datetime, timezone
-from discord.utils import DISCORD_EPOCH
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
 import gptmemory.defaults as defaults
+from gptmemory.constants import DISCORD_EPOCH_DATETIME
 
 
 class GptMemoryConfig(commands.Cog):
@@ -43,6 +42,6 @@ class GptMemoryConfig(commands.Cog):
             "max_image_resolution": defaults.IMAGE_SIZE,
         })
         self.config.register_channel(**{
-            "start": datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezone.utc).isoformat(),
+            "start": DISCORD_EPOCH_DATETIME.isoformat(),
         })
         self.memory: Dict[int, Dict[str, str]] = {}

@@ -3,8 +3,8 @@ from typing import Literal, Optional
 from difflib import get_close_matches
 from redbot.core import commands
 
-import gptmemory.constants as constants
 from gptmemory.config import GptMemoryConfig
+from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.functions.base import get_all_function_calls
 
 
@@ -22,7 +22,7 @@ class GptMemoryCommands(GptMemoryConfig):
     async def command_unforget(self, ctx: commands.Context):
         """Undoes the effect of [p]forget"""
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())
+        await self.config.channel(ctx.channel).start.set(DISCORD_EPOCH_DATETIME.isoformat())
         await ctx.tick(message="✅")
         # remove the previous [p]forget, this is not perfect but it's not important anyway
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
@@ -190,8 +190,8 @@ class GptMemoryCommands(GptMemoryConfig):
 
         if not model or not model.strip():
             await ctx.reply(f"Current model for the {module} is {model_value}")
-        elif model.strip().lower() not in constants.VISION_MODELS:
-            await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in constants.VISION_MODELS]))
+        elif model.strip().lower() not in VISION_MODELS:
+            await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
         else:
             await model_setter.set(model.strip().lower())
             await ctx.tick(message="Model changed")
@@ -213,8 +213,8 @@ class GptMemoryCommands(GptMemoryConfig):
 
         if not effort or not effort.strip():
             await ctx.reply(f"Current effort for the {module} is {effort_value}")
-        elif effort.strip().lower() not in constants.EFFORT_VALUES:
-            await ctx.reply("Invalid value!\nValid values are " + ",".join([f"`{m}`" for m in constants.EFFORT_VALUES]))
+        elif effort.strip().lower() not in EFFORT_VALUES:
+            await ctx.reply("Invalid value!\nValid values are " + ",".join([f"`{m}`" for m in EFFORT_VALUES]))
         else:
             await effort_setter.set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
