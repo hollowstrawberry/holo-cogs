@@ -54,7 +54,6 @@ class GptMemory(GptMemoryCommands):
     async def cog_load(self):
         await self.initialize_function_calls()
         await self.initialize_openai_client()
-        self.channel_start = {cid: datetime.fromisoformat(date) for cid, date in await self.config.channel_start()}
         all_config = await self.config.all_guilds()
         for guild_id, config in all_config.items():
             self.memory[guild_id] = config["memory"]
@@ -245,7 +244,7 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
         """
-        assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, discord.TextChannel)
+        assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
@@ -418,11 +417,13 @@ class GptMemory(GptMemoryCommands):
 
 
     async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> List[GptMessage]:
-        assert ctx.guild and self.bot.user
+        assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        limit = await self.config.guild(ctx.guild).backread_messages()
+        after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
         backread = [message async for message in ctx.channel.history(
-            limit=await self.config.guild(ctx.guild).backread_messages(),
+            limit=limit,
             before=ctx.message,
-            after=self.channel_start.get(ctx.channel.id, None),
+            after=after,
             oldest_first=False
         )]
         backread.insert(0, ctx.message)

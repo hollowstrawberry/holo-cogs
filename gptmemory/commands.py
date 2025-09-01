@@ -13,28 +13,21 @@ class GptMemoryCommands(GptMemoryConfig):
     @commands.command(name="forget")
     async def command_forget(self, ctx: commands.Context):
         """Temporarily makes the bot only read messages past a certain point."""
-        assert ctx.guild
-        self.channel_start[ctx.channel.id] = ctx.message.created_at
-        async with self.config.channel_start() as channel_start:
-            channel_start[ctx.channel.id] = ctx.message.created_at.isoformat()
+        assert isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())
         await ctx.tick(message="✅")
 
     @commands.has_permissions(manage_messages=True)
     @commands.command(name="unforget")
     async def command_unforget(self, ctx: commands.Context):
         """Undoes the effect of [p]forget"""
-        assert ctx.guild
-        del self.channel_start[ctx.channel.id]
-        async with self.config.channel_start() as channel_start:
-            del channel_start[ctx.channel.id]
+        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())
         await ctx.tick(message="✅")
         # remove the previous [p]forget, this is not perfect but it's not important anyway
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            async for message in ctx.channel.history(
-                limit=await self.config.guild(ctx.guild).backread_messages(),
-                before=ctx.message,
-                oldest_first=False
-            ):
+            limit = await self.config.guild(ctx.guild).backread_messages()
+            async for message in ctx.channel.history(limit=limit, before=ctx.message, oldest_first=False):
                 if message.content == ctx.message.content.replace("unforget", "forget"):
                     try:
                         await message.delete()

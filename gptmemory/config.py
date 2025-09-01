@@ -41,8 +41,7 @@ class GptMemoryConfig(commands.Cog):
             "max_text_file": defaults.TEXT_FILE_LENGTH,
             "max_image_resolution": defaults.IMAGE_SIZE,
         })
-        self.config.register_global(**{
-            "channel_start": {},
+        self.config.register_channel(**{
+            "start": datetime.min.isoformat(),
         })
         self.memory: Dict[int, Dict[str, str]] = {}
-        self.channel_start: Dict[int, datetime] = {}
