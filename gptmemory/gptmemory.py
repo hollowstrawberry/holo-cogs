@@ -57,6 +57,7 @@ class GptMemory(GptMemoryCommands):
         all_config = await self.config.all_guilds()
         for guild_id, config in all_config.items():
             self.memory[guild_id] = config["memory"]
+            self.channel_start[guild_id] = config["channel_start"]
 
 
     async def cog_unload(self):
