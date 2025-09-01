@@ -18,7 +18,7 @@ from redbot.core.bot import Red
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
-from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
+from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, INCOMPLETE_EMOTE_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
 from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
@@ -320,6 +320,7 @@ class GptMemory(GptMemoryCommands):
             if completion:
                 log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
+                reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
                 await chunk_and_send(ctx, reply_content)
 
         response_message = {

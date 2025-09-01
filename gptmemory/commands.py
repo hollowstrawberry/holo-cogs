@@ -37,7 +37,6 @@ class GptMemoryCommands(GptMemoryConfig):
                 await ctx.message.delete()
             except discord.DiscordException:
                 pass
-                
 
     @commands.command(name="memory", aliases=["memories"], invoke_without_subcommand=True)
     @commands.guild_only()
