@@ -672,7 +672,7 @@ class GptMemory(GptMemoryCommands):
                 except AttributeError:
                     continue
                 linked_content = await self.parse_discord_message(linked, None, backread, False, max_quote_length, max_file_length)
-                linked_content = quote_content.replace("\n", " ")
+                linked_content = linked_content.replace("\n", " ")
                 if linked in backread and len(linked_content) > max_quote_length:
                     linked_content = linked_content[:max_quote_length-3] + "..."
                 content += f"\n[[[ Linked message: {linked_content} ]]]"  
