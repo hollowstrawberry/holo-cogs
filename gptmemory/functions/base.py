@@ -4,21 +4,23 @@ from dataclasses import asdict
 from discord.ext import commands
 
 from gptmemory.schema import ToolCall
+from gptmemory.config import GptMemoryConfig
 
 
 class FunctionCallBase(ABC):
     schema: ToolCall = None # type: ignore
     apis: List[Tuple[str, str]] = []
 
-    def __init__(self, ctx: commands.Context):
+    def __init__(self, ctx: commands.Context, cog: GptMemoryConfig):
         self.ctx = ctx
+        self.cog = cog
 
     @classmethod
     def asdict(cls):
         return asdict(cls.schema)
 
     @abstractmethod
-    def run(self, arguments: dict) -> str:
+    async def run(self, arguments: dict) -> str:
         raise NotImplementedError
     
 

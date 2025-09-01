@@ -1,48 +1,42 @@
 import discord
-from typing import Literal, Optional, Dict
+from typing import Literal, Optional
 from difflib import get_close_matches
-from redbot.core import commands, Config
-from redbot.core.bot import Red
+from redbot.core import commands
 
-import gptmemory.defaults as defaults
-import gptmemory.constants as constants
+from gptmemory.config import GptMemoryConfig
+from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.functions.base import get_all_function_calls
 
 
-class GptMemoryBase(commands.Cog):
-    def __init__(self, bot: Red):
-        super().__init__()
-        self.bot = bot
-        self.config = Config.get_conf(self, identifier=19475820)
-        self.config.register_guild(**{
-            "channel_mode": "whitelist",
-            "channels": [],
-            "memory": {},
-            "model_recaller": defaults.MODEL_RECALLER,
-            "model_responder": defaults.MODEL_RESPONDER,
-            "model_memorizer": defaults.MODEL_MEMORIZER,
-            "prompt_recaller": defaults.PROMPT_RECALLER,
-            "prompt_responder": defaults.PROMPT_RESPONDER,
-            "prompt_memorizer": defaults.PROMPT_MEMORIZER,
-            "effort_recaller": defaults.EFFORT_RECALLER,
-            "effort_responder": defaults.EFFORT_RESPONDER,
-            "effort_memorizer": defaults.EFFORT_MEMORIZER,
-            "response_tokens": defaults.RESPONSE_TOKENS,
-            "backread_tokens": defaults.BACKREAD_TOKENS,
-            "backread_messages": defaults.BACKREAD_MESSAGES,
-            "backread_memorizer": defaults.BACKREAD_MEMORIZER,
-            "allow_memorizer": defaults.ALLOW_MEMORIZER,
-            "memorizer_user_only": defaults.MEMORIZER_USER_ONLY,
-            "memorizer_alerts": defaults.MEMORIZER_ALERTS,
-            "disabled_functions": list(defaults.DISABLED_FUNCTIONS),
-            "emotes": "",
-            "max_images": defaults.IMAGES_PER_CONTEXT,
-            "max_quote": defaults.QUOTE_LENGTH,
-            "max_tool": defaults.TOOL_CALL_LENGTH,
-            "max_text_file": defaults.TEXT_FILE_LENGTH,
-            "max_image_resolution": defaults.IMAGE_SIZE,
-        })
-        self.memory: Dict[int, Dict[str, str]] = {}
+class GptMemoryCommands(GptMemoryConfig):
+
+    @commands.command(name="forget")
+    async def command_forget(self, ctx: commands.Context):
+        """Temporarily makes the bot only read messages past a certain point."""
+        assert isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())
+        await ctx.tick(message="✅")
+
+    @commands.has_permissions(manage_messages=True)
+    @commands.command(name="unforget")
+    async def command_unforget(self, ctx: commands.Context):
+        """Undoes the effect of [p]forget"""
+        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        await self.config.channel(ctx.channel).start.set(DISCORD_EPOCH_DATETIME.isoformat())
+        await ctx.tick(message="✅")
+        # remove the previous [p]forget, this is not perfect but it's not important anyway
+        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+            limit = await self.config.guild(ctx.guild).backread_messages()
+            async for message in ctx.channel.history(limit=limit, before=ctx.message, oldest_first=False):
+                if message.content == ctx.message.content.replace("unforget", "forget"):
+                    try:
+                        await message.delete()
+                    except discord.DiscordException:
+                        pass
+            try:
+                await ctx.message.delete()
+            except discord.DiscordException:
+                pass
 
     @commands.command(name="memory", aliases=["memories"], invoke_without_subcommand=True)
     @commands.guild_only()
@@ -95,6 +89,8 @@ class GptMemoryBase(commands.Cog):
         self.memory[ctx.guild.id][name] = content
         await ctx.tick(message="Memory set")
 
+    # Config
+
     @commands.group(name="gpt", aliases=["gptmemory", "memoryconfig"]) # type: ignore
     @commands.is_owner()
     @commands.guild_only()
@@ -102,21 +98,72 @@ class GptMemoryBase(commands.Cog):
         """Base command for configuring the GPT Memory cog."""
         pass
 
+    @memoryconfig.command(name="config", aliases=["settings"])
+    async def memoryconfig_config(self, ctx: commands.Context):
+        """View all settings"""
+        assert ctx.guild
+        settings = await self.config.guild(ctx.guild).all()
+        functions = []
+        for tool in get_all_function_calls():
+            name = tool.schema.function.name
+            if name in settings["disabled_functions"]:
+                continue
+            for api in tool.apis:
+                secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
+                if not secret:
+                    break
+            else:
+                functions.append(name)
+
+        response = ">>> # GptMemory Settings"
+        response += "\n`[whitelisted_channels:]` " if settings["channel_mode"] == "whitelist" else "\n`[blacklisted_channels:]` " 
+        response += " ".join([f"<#{cid}>" for cid in settings["channels"]])
+        if "generate_stable_diffusion" in functions:
+            response += "\n`[whitelisted_generation_channels:]` " if settings["generation_channel_mode"] == "whitelist" else "\n`[blacklisted_generation_channels:]` " 
+            response += " ".join([f"<#{cid}>" for cid in settings["generation_channels"]])
+        response += f"\n`[model_recaller:]` {settings['model_recaller']} `[effort_recaller:]` {settings['effort_recaller']}"
+        response += f"\n`[model_responder:]` {settings['model_responder']} `[effort_responder:]` {settings['effort_responder']}"
+        response += f"\n`[model_memorizer:]` {settings['model_memorizer']} `[effort_memorizer:]` {settings['effort_memorizer']}"
+        response += f"\n`[allow_memorizer:]` {settings['allow_memorizer']} `[memorizer_alerts:]` {settings['memorizer_alerts']} `[memorizer_user_only:]` {settings['memorizer_user_only']}"
+        response += f"\n`[functions:]` {' / '.join(functions)}" 
+        response += f"\n`[emotes:]` {settings['emotes']}"
+        response += "\n## Limits"
+        response += f"\n`[response_tokens:]` {settings['response_tokens']} `[backread_tokens:]` {settings['backread_tokens']}"
+        response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_memorizer:]` {settings['backread_memorizer']}"
+        response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
+        response += f"\n`[max_quote:]` {settings['max_quote']} `[max_tool:]` {settings['max_tool']} `[max_text_file:]` {settings['max_text_file']}"
+
+        await ctx.send(response)
+
+    channel_mode = Literal["whitelist", "blacklist", "show"]
+
     @memoryconfig.command(name="channels")
-    async def memoryconfig_channels(self, ctx: commands.Context, mode: Literal["whitelist", "blacklist", "show"], channels: commands.Greedy[discord.TextChannel]):
-        """Resets the channels the bot has access to."""
+    async def memoryconfig_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
+        """Shows or sets the channels the bot has access to."""
         assert ctx.guild
         if mode == "show":
             mode = await self.config.guild(ctx.guild).channel_mode()
-            channels = await self.config.guild(ctx.guild).channels()
+            channel_ids = await self.config.guild(ctx.guild).channels()
         else:
-            channels = [c.id for c in channels] # type: ignore
+            channel_ids = [c.id for c in channels] # type: ignore
             await self.config.guild(ctx.guild).channel_mode.set(mode)
-            await self.config.guild(ctx.guild).channels.set(channels)
+            await self.config.guild(ctx.guild).channels.set(channel_ids)
         
-        await ctx.reply(f"`[channel_mode:]` {mode}\n`[channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channels]), mention_author=False)
+        await ctx.reply(f"`[channel_mode:]` {mode}\n`[channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
-    # Config
+    @memoryconfig.command(name="generation_channels")
+    async def memoryconfig_generation_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
+        """Shows or sets the channels the stable diffusion generation tool has access to."""
+        assert ctx.guild
+        if mode == "show":
+            mode = await self.config.guild(ctx.guild).generation_channel_mode()
+            channel_ids = await self.config.guild(ctx.guild).generation_channels()
+        else:
+            channel_ids = [c.id for c in channels]
+            await self.config.guild(ctx.guild).generation_channel_mode.set(mode)
+            await self.config.guild(ctx.guild).generation_channels.set(channel_ids)
+        
+        await ctx.reply(f"`[generation_channel_mode:]` {mode}\n`[generation_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
     @memoryconfig.group(name="prompt")
     async def memoryconfig_prompt(self, ctx: commands.Context):
@@ -142,8 +189,8 @@ class GptMemoryBase(commands.Cog):
 
         if not model or not model.strip():
             await ctx.reply(f"Current model for the {module} is {model_value}")
-        elif model.strip().lower() not in constants.VISION_MODELS:
-            await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in constants.VISION_MODELS]))
+        elif model.strip().lower() not in VISION_MODELS:
+            await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
         else:
             await model_setter.set(model.strip().lower())
             await ctx.tick(message="Model changed")
@@ -165,8 +212,8 @@ class GptMemoryBase(commands.Cog):
 
         if not effort or not effort.strip():
             await ctx.reply(f"Current effort for the {module} is {effort_value}")
-        elif effort.strip().lower() not in constants.EFFORT_VALUES:
-            await ctx.reply("Invalid value!\nValid values are " + ",".join([f"`{m}`" for m in constants.EFFORT_VALUES]))
+        elif effort.strip().lower() not in EFFORT_VALUES:
+            await ctx.reply("Invalid value!\nValid values are " + ",".join([f"`{m}`" for m in EFFORT_VALUES]))
         else:
             await effort_setter.set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
@@ -223,7 +270,7 @@ class GptMemoryBase(commands.Cog):
         await ctx.reply(f"`[allow_memorizer:]` {value}", mention_author=False)
 
     @memoryconfig.command(name="memorizer_user_only")
-    async def memoryconfig_memorizeR_user_only(self, ctx: commands.Context, value: Optional[bool]):
+    async def memoryconfig_memorizer_user_only(self, ctx: commands.Context, value: Optional[bool]):
         """If enabled, only memories of usernames will be passed to the memorizer."""
         assert ctx.guild
         if value is None:

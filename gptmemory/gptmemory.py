@@ -10,15 +10,16 @@ from typing import Optional, Union, List, Dict, Any
 from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
+from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
-from gptmemory.commands import GptMemoryBase
+from gptmemory.commands import GptMemoryCommands
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
 from gptmemory.schema import MemoryChangeList
+from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, INCOMPLETE_EMOTE_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
 from gptmemory.functions.base import get_all_function_calls
-from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
 
 log = logging.getLogger("gptmemory")
 
@@ -38,7 +39,7 @@ class GptMemoryResult:
     tokens_memorizer: int = 0
 
 
-class GptMemory(GptMemoryBase):
+class GptMemory(GptMemoryCommands):
     """OpenAI-powered user with persistent memory and various tools."""
 
     def __init__(self, bot: Red):
@@ -243,7 +244,7 @@ class GptMemory(GptMemoryBase):
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
         """
-        assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, discord.TextChannel)
+        assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
@@ -283,18 +284,19 @@ class GptMemory(GptMemoryBase):
                 temp_messages.append(response.choices[0].message) # type: ignore
                 max_tool_length = await self.config.guild(ctx.guild).max_tool()
                 for call in response.choices[0].message.tool_calls:
+                    assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                     try:
-                        cls = next(t for t in tools if t.schema.function.name == call.function.name) # type: ignore
-                        args = json.loads(call.function.arguments) # type: ignore
-                        tool_result = await cls(ctx).run(args) # type: ignore
+                        cls = next(t for t in tools if t.schema.function.name == call.function.name)
+                        args = json.loads(call.function.arguments)
+                        tool_result = await cls(ctx, self).run(args)
                     except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
-                        tool_result = "Error"
+                        tool_result = "[Error]"
                         log.exception("Calling tool")
 
                     tool_result = tool_result.strip()
                     if len(tool_result) > max_tool_length:
                         tool_result = tool_result[:max_tool_length-3] + "..."
-                    log.info(f"{call.function.arguments=}") # type: ignore
+                    log.info(f"{call.function.arguments=}")
                     log.info(f"{tool_result=}")
 
                     temp_messages.append({
@@ -318,6 +320,7 @@ class GptMemory(GptMemoryBase):
             if completion:
                 log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
+                reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
                 await chunk_and_send(ctx, reply_content)
 
         response_message = {
@@ -415,10 +418,13 @@ class GptMemory(GptMemoryBase):
 
 
     async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> List[GptMessage]:
-        assert ctx.guild and self.bot.user
+        assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        limit = await self.config.guild(ctx.guild).backread_messages()
+        after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
         backread = [message async for message in ctx.channel.history(
-            limit=await self.config.guild(ctx.guild).backread_messages(),
+            limit=limit,
             before=ctx.message,
+            after=after,
             oldest_first=False
         )]
         backread.insert(0, ctx.message)
@@ -449,12 +455,11 @@ class GptMemory(GptMemoryBase):
                 total_images += len(image_contents)
             else:
                 image_contents = []
-            trim_quote = quote is not None and quote in backread
-            text_content = await self.parse_discord_message(backmsg, quote, trim_quote, True, max_quote_length, max_file_length)
+            text_content = await self.parse_discord_message(backmsg, quote, backread, True, max_quote_length, max_file_length)
             if image_contents:
                 image_contents.insert(0, {"type": "text", "text": text_content})
                 messages.append({
-                    "role": "user",
+                    "role": "user", # assistant can't have image contents
                     "content": image_contents
                 })
             else:
@@ -571,7 +576,7 @@ class GptMemory(GptMemoryBase):
     async def parse_discord_message(self,
                                     message: discord.Message,
                                     quote: Optional[discord.Message],
-                                    trim_quote: bool,
+                                    backread: List[discord.Message],
                                     recursive: bool,
                                     max_quote_length: int,
                                     max_file_length: int,
@@ -633,9 +638,9 @@ class GptMemory(GptMemoryBase):
                     break
 
         if quote and recursive:
-            quote_content = await self.parse_discord_message(quote, None, trim_quote, False, max_quote_length, max_file_length)
+            quote_content = await self.parse_discord_message(quote, None, backread, False, max_quote_length, max_file_length)
             quote_content = quote_content.replace("\n", " ")
-            if trim_quote and len(quote_content) > max_quote_length:
+            if quote in backread and len(quote_content) > max_quote_length:
                 quote_content = quote_content[:max_quote_length-3] + "..."
             content += f"\n[[[ Replying to: {quote_content} ]]]"            
 
@@ -651,9 +656,10 @@ class GptMemory(GptMemoryBase):
             else:
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
 
-        for message_link in DISCORD_MESSAGE_LINK_PATTERN.finditer(content):
+        for i, message_link in enumerate(DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
             guild_id = int(message_link.group("guild_id"))
             channel_id = int(message_link.group("channel_id"))
+            message_id = int(message_link.group("message_id"))
             if message.guild.id != guild_id:
                 replacement = "[Link to message outside server]"
             elif message.channel.id != channel_id:
@@ -662,5 +668,16 @@ class GptMemory(GptMemoryBase):
             else:
                 replacement = f"[Link to message]"
             content = content.replace(message_link.group(0), replacement)
+            # Add quote for linked message if it is the first
+            if i == 0 and recursive:
+                try:
+                    linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
+                except AttributeError:
+                    continue
+                linked_content = await self.parse_discord_message(linked, None, backread, False, max_quote_length, max_file_length)
+                linked_content = linked_content.replace("\n", " ")
+                if linked in backread and len(linked_content) > max_quote_length:
+                    linked_content = linked_content[:max_quote_length-3] + "..."
+                content += f"\n[[[ Linked message: {linked_content} ]]]"  
 
         return content.strip()
