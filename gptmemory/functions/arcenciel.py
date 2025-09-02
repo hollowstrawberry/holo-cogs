@@ -21,10 +21,10 @@ class ArcencielFunctionCall(FunctionCallBase):
                     },
                     "user": {
                         "type": "string",
-                        "description": "Name of a user to search, if included, only models by this user will be shown.",
+                        "description": "Name of a user to search. If included, only models by this user will be shown.",
                     }
                 },
-                required=["query"],
+                required=[],
             )))
     
     HEADERS = {
