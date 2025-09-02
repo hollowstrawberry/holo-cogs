@@ -58,7 +58,7 @@ def get_text_contents(messages: List[dict]):
             })
         else:
             for cnt in msg["content"]:
-                if "text" in cnt["type"]:
+                if "text" in cnt:
                     temp_messages.append({
                         "role": "user",
                         "content": cnt["text"]
