@@ -41,8 +41,8 @@ class WolframAlphaFunctionCall(FunctionCallBase):
                 async with session.get(url, params=payload) as response:
                     response.raise_for_status()
                     result = await response.text()
-        except aiohttp.ClientError:
-            log.exception("Asking Wolfram Alpha")
+        except aiohttp.ClientError as error:
+            log.warning(f"Asking Wolfram Alpha: {type(error).__name__}: {error}")
             return "An error occured while asking Wolfram Alpha."
 
         root = ElementTree.fromstring(result)

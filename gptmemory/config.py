@@ -10,7 +10,16 @@ class GptMemoryConfig(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
+        self.memory: Dict[int, Dict[str, str]] = {}
+        self.extended_logging = True
         self.config = Config.get_conf(self, identifier=19475820)
+        
+        self.config.register_global(**{
+            "extended_logging": True
+        })
+        self.config.register_channel(**{
+            "start": DISCORD_EPOCH_DATETIME.isoformat(),
+        })
         self.config.register_guild(**{
             "channel_mode": "whitelist",
             "channels": [],
@@ -41,7 +50,3 @@ class GptMemoryConfig(commands.Cog):
             "max_text_file": defaults.TEXT_FILE_LENGTH,
             "max_image_resolution": defaults.IMAGE_SIZE,
         })
-        self.config.register_channel(**{
-            "start": DISCORD_EPOCH_DATETIME.isoformat(),
-        })
-        self.memory: Dict[int, Dict[str, str]] = {}

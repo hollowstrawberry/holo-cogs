@@ -43,9 +43,9 @@ class ArcencielFunctionCall(FunctionCallBase):
                     async with session.get(url) as resp:
                         resp.raise_for_status()
                         data = await resp.json()
-            except aiohttp.ClientError:
-                log.exception("Trying to grab user from Arc en Ciel")
-                return "Error trying to grab user from Arc en Ciel"
+            except aiohttp.ClientError as error:
+                log.warning(f"Trying to grab user from Arc en Ciel: {type(error).__name__}: {error}")
+                return "[Error trying to grab user from Arc en Ciel]"
             if data:
                 found_user = data[0]['id']
             else:
@@ -59,9 +59,9 @@ class ArcencielFunctionCall(FunctionCallBase):
                 async with session.get(url) as resp:
                     resp.raise_for_status()
                     data = await resp.json()
-        except aiohttp.ClientError:
-            log.exception("Trying to grab model from Arc en Ciel")
-            return "Error trying to grab model from Arc en Ciel"
+        except aiohttp.ClientError as error:
+            log.warning(f"Trying to grab model from Arc en Ciel: {type(error).__name__}: {error}")
+            return "[Error trying to grab model from Arc en Ciel]"
         
         if not data["data"]:
             return "[No results]"
