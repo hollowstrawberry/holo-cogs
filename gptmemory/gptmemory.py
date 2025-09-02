@@ -637,7 +637,8 @@ class GptMemory(GptMemoryCommands):
                 if total_file_length > 4000:
                     break
 
-        if quote and recursive:
+        is_generated_image_by_bot = is_generated_image and message.author == message.guild.me
+        if quote and recursive and not is_generated_image_by_bot:
             quote_content = await self.parse_discord_message(quote, None, backread, False, max_quote_length, max_file_length)
             quote_content = quote_content.replace("\n", " ")
             if quote in backread and len(quote_content) > max_quote_length:
@@ -669,7 +670,7 @@ class GptMemory(GptMemoryCommands):
                 replacement = f"[Link to message]"
             content = content.replace(message_link.group(0), replacement)
             # Add quote for linked message if it is the first
-            if i == 0 and recursive and message.author.id != self.bot.user.id:
+            if i == 0 and recursive and not is_generated_image_by_bot:
                 try:
                     linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
                 except AttributeError:
