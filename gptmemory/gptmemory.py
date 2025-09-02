@@ -54,6 +54,7 @@ class GptMemory(GptMemoryCommands):
     async def cog_load(self):
         await self.initialize_function_calls()
         await self.initialize_openai_client()
+        self.extended_logging = await self.config.extended_logging()
         all_config = await self.config.all_guilds()
         for guild_id, config in all_config.items():
             self.memory[guild_id] = config["memory"]
