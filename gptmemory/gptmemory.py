@@ -669,7 +669,7 @@ class GptMemory(GptMemoryCommands):
                 replacement = f"[Link to message]"
             content = content.replace(message_link.group(0), replacement)
             # Add quote for linked message if it is the first
-            if i == 0 and recursive:
+            if i == 0 and recursive and message.author.id != self.bot.user.id:
                 try:
                     linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
                 except AttributeError:
