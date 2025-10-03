@@ -1,6 +1,6 @@
 # 🍓 holo-cogs
 
-This is the place for my cogs that were too spicy to go into [https://github.com/hollowstrawberry/crab-cogs](crab-cogs)
+This is the place for my cogs that were too spicy to go into [crab-cogs](https://github.com/hollowstrawberry/crab-cogs)
 
 These require Red 3.5, which uses the newer Discord interaction features.
 
