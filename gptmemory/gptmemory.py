@@ -674,7 +674,7 @@ class GptMemory(GptMemoryCommands):
             if i == 0 and recursive and not is_generated_image_by_bot:
                 try:
                     linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
-                except AttributeError:
+                except (AttributeError, discord.NotFound):
                     continue
                 linked_content = await self.parse_discord_message(linked, None, backread, False, max_quote_length, max_file_length)
                 linked_content = linked_content.replace("\n", " ")
