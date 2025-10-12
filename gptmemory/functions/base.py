@@ -8,7 +8,7 @@ from gptmemory.config import GptMemoryConfig
 
 
 class FunctionCallBase(ABC):
-    schema: ToolCall = None # type: ignore
+    schema: ToolCall
     apis: List[Tuple[str, str]] = []
 
     def __init__(self, ctx: commands.Context, cog: GptMemoryConfig):

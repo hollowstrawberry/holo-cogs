@@ -225,7 +225,7 @@ class GptThink(commands.Cog):
     @vip.command(name="add")
     async def vip_add(self, ctx: commands.Context, *, users: str):
         """Add a list of users to the VIP list."""
-        user_ids = [int(uid) for uid in re.findall(r"([0-9]+)", users)]
+        user_ids = [int(uid) for uid in re.findall(r"(\d+)", users)]
         if not user_ids:
             return await ctx.reply("Please enter one or more valid users.")
         vip = set(await self.config.vip())
@@ -236,7 +236,7 @@ class GptThink(commands.Cog):
     @vip.command(name="remove")
     async def vip_remove(self, ctx: commands.Context, *, users: str):
         """Remove a list of users from the VIP list."""
-        user_ids = [int(uid) for uid in re.findall(r"([0-9]+)", users)]
+        user_ids = [int(uid) for uid in re.findall(r"(\d+)", users)]
         if not user_ids:
             return await ctx.reply("Please enter one or more valid users.")
         vip = set(await self.config.vip())

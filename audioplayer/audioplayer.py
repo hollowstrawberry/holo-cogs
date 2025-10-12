@@ -135,7 +135,7 @@ class AudioPlayer(Cog):
             formatted_time += f"{total_length//60%60:02}:{total_length%60:02}"
             embed.description += f"\n\n{len(player.queue)} more in queue ({formatted_time})"
         else:
-            embed.description += f"\n\nNo more in queue"
+            embed.description += "\n\nNo more in queue"
         if player.current.thumbnail:
             embed.set_thumbnail(url=player.current.thumbnail)
 
