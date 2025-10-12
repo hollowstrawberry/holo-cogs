@@ -1,11 +1,14 @@
-from base64 import b64encode
+import logging
 import discord
 from io import BytesIO
+from base64 import b64encode
 from typing import Optional
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
 from openai import AsyncOpenAI, NotGiven
+
+log = logging.getLogger("red.holo-cogs.gptwelcome")
 
 VISION_MODELS = [
     "gpt-4o",
@@ -115,7 +118,10 @@ class GptWelcome(commands.Cog):
             reasoning_effort="low" if "GPT-5" in model else NotGiven()
         )
         completion = response.choices[0].message.content
-        await ctx.reply(content=completion, mention_author=True)
+        try:
+            await ctx.reply(content=completion, mention_author=True)
+        except discord.Forbidden:
+            log.error(f"Not allowed to welcome user in {ctx.guild.name}")
 
     @commands.group(name="gptwelcome", aliases=["aiwelcome", "llmwelcome"])
     @commands.guild_only()
