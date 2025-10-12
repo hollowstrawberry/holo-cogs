@@ -56,8 +56,8 @@ class ScrapeFunctionCall(FunctionCallBase):
                         return f"[Contents of {url} is not text]"
                     text = await response.text()
                     content = trafilatura.extract(text) or text
-        except aiohttp.ClientError:
-            log.warning(f"Opening {url}", exc_info=True)
+        except aiohttp.ClientError as error:
+            log.warning(f"Opening {url}: {type(error).__name__}: {error}")
             return f"[Failed to open URL]"
         return content or "[Empty page]"
     
@@ -77,8 +77,8 @@ class ScrapeFunctionCall(FunctionCallBase):
                 async with session.get(url) as response:
                     response.raise_for_status()
                     data = await response.json()
-        except aiohttp.ClientError:
-            log.warning(f"Opening {url}", exc_info=True)
+        except aiohttp.ClientError as error:
+            log.warning(f"Opening {url}: {type(error).__name__}: {error}")
             return f"[Failed to open URL]"
         
         description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"

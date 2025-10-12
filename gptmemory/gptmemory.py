@@ -54,6 +54,7 @@ class GptMemory(GptMemoryCommands):
     async def cog_load(self):
         await self.initialize_function_calls()
         await self.initialize_openai_client()
+        self.extended_logging = await self.config.extended_logging()
         all_config = await self.config.all_guilds()
         for guild_id, config in all_config.items():
             self.memory[guild_id] = config["memory"]
@@ -211,7 +212,8 @@ class GptMemory(GptMemoryCommands):
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         if response.usage:
             result.tokens_recaller = response.usage.completion_tokens
-        log.info(f"{memories_to_recall=}")
+        if self.extended_logging:
+            log.info(f"{memories_to_recall=}")
 
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         return recalled_memories or {}
@@ -296,8 +298,9 @@ class GptMemory(GptMemoryCommands):
                     tool_result = tool_result.strip()
                     if len(tool_result) > max_tool_length:
                         tool_result = tool_result[:max_tool_length-3] + "..."
-                    log.info(f"{call.function.arguments=}")
-                    log.info(f"{tool_result=}")
+                    if self.extended_logging:
+                        log.info(f"{call.function.arguments=}")
+                        log.info(f"{tool_result=}")
 
                     temp_messages.append({
                         "role": "tool",
@@ -318,7 +321,8 @@ class GptMemory(GptMemoryCommands):
 
             completion = response.choices[0].message.content
             if completion:
-                log.info(f"{completion=}")
+                if self.extended_logging:
+                    log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
                 await chunk_and_send(ctx, reply_content)
@@ -394,22 +398,18 @@ class GptMemory(GptMemoryCommands):
                 if action == "delete":
                     del memory[name]
                     del self.memory[ctx.guild.id][name]
-                    log.info(f"delete memory / {name=}")
-
                 elif action == "create" and name not in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.info(f"create memory / {name=} / {content=}")
-
                 elif action == "modify" and name in memory:
                     memory[name] = content
                     self.memory[ctx.guild.id][name] = content
-                    log.info(f"modify memory / {name=} / {content=}")
-
                 else:
                     memory[name] += " ... " + content
                     self.memory[ctx.guild.id][name] += " ... " + content
-                    log.info(f"append memory / {name=} / {content=}")
+
+                if self.extended_logging:
+                    log.info(f"{action} memory / {name=} / {content=}")
 
                 memory_changes.append(name)
 
@@ -475,7 +475,8 @@ class GptMemory(GptMemoryCommands):
                 break
         
         image_sources = [att.url if isinstance(att, discord.Attachment) else att for att in processed_image_sources]
-        log.info(f"{image_sources=}")
+        if self.extended_logging:
+            log.info(f"{image_sources=}")
         result.tokens_backread = tokens
         result.images = total_images
         result.messages = len(messages)
@@ -515,8 +516,8 @@ class GptMemory(GptMemoryCommands):
                 if fp_before.getbuffer().nbytes == 0:
                     try:
                         await image.save(fp_before, seek_begin=True)
-                    except discord.DiscordException:
-                        log.warning("Processing image attachments", exc_info=True)
+                    except discord.DiscordException as error:
+                        log.warning(f"Processing image attachments: {type(error).__name__}: {error}")
                         continue
 
                 fp_after = process_image(fp_before, max_image_size)
@@ -557,8 +558,8 @@ class GptMemory(GptMemoryCommands):
                     async with session.get(url) as response:
                         response.raise_for_status()
                         fp_before = BytesIO(await response.read())
-                except aiohttp.ClientError:
-                    log.warning("Processing image URL", exc_info=True)
+                except aiohttp.ClientError as error:
+                    log.warning(f"Processing image {url}: {type(error).__name__}: {error}")
                     continue
                 fp_after = process_image(fp_before, max_image_size)
                 del fp_before
@@ -627,8 +628,8 @@ class GptMemory(GptMemoryCommands):
             try:
                 await text_file.save(fp, seek_begin=True)
                 file_content = fp.getvalue().decode('utf-8')
-            except (discord.DiscordException, UnicodeDecodeError):
-                log.warning("Processing text attachments", exc_info=True)
+            except (discord.DiscordException, UnicodeDecodeError) as error:
+                log.warning(f"Processing text attachments: {type(error).__name__}: {error}")
             else:
                 if len(file_content) > max_file_length + 10:
                     file_content = f"{file_content[:max_file_length//2]}\n(...)\n{file_content[-max_file_length//2:]}"
@@ -637,7 +638,8 @@ class GptMemory(GptMemoryCommands):
                 if total_file_length > 4000:
                     break
 
-        if quote and recursive:
+        is_generated_image_by_bot = is_generated_image and message.author == message.guild.me
+        if quote and recursive and not is_generated_image_by_bot:
             quote_content = await self.parse_discord_message(quote, None, backread, False, max_quote_length, max_file_length)
             quote_content = quote_content.replace("\n", " ")
             if quote in backread and len(quote_content) > max_quote_length:
@@ -669,10 +671,10 @@ class GptMemory(GptMemoryCommands):
                 replacement = f"[Link to message]"
             content = content.replace(message_link.group(0), replacement)
             # Add quote for linked message if it is the first
-            if i == 0 and recursive:
+            if i == 0 and recursive and not is_generated_image_by_bot:
                 try:
                     linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
-                except AttributeError:
+                except (AttributeError, discord.NotFound):
                     continue
                 linked_content = await self.parse_discord_message(linked, None, backread, False, max_quote_length, max_file_length)
                 linked_content = linked_content.replace("\n", " ")

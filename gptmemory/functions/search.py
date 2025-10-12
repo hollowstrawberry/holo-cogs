@@ -37,8 +37,8 @@ class SearchFunctionCall(FunctionCallBase):
                 async with session.post(url, data=payload) as response:
                     response.raise_for_status()
                     data = await response.json()
-        except aiohttp.ClientError:
-            log.exception("Failed request to serper.io")
+        except aiohttp.ClientError as error:
+            log.warning(f"Failed request to serper.io: {type(error).__name__}: {error}")
             return "An error occured while searching Google."
 
         content = "[Google Search result] "

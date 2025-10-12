@@ -135,6 +135,13 @@ class GptMemoryCommands(GptMemoryConfig):
 
         await ctx.send(response)
 
+    @memoryconfig.command(name="logging")
+    async def memoryconfig_logging(self, ctx: commands.Context):
+        """Toggles logging mode, for the developer."""
+        self.extended_logging = not self.extended_logging
+        await self.config.extended_logging.set(self.extended_logging)
+        await ctx.reply(f"`[logging:]` {'full' if self.extended_logging else 'minimal'}", mention_author=False)
+    
     channel_mode = Literal["whitelist", "blacklist", "show"]
 
     @memoryconfig.command(name="channels")
