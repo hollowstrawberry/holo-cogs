@@ -1,10 +1,9 @@
 import json
 import logging
 import itertools
+import aiofiles
 from typing import Any, Dict, List, Set
 from rapidfuzz import process, fuzz
-from redbot.core import commands
-from redbot.core.bot import Red
 from redbot.core.data_manager import bundled_data_path
 
 from gptmemory.schema import ToolCall, Function, Parameters
@@ -40,7 +39,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
     @classmethod
     def build_index(cls, data: Dict[str, Any]):
         cls.tag_groups = {}
-        for group_name, group_content in data.items():
+        for _, group_content in data.items():
             for subgroup_name, subgroup_content in group_content.items():
                 if isinstance(subgroup_content, dict):
                     vals = [v if isinstance(v, (list, tuple)) else [v]
@@ -71,8 +70,8 @@ class BooruTagsFunctionCall(FunctionCallBase):
         query = arguments["query"]
 
         if not self.tag_groups:
-            with open(bundled_data_path(self.cog).absolute() / "tag_groups.json", "r") as fp:
-                data = json.load(fp)
+            async with aiofiles.open(bundled_data_path(self.cog).absolute() / "tag_groups.json", "r") as fp:
+                data = json.loads(await fp.read())
             self.build_index(data)
 
         results = self.search_booru_tags(query)
