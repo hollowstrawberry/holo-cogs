@@ -43,8 +43,7 @@ class ScrapeFunctionCall(FunctionCallBase):
         for pattern, method in self.custom_scrapers.items():
             if match := pattern.search(url):
                 return await method(match)
-        else:
-            return await self.scrape_generic(url)
+        return await self.scrape_generic(url)
 
     async def scrape_generic(self, url: str) -> str:
         try:
@@ -58,7 +57,7 @@ class ScrapeFunctionCall(FunctionCallBase):
                     content = trafilatura.extract(text) or text
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {type(error).__name__}: {error}")
-            return f"[Failed to open URL]"
+            return "[Failed to open URL]"
         return content or "[Empty page]"
     
     async def scrape_github_file(self, match: re.Match) -> str:
@@ -79,7 +78,7 @@ class ScrapeFunctionCall(FunctionCallBase):
                     data = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {type(error).__name__}: {error}")
-            return f"[Failed to open URL]"
+            return "[Failed to open URL]"
         
         description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"
         versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)

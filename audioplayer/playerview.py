@@ -11,6 +11,9 @@ from redbot.cogs.audio.core import Audio
 
 log = logging.getLogger("red.holo-cogs.audioplayer")
 
+ERROR_FORBIDDEN = "You're not allowed to perform this action."
+ERROR_UNKNOWN = "Oops! Try again."
+
 
 class AudioPlayerView(View):
     def __init__(self, cog):
@@ -26,7 +29,7 @@ class AudioPlayerView(View):
         audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "queue", ephemeral=True)
         if not await self.can_run_command(ctx, "queue"):
-            await inter.response.send_message("You're not allowed to perform this action.")
+            await inter.response.send_message(ERROR_FORBIDDEN)
             return
         try:
             await audio.command_queue(ctx)
@@ -39,13 +42,13 @@ class AudioPlayerView(View):
         audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "prev", ephemeral=False)
         if not await self.can_run_command(ctx, "prev"):
-            await inter.response.send_message("You're not allowed to perform this action.")
+            await inter.response.send_message(ERROR_FORBIDDEN)
             return
         try:
             await audio.command_prev(ctx)
         except Exception: # user-facing error
             log.error("previous button", exc_info=True)
-            await inter.response.send_message("Oops! Try again.")
+            await inter.response.send_message(ERROR_UNKNOWN)
         else:
             await self.update_player(ctx, audio)
 
@@ -54,13 +57,13 @@ class AudioPlayerView(View):
         audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "pause", ephemeral=True)
         if not await self.can_run_command(ctx, "pause"):
-            await inter.response.send_message("You're not allowed to perform this action.")
+            await inter.response.send_message(ERROR_FORBIDDEN)
             return
         try:
             await audio.command_pause(ctx)
         except Exception: # user-facing error
             log.error("pause button", exc_info=True)
-            await inter.response.send_message("Oops! Try again.")
+            await inter.response.send_message(ERROR_UNKNOWN)
         else:
             await self.update_player(ctx, audio)
 
@@ -69,13 +72,13 @@ class AudioPlayerView(View):
         audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "skip", ephemeral=False)
         if not await self.can_run_command(ctx, "skip"):
-            await inter.response.send_message("You're not allowed to perform this action.")
+            await inter.response.send_message(ERROR_FORBIDDEN)
             return
         try:
             await audio.command_skip(ctx)
         except Exception: # user-facing error
             log.error("skip button", exc_info=True)
-            await inter.response.send_message("Oops! Try again.")
+            await inter.response.send_message(ERROR_UNKNOWN)
         else:
             await self.update_player(ctx, audio)
 
@@ -84,13 +87,13 @@ class AudioPlayerView(View):
         audio: Audio = self.cog.bot.get_cog("Audio")
         ctx = await self.get_context(inter, "stop", ephemeral=False)
         if not await self.can_run_command(ctx, "stop"):
-            await inter.response.send_message("You're not allowed to perform this action.")
+            await inter.response.send_message(ERROR_FORBIDDEN)
             return
         try:
             await audio.command_stop(ctx)
         except Exception: # user-facing error
             log.error("stop button", exc_info=True)
-            await inter.response.send_message("Oops! Try again.")
+            await inter.response.send_message(ERROR_UNKNOWN)
         else:
             await self.update_player(ctx, audio)
 

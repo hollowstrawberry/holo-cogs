@@ -51,7 +51,7 @@ class WolframAlphaFunctionCall(FunctionCallBase):
             if pt.text:
                 plaintext.append(pt.text.capitalize())
         if not plaintext:
-            return f"Wolfram Alpha is unable to answer the question. Try to answer with your own knowledge."
+            return "Wolfram Alpha is unable to answer the question. Try to answer with your own knowledge."
         content = "\n".join(plaintext[:3])  # lines after the 3rd are often irrelevant in answers such as currency conversion
 
         if FARENHEIT_PATTERN.search(content):

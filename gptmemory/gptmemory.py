@@ -128,9 +128,8 @@ class GptMemory(GptMemoryCommands):
 
         channel_mode = await self.config.guild(ctx.guild).channel_mode()
         channel_list = await self.config.guild(ctx.guild).channels()
-        if channel_mode == "blacklist" and ctx.channel.id in channel_list:
-            return False
-        elif channel_mode == "whitelist" and ctx.channel.id not in channel_list:
+        if channel_mode == "blacklist" and ctx.channel.id in channel_list \
+                or channel_mode == "whitelist" and ctx.channel.id not in channel_list:
             return False
 
         if await self.bot.cog_disabled_in_guild(self, ctx.guild):
@@ -150,7 +149,7 @@ class GptMemory(GptMemoryCommands):
 
     @staticmethod
     async def wait_for_embed(ctx: commands.Context) -> commands.Context:
-        for n in range(2):
+        for _ in range(2):
             if ctx.message.embeds:
                 return ctx
             await asyncio.sleep(1)
@@ -668,7 +667,7 @@ class GptMemory(GptMemoryCommands):
                 channel = message.guild.get_channel_or_thread(channel_id)
                 replacement = f"[Link to message in #{channel.name}]" if channel else "[Link to message]"
             else:
-                replacement = f"[Link to message]"
+                replacement = "[Link to message]"
             content = content.replace(message_link.group(0), replacement)
             # Add quote for linked message if it is the first
             if i == 0 and recursive and not is_generated_image_by_bot:

@@ -70,9 +70,10 @@ async def chunk_and_send(ctx: commands.Context, full_text: str):
     base_lines = full_text.splitlines(keepends=True)
     lines = []
     for base_line in base_lines:
-        while len(base_line) > MAX_MESSAGE_LENGTH:
-            lines.append(base_line)
-            base_line = base_line[:MAX_MESSAGE_LENGTH]
+        if len(base_line) > MAX_MESSAGE_LENGTH:
+            while len(base_line) > MAX_MESSAGE_LENGTH:
+                lines.append(base_line)
+                base_line = base_line[:MAX_MESSAGE_LENGTH]
         else:
             lines.append(base_line)
 
