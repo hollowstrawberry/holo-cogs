@@ -30,4 +30,6 @@ class AgenticSearchFunctionCall(FunctionCallBase):
             tools=[{"type": "web_search"}],  # type: ignore
             input=arguments["query"]
         )
-        return response.output_text
+        assert response.usage and response.output_text
+        log.info(f"WebSearchResult(input_tokens={response.usage.input_tokens}, output_tokens={response.usage.output_tokens})")
+        return f"[Below is the search result. Please share this information with the user.]\n{response.output_text}"
