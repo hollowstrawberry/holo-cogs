@@ -11,7 +11,7 @@ class AgenticSearchFunctionCall(FunctionCallBase):
     schema = ToolCall(
         Function(
             name="search_web",
-            description="Make an agent search the internet for up-to-date information.",
+            description="Search the internet for recent information or current events.",
             parameters=Parameters(
                 properties={
                     "query": {
