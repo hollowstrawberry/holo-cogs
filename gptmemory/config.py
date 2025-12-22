@@ -1,4 +1,5 @@
-from typing import Dict
+from typing import Dict, Optional
+from openai import AsyncOpenAI
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
@@ -13,6 +14,8 @@ class GptMemoryConfig(commands.Cog):
         self.memory: Dict[int, Dict[str, str]] = {}
         self.extended_logging = True
         self.config = Config.get_conf(self, identifier=19475820)
+        
+        self.openai_client: Optional[AsyncOpenAI] = None
         
         self.config.register_global(**{
             "extended_logging": True

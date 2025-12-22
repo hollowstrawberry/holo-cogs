@@ -44,7 +44,6 @@ class GptMemory(GptMemoryCommands):
 
     def __init__(self, bot: Red):
         super().__init__(bot)
-        self.openai_client: Optional[AsyncOpenAI] = None
         self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
         self.available_function_calls = set(get_all_function_calls())
         all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
