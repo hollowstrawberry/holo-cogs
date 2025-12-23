@@ -319,12 +319,10 @@ class GptMemory(GptMemoryCommands):
                     messages=temp_messages, # type: ignore
                     max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
                     max_completion_tokens=max_tokens if "gpt-5" in model else NotGiven(),
-                    reasoning_effort=effort if "gpt-5" in model else NotGiven()
+                    reasoning_effort=effort if "gpt-5" in model else NotGiven()  # type: ignore
                 )
                 if response.usage:
                     result.tokens_after_tools = response.usage.completion_tokens
-                    log.info(f"{result.tokens_after_tools=}")
-
 
             completion = response.choices[0].message.content
             if completion:
@@ -336,7 +334,6 @@ class GptMemory(GptMemoryCommands):
                 if self.extended_logging:
                     log.info(f"Using tool result as completion")
                 reply_content = last_tool_result
-
 
             if reply_content:
                 await chunk_and_send(ctx, reply_content)
