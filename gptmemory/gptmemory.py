@@ -319,6 +319,10 @@ class GptMemory(GptMemoryCommands):
                 if response.usage:
                     result.tokens_after_tools = response.usage.completion_tokens
                     log.info(f"{result.tokens_after_tools=}")
+                else:
+                    log.info(f"No tokens after tools")
+
+            log.info("Sanity check 1")
 
             completion = response.choices[0].message.content
             if completion:
@@ -331,12 +335,14 @@ class GptMemory(GptMemoryCommands):
                     log.info(f"Using tool result as completion")
                 reply_content = last_tool_result
 
+            log.info("Sanity check 2")
+
             if reply_content:
                 await chunk_and_send(ctx, reply_content)
             elif ctx.bot_permissions.add_reactions:
                 await ctx.message.add_reaction("🤐")
 
-        log.info(f"Sanity check")
+        log.info(f"Sanity check 3")
 
         response_message = {
             "role": "assistant",
