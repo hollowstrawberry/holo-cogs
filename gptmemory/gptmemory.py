@@ -327,7 +327,7 @@ class GptMemory(GptMemoryCommands):
                 reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
             elif last_tool_result:
                 reply_content = last_tool_result
-                
+            log.info(f"{last_tool_result=}")
             if reply_content:
                 await chunk_and_send(ctx, reply_content)
             elif ctx.bot_permissions.add_reactions:
