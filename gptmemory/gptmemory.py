@@ -308,6 +308,10 @@ class GptMemory(GptMemoryCommands):
                         "tool_call_id": call.id,
                     })
 
+                    log.info("Sanity check -1")
+
+                log.info("Sanity check 0")
+
                 model = await self.config.guild(ctx.guild).model_responder()
                 response = await self.openai_client.chat.completions.create(
                     model=model,
