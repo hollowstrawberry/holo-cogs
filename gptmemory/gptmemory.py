@@ -230,10 +230,8 @@ class GptMemory(GptMemoryCommands):
             return_exceptions=True
         )
         for idx, res in enumerate(task_results):
-            log.info(f"Task {idx}: {type(res).__name__} - {res}")
-            log.info(f"{isinstance(res, BaseException)=} {isinstance(res, Exception)=}")
-            if isinstance(res, BaseException):
-                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", exc_info=res)
+            if isinstance(res, BaseException) or "Error" in type(res).__name__:  # Strange behavior where openai error is not an exception
+                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", exc_info=res)  # type: ignore
 
 
     async def execute_responder(self,
