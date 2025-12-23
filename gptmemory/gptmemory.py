@@ -230,7 +230,7 @@ class GptMemory(GptMemoryCommands):
             return_exceptions=True
         )
         for idx, res in enumerate(task_results):
-            log.info(f"Task {idx}: {res}")
+            log.info(f"Task {idx}: {type(res).__name__} - {res}")
             if isinstance(res, BaseException):
                 log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", res)
 
@@ -248,6 +248,9 @@ class GptMemory(GptMemoryCommands):
         assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
+        effort = await self.config.guild(ctx.guild).effort_responder()
+        max_tokens = await self.config.guild(ctx.guild).response_tokens()
+
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         system_content = (await self.config.guild(ctx.guild).prompt_responder()).format(
             botname=self.bot.user.name,
@@ -274,9 +277,10 @@ class GptMemory(GptMemoryCommands):
             response = await self.openai_client.chat.completions.create(
                 model=model,
                 messages=temp_messages, # type: ignore
-                max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
-                max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
+                max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
+                max_completion_tokens=max_tokens if "gpt-5" in model else NotGiven(),
                 tools=[t.asdict() for t in tools], # type: ignore
+                reasoning_effort=effort if "gpt-5" in model else NotGiven()
             )
             if response.usage:
                 result.tokens_responder = response.usage.completion_tokens
@@ -309,13 +313,12 @@ class GptMemory(GptMemoryCommands):
                         "tool_call_id": call.id,
                     })
 
-                model = await self.config.guild(ctx.guild).model_responder()
                 response = await self.openai_client.chat.completions.create(
                     model=model,
                     messages=temp_messages, # type: ignore
-                    max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
-                    max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
-                    reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
+                    max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
+                    max_completion_tokens=max_tokens if "gpt-5" in model else NotGiven(),
+                    reasoning_effort=effort if "gpt-5" in model else NotGiven()
                 )
                 if response.usage:
                     result.tokens_after_tools = response.usage.completion_tokens
