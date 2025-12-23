@@ -230,6 +230,7 @@ class GptMemory(GptMemoryCommands):
             return_exceptions=True
         )
         for idx, res in enumerate(task_results):
+            log.info(f"Task {idx}: {res}")
             if isinstance(res, BaseException):
                 log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", res)
 
@@ -308,10 +309,6 @@ class GptMemory(GptMemoryCommands):
                         "tool_call_id": call.id,
                     })
 
-                    log.info("Sanity check -1")
-
-                log.info("Sanity check 0")
-
                 model = await self.config.guild(ctx.guild).model_responder()
                 response = await self.openai_client.chat.completions.create(
                     model=model,
@@ -323,10 +320,7 @@ class GptMemory(GptMemoryCommands):
                 if response.usage:
                     result.tokens_after_tools = response.usage.completion_tokens
                     log.info(f"{result.tokens_after_tools=}")
-                else:
-                    log.info(f"No tokens after tools")
 
-            log.info("Sanity check 1")
 
             completion = response.choices[0].message.content
             if completion:
@@ -339,14 +333,11 @@ class GptMemory(GptMemoryCommands):
                     log.info(f"Using tool result as completion")
                 reply_content = last_tool_result
 
-            log.info("Sanity check 2")
 
             if reply_content:
                 await chunk_and_send(ctx, reply_content)
             elif ctx.bot_permissions.add_reactions:
                 await ctx.message.add_reaction("🤐")
-
-        log.info(f"Sanity check 3")
 
         response_message = {
             "role": "assistant",
