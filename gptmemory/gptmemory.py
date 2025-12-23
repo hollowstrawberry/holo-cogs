@@ -248,6 +248,8 @@ class GptMemory(GptMemoryCommands):
         
         model = await self.config.guild(ctx.guild).model_responder()
         effort = await self.config.guild(ctx.guild).effort_responder()
+        if effort == "minimal" and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
+            effort = "none"
         max_tokens = await self.config.guild(ctx.guild).response_tokens()
 
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
@@ -279,7 +281,7 @@ class GptMemory(GptMemoryCommands):
                 max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
                 max_completion_tokens=max_tokens if "gpt-5" in model else NotGiven(),
                 tools=[t.asdict() for t in tools], # type: ignore
-                reasoning_effort=effort if "gpt-5" in model else NotGiven()
+                reasoning_effort=effort if "gpt-5" in model else NotGiven()  # type: ignore
             )
             if response.usage:
                 result.tokens_responder = response.usage.completion_tokens
