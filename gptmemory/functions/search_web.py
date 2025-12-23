@@ -32,4 +32,4 @@ class AgenticSearchFunctionCall(FunctionCallBase):
         )
         assert response.usage and response.output_text
         log.info(f"WebSearchResult(input_tokens={response.usage.input_tokens}, output_tokens={response.usage.output_tokens})")
-        return f"[Please rewrite the following search result for the user to see:]\n{response.output_text}"
+        return response.output_text

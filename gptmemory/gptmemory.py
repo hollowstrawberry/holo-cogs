@@ -280,6 +280,7 @@ class GptMemory(GptMemoryCommands):
             if response.usage:
                 result.tokens_responder = response.usage.completion_tokens
 
+            last_tool_result = None
             if response.choices[0].message.tool_calls:
                 temp_messages.append(response.choices[0].message) # type: ignore
                 max_tool_length = await self.config.guild(ctx.guild).max_tool()
@@ -293,6 +294,7 @@ class GptMemory(GptMemoryCommands):
                         tool_result = "[Error]"
                         log.exception("Calling tool")
 
+                    last_tool_result = tool_result
                     tool_result = tool_result.strip()
                     if len(tool_result) > max_tool_length:
                         tool_result = tool_result[:max_tool_length-3] + "..."
@@ -323,7 +325,13 @@ class GptMemory(GptMemoryCommands):
                     log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
+            elif last_tool_result:
+                reply_content = last_tool_result
+                
+            if reply_content:
                 await chunk_and_send(ctx, reply_content)
+            elif ctx.bot_permissions.add_reactions:
+                await ctx.message.add_reaction("🤐")
 
         response_message = {
             "role": "assistant",
