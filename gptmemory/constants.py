@@ -9,7 +9,8 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 # (\[\[\[[\s\S]+\]\]\])          Any multiline text insie [[[ triple brackets ]]] as those are system texts
 # (\[\[.+\]\])                   Any single-line text inside [[ double brackets ]] as those are system texts
 # (^-# (Requested|Revised).+)    Bot actions that are automated and the AI likes to repeat
-RESPONSE_CLEANUP_PATTERN = re.compile(r"((^(\[[^[\]]+\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(^-# (Requested|Revised).+))", re.MULTILINE)
+# ({\s*"ai_?generated":[^}]+})   Gemini boilerplate text for images
+RESPONSE_CLEANUP_PATTERN = re.compile(r"((^(\[[^[\]]+\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(^-# (Requested|Revised).+)|({\s*"ai_?generated":[^}]+}))", re.MULTILINE)
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
