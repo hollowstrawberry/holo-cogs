@@ -5,7 +5,12 @@ from discord.utils import DISCORD_EPOCH
 MAX_MESSAGE_LENGTH = 1950
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 
-RESPONSE_CLEANUP_PATTERN = re.compile(r"(((^(\[[^[\]]+\]\s?)+)|(\[\[\[[\s\S]+\]\]\])))", re.MULTILINE)
+# (^(\[[^[\]]+\]\s?)+)           The start of a message such as [Username: Crabot]
+# (\[\[\[[\s\S]+\]\]\])          Any multiline text insie [[[ triple brackets ]]] as those are system texts
+# (\[\[.+\]\])                   Any single-line text inside [[ double brackets ]] as those are system texts
+# (^-# (Requested|Revised).+)    Bot actions that are automated and the AI likes to repeat
+RESPONSE_CLEANUP_PATTERN = re.compile(r"((^(\[[^[\]]+\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(^-# (Requested|Revised).+))", re.MULTILINE)
+
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 CODEBLOCK_PATTERN = re.compile(r"^```(\w*)\s*$")
