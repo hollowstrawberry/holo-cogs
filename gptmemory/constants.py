@@ -8,9 +8,9 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 # ((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)    Author system texts such as [Username: Crabot]
 # (\[\[\[[\s\S]+\]\]\])                  Multiline system texts inside [[[ triple brackets ]]]
 # (\[\[.+\]\])                           Single-line system texts inside [[ double brackets ]]
-# ((^|\n)-# (Requested|Revised).+)       Bot actions that are automated and the AI likes to repeat
+# (-# (Requested|Revised).+)             Bot actions that are automated and the AI likes to repeat
 # ({\s*"ai_?generated":[^}]+})           Gemini boilerplate text for images
-RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|((^|\n)-#\s+(Requested|Revised).+)|({\s*"ai_?generated":[^}]+}))')
+RESPONSE_CLEANUP_PATTERN = re.compile(r'((^(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(-# (Requested|Revised).+)|({\s*"ai_?generated":[^}]+}))', re.MULTILINE)
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
