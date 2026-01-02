@@ -5,12 +5,12 @@ from discord.utils import DISCORD_EPOCH
 MAX_MESSAGE_LENGTH = 1950
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 
-# (^(\[[^[\]]+\]\s?)+)           The start of a message such as [Username: Crabot]
-# (\[\[\[[\s\S]+\]\]\])          Any multiline text insie [[[ triple brackets ]]] as those are system texts
-# (\[\[.+\]\])                   Any single-line text inside [[ double brackets ]] as those are system texts
-# (^-# (Requested|Revised).+)    Bot actions that are automated and the AI likes to repeat
-# ({\s*"ai_?generated":[^}]+})   Gemini boilerplate text for images
-RESPONSE_CLEANUP_PATTERN = re.compile(r'((^(\[[^[\]]+\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|((^|\n)-#\s+(Requested|Revised).+)|({\s*"ai_?generated":[^}]+}))')
+# ((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)    Author system texts such as [Username: Crabot]
+# (\[\[\[[\s\S]+\]\]\])                  Multiline system texts inside [[[ triple brackets ]]]
+# (\[\[.+\]\])                           Single-line system texts inside [[ double brackets ]]
+# ((^|\n)-# (Requested|Revised).+)       Bot actions that are automated and the AI likes to repeat
+# ({\s*"ai_?generated":[^}]+})           Gemini boilerplate text for images
+RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|((^|\n)-#\s+(Requested|Revised).+)|({\s*"ai_?generated":[^}]+}))')
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
