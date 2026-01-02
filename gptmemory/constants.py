@@ -8,9 +8,9 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 # ((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)    Author system texts such as [Username: Crabot]
 # (\[\[\[[\s\S]+\]\]\])                  Multiline system texts inside [[[ triple brackets ]]]
 # (\[\[.+\]\])                           Single-line system texts inside [[ double brackets ]]
-# (-# (Requested|Revised).+)             Bot actions that are automated and the AI likes to repeat
+# (-# [Rr][Ee].+)                        Bot actions that are automated and the AI likes to repeat
 # ({\s*"[^"]+":[^}]+}(?!\s*```))         json output that isn't followed by a code block
-RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(-# (Requested|Revised).+)|({\s*"[^"]+":[^}]+}(?!\s*```)))')
+RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(-# [Rr][Ee].+)|({\s*"[^"]+":[^}]+}(?!\s*```)))')
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
