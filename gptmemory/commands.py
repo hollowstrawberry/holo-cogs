@@ -196,11 +196,14 @@ class GptMemoryCommands(GptMemoryConfig):
 
         if not model or not model.strip():
             await ctx.reply(f"Current model for the {module} is {model_value}")
-        elif model.strip().lower() not in VISION_MODELS:
+        elif "/" not in model and model.strip().lower() not in VISION_MODELS:
             await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
         else:
             await model_setter.set(model.strip().lower())
-            await ctx.tick(message="Model changed")
+            if "/" in model:
+                await ctx.reply("Model changed. Note that this model will be used through OpenRouter, and things may break unexpectedly.")
+            else:
+                await ctx.tick(message="Model changed")
 
     @memoryconfig.command("effort")
     @commands.is_owner()

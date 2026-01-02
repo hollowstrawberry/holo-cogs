@@ -16,6 +16,7 @@ class GptMemoryConfig(commands.Cog):
         self.config = Config.get_conf(self, identifier=19475820)
         
         self.openai_client: Optional[AsyncOpenAI] = None
+        self.openrouter_client: Optional[AsyncOpenAI] = None
         
         self.config.register_global(**{
             "extended_logging": True

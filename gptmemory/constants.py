@@ -30,6 +30,12 @@ VISION_MODELS = [
     "gpt-5.2",
 ]
 
+MODELS_THAT_USE_MINIMAL = [
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+]
+
 EFFORT_VALUES = [
     "minimal",
     "low",

@@ -114,3 +114,10 @@ async def chunk_and_send(ctx: commands.Context, full_text: str):
             first_reply = False
         else:
             await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
+
+
+def adjusted_effort(model: str, effort: str) -> str:
+   if effort == "minimal" and "/" not in model and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
+       return "none"
+   else:
+       return effort

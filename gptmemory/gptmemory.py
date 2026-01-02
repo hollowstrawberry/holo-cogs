@@ -16,7 +16,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
+from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
 from gptmemory.schema import MemoryChangeList
 from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, INCOMPLETE_EMOTE_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
 from gptmemory.functions.base import get_all_function_calls
@@ -62,6 +62,8 @@ class GptMemory(GptMemoryCommands):
     async def cog_unload(self):
         if self.openai_client:
             await self.openai_client.close()
+        if self.openrouter_client:
+            await self.openrouter_client.close()
 
 
     async def initialize_function_calls(self):
@@ -75,16 +77,29 @@ class GptMemory(GptMemoryCommands):
 
 
     async def initialize_openai_client(self):
-        api_key = (await self.bot.get_shared_api_tokens("openai")).get("api_key")
-        if not api_key:
-            return
-        self.openai_client = AsyncOpenAI(api_key=api_key)
+        openai_api_key = (await self.bot.get_shared_api_tokens("openai")).get("api_key")
+        if openai_api_key:
+            if self.openai_client:
+                await self.openai_client.close()
+            self.openai_client = AsyncOpenAI(api_key=openai_api_key)
+        openrouter_api_key = (await self.bot.get_shared_api_tokens("openrouter")).get("api_key")
+        if openrouter_api_key:
+            if self.openrouter_client:
+                await self.openrouter_client.close()
+            self.openrouter_client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
+
+
+    def get_client(self, model: str) -> AsyncOpenAI:
+        client = self.openrouter_client if "/" in model else self.openai_client
+        if client is None:
+            raise RuntimeError(f"{'OpenRouter' if '/' in model else 'OpenAI'} client not initialized. Did you set up an api_key?")
+        return client
 
 
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name, _):
         await self.initialize_function_calls()
-        if service_name == "openai":
+        if service_name in ("openai", "openrouter"):
             await self.initialize_openai_client()
 
 
@@ -138,10 +153,8 @@ class GptMemory(GptMemoryCommands):
         if not await self.bot.allowed_by_whitelist_blacklist(ctx.author):
             return False
 
-        if not self.openai_client:
+        if not self.openai_client and not self.openrouter_client:
             await self.initialize_openai_client()
-        if not self.openai_client:
-            return False
 
         return True
 
@@ -179,7 +192,7 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a dictionary of memories and their contents as chosen by the LLM.
         """
-        assert ctx.guild and self.openai_client
+        assert ctx.guild
         if not memories:
             return {}
 
@@ -200,10 +213,11 @@ class GptMemory(GptMemoryCommands):
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_recaller()
-        response = await self.openai_client.beta.chat.completions.create(
+        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
+        response = await self.get_client(model).beta.chat.completions.create(
             model=model,
             messages=temp_messages,
-            reasoning_effort=await self.config.guild(ctx.guild).effort_recaller() if "gpt-5" in model else NotGiven()
+            reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
         )
         completion = response.choices[0].message.content
         if completion:
@@ -244,12 +258,10 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
         """
-        assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
-        effort = await self.config.guild(ctx.guild).effort_responder()
-        if effort == "minimal" and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
-            effort = "none"
+        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
         max_tokens = await self.config.guild(ctx.guild).response_tokens()
 
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
@@ -275,13 +287,13 @@ class GptMemory(GptMemoryCommands):
             if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
         async with ctx.channel.typing():
-            response = await self.openai_client.chat.completions.create(
+            response = await self.get_client(model).chat.completions.create(
                 model=model,
                 messages=temp_messages, # type: ignore
                 max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
                 max_completion_tokens=max_tokens if "gpt-5" in model else NotGiven(),
                 tools=[t.asdict() for t in tools], # type: ignore
-                reasoning_effort=effort if "gpt-5" in model else NotGiven()  # type: ignore
+                reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
             )
             if response.usage:
                 result.tokens_responder = response.usage.completion_tokens
@@ -314,12 +326,12 @@ class GptMemory(GptMemoryCommands):
                         "tool_call_id": call.id,
                     })
 
-                response = await self.openai_client.chat.completions.create(
+                response = await self.get_client(model).chat.completions.create(
                     model=model,
                     messages=temp_messages, # type: ignore
                     max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
                     max_completion_tokens=max_tokens if "gpt-5" in model else NotGiven(),
-                    reasoning_effort=effort if "gpt-5" in model else NotGiven()  # type: ignore
+                    reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
                 )
                 if response.usage:
                     result.tokens_after_tools = response.usage.completion_tokens
@@ -358,7 +370,7 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
         """
-        assert ctx.guild and self.openai_client
+        assert ctx.guild
         if not await self.config.guild(ctx.guild).allow_memorizer():
             return
 
@@ -382,11 +394,12 @@ class GptMemory(GptMemoryCommands):
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_memorizer()
-        response = await self.openai_client.beta.chat.completions.parse(
+        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
+        response = await self.get_client(model).beta.chat.completions.parse(
             model=model,
             messages=temp_messages,
             response_format=MemoryChangeList,
-            reasoning_effort=await self.config.guild(ctx.guild).effort_memorizer() if "gpt-5" in model else NotGiven()
+            reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
         )
         completion = response.choices[0].message
         if response.usage:
