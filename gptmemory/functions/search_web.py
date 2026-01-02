@@ -24,6 +24,8 @@ class AgenticSearchFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> str:
         assert self.ctx.guild and self.cog.openai_client
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
+        if "/" in model:  # openrouter
+            model = "gpt-5.2"
         response = await self.cog.openai_client.responses.create(
             model=model,
             reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},
