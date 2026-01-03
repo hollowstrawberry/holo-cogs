@@ -316,7 +316,7 @@ class GptMemory(GptMemoryCommands):
                             tool_result = await cls(ctx, self).run(args)
                         except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                             tool_result = "[Error]"
-                            log.exception("Calling tool")
+                            log.exception(f"Calling tool {call.function.name}")
 
                         last_tool_result = tool_result
                         tool_result = tool_result.strip()
