@@ -17,8 +17,9 @@ from redbot.core.bot import Red
 
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
-from gptmemory.schema import MemoryChangeList
-from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, INCOMPLETE_EMOTE_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
+from gptmemory.schema import ImageGenParams, MemoryChangeList
+from gptmemory.constants import (URL_PATTERN, RESPONSE_CLEANUP_PATTERN, INCOMPLETE_EMOTE_PATTERN, GENERATE_IMAGE_PATTERN,
+                                 DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS)
 from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
@@ -288,6 +289,7 @@ class GptMemory(GptMemoryCommands):
         tools = [t for t in self.available_function_calls
             if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
+        past_tool_calls = []
         async with ctx.channel.typing():
             for depth in range(max_tool_depth):
                 response = await self.get_client(model).chat.completions.create(
@@ -317,6 +319,7 @@ class GptMemory(GptMemoryCommands):
                             tool_result = "[Error]"
                             log.exception(f"Calling tool {call.function.name}")
 
+                        past_tool_calls.append(call.function.name)
                         tool_result = tool_result.strip()
                         if len(tool_result) > max_tool_length:
                             tool_result = tool_result[:max_tool_length-3] + "..."
@@ -334,6 +337,10 @@ class GptMemory(GptMemoryCommands):
             if completion:
                 if self.extended_logging:
                     log.info(f"{completion=}")
+                # special case: the bot tries to generate an image by sending text instead of using the function call
+                if "generate_stable_diffusion" not in past_tool_calls and (m := GENERATE_IMAGE_PATTERN.search(completion)):
+                    await self.generate_stable_diffusion(ctx, m.group(1))
+                # cleanup
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
             else:
@@ -701,3 +708,25 @@ class GptMemory(GptMemoryCommands):
                 content += f"\n[[[ Linked message: {linked_content} ]]]"  
 
         return content.strip()
+
+
+    async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
+        assert ctx.guild
+
+        channel_mode = await self.config.guild(ctx.guild).generation_channel_mode()
+        channels = await self.config.guild(ctx.guild).generation_channels()
+        if channel_mode == "blacklist" and ctx.channel.id in channels \
+                or channel_mode == "whitelist" and ctx.channel.id not in channels:
+            if ctx.bot_permissions.add_reactions:
+                await ctx.message.add_reaction("❌")
+            return
+        
+        aimage: Optional[commands.Cog] = ctx.bot.get_cog("AImage")
+        if not aimage:
+            await ctx.message.add_reaction("❌")
+            return
+        
+        params = ImageGenParams(prompt=prompt)
+        message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
+        task = aimage.generate_image(ctx, params=params, message_content=message_content) # type: ignore
+        _ = asyncio.create_task(task)

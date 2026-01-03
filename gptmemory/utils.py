@@ -1,14 +1,15 @@
 import discord
 import discord.ext.commands as commands
+import trafilatura
 from io import BytesIO
 from re import Match
 from copy import deepcopy
 from base64 import b64encode
 from typing import Optional, List
 from PIL import Image, UnidentifiedImageError
-import trafilatura
 
 from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
+
 
 def sanitize(text: str) -> str:
     special_characters = "[]"
