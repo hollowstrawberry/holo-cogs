@@ -128,7 +128,7 @@ def adjusted_effort(model: str, effort: str) -> str:
 def format_arcenciel_model(data: dict) -> str:
     description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"
     versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
-    model_info = f"[[ Model name: {data['title']} ]] [Type: {data['type']}] [Uploader: {data['uploader']['username']}] [Versions: {len(versions)}]"
+    model_info = f"[[ Model name: {data['title']} ]] [Type: {data['type']}] [Uploader: {data['uploader']['username']}] [URL: https://arcenciel.io/models/{data['id']}] [Versions: {len(versions)}]"
     versions_info = ""
     for i, version in enumerate(versions):
         versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
