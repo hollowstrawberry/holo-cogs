@@ -10,7 +10,7 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 # (\[\[.+\]\])                           Single-line system texts inside [[ double brackets ]]
 # (-# [Rr][Ee].+)                        Bot actions that are automated and the AI likes to repeat
 # ({\s*"[^"]+":[^}]+}(?!\s*```))         json output that isn't followed by a code block
-RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(-# [Rr][Ee].+)|({\s*"[^"]+":[^}]+}(?!\s*```)))')
+RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(-\s*#\s*[Rr][Ee].+)|({\s*"[^"]+":[^}]+}(?!\s*```)))')
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
