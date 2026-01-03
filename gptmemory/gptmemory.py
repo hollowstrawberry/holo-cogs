@@ -303,7 +303,6 @@ class GptMemory(GptMemoryCommands):
                     if depth > 0:
                         result.tokens_after_tools += response.usage.completion_tokens
 
-                last_tool_result = None
                 if not response.choices[0].message.tool_calls:
                     break
                 else:
@@ -318,7 +317,6 @@ class GptMemory(GptMemoryCommands):
                             tool_result = "[Error]"
                             log.exception(f"Calling tool {call.function.name}")
 
-                        last_tool_result = tool_result
                         tool_result = tool_result.strip()
                         if len(tool_result) > max_tool_length:
                             tool_result = tool_result[:max_tool_length-3] + "..."
@@ -338,10 +336,8 @@ class GptMemory(GptMemoryCommands):
                     log.info(f"{completion=}")
                 reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
                 reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
-            elif last_tool_result:
-                if self.extended_logging:
-                    log.info(f"Using tool result as completion")
-                reply_content = last_tool_result
+            else:
+                reply_content = ""
 
             if reply_content:
                 await chunk_and_send(ctx, reply_content)
@@ -352,7 +348,7 @@ class GptMemory(GptMemoryCommands):
             "role": "assistant",
             "content": reply_content
         }
-        return response_message
+        return response_message  # type: ignore
 
 
     async def execute_memorizer(self,
