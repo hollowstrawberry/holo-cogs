@@ -51,6 +51,7 @@ class GptMemoryConfig(commands.Cog):
             "max_images": defaults.IMAGES_PER_CONTEXT,
             "max_quote": defaults.QUOTE_LENGTH,
             "max_tool": defaults.TOOL_CALL_LENGTH,
+            "max_tool_depth": defaults.TOOL_DEPTH,
             "max_text_file": defaults.TEXT_FILE_LENGTH,
             "max_image_resolution": defaults.IMAGE_SIZE,
         })

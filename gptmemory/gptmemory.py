@@ -263,6 +263,8 @@ class GptMemory(GptMemoryCommands):
         model = await self.config.guild(ctx.guild).model_responder()
         effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
         max_tokens = await self.config.guild(ctx.guild).response_tokens()
+        max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
+        max_tool_length = await self.config.guild(ctx.guild).max_tool()
 
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         system_content = (await self.config.guild(ctx.guild).prompt_responder()).format(
@@ -287,54 +289,48 @@ class GptMemory(GptMemoryCommands):
             if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
         async with ctx.channel.typing():
-            response = await self.get_client(model).chat.completions.create(
-                model=model,
-                messages=temp_messages, # type: ignore
-                max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
-                max_completion_tokens=max_tokens if "gpt-5" in model else NotGiven(),
-                tools=[t.asdict() for t in tools], # type: ignore
-                reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
-            )
-            if response.usage:
-                result.tokens_responder = response.usage.completion_tokens
-
-            last_tool_result = None
-            if response.choices[0].message.tool_calls:
-                temp_messages.append(response.choices[0].message) # type: ignore
-                max_tool_length = await self.config.guild(ctx.guild).max_tool()
-                for call in response.choices[0].message.tool_calls:
-                    assert isinstance(call, ChatCompletionMessageFunctionToolCall)
-                    try:
-                        cls = next(t for t in tools if t.schema.function.name == call.function.name)
-                        args = json.loads(call.function.arguments)
-                        tool_result = await cls(ctx, self).run(args)
-                    except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
-                        tool_result = "[Error]"
-                        log.exception("Calling tool")
-
-                    last_tool_result = tool_result
-                    tool_result = tool_result.strip()
-                    if len(tool_result) > max_tool_length:
-                        tool_result = tool_result[:max_tool_length-3] + "..."
-                    if self.extended_logging:
-                        log.info(f"{call.function.arguments=}")
-                        log.info(f"{tool_result=}")
-
-                    temp_messages.append({
-                        "role": "tool",
-                        "content": tool_result,
-                        "tool_call_id": call.id,
-                    })
-
+            for depth in range(max_tool_depth):
                 response = await self.get_client(model).chat.completions.create(
                     model=model,
                     messages=temp_messages, # type: ignore
                     max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
-                    max_completion_tokens=max_tokens if "gpt-5" in model else NotGiven(),
+                    max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,
+                    tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools], # type: ignore
                     reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
                 )
                 if response.usage:
-                    result.tokens_after_tools = response.usage.completion_tokens
+                    result.tokens_responder += response.usage.completion_tokens
+                    if depth > 0:
+                        result.tokens_after_tools += response.usage.completion_tokens
+
+                last_tool_result = None
+                if not response.choices[0].message.tool_calls:
+                    break
+                else:
+                    temp_messages.append(response.choices[0].message) # type: ignore
+                    for call in response.choices[0].message.tool_calls:
+                        assert isinstance(call, ChatCompletionMessageFunctionToolCall)
+                        try:
+                            cls = next(t for t in tools if t.schema.function.name == call.function.name)
+                            args = json.loads(call.function.arguments)
+                            tool_result = await cls(ctx, self).run(args)
+                        except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
+                            tool_result = "[Error]"
+                            log.exception("Calling tool")
+
+                        last_tool_result = tool_result
+                        tool_result = tool_result.strip()
+                        if len(tool_result) > max_tool_length:
+                            tool_result = tool_result[:max_tool_length-3] + "..."
+                        if self.extended_logging:
+                            log.info(f"{call.function.arguments=}")
+                            log.info(f"{tool_result=}")
+
+                        temp_messages.append({
+                            "role": "tool",
+                            "content": tool_result,
+                            "tool_call_id": call.id,
+                        })
 
             completion = response.choices[0].message.content
             if completion:
