@@ -6,6 +6,7 @@ from copy import deepcopy
 from base64 import b64encode
 from typing import Optional, List
 from PIL import Image, UnidentifiedImageError
+import trafilatura
 
 from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
 
@@ -121,3 +122,27 @@ def adjusted_effort(model: str, effort: str) -> str:
        return "none"
    else:
        return effort
+   
+
+def format_arcenciel_model(data: dict) -> str:
+    description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"
+    versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
+    model_info = f"[[ Model name: {data['title']} ]] [Type: {data['type']}] [Uploader: {data['uploader']['username']}] [Versions: {len(versions)}]"
+    versions_info = ""
+    for i, version in enumerate(versions):
+        versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
+        if i == 0 and data['type'] == "LORA":
+            versions_info += " [Activation tags:]"
+            lora = f"<lora:{version['fileName'].replace('.safetensors', '')}:1>"
+            if version.get('activationTags', []):
+                for tags in version['activationTags']:
+                    if tags.count('|') == 1:
+                        tags = tags.split('|')[1].strip()
+                    if tags in description:
+                        description = description.replace(tags, "[tags]")
+                    versions_info += f" [{lora} {tags}]"
+            else:
+                versions_info += f" {lora}"
+        versions_info += " ]]"
+    content = f"{model_info} [Model description:] {description}\n{versions_info}"
+    return content

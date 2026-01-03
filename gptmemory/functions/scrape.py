@@ -4,6 +4,7 @@ import aiohttp
 import trafilatura
 from typing import Awaitable, Callable, Dict, OrderedDict
 
+from gptmemory.utils import format_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 from gptmemory.constants import GITHUB_FILE_URL_PATTERN, ARCENCIEL_MODEL_URL_PATTERN
@@ -80,24 +81,4 @@ class ScrapeFunctionCall(FunctionCallBase):
             log.warning(f"Opening {url}: {type(error).__name__}: {error}")
             return "[Failed to open URL]"
         
-        description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"
-        versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
-        model_info = f"[[ Model name: {data['title']} ]] [Type: {data['type']}] [Uploader: {data['uploader']['username']}] [Versions: {len(versions)}]"
-        versions_info = ""
-        for i, version in enumerate(versions):
-            versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
-            if i == 0 and data['type'] == "LORA":
-                versions_info += " [Activation tags:]"
-                lora = f"<lora:{version['fileName'].replace('.safetensors', '')}:1>"
-                if version.get('activationTags', []):
-                    for tags in version['activationTags']:
-                        if tags.count('|') == 1:
-                            tags = tags.split('|')[1].strip()
-                        if tags in description:
-                            description = description.replace(tags, "[tags]")
-                        versions_info += f" [{lora} {tags}]"
-                else:
-                    versions_info += f" {lora}"
-            versions_info += " ]]"
-        content = f"{model_info} [Model description:] {description}\n{versions_info}"
-        return content
+        return format_arcenciel_model(data)
