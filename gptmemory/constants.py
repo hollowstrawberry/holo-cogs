@@ -1,16 +1,18 @@
 import re
+from typing import OrderedDict
 from datetime import datetime, timezone
 from discord.utils import DISCORD_EPOCH
 
 MAX_MESSAGE_LENGTH = 1950
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 
-# ((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)    Author system texts such as [Username: Crabot]
-# (\[\[\[[\s\S]+\]\]\])                  Multiline system texts inside [[[ triple brackets ]]]
-# (\[\[.+\]\])                           Single-line system texts inside [[ double brackets ]]
-# (-# [Rr][Ee].+)                        Bot actions that are automated and the AI likes to repeat
-# ({[^}]*?image[^}]*?}(?!\s*```))        Gemini likes to send images as text inside brackets, sometimes as json, sometimes not
-RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(-\s*#\s*[Rr][Ee].+)|({[^}]*?image[^}]*?}(?!\s*```)))')
+RESPONSE_CLEANUP_PATTERNS = OrderedDict({
+    "Author system texts":          re.compile(r"^(\[[^[:\]]*:[^[:\]]*\]\s?)+", re.MULTILINE),
+    "Single-line system texts":     re.compile(r"\[\[.+\]\]"),
+    "Multiline system texts":       re.compile(r"\[\[\[[\s\S]+\]\]\]"),
+    "Automated actions":            re.compile(r"^-?\s*#\s*(Request|Revise|Reroll|Upscale|Change).+", re.MULTILINE | re.IGNORECASE),
+    "Image objects":                re.compile(r"{[^}]*?image[^}]*?}(?!\s*```)", re.IGNORECASE),
+})
 
 GENERATE_IMAGE_PATTERN = re.compile(r"\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE)
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
