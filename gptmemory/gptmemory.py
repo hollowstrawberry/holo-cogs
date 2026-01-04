@@ -342,19 +342,19 @@ class GptMemory(GptMemoryCommands):
                     await self.generate_stable_diffusion(ctx, m.group(1))
                 # cleanup
                 for pattern in RESPONSE_CLEANUP_PATTERNS.values():
-                    reply_content = pattern.sub("", completion)
-                reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
+                    completion = pattern.sub("", completion)
+                completion = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
             else:
-                reply_content = ""
+                completion = ""
 
-            if reply_content:
-                await chunk_and_send(ctx, reply_content)
+            if completion:
+                await chunk_and_send(ctx, completion)
             elif ctx.bot_permissions.add_reactions:
                 await ctx.message.add_reaction("🤐")
 
         response_message = {
             "role": "assistant",
-            "content": reply_content
+            "content": completion
         }
         return response_message  # type: ignore
 
