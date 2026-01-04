@@ -9,8 +9,8 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 # (\[\[\[[\s\S]+\]\]\])                  Multiline system texts inside [[[ triple brackets ]]]
 # (\[\[.+\]\])                           Single-line system texts inside [[ double brackets ]]
 # (-# [Rr][Ee].+)                        Bot actions that are automated and the AI likes to repeat
-# ({\s*"[^"]+":[^}]+}(?!\s*```))         json output that isn't followed by a code block
-RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(-\s*#\s*[Rr][Ee].+)|({\s*"[^"]+":[^}]+}(?!\s*```)))')
+# ({[^}]*?image[^}]*?}(?!\s*```))        Gemini likes to send images as text inside brackets, sometimes as json, sometimes not
+RESPONSE_CLEANUP_PATTERN = re.compile(r'(((^|\n)(\[[^[:\]]*:[^[:\]]*\]\s?)+)|(\[\[\[[\s\S]+\]\]\])|(\[\[.+\]\])|(-\s*#\s*[Rr][Ee].+)|({[^}]*?image[^}]*?}(?!\s*```)))')
 
 GENERATE_IMAGE_PATTERN = re.compile(r"\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE)
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
