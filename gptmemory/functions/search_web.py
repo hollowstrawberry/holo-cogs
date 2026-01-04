@@ -22,16 +22,20 @@ class AgenticSearchFunctionCall(FunctionCallBase):
             )))
 
     async def run(self, arguments: dict) -> str:
-        assert self.ctx.guild and self.cog.openai_client
+        assert self.ctx.guild and self.cog.openai_client and self.cog.openrouter_client
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
         if "/" in model:  # openrouter
-            model = "gpt-5.2"
-        response = await self.cog.openai_client.responses.create(
-            model=model,
-            reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},
-            tools=[{"type": "web_search"}],  # type: ignore
-            input=arguments["query"]
-        )
+            response = await self.cog.openrouter_client.responses.create(
+                model=f"{model}:online",
+                input=arguments["query"]
+            )
+        else:
+            response = await self.cog.openai_client.responses.create(
+                model=model,
+                reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},
+                tools=[{"type": "web_search"}],  # type: ignore
+                input=arguments["query"]
+            )
         assert response.usage and response.output_text
         log.info(f"WebSearchResult(input_tokens={response.usage.input_tokens}, output_tokens={response.usage.output_tokens})")
         return response.output_text
