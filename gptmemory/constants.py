@@ -11,7 +11,7 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Single-line system texts":     re.compile(r"\[\[.+\]\]"),
     "Multiline system texts":       re.compile(r"\[\[\[[\s\S]+\]\]\]"),
     "Automated actions":            re.compile(r"^-?\s*#\s*(Request|Revise|Reroll|Upscale|Change).+", re.MULTILINE | re.IGNORECASE),
-    "Image objects":                re.compile(r"{[^}]*?image[^}]*?}(?!\s*```)", re.IGNORECASE),
+    "Image objects":                re.compile(r"{[^}]*?(image|file)[^}]*?}(?!\s*```)", re.IGNORECASE),
 })
 
 GENERATE_IMAGE_PATTERN = re.compile(r"\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE)
