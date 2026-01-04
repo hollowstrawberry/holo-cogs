@@ -26,8 +26,19 @@ class AgenticSearchFunctionCall(FunctionCallBase):
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
         if "/" in model:  # openrouter
             response = await self.cog.openrouter_client.responses.create(
-                model=f"{model}:online",
-                input=arguments["query"]
+                model=model,
+                input=arguments["query"],
+                extra_body={
+                    "plugins": [
+                        {
+                            "id": "web",
+                            "max_results": 2
+                        }
+                    ],
+                    "web_search_options": {
+                        "search_context_size": "low"
+                    },
+                },
             )
         else:
             response = await self.cog.openai_client.responses.create(
