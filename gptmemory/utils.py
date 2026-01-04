@@ -1,3 +1,4 @@
+import re
 import discord
 import discord.ext.commands as commands
 import trafilatura
@@ -135,7 +136,8 @@ def format_arcenciel_model(data: dict) -> str:
         if i == 0 and data['type'] == "LORA":
             versions_info += " [Activation tags:]"
             filename = version.get('originalName') or version.get('fileName')
-            lora = f"<lora:{filename.replace('.safetensors', '').replace('!', '_')}:1>" if filename else ""
+            filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename).replace(".safetensors", "") # sanitize
+            lora = f"<lora:{filename}:1>" if filename else ""
             if version.get('activationTags', []):
                 for tags in version['activationTags']:
                     if tags.count('|') == 1:
