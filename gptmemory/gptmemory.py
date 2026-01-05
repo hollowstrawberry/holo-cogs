@@ -18,7 +18,7 @@ from redbot.core.bot import Red
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
 from gptmemory.schema import ImageGenParams, MemoryChangeList
-from gptmemory.constants import (URL_PATTERN, RESPONSE_CLEANUP_PATTERNS, INCOMPLETE_EMOTE_PATTERN, GENERATE_IMAGE_PATTERN,
+from gptmemory.constants import (URL_PATTERN, RESPONSE_CLEANUP_PATTERNS, INCOMPLETE_EMOTE_PATTERN, GENERATE_IMAGE_PATTERNS,
                                  DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS)
 from gptmemory.functions.base import get_all_function_calls
 
@@ -338,8 +338,14 @@ class GptMemory(GptMemoryCommands):
                 if self.extended_logging:
                     log.info(f"{completion=}")
                 # special case: the bot tries to generate an image by sending text instead of using the function call
-                if "generate_stable_diffusion" not in past_tool_calls and (m := GENERATE_IMAGE_PATTERN.search(completion)):
-                    await self.generate_stable_diffusion(ctx, m.group(1))
+                if "generate_stable_diffusion" not in past_tool_calls:
+                    prompt = None
+                    for pattern in GENERATE_IMAGE_PATTERNS.values():
+                        if m := pattern.search(completion):
+                            prompt = m.group(1)
+                            completion = pattern.sub("", completion)
+                    if prompt:
+                        await self.generate_stable_diffusion(ctx, prompt)
                 # cleanup
                 for pattern in RESPONSE_CLEANUP_PATTERNS.values():
                     completion = pattern.sub("", completion)

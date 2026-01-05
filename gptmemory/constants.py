@@ -11,10 +11,14 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Single-line system texts":     re.compile(r"\[\[.+\]\]"),
     "Multiline system texts":       re.compile(r"\[\[\[[\s\S]+\]\]\]"),
     "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Upscale|Change).+", re.MULTILINE | re.IGNORECASE),
-    "Image objects":                re.compile(r"{[^}]*?(image|file)[^}]*?}(?!\s*```)", re.IGNORECASE),
+    "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
 })
 
-GENERATE_IMAGE_PATTERN = re.compile(r"\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE)
+GENERATE_IMAGE_PATTERNS = {
+    "System action":     re.compile(r"(?:\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE),
+    "Gemini action":     re.compile(r"""{\s*["']action["'][\s\S]+?["']prompt["']:\s*["'](.+?)["']}(?:["']\s*})?""", re.IGNORECASE)
+}
+
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 CODEBLOCK_PATTERN = re.compile(r"^```(\w*)\s*$")
