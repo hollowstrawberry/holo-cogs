@@ -15,7 +15,7 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
 })
 
 GENERATE_IMAGE_PATTERNS = {
-    "System action":     re.compile(r"(?:\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE),
+    "System action":     re.compile(r"\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE),
     "Gemini action":     re.compile(r"""{\s*["']action["'][\s\S]+?["']prompt["']:\s*["'](.+?)["']}(?:["']\s*})?""", re.IGNORECASE)
 }
 
