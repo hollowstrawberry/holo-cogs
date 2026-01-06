@@ -165,12 +165,12 @@ class NanoBanana(commands.Cog):
         )
 
         response = response.choices[0].message
-        if response.images:  # type: ignore
+        if hasattr(response, "images"):
             image_base64 = response.images[0]['image_url']['url'].split(',')[1]  # type: ignore
             image = BytesIO(b64decode(image_base64))
             await reply(file=discord.File(image, filename=f"nanobanana_output_{id}.png"))
         else:
-            await reply("Failed to generate image. Your prompt may have been rejected.")
+            await reply(f"```\n{response.content}```")
 
 
     @commands.group(name="nanobananaset")  # type: ignore
