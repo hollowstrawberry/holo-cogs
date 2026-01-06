@@ -25,7 +25,7 @@ class AgenticSearchFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> str:
         assert self.ctx.guild and self.cog.openai_client and self.cog.openrouter_client
         if self.ctx.bot_permissions.add_reactions:
-            asyncio.create_task(self.ctx.message.add_reaction("🌐"))
+            _ = asyncio.create_task(self.ctx.message.add_reaction("🌐"))
 
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
         if "/" in model:  # openrouter
