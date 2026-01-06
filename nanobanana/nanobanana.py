@@ -170,7 +170,7 @@ class NanoBanana(commands.Cog):
             image = BytesIO(b64decode(image_base64))
             await reply(file=discord.File(image, filename=f"nanobanana_output_{id}.png"))
         else:
-            await reply(f"```\n{response.content}```")
+            await reply(f"`The image was rejected.`")
 
 
     @commands.group(name="nanobananaset")  # type: ignore
