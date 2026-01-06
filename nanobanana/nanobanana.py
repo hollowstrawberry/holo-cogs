@@ -2,7 +2,7 @@ import logging
 import discord
 from io import BytesIO
 from base64 import b64encode, b64decode
-from typing import Callable, Optional, Union
+from typing import Any, Awaitable, Callable, Optional, Union
 from redbot.core import commands, app_commands, Config
 from redbot.core.bot import Red
 
@@ -12,7 +12,7 @@ log = logging.getLogger("red.holo-cogs.nanobanana")
 
 
 class RemixModal(discord.ui.Modal):
-    def __init__(self, generate: Callable, attachment: discord.Attachment):
+    def __init__(self, generate: Callable[..., Awaitable[Any]], attachment: discord.Attachment):
         super().__init__(title="Remix Image")
         self.generate = generate
         self.attachment = attachment
@@ -170,7 +170,7 @@ class NanoBanana(commands.Cog):
             image = BytesIO(b64decode(image_base64))
             await reply(file=discord.File(image, filename=f"nanobanana_output_{id}.png"))
         else:
-            await reply(f"`The image was rejected.`")
+            await reply(f"`The remix was rejected.`")
 
 
     @commands.group(name="nanobananaset")  # type: ignore
