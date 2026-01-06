@@ -131,12 +131,9 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 height=height
             )
 
-        async def task():
-            temp = await self.ctx.send(f"`⏳ Image generation in progress...`")
-            message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
-            await aimage.generate_image(self.ctx, params=params, message_content=message_content) # type: ignore
-            await temp.delete()
-        _ = asyncio.create_task(task())
+        message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
+        temp = await self.ctx.reply(f"`⏳ Image generation in progress...`", mention_author=False)
+        _ = asyncio.create_task(aimage.generate_image(self.ctx, params=params, message_content=message_content, callback=temp.delete())) # type: ignore
 
         response = "[Image generation started successfully]"
         if existing and not message:
