@@ -2,7 +2,7 @@ import logging
 import discord
 from io import BytesIO
 from base64 import b64encode, b64decode
-from typing import Any, Awaitable, Callable, Optional, Union
+from typing import Any, Awaitable, Callable, List, Optional, Union
 from redbot.core import commands, app_commands, Config
 from redbot.core.bot import Red
 
@@ -11,11 +11,20 @@ from openai import AsyncOpenAI
 log = logging.getLogger("red.holo-cogs.nanobanana")
 
 
+def make_image_content(image: bytes) -> dict:
+    return {
+        "type": "image_url",
+        "image_url": {
+            "url": f"data:image/png;base64,{b64encode(image).decode()}"
+        },
+    }
+
+
 class RemixModal(discord.ui.Modal):
-    def __init__(self, generate: Callable[..., Awaitable[Any]], attachment: discord.Attachment):
+    def __init__(self, generate: Callable[..., Awaitable[Any]], attachments: List[discord.Attachment]):
         super().__init__(title="Remix Image")
         self.generate = generate
-        self.attachment = attachment
+        self.attachments = attachments
         self.prompt = discord.ui.Label(
             text="Prompt",
             description="What you want to change in the image.",
@@ -30,10 +39,12 @@ class RemixModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         assert interaction.message and interaction.message.attachments and isinstance(self.prompt.component, discord.ui.TextInput)
         await interaction.response.defer(thinking=True)
-        fp = BytesIO()
+        fp = [BytesIO() for _ in self.attachments]
         try:
-            await self.attachment.save(fp, seek_begin=True)
-            await self.generate(interaction, self.prompt.component.value, fp.read())
+            for i in range(len(self.attachments)):
+                await self.attachments[i].save(fp[i], seek_begin=True)
+            images = [b.read() for b in fp]
+            await self.generate(interaction, self.prompt.component.value, images)
         except Exception:  # catch everything and show something to the user
             await interaction.followup.send("There was a problem generating your image. Contact the bot owner for more information.")
             log.exception("Remixing an image", exc_info=True)
@@ -59,6 +70,7 @@ class NanoBanana(commands.Cog):
     async def cog_unload(self):
         if self.openrouter_client:
             await self.openrouter_client.close()
+        self.bot.tree.remove_command(self.remix_context_menu.name, type=self.remix_context_menu.type)
 
     async def initialize_openrouter_client(self):
         api_key = (await self.bot.get_shared_api_tokens("openrouter")).get("api_key")
@@ -73,8 +85,16 @@ class NanoBanana(commands.Cog):
 
 
     @app_commands.command(name="nanobanana")
-    @app_commands.describe(prompt="What you want the AI to make.", reference="An input image for the AI to use.")
-    async def nanobanana_app_command(self, interaction: discord.Interaction, prompt: str, reference: Optional[discord.Attachment]):
+    @app_commands.describe(prompt="What you want the AI to make.",
+                           reference1="A possible input image for the AI to use.",
+                           reference2="A possible input image for the AI to use.",
+                           reference3="A possible input image for the AI to use.")
+    async def nanobanana_app_command(self,
+                                     interaction: discord.Interaction,
+                                     prompt: str,
+                                     reference1: Optional[discord.Attachment],
+                                     reference2: Optional[discord.Attachment],
+                                     reference3: Optional[discord.Attachment]):
         """Generate an image with nanobanana. Approved users only."""
         assert isinstance(interaction.user, discord.Member)
 
@@ -82,20 +102,21 @@ class NanoBanana(commands.Cog):
         role_ids = await self.config.roles()
         if interaction.user.id not in user_ids and all(interaction.user.get_role(rid) is None for rid in role_ids):
             return await interaction.response.send_message("You are not authorized by the bot owner to use this feature.", ephemeral=True)
-        if reference:
-            if not reference.content_type or "image" not in reference.content_type:
-                return await interaction.response.send_message("The file you uploaded is not an image.", ephemeral=True)
+        
+        references = [ref for ref in [reference1, reference2, reference3] if ref is not None]
+        for ref in references:
+            if not ref.content_type or "image" not in ref.content_type:
+                return await interaction.response.send_message("One of the references you uploaded is not an image.", ephemeral=True)
         
         await interaction.response.defer(thinking=True)
 
-        if reference:
-            fp = BytesIO()
-            await reference.save(fp, seek_begin=True)
-            image = fp.read()
-        else:
-            image = None
+        fp = [BytesIO() for _ in references]
+        for i in range(len(references)):
+            await references[i].save(fp[i], seek_begin=True)
+        images = [b.read() for b in fp]
+
         try:
-            await self.generate_nanobanana(interaction, prompt, image)
+            await self.generate_nanobanana(interaction, prompt, images)
         except Exception:  # catch everything and show something to the user
             await interaction.followup.send("There was a problem generating your image. Contact the bot owner for more information.")
             log.exception("Generating an image", exc_info=True)
@@ -112,23 +133,18 @@ class NanoBanana(commands.Cog):
         if interaction.user.id not in user_ids and all(interaction.user.get_role(rid) is None for rid in role_ids):
             return await interaction.response.send_message("You are not authorized by the bot owner to use this feature.", ephemeral=True)
 
-        if not message.attachments:
-            return await interaction.response.send_message("This message doesn't have an image to remix.", ephemeral=True)
         attachments = [att for att in message.attachments if att.content_type and "image" in att.content_type]
         if not attachments:
             return await interaction.response.send_message("This message doesn't have an image to remix.", ephemeral=True)
         
-        await interaction.response.send_modal(RemixModal(self.generate_nanobanana, attachments[0]))
+        await interaction.response.send_modal(RemixModal(self.generate_nanobanana, attachments[:3]))
 
 
-    async def generate_nanobanana(self, ctx: Union[commands.Context, discord.Interaction], prompt: str, input_image: Optional[bytes] = None):
-        reply = ctx.reply if isinstance(ctx, commands.Context) else ctx.followup.send
-        id = ctx.message.id if isinstance(ctx, commands.Context) else ctx.id
-
+    async def generate_nanobanana(self, interaction: discord.Interaction, prompt: str, input_images: List[bytes]):
         if not self.openrouter_client:
             await self.initialize_openrouter_client()
         if not self.openrouter_client:
-            return await reply("OpenRouter is not initialized in the bot. Contact the bot owner.", ephemeral=True)
+            return await interaction.followup.send("OpenRouter is not initialized in the bot. Contact the bot owner.", ephemeral=True)
         
         messages = [
             {
@@ -136,21 +152,11 @@ class NanoBanana(commands.Cog):
                 "content": await self.config.prompt()
             },
         ]
-        if input_image:
+        if input_images:
+            image_contents = [make_image_content(img) for img in input_images]
             messages.append({
                 "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt,
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{b64encode(input_image).decode()}"
-                        },
-                    },
-                ],
+                "content": [{"type": "text", "text": prompt}, *image_contents],
             })
         else:
             messages.append({
@@ -168,9 +174,9 @@ class NanoBanana(commands.Cog):
         if hasattr(response, "images"):
             image_base64 = response.images[0]['image_url']['url'].split(',')[1]  # type: ignore
             image = BytesIO(b64decode(image_base64))
-            await reply(file=discord.File(image, filename=f"nanobanana_output_{id}.png"))
+            await interaction.followup.send(file=discord.File(image, filename=f"nanobanana_output_{interaction.id}.png"))
         else:
-            await reply(f"`The remix was rejected.`")
+            await interaction.followup.send(f"`The remix was rejected.`")
 
 
     @commands.group(name="nanobananaset")  # type: ignore
