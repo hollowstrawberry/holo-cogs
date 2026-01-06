@@ -29,13 +29,13 @@ class RemixModal(discord.ui.Modal):
         
     async def on_submit(self, interaction: discord.Interaction):
         assert interaction.message and interaction.message.attachments and isinstance(self.prompt.component, discord.ui.TextInput)
-        await interaction.response.defer()
+        await interaction.response.defer(thinking=True)
         fp = BytesIO()
         try:
             await self.attachment.save(fp, seek_begin=True)
             await self.generate(interaction, self.prompt.component.value, fp.read())
         except Exception:  # catch everything and show something to the user
-            await interaction.response.send_message("There was a problem generating your image. Contact the bot owner for more information.")
+            await interaction.followup.send("There was a problem generating your image. Contact the bot owner for more information.")
             log.exception("Remixing an image", exc_info=True)
 
 
@@ -86,7 +86,7 @@ class NanoBanana(commands.Cog):
             if not reference.content_type or "image" not in reference.content_type:
                 return await interaction.response.send_message("The file you uploaded is not an image.", ephemeral=True)
         
-        await interaction.response.defer()
+        await interaction.response.defer(thinking=True)
 
         if reference:
             fp = BytesIO()
@@ -97,7 +97,7 @@ class NanoBanana(commands.Cog):
         try:
             await self.generate_nanobanana(interaction, prompt, image)
         except Exception:  # catch everything and show something to the user
-            await interaction.response.send_message("There was a problem generating your image. Contact the bot owner for more information.")
+            await interaction.followup.send("There was a problem generating your image. Contact the bot owner for more information.")
             log.exception("Generating an image", exc_info=True)
 
 
@@ -122,7 +122,8 @@ class NanoBanana(commands.Cog):
 
 
     async def generate_nanobanana(self, ctx: Union[commands.Context, discord.Interaction], prompt: str, input_image: Optional[bytes] = None):
-        reply = ctx.reply if isinstance(ctx, commands.Context) else ctx.response.send_message
+        reply = ctx.reply if isinstance(ctx, commands.Context) else ctx.followup.send
+        id = ctx.message.id if isinstance(ctx, commands.Context) else ctx.id
 
         if not self.openrouter_client:
             await self.initialize_openrouter_client()
@@ -165,9 +166,9 @@ class NanoBanana(commands.Cog):
 
         response = response.choices[0].message
         if response.images:  # type: ignore
-            image_base64 = response.images[0]['image_url']['url']  # type: ignore
+            image_base64 = response.images[0]['image_url']['url'].split(',')[1]  # type: ignore
             image = BytesIO(b64decode(image_base64))
-            await reply(file=discord.File(image, filename=f"{image_base64[:20]}.png"))
+            await reply(file=discord.File(image, filename=f"nanobanana_output_{id}.png"))
         else:
             await reply("Failed to generate image. Your prompt may have been rejected.")
 
