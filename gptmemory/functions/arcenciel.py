@@ -13,7 +13,7 @@ class ArcencielFunctionCall(FunctionCallBase):
     schema = ToolCall(
         Function(
             name="search_models_arcenciel",
-            description="Searches stable diffusion models on Arc en Ciel.",
+            description="Searches stable diffusion models and loras on Arc en Ciel.",
             parameters=Parameters(
                 properties={
                     "query": {
