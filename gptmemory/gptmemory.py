@@ -16,9 +16,10 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send
-from gptmemory.schema import MemoryChangeList
-from gptmemory.constants import URL_PATTERN, RESPONSE_CLEANUP_PATTERN, INCOMPLETE_EMOTE_PATTERN, DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS
+from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
+from gptmemory.schema import ImageGenParams, MemoryChangeList
+from gptmemory.constants import (URL_PATTERN, RESPONSE_CLEANUP_PATTERNS, INCOMPLETE_EMOTE_PATTERN, GENERATE_IMAGE_PATTERNS,
+                                 DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS)
 from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
@@ -44,7 +45,6 @@ class GptMemory(GptMemoryCommands):
 
     def __init__(self, bot: Red):
         super().__init__(bot)
-        self.openai_client: Optional[AsyncOpenAI] = None
         self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
         self.available_function_calls = set(get_all_function_calls())
         all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
@@ -63,6 +63,8 @@ class GptMemory(GptMemoryCommands):
     async def cog_unload(self):
         if self.openai_client:
             await self.openai_client.close()
+        if self.openrouter_client:
+            await self.openrouter_client.close()
 
 
     async def initialize_function_calls(self):
@@ -76,16 +78,29 @@ class GptMemory(GptMemoryCommands):
 
 
     async def initialize_openai_client(self):
-        api_key = (await self.bot.get_shared_api_tokens("openai")).get("api_key")
-        if not api_key:
-            return
-        self.openai_client = AsyncOpenAI(api_key=api_key)
+        openai_api_key = (await self.bot.get_shared_api_tokens("openai")).get("api_key")
+        if openai_api_key:
+            if self.openai_client:
+                await self.openai_client.close()
+            self.openai_client = AsyncOpenAI(api_key=openai_api_key)
+        openrouter_api_key = (await self.bot.get_shared_api_tokens("openrouter")).get("api_key")
+        if openrouter_api_key:
+            if self.openrouter_client:
+                await self.openrouter_client.close()
+            self.openrouter_client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
+
+
+    def get_client(self, model: str) -> AsyncOpenAI:
+        client = self.openrouter_client if "/" in model else self.openai_client
+        if client is None:
+            raise RuntimeError(f"{'OpenRouter' if '/' in model else 'OpenAI'} client not initialized. Did you set up an api_key?")
+        return client
 
 
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name, _):
         await self.initialize_function_calls()
-        if service_name == "openai":
+        if service_name in ("openai", "openrouter"):
             await self.initialize_openai_client()
 
 
@@ -139,10 +154,8 @@ class GptMemory(GptMemoryCommands):
         if not await self.bot.allowed_by_whitelist_blacklist(ctx.author):
             return False
 
-        if not self.openai_client:
+        if not self.openai_client and not self.openrouter_client:
             await self.initialize_openai_client()
-        if not self.openai_client:
-            return False
 
         return True
 
@@ -180,7 +193,7 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a dictionary of memories and their contents as chosen by the LLM.
         """
-        assert ctx.guild and self.openai_client
+        assert ctx.guild
         if not memories:
             return {}
 
@@ -201,10 +214,11 @@ class GptMemory(GptMemoryCommands):
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_recaller()
-        response = await self.openai_client.beta.chat.completions.create(
+        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
+        response = await self.get_client(model).beta.chat.completions.create(
             model=model,
             messages=temp_messages,
-            reasoning_effort=await self.config.guild(ctx.guild).effort_recaller() if "gpt-5" in model else NotGiven()
+            reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
         )
         completion = response.choices[0].message.content
         if completion:
@@ -231,8 +245,8 @@ class GptMemory(GptMemoryCommands):
             return_exceptions=True
         )
         for idx, res in enumerate(task_results):
-            if isinstance(res, BaseException):
-                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", res)
+            if isinstance(res, BaseException) or "Error" in type(res).__name__:  # Strange behavior where openai error is not an exception
+                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", exc_info=res)  # type: ignore
 
 
     async def execute_responder(self,
@@ -245,9 +259,14 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
         """
-        assert ctx.guild and self.bot.user and self.openai_client and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
+        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
+        max_tokens = await self.config.guild(ctx.guild).response_tokens()
+        max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
+        max_tool_length = await self.config.guild(ctx.guild).max_tool()
+
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         system_content = (await self.config.guild(ctx.guild).prompt_responder()).format(
             botname=self.bot.user.name,
@@ -270,67 +289,80 @@ class GptMemory(GptMemoryCommands):
         tools = [t for t in self.available_function_calls
             if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
+        past_tool_calls = []
         async with ctx.channel.typing():
-            response = await self.openai_client.chat.completions.create(
-                model=model,
-                messages=temp_messages, # type: ignore
-                max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
-                max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
-                tools=[t.asdict() for t in tools], # type: ignore
-            )
-            if response.usage:
-                result.tokens_responder = response.usage.completion_tokens
-
-            if response.choices[0].message.tool_calls:
-                temp_messages.append(response.choices[0].message) # type: ignore
-                max_tool_length = await self.config.guild(ctx.guild).max_tool()
-                for call in response.choices[0].message.tool_calls:
-                    assert isinstance(call, ChatCompletionMessageFunctionToolCall)
-                    try:
-                        cls = next(t for t in tools if t.schema.function.name == call.function.name)
-                        args = json.loads(call.function.arguments)
-                        tool_result = await cls(ctx, self).run(args)
-                    except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
-                        tool_result = "[Error]"
-                        log.exception("Calling tool")
-
-                    tool_result = tool_result.strip()
-                    if len(tool_result) > max_tool_length:
-                        tool_result = tool_result[:max_tool_length-3] + "..."
-                    if self.extended_logging:
-                        log.info(f"{call.function.arguments=}")
-                        log.info(f"{tool_result=}")
-
-                    temp_messages.append({
-                        "role": "tool",
-                        "content": tool_result,
-                        "tool_call_id": call.id,
-                    })
-
-                model = await self.config.guild(ctx.guild).model_responder()
-                response = await self.openai_client.chat.completions.create(
+            for depth in range(max_tool_depth):
+                response = await self.get_client(model).chat.completions.create(
                     model=model,
                     messages=temp_messages, # type: ignore
-                    max_tokens=NotGiven() if "gpt-5" in model else await self.config.guild(ctx.guild).response_tokens(),
-                    max_completion_tokens=await self.config.guild(ctx.guild).response_tokens() if "gpt-5" in model else NotGiven(),
-                    reasoning_effort=await self.config.guild(ctx.guild).effort_responder() if "gpt-5" in model else NotGiven()
+                    max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
+                    max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,
+                    tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools], # type: ignore
+                    reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
                 )
                 if response.usage:
-                    result.tokens_after_tools = response.usage.completion_tokens
+                    result.tokens_responder += response.usage.completion_tokens
+                    if depth > 0:
+                        result.tokens_after_tools += response.usage.completion_tokens
+
+                if not response.choices[0].message.tool_calls:
+                    break
+                else:
+                    temp_messages.append(response.choices[0].message) # type: ignore
+                    for call in response.choices[0].message.tool_calls:
+                        assert isinstance(call, ChatCompletionMessageFunctionToolCall)
+                        try:
+                            cls = next(t for t in tools if t.schema.function.name == call.function.name)
+                            args = json.loads(call.function.arguments)
+                            tool_result = await cls(ctx, self).run(args)
+                        except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
+                            tool_result = "[Error]"
+                            log.exception(f"Calling tool {call.function.name}")
+
+                        past_tool_calls.append(call.function.name)
+                        tool_result = tool_result.strip()
+                        if len(tool_result) > max_tool_length:
+                            tool_result = tool_result[:max_tool_length-3] + "..."
+                        if self.extended_logging:
+                            log.info(f"{call.function.arguments=}")
+                            log.info(f"{tool_result=}")
+
+                        temp_messages.append({
+                            "role": "tool",
+                            "content": tool_result,
+                            "tool_call_id": call.id,
+                        })
 
             completion = response.choices[0].message.content
             if completion:
                 if self.extended_logging:
                     log.info(f"{completion=}")
-                reply_content = RESPONSE_CLEANUP_PATTERN.sub("", completion)
-                reply_content = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", reply_content)
-                await chunk_and_send(ctx, reply_content)
+                # special case: the bot tries to generate an image by sending text instead of using the function call
+                if "generate_stable_diffusion" not in past_tool_calls:
+                    prompt = None
+                    for pattern in GENERATE_IMAGE_PATTERNS.values():
+                        if m := pattern.search(completion):
+                            prompt = m.group(1)
+                            completion = pattern.sub("", completion)
+                    if prompt:
+                        await self.generate_stable_diffusion(ctx, prompt)
+                # cleanup
+                for pattern in RESPONSE_CLEANUP_PATTERNS.values():
+                    completion = pattern.sub("", completion)
+                completion = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
+            else:
+                completion = ""
+
+            if completion:
+                await chunk_and_send(ctx, completion)
+            elif ctx.bot_permissions.add_reactions:
+                await ctx.message.add_reaction("🤐")
 
         response_message = {
             "role": "assistant",
-            "content": reply_content
+            "content": completion
         }
-        return response_message
+        return response_message  # type: ignore
 
 
     async def execute_memorizer(self,
@@ -344,7 +376,7 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
         """
-        assert ctx.guild and self.openai_client
+        assert ctx.guild
         if not await self.config.guild(ctx.guild).allow_memorizer():
             return
 
@@ -368,11 +400,12 @@ class GptMemory(GptMemoryCommands):
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_memorizer()
-        response = await self.openai_client.beta.chat.completions.parse(
+        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
+        response = await self.get_client(model).beta.chat.completions.parse(
             model=model,
             messages=temp_messages,
             response_format=MemoryChangeList,
-            reasoning_effort=await self.config.guild(ctx.guild).effort_memorizer() if "gpt-5" in model else NotGiven()
+            reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
         )
         completion = response.choices[0].message
         if response.usage:
@@ -682,3 +715,25 @@ class GptMemory(GptMemoryCommands):
                 content += f"\n[[[ Linked message: {linked_content} ]]]"  
 
         return content.strip()
+
+
+    async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
+        assert ctx.guild
+
+        channel_mode = await self.config.guild(ctx.guild).generation_channel_mode()
+        channels = await self.config.guild(ctx.guild).generation_channels()
+        if channel_mode == "blacklist" and ctx.channel.id in channels \
+                or channel_mode == "whitelist" and ctx.channel.id not in channels:
+            if ctx.bot_permissions.add_reactions:
+                await ctx.message.add_reaction("❌")
+            return
+        
+        aimage: Optional[commands.Cog] = ctx.bot.get_cog("AImage")
+        if not aimage:
+            await ctx.message.add_reaction("❌")
+            return
+        
+        params = ImageGenParams(prompt=prompt)
+        message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
+        task = aimage.generate_image(ctx, params=params, message_content=message_content) # type: ignore
+        _ = asyncio.create_task(task)

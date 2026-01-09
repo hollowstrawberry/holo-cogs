@@ -1,5 +1,7 @@
+import re
 import discord
 import discord.ext.commands as commands
+import trafilatura
 from io import BytesIO
 from re import Match
 from copy import deepcopy
@@ -8,6 +10,7 @@ from typing import Optional, List
 from PIL import Image, UnidentifiedImageError
 
 from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
+
 
 def sanitize(text: str) -> str:
     special_characters = "[]"
@@ -114,3 +117,36 @@ async def chunk_and_send(ctx: commands.Context, full_text: str):
             first_reply = False
         else:
             await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
+
+
+def adjusted_effort(model: str, effort: str) -> str:
+   if effort == "minimal" and "/" not in model and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
+       return "none"
+   else:
+       return effort
+   
+
+def format_arcenciel_model(data: dict) -> str:
+    description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"
+    versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
+    model_info = f"[[ Model name: {data['title']} ]] [Model URL: https://arcenciel.io/models/{data['id']}] [Type: {data['type']}] [Uploader: {data['uploader']['username']}] [Versions: {len(versions)}]"
+    versions_info = ""
+    for i, version in enumerate(versions):
+        versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
+        if i == 0 and data['type'] == "LORA":
+            versions_info += " [Activation tags:]"
+            filename = version.get('originalName') or version.get('fileName')
+            filename = re.sub(r"[^a-zA-Z0-9. _-]", "_", filename).replace(".safetensors", "") # sanitize
+            lora = f"<lora:{filename}:1>" if filename else ""
+            if version.get('activationTags', []):
+                for tags in version['activationTags']:
+                    if tags.count('|') == 1:
+                        tags = tags.split('|')[1].strip()
+                    if tags in description:
+                        description = description.replace(tags, "[tags]")
+                    versions_info += f" [{lora} {tags}]"
+            else:
+                versions_info += f" {lora}"
+        versions_info += " ]]"
+    content = f"{model_info} [Model description:] {description}\n{versions_info}"
+    return content

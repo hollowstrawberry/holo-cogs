@@ -131,7 +131,8 @@ class GptMemoryCommands(GptMemoryConfig):
         response += f"\n`[response_tokens:]` {settings['response_tokens']} `[backread_tokens:]` {settings['backread_tokens']}"
         response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_memorizer:]` {settings['backread_memorizer']}"
         response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
-        response += f"\n`[max_quote:]` {settings['max_quote']} `[max_tool:]` {settings['max_tool']} `[max_text_file:]` {settings['max_text_file']}"
+        response += f"\n`[max_tool:]` {settings['max_tool']} [max_tool_depth:] {settings['max_tool_depth']}"
+        response += f"\n`[max_quote:]` {settings['max_quote']} `[max_text_file:]` {settings['max_text_file']}"
 
         await ctx.send(response)
 
@@ -196,11 +197,14 @@ class GptMemoryCommands(GptMemoryConfig):
 
         if not model or not model.strip():
             await ctx.reply(f"Current model for the {module} is {model_value}")
-        elif model.strip().lower() not in VISION_MODELS:
+        elif "/" not in model and model.strip().lower() not in VISION_MODELS:
             await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
         else:
             await model_setter.set(model.strip().lower())
-            await ctx.tick(message="Model changed")
+            if "/" in model:
+                await ctx.reply("Model changed. Note that this model will be used through OpenRouter, and things may break unexpectedly.")
+            else:
+                await ctx.tick(message="Model changed")
 
     @memoryconfig.command("effort")
     @commands.is_owner()
@@ -428,6 +432,19 @@ class GptMemoryCommands(GptMemoryConfig):
         else:
             await self.config.guild(ctx.guild).max_tool.set(value)
         await ctx.reply(f"`[max_tool:]` {value}", mention_author=False)
+
+    @memoryconfig_limits.command(name="max_tool_depth")
+    async def memoryconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
+        """How many tools the AI can use one after the other."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).max_tool_depth()
+        elif value < 1 or value > 10:
+            await ctx.reply("Value must be between 1 and 10", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).max_tool_depth.set(value)
+        await ctx.reply(f"`[max_tool_depth:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_quote")
     async def memoryconfig_max_quote(self, ctx: commands.Context, value: Optional[int]):

@@ -1,11 +1,26 @@
 import re
+from typing import OrderedDict
 from datetime import datetime, timezone
 from discord.utils import DISCORD_EPOCH
 
 MAX_MESSAGE_LENGTH = 1950
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 
-RESPONSE_CLEANUP_PATTERN = re.compile(r"(((^(\[[^[\]]+\]\s?)+)|(\[\[\[[\s\S]+\]\]\])))", re.MULTILINE)
+RESPONSE_CLEANUP_PATTERNS = OrderedDict({
+    "Author system texts":          re.compile(r"^(\[[^[:\]]*:[^[:\]]*\]\s?)+", re.MULTILINE),
+    "Single-line system texts":     re.compile(r"\[\[.+\]\]"),
+    "Multiline system texts":       re.compile(r"\[\[\[[\s\S]+\]\]\]"),
+    "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change).+", re.MULTILINE | re.IGNORECASE),
+    "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
+    "Loading message":              re.compile(r"`\s*[⏳⌛][^`]+`\s*"),
+    "Leftover bracket":             re.compile(r"}\s*$")
+})
+
+GENERATE_IMAGE_PATTERNS = {
+    "System action":     re.compile(r"\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE),
+    "Gemini action":     re.compile(r"""{\s*(?:["']action["'][\s\S]+?)?["']prompt["']:\s*["'](.+?)["']\s*}(?:["']\s*})?""", re.IGNORECASE)
+}
+
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 CODEBLOCK_PATTERN = re.compile(r"^```(\w*)\s*$")
@@ -23,6 +38,14 @@ VISION_MODELS = [
     "gpt-4.1",
     "gpt-4.1-mini",
     "gpt-4.1-nano",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-5.1",
+    "gpt-5.2",
+]
+
+MODELS_THAT_USE_MINIMAL = [
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",

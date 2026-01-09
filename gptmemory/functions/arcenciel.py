@@ -2,6 +2,7 @@ import logging
 import aiohttp
 from typing import Optional
 
+from gptmemory.utils import format_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
@@ -12,7 +13,7 @@ class ArcencielFunctionCall(FunctionCallBase):
     schema = ToolCall(
         Function(
             name="search_models_arcenciel",
-            description="Searches stable diffusion models on Arc en Ciel.",
+            description="Searches stable diffusion models and loras on Arc en Ciel.",
             parameters=Parameters(
                 properties={
                     "query": {
@@ -70,11 +71,5 @@ class ArcencielFunctionCall(FunctionCallBase):
         for result in data["data"]:
             if not result.get('versions', None):
                 continue
-            latest_version = sorted(result['versions'], key=lambda v: v['id'], reverse=True)[0]
-            results.append(f"[[[ [Model URL: https://arcenciel.io/models/{result['id']}] " +
-                           f"[Model type: {result['type']}] " +
-                           f"[Model uploader: {result['uploader']['username']}]" +
-                           f"[Date updated: {latest_version['publishedAt']}] " +
-                           f"[Versions: {'/'.join(set(version['baseModel'] for version in result['versions']))}] " +
-                           f"[Model name:] {result['title']} ]]]")
-        return '\n'.join(results)
+            results.append(f"[[[ {format_arcenciel_model(result)} ]]]")
+        return '\n\n'.join(results)

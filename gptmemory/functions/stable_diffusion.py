@@ -3,36 +3,12 @@ import logging
 import asyncio
 import discord
 from typing import Any, Optional, Tuple
-from dataclasses import dataclass, field
 from redbot.core import commands
 
-from gptmemory.schema import ToolCall, Function, Parameters
+from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams
 from gptmemory.functions.base import FunctionCallBase
 
 log = logging.getLogger("gptmemory.stablediffusion")
-
-
-@dataclass
-class ImageGenParams:
-    prompt: str
-    negative_prompt: Optional[str] = None
-    style: Optional[str] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
-    cfg: Optional[float] = None
-    sampler: Optional[str] = None
-    scheduler: Optional[str] = None
-    steps: Optional[int] = None
-    seed: int = -1
-    variation: int = 0
-    variation_seed: int = -1
-    checkpoint: Optional[str] = None
-    vae: Optional[str] = None
-    lora: str = ""
-    subseed: int = -1
-    subseed_strength: float = 0.0
-    init_image: bytes = field(default_factory=bytes)
-    denoising: Optional[float] = None
 
 
 class StableDiffusionFunctionCall(FunctionCallBase):
@@ -156,8 +132,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             )
 
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
-        task = aimage.generate_image(self.ctx, params=params, message_content=message_content) # type: ignore
-        _ = asyncio.create_task(task)
+        temp = await self.ctx.reply(f"`⏳ Image generation in progress...`", mention_author=False)
+        _ = asyncio.create_task(aimage.generate_image(self.ctx, params=params, message_content=message_content, callback=temp.delete())) # type: ignore
 
         response = "[Image generation started successfully]"
         if existing and not message:
