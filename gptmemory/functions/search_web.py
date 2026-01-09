@@ -47,7 +47,6 @@ class AgenticSearchFunctionCall(FunctionCallBase):
                         {
                             "id": "web",
                             "max_results": 2,
-                            "search_context_size": "low",
                         }
                     ],
                 },
