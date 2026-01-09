@@ -29,29 +29,45 @@ class AgenticSearchFunctionCall(FunctionCallBase):
 
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
         if "/" in model:  # openrouter
-            response = await self.cog.openrouter_client.responses.create(
+            response = await self.cog.openrouter_client.beta.chat.completions.create(
                 model=model,
-                input=arguments["query"],
+                reasoning_effort="low",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Perform a web search based on the user's query and summarize the results. Don't search too deep.",
+                    },
+                    {
+                        "role": "user",
+                        "content": arguments["query"],
+                    }
+                ],
                 extra_body={
                     "plugins": [
                         {
                             "id": "web",
-                            "max_results": 2
+                            "max_results": 2,
+                            "search_context_size": "low",
                         }
                     ],
-                    "web_search_options": {
-                        "search_context_size": "low"
-                    },
                 },
+                web_search_options={"search_context_size": "low"}
             )
+            assert response.usage
+            output_text = response.choices[0].message.content or ""
+            input_tokens = response.usage.prompt_tokens
+            output_tokens = response.usage.completion_tokens
         else:
             response = await self.cog.openai_client.responses.create(
                 model=model,
                 reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},
                 tools=[{"type": "web_search"}],  # type: ignore
-                input=arguments["query"]
+                input=arguments["query"],
             )
-            
-        assert response.usage and response.output_text
-        log.info(f"WebSearchResult(input_tokens={response.usage.input_tokens}, output_tokens={response.usage.output_tokens})")
-        return response.output_text
+            assert response.usage
+            output_text = response.output_text
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+
+        log.info(f"WebSearchResult(input_tokens={input_tokens}, output_tokens={output_tokens})")
+        return output_text
