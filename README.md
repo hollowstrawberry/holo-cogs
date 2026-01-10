@@ -34,6 +34,12 @@ Uses AI to give a unique welcome message for each new user, according to their u
 
 ![image](https://github.com/user-attachments/assets/46c8e4a8-7cc7-4ff6-b864-5ee132c7ec6c)
 
+## 🍌 NanoBanana
+
+Generate and remix images with Google's NanoBanana through the accessible openrouter API. You can `right click message -> Apps -> Remix` to use it conveniently.
+
+⚠️ This is expensive, around 14 cents per image. Because of this, only approved users and roles by the bot owner may use this feature.
+
 ## 🤖 gptmemory
 
 The gptmemory cog will let you use your Discord Bot as an artificial user in your server, typically serving as an assistant. It features memories which may be manually set or automatically created by the bot, and recalled according to the context of the conversation. It is also capable of viewing images and using the internet. I have found that the more context you provide to a chatbot agent, the more natural its responses will be. Because of the additional context that memories provide, me and my peers have had a lot of fun with this cog.
