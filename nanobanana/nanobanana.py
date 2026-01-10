@@ -204,6 +204,7 @@ class NanoBanana(commands.Cog):
         pass
 
     @command_roles.command(name="add")
+    @commands.is_owner()
     async def command_roles_add(self, ctx: commands.Context, role: discord.Role):
         """Add a role to the allowed list."""
         assert ctx.guild
@@ -215,6 +216,7 @@ class NanoBanana(commands.Cog):
                 await ctx.reply("That role is already in the list.")
 
     @command_roles.command(name="remove")
+    @commands.is_owner()
     async def command_roles_remove(self, ctx: commands.Context, role: discord.Role):
         """Remove a role from the allowed list."""
         assert ctx.guild
@@ -241,6 +243,7 @@ class NanoBanana(commands.Cog):
         pass
 
     @command_users.command(name="add")
+    @commands.is_owner()
     async def command_users_add(self, ctx: commands.Context, user: discord.Member):
         """Add a user to the allowed list."""
         assert ctx.guild
@@ -252,6 +255,7 @@ class NanoBanana(commands.Cog):
                 await ctx.reply("That user is already in the list.")
 
     @command_users.command(name="remove")
+    @commands.is_owner()
     async def command_users_remove(self, ctx: commands.Context, user: discord.Member):
         """Remove a user from the allowed list."""
         assert ctx.guild
