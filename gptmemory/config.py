@@ -35,6 +35,7 @@ class GptMemoryConfig(commands.Cog):
             "model_memorizer": defaults.MODEL_MEMORIZER,
             "prompt_recaller": defaults.PROMPT_RECALLER,
             "prompt_responder": defaults.PROMPT_RESPONDER,
+            "prompt_autoresponder": defaults.PROMPT_AUTORESPONDER,
             "prompt_memorizer": defaults.PROMPT_MEMORIZER,
             "effort_recaller": defaults.EFFORT_RECALLER,
             "effort_responder": defaults.EFFORT_RESPONDER,
@@ -54,4 +55,5 @@ class GptMemoryConfig(commands.Cog):
             "max_tool_depth": defaults.TOOL_DEPTH,
             "max_text_file": defaults.TEXT_FILE_LENGTH,
             "max_image_resolution": defaults.IMAGE_SIZE,
+            "autoresponder_chance": 0.0,
         })

@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import discord
 from io import BytesIO
+from random import random
 from datetime import datetime
 from difflib import get_close_matches
 from typing import Optional, Union, List, Dict, Any
@@ -110,12 +111,16 @@ class GptMemory(GptMemoryCommands):
         if not await self.is_valid_trigger(ctx):
             return
         
+        assert ctx.guild
+        if self.bot.user not in ctx.message.mentions and random() > await self.config.guild(ctx.guild).autoresponder_chance():
+            return False
+        
         await ctx.channel.typing()
         if match := URL_PATTERN.search(message.content):
             if f"<{match.group(0)}>" not in message.content: # non-embedding links
                 ctx = await self.wait_for_embed(ctx)
 
-        await self.run_response(ctx)
+        await self.run_response(ctx, auto=self.bot.user not in ctx.message.mentions)
 
     
     @commands.Cog.listener()
@@ -134,8 +139,6 @@ class GptMemory(GptMemoryCommands):
 
 
     async def is_valid_trigger(self, ctx: commands.Context) -> bool:
-        if self.bot.user not in ctx.message.mentions:
-            return False
         if ctx.author.bot:
             return False
         if not ctx.guild:
@@ -170,7 +173,7 @@ class GptMemory(GptMemoryCommands):
         return ctx        
 
 
-    async def run_response(self, ctx: commands.Context):
+    async def run_response(self, ctx: commands.Context, auto: bool = False):
         assert ctx.guild
         if ctx.guild.id not in self.memory:
             self.memory[ctx.guild.id] = {}
@@ -179,7 +182,10 @@ class GptMemory(GptMemoryCommands):
         result = GptMemoryResult()
         messages = await self.get_message_history(ctx, result)
         recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
-        await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories, result)
+        if auto:
+            await self.execute_responder(ctx, messages, recalled_memories, result, auto=True)
+        else:
+            await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories, result)
         log.info(result)
 
 
@@ -253,7 +259,8 @@ class GptMemory(GptMemoryCommands):
                                 ctx: commands.Context,
                                 messages: List[GptMessage],
                                 recalled_memories: Dict[str, str],
-                                result: GptMemoryResult
+                                result: GptMemoryResult,
+                                auto: bool = False,
                                 ) -> GptMessage:
         """
         Runs an openai completion with the chat history and the contents of memories
@@ -268,7 +275,8 @@ class GptMemory(GptMemoryCommands):
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
 
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
-        system_content = (await self.config.guild(ctx.guild).prompt_responder()).format(
+        base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
+        system_content = base_system_content.format(
             botname=self.bot.user.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,

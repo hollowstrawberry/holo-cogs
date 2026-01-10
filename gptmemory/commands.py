@@ -1,5 +1,5 @@
 import discord
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 from difflib import get_close_matches
 from redbot.core import commands
 
@@ -179,6 +179,7 @@ class GptMemoryCommands(GptMemoryConfig):
         pass
 
     PromptTypes = Literal["recaller", "responder", "memorizer"]
+    AllPromptTypes = Union[PromptTypes, Literal["autoresponder"]]
 
     @memoryconfig.command("model")
     @commands.is_owner()
@@ -230,10 +231,11 @@ class GptMemoryCommands(GptMemoryConfig):
             await ctx.tick(message="Reasoning effort changed")
 
     @memoryconfig_prompt.command(name="show", aliases=["view"])
-    async def memoryconfig_prompt_show(self, ctx: commands.Context, module: PromptTypes):
+    async def memoryconfig_prompt_show(self, ctx: commands.Context, module: AllPromptTypes):
         """
         The recaller grabs relevant memories.
         The responder sends the chat message.
+        The autoresponder sends random chat messages.
         The memorizer edits memories.
         """
         assert ctx.guild
@@ -244,15 +246,18 @@ class GptMemoryCommands(GptMemoryConfig):
             prompt = await self.config.guild(ctx.guild).prompt_responder()
         elif module == "memorizer":
             prompt = await self.config.guild(ctx.guild).prompt_memorizer()
+        elif module == "autoresponder":
+            prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
         
         await ctx.reply(f"`[{module} prompt]`\n>>> {prompt or '*None*'}", mention_author=False)
 
     @memoryconfig_prompt.command(name="set", aliases=["edit"])
-    async def memoryconfig_prompt_set(self, ctx: commands.Context, module: PromptTypes, *, prompt):
+    async def memoryconfig_prompt_set(self, ctx: commands.Context, module: AllPromptTypes, *, prompt):
         """
         Examples in the default values. Each prompt will require some variables between curly brackets.
         The recaller grabs relevant memories.
         The responder sends the chat message.
+        The autoresponder sends random chat messages.
         The memorizer edits memories.
         """
         assert ctx.guild
@@ -267,10 +272,12 @@ class GptMemoryCommands(GptMemoryConfig):
             await self.config.guild(ctx.guild).prompt_responder.set(prompt)
         elif module == "memorizer":
             await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
+        elif module == "autoresponder":
+            await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
 
         await ctx.reply(f"`[New {module} prompt]`\n>>> {prompt}", mention_author=False)
 
-    @memoryconfig.command(name="allow_memorizer")
+    @memoryconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
     async def memoryconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
         """Whether the memorizer will run at all, editing memories."""
         assert ctx.guild
@@ -299,6 +306,18 @@ class GptMemoryCommands(GptMemoryConfig):
         else:
             await self.config.guild(ctx.guild).memorizer_alerts.set(value)
         await ctx.reply(f"`[memorizer_alerts:]` {value}", mention_author=False)
+
+    @memoryconfig.command(name="autoresponder_chance")
+    async def memoryconfig_allow_autoresponder(self, ctx: commands.Context, value: Optional[float]):
+        """The chance that the autoresponder will trigger, from 0 to 100."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).autoresponder_chance()
+        else:
+            value /= 100
+            await self.config.guild(ctx.guild).autoresponder_chance.set(value)
+        assert value
+        await ctx.reply(f"`[autoresponder_chance:]` {value*100:.2f}%", mention_author=False)
 
     @memoryconfig_prompt.command(name="emotes")
     async def memoryconfig_emotes(self, ctx: commands.Context, *, emotes: Optional[str]):
