@@ -29,7 +29,7 @@ class AgenticSearchFunctionCall(FunctionCallBase):
 
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
         if "/" in model:  # openrouter
-            response = await self.cog.openrouter_client.beta.chat.completions.create(
+            response = await self.cog.openrouter_client.chat.completions.create(
                 model=model,
                 reasoning_effort="low",
                 messages=[

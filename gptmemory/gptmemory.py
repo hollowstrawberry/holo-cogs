@@ -305,6 +305,10 @@ class GptMemory(GptMemoryCommands):
                     if depth > 0:
                         result.tokens_after_tools += response.usage.completion_tokens
 
+                if not response.choices:
+                    log.error(f"Empty response from responder: {response}")
+                    return {}
+
                 if not response.choices[0].message.tool_calls:
                     break
                 else:
