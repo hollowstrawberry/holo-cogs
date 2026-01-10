@@ -305,8 +305,10 @@ class GptMemory(GptMemoryCommands):
                     if depth > 0:
                         result.tokens_after_tools += response.usage.completion_tokens
 
-                if not response.choices:
+                if not response.choices:  # request may get rejected
                     log.error(f"Empty response from responder: {response}")
+                    await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe
+                    await ctx.message.add_reaction("🤐")
                     return {}
 
                 if not response.choices[0].message.tool_calls:
