@@ -69,7 +69,7 @@ def get_text_contents(messages: List[dict]):
                 break
     return temp_messages
 
-async def chunk_and_send(ctx: commands.Context, full_text: str):
+async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
     base_lines = full_text.splitlines(keepends=True)
     lines = []
     for base_line in base_lines:
@@ -112,7 +112,7 @@ async def chunk_and_send(ctx: commands.Context, full_text: str):
 
     first_reply = True
     for chunk in chunks:
-        if first_reply:
+        if first_reply and do_reply:
             await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
             first_reply = False
         else:

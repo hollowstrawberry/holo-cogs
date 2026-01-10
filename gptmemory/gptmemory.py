@@ -368,7 +368,7 @@ class GptMemory(GptMemoryCommands):
                 completion = ""
 
             if completion:
-                await chunk_and_send(ctx, completion)
+                await chunk_and_send(ctx, completion, do_reply=not auto)
             elif ctx.bot_permissions.add_reactions:
                 await ctx.message.add_reaction("🤐")
 
