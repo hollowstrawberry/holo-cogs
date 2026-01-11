@@ -5,7 +5,7 @@ import aiohttp
 import discord
 from io import BytesIO
 from random import random
-from datetime import datetime
+from datetime import datetime, timezone
 from difflib import get_close_matches
 from typing import Optional, Union, List, Dict, Any
 from dataclasses import dataclass
@@ -117,10 +117,10 @@ class GptMemory(GptMemoryCommands):
             autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
             cooldown_minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
             last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
-            if random() > autoresponder_chance or (datetime.now() - last_response).total_seconds() < cooldown_minutes * 60:
+            if random() > autoresponder_chance or (datetime.now(tz=timezone.utc) - last_response).total_seconds() < cooldown_minutes * 60:
                 return False
             
-        await self.config.channel(ctx.channel).last_response.set(datetime.now().isoformat())
+        await self.config.channel(ctx.channel).last_response.set(datetime.now(tz=timezone.utc).isoformat())
         
         await ctx.channel.typing()
         if match := URL_PATTERN.search(message.content):
