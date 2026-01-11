@@ -110,10 +110,17 @@ class GptMemory(GptMemoryCommands):
         ctx: commands.Context = await self.bot.get_context(message) 
         if not await self.is_valid_trigger(ctx):
             return
-        
-        assert ctx.guild
-        if self.bot.user not in ctx.message.mentions and random() > await self.config.guild(ctx.guild).autoresponder_chance():
-            return False
+
+        assert ctx.guild and isinstance(ctx.channel, Union[discord.TextChannel, discord.Thread])
+
+        if self.bot.user not in ctx.message.mentions:
+            autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
+            cooldown_minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
+            last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
+            if random() > autoresponder_chance or (datetime.now() - last_response).total_seconds() < cooldown_minutes * 60:
+                return False
+            
+        await self.config.channel(ctx.channel).last_response.set(datetime.now().isoformat())
         
         await ctx.channel.typing()
         if match := URL_PATTERN.search(message.content):

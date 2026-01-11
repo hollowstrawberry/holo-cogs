@@ -308,16 +308,32 @@ class GptMemoryCommands(GptMemoryConfig):
         await ctx.reply(f"`[memorizer_alerts:]` {value}", mention_author=False)
 
     @memoryconfig.command(name="autoresponder_chance")
-    async def memoryconfig_allow_autoresponder(self, ctx: commands.Context, value: Optional[float]):
-        """The chance that the autoresponder will trigger, from 0 to 100."""
+    async def memoryconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
+        """The chance that the autoresponder will trigger, from 0.0 to 100.0"""
         assert ctx.guild
-        if value is None:
-            value = await self.config.guild(ctx.guild).autoresponder_chance()
+        if percent is None:
+            percent = await self.config.guild(ctx.guild).autoresponder_chance()
+        elif percent < 0 or percent > 100:
+            await ctx.reply("Value must range from 0.0 to 100.0", mention_author=False)
+            return
         else:
-            value /= 100
-            await self.config.guild(ctx.guild).autoresponder_chance.set(value)
-        assert value
-        await ctx.reply(f"`[autoresponder_chance:]` {value*100:.2f}%", mention_author=False)
+            percent /= 100
+            await self.config.guild(ctx.guild).autoresponder_chance.set(percent)
+        assert percent
+        await ctx.reply(f"`[autoresponder_chance:]` {percent*100:.2f}%", mention_author=False)
+
+    @memoryconfig.command(name="autoresponder_cooldown")
+    async def memoryconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
+        """The minimum time between 2 autoresponder triggers in a single channel."""
+        assert ctx.guild
+        if minutes is None:
+            minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
+        elif minutes < 0:
+            await ctx.reply("Value must not be negative.", mention_author=False)
+        else:
+            await self.config.guild(ctx.guild).autoresponder_cooldown_minutes.set(minutes)
+        assert minutes
+        await ctx.reply(f"`[autoresponder_cooldown:]` {minutes} minutes", mention_author=False)
 
     @memoryconfig_prompt.command(name="emotes")
     async def memoryconfig_emotes(self, ctx: commands.Context, *, emotes: Optional[str]):

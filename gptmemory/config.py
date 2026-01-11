@@ -23,6 +23,7 @@ class GptMemoryConfig(commands.Cog):
         })
         self.config.register_channel(**{
             "start": DISCORD_EPOCH_DATETIME.isoformat(),
+            "last_response": DISCORD_EPOCH_DATETIME.isoformat(),
         })
         self.config.register_guild(**{
             "channel_mode": "whitelist",
@@ -56,4 +57,5 @@ class GptMemoryConfig(commands.Cog):
             "max_text_file": defaults.TEXT_FILE_LENGTH,
             "max_image_resolution": defaults.IMAGE_SIZE,
             "autoresponder_chance": 0.0,
+            "autoresponder_cooldown_minutes": 60,
         })
