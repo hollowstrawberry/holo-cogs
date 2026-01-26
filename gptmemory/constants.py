@@ -8,7 +8,7 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Author system texts":          re.compile(r"^(\[[^[:\]]*:[^[:\]]*\]\s?)+", re.MULTILINE),
-    "Single-line system texts":     re.compile(r"\[\[.+\]\]"),
+    "Single-line system texts":     re.compile(r"\[\[.+(\]\]|$)"),
     "Multiline system texts":       re.compile(r"\[\[\[[\s\S]+?(\]\]\]|$)"),
     "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change).+", re.MULTILINE | re.IGNORECASE),
     "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
