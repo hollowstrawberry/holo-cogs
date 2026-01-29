@@ -38,10 +38,10 @@ class ArcencielFunctionCall(FunctionCallBase):
         found_user: Optional[int] = None
 
         if user:
-            url = f"https://arcenciel.io/api/users/search?q={user}"
+            params = {"q": user}
             try:
                 async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                    async with session.get(url) as resp:
+                    async with session.get("https://arcenciel.io/api/users/search", params=params) as resp:
                         resp.raise_for_status()
                         data = await resp.json()
             except aiohttp.ClientError as error:
@@ -52,12 +52,12 @@ class ArcencielFunctionCall(FunctionCallBase):
             else:
                 return "[User not found]"
 
-        url = f"https://arcenciel.io/api/models/search?search={query}"
+        params = {"search": query}
         if found_user is not None:
-            url += f"&userId={found_user}"
+            params["userId"] = found_user
         try:
             async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                async with session.get(url) as resp:
+                async with session.get("https://arcenciel.io/api/models/search", params=params) as resp:
                     resp.raise_for_status()
                     data = await resp.json()
         except aiohttp.ClientError as error:
