@@ -61,21 +61,13 @@ class AImageConfig(AImageBase):
         embed.add_field(name="Default VAE", value=f"`{config['vae']}`")
         embed.add_field(name="Default Sampler", value=f"`{config['sampler']}`")
         embed.add_field(name="Default CFG", value=f"`{config['cfg']}`")
-        embed.add_field(name="Default Sampling Steps", value=f"`{config['sampling_steps']}`")
+        embed.add_field(name="Default Steps", value=f"`{config['sampling_steps']}`")
         embed.add_field(name="Default Size", value=f"`{config['width']}x{config['height']}`")
         embed.add_field(name="NSFW allowed", value=f"`{config['nsfw']}`")
         embed.add_field(name="Use ADetailer", value=f"`{config['adetailer']}`")
         embed.add_field(name="Use Tiled VAE", value=f"`{config['tiledvae']}`")
         embed.add_field(name="Max img2img size", value=f"`{config['max_img2img']}`²")
-
-        blacklist = ", ".join(config["words_blacklist"])
-
-        if len(blacklist) > 1000:
-            blacklist = blacklist[:1000] + "..."
-        elif not blacklist:
-            blacklist = "None"
-        embed.add_field(name="Blacklisted words",
-                        value=f"`{blacklist}`", inline=False)
+        embed.add_field(name="Blacklist regex", value=f"`{config['blacklist_regex']}`", inline=False)
 
         return await ctx.send(embed=embed)
 
@@ -95,26 +87,6 @@ class AImageConfig(AImageBase):
 
         await self.config.nsfw.set(not nsfw)
         await ctx.send(f"NSFW filtering is now {'`disabled`' if not nsfw else '`enabled`'}")
-
-    @aimage.command(name="nsfw_sensitivity")
-    async def nsfw_sensitivity(self, ctx: commands.Context, value: Optional[float]):
-        """
-        Views or sets the sensitivity for the nsfw filter (A1111 only)
-        Valid values are between -0.2 and 0.2
-        """
-        assert ctx.guild
-        if value is None:
-            nsfw_tuning = await self.config.nsfw_tuning()
-            await ctx.send(f"The sensitivity is currently set to `{nsfw_tuning:.3f}`")
-        elif value < -0.2 or value > 0.2:
-            await ctx.send(f"Valid values are between -0.2 and 0.2")
-        else:
-            data = self.autocomplete_cache.get("scripts") or []
-            if "censorscript" not in data:
-                await ctx.send("You need [the updated CensorScript.py](<https://github.com/hollowstrawberry/sd-webui-nsfw-checker>) in your A1111 to use this.")
-            else:
-                await self.config.nsfw_tuning.set(value)
-                await ctx.send(f"The sensitivity is now set to `{value:.3f}`")
 
     @aimage.command(name="negative_prompt")
     async def negative_prompt(self, ctx: commands.Context, *, negative_prompt: Optional[str]):
@@ -136,7 +108,7 @@ class AImageConfig(AImageBase):
         await self.config.cfg.set(cfg)
         await ctx.tick(message="✅ Default CFG updated.")
 
-    @aimage.command(name="sampling_steps")
+    @aimage.command(name="steps")
     async def sampling_steps(self, ctx: commands.Context, sampling_steps: int):
         """
         Set the default sampling steps
@@ -245,37 +217,11 @@ class AImageConfig(AImageBase):
         await self.config.adetailer.set(new)
         await ctx.send(f"ADetailer is now {'`disabled`' if not new else '`enabled`'}")
 
-    @aimage.group(name="blacklist")
-    async def blacklist(self, _: commands.Context):
-        """
-        Manage the blacklist of words that will be rejected in prompts
-        """
-        pass
-
-    @blacklist.command(name="add")
-    async def blacklist_add(self, ctx: commands.Context, *words: str):
-        """
-        Add words to the blacklist
-
-        (Separate multiple inputs with spaces, and use quotes (\"\") if needed)
-        """
-        assert ctx.guild
-        current_words = await self.config.words_blacklist()
-        added = []
-        for word in words:
-            if word not in current_words:
-                added.append(word)
-                current_words.append(word)
-        if not added:
-            return await ctx.send("No words added")
-        await self.config.words_blacklist.set(current_words)
-        return await ctx.send(f"Added words `{', '.join(added)}` to the blacklist")
-    
-    @blacklist.command(name="regex")
+    @aimage.command(name="blacklist")
     @commands.is_owner()
     async def blacklist_regex(self, ctx: commands.Context, *, regex: Optional[str]):
         """
-        Sets a regex for the blacklist
+        Sets a blacklist regex for prompts
         """
         assert ctx.guild
         if not regex or not regex.strip():
@@ -288,62 +234,6 @@ class AImageConfig(AImageBase):
             await self.config.blacklist_regex.set(regex.strip())
             await ctx.send(f"Set regex\n```re\n{regex.strip()}```")
 
-    @blacklist.command(name="remove")
-    async def blacklist_remove(self, ctx: commands.Context, *words: str):
-        """
-        Remove words from the blacklist
-
-        (Separate multiple inputs with spaces, and use quotes (\"\") if needed)
-        """
-        assert ctx.guild
-        current_words = await self.config.words_blacklist()
-
-        removed = []
-        for word in words:
-            if word in current_words:
-                removed.append(word)
-                current_words.remove(word)
-        if not removed:
-            return await ctx.send("No words removed")
-        await self.config.words_blacklist.set(current_words)
-        return await ctx.send(f"Removed words `{', '.join(removed)}` from blacklist")
-
-    @blacklist.command(name="list", aliases=["show"])
-    async def blacklist_list(self, ctx: commands.Context):
-        """
-        List all words in the blacklist
-        """
-        assert ctx.guild
-        current_words = await self.config.words_blacklist()
-
-        if not current_words:
-            return await ctx.send("No words in blacklist")
-
-        pages = []
-
-        for i in range(0, len(current_words), 10):
-            embed = discord.Embed(title="Blacklisted words",
-                                  color=await ctx.embed_color())
-            embed.description = "\n".join(current_words[i:i+10])
-            pages.append(embed)
-
-        if len(pages) == 1:
-            return await ctx.send(embed=pages[0])
-
-        for i, page in enumerate(pages):
-            page.set_footer(text=f"Page {i+1} of {len(pages)}")
-
-        await SimpleMenu(pages).start(ctx)
-
-    @blacklist.command(name="clear")
-    async def blacklist_clear(self, ctx: commands.Context):
-        """
-        Clear the blacklist to nothing!
-        """
-        assert ctx.guild
-        await self.config.words_blacklist.set([])
-        await ctx.tick(message="✅ Blacklist cleared.")
-
     @aimage.command()
     @checks.is_owner()
     @checks.bot_in_a_guild()
@@ -352,8 +242,10 @@ class AImageConfig(AImageBase):
         Updates the autocomplete cache
         """
         assert ctx.guild
-        await self.update_autocomplete_cache(ctx.guild)
+        await ctx.message.add_reaction("⏳")
+        await self.update_autocomplete_cache()
         await ctx.message.add_reaction("✅")
+        await ctx.message.remove_reaction("⏳", ctx.guild.me)
         
     @aimage.group()
     @checks.is_owner()
@@ -370,7 +262,7 @@ class AImageConfig(AImageBase):
         View the VIP role
         """
         assert ctx.guild
-        role_id = await self.config.vip_role()
+        role_id = await self.config.guild(ctx.guild).vip_role()
         role = ctx.guild.get_role(role_id)
         if role:
             await ctx.send(f"Current VIP role is {role.mention}", allowed_mentions=discord.AllowedMentions.none())
@@ -383,5 +275,5 @@ class AImageConfig(AImageBase):
         View the VIP role
         """
         assert ctx.guild
-        await self.config.vip_role.set(role.id)
+        await self.config.guild(ctx.guild).vip_role.set(role.id)
         await ctx.send(f"VIP role set to {role.mention}", allowed_mentions=discord.AllowedMentions.none())
