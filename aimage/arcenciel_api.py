@@ -111,7 +111,10 @@ class ArcEnCielAPI:
                 "name": name,
                 "weight": weight,
             })
+            log.info(params.prompt)
+            log.info(tag)
             params.prompt = params.prompt.replace(tag, "")
+            log.info(params.prompt)
 
         payload = {
             "mode": "txt2img",
