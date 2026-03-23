@@ -33,7 +33,7 @@ class ArcEnCielAPI:
             for key in ["samplers", "schedulers"]:
                 self.cog.autocomplete_cache[key] = {name: name for name in data["limits"][key]}
         # this endpoint returns loras while the other doesn't
-        url = self.endpoint + "/generator/models"
+        url = self.endpoint + "/generator/models?includeLoras=true"
         async with self.session.get(url, headers=self.headers) as response:
             data = await response.json()
             for key, models in data.items():
