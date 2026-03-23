@@ -58,7 +58,7 @@ class AImage(AImageConfig):
         await self.bot.wait_until_red_ready()
         api_key = (await self.bot.get_shared_api_tokens("arcenciel")).get("api_key", "")
         self.api = ArcEnCielAPI(self, ENDPOINT, api_key)
-        asyncio.create_task(self.api.update_autocomplete_cache())
+        asyncio.create_task(self.update_autocomplete_cache())
         self.consume_queue.start()
 
     async def cog_unload(self):
@@ -66,6 +66,10 @@ class AImage(AImageConfig):
             self.consume_queue.stop()
         if self.api:
             await self.api.session.close()
+
+    async def update_autocomplete_cache(self):
+        assert self.api
+        return await self.api.update_autocomplete_cache()
 
 
     @tasks.loop(seconds=1, reconnect=True)
