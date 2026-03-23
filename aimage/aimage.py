@@ -1,4 +1,3 @@
-from datetime import datetime
 import re
 import logging
 import asyncio
@@ -13,7 +12,7 @@ from redbot.core import app_commands, checks, commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.arcenciel_api import ArcEnCielAPI
-from aimage.constants import DEFAULT_NEGATIVE_PROMPT, DEFAULT_TAGGER, DEFAULT_THRESHOLD
+from aimage.constants import DEFAULT_NEGATIVE_PROMPT, DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT
 from aimage.helpers import delete_button_after, is_nsfw, send_response, clean_tag
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
@@ -30,7 +29,6 @@ class AImage(AImageConfig):
         self.api: Optional[ArcEnCielAPI] = None
 
         default_global = {
-            "endpoint": None,
             "nsfw": True,
             "nsfw_tuning": -0.025,
             "blacklist_regex": "",
@@ -61,9 +59,8 @@ class AImage(AImageConfig):
 
     async def cog_load(self):
         await self.bot.wait_until_red_ready()
-        endpoint = await self.config.endpoint()
         api_key = (await self.bot.get_shared_api_tokens("arcenciel")).get("api_key", "")
-        self.api = ArcEnCielAPI(self, endpoint, api_key)
+        self.api = ArcEnCielAPI(self, ENDPOINT, api_key)
         asyncio.create_task(self.api.update_autocomplete_cache())
         self.consume_queue.start()
 

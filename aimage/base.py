@@ -1,9 +1,6 @@
-import asyncio
-import aiohttp
 import discord
 from collections import defaultdict
 from typing import Coroutine, Optional, Union, Dict
-from aiohttp import ClientSession
 
 from redbot.core import Config, commands
 from redbot.core.bot import Red

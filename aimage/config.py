@@ -60,11 +60,9 @@ class AImageConfig(AImageBase):
         Show the current AI Image config
         """
         assert ctx.guild
-        guild = ctx.guild
-        config = await self.config.guild(guild).get_raw()
+        config = await self.config.all()
 
         embed = discord.Embed(title="AImage Config", color=await ctx.embed_color())
-        embed.add_field(name="Endpoint", value=f"{config['endpoint']}", inline=False)
 
         negative_prompt = config["negative_prompt"]
         if len(negative_prompt) > 1000:
@@ -92,25 +90,6 @@ class AImageConfig(AImageBase):
                         value=f"`{blacklist}`", inline=False)
 
         return await ctx.send(embed=embed)
-
-    @aimage.command(name="endpoint")
-    async def endpoint(self, ctx: commands.Context, endpoint: str):
-        """
-        Set the endpoint URL for AI Image (eg. `https://localhost/sdapi/v1/`)
-        """
-        assert ctx.guild
-        if not endpoint:
-            endpoint = ""
-        elif not endpoint.endswith("/"):
-            endpoint += "/"
-
-        if endpoint and not endpoint.endswith("/sdapi/v1/"):
-            await ctx.send(f"⚠️ Endpoint URL does not end with `/sdapi/v1/`. Continuing anyways...")
-
-        await self.config.guild(ctx.guild).endpoint.set(endpoint)
-
-        msg = await ctx.send("Endpoint set.")
-        asyncio.create_task(delete_button_after(msg))
 
     @aimage.command(name="nsfw")
     async def nsfw(self, ctx: commands.Context):
