@@ -19,7 +19,7 @@ from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
 from aimage.views.image_actions import ImageActions
 
-log = logging.getLogger("red.bz_cogs.aimage")
+log = logging.getLogger("red.holo-cogs.aimage")
 
 
 class AImage(AImageConfig):
@@ -122,7 +122,7 @@ class AImage(AImageConfig):
         except Exception as error:
             content = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
             asyncio.create_task(send_response(context, content=content))
-            raise
+            log.exception("Queueing image")
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: Optional[str]):
@@ -199,9 +199,13 @@ class AImage(AImageConfig):
                 current = m.group(1)
                 weight = m.group(2)
 
-        choices = self.filter_names(choices, current, True)
-        choices = [f"{previous}<lora:{choice}:{weight}>" if len(f"{previous}<lora:{choice}:{weight}>") <= 100 else f"<lora:{choice}:{weight}>" for choice in choices]
-        return [app_commands.Choice(name=choice, value=choice) for choice in choices][:25]
+        def build_lora(name: str) -> str:
+            return f"{previous}<lora:{name}:{weight}>" if len(f"{previous}<lora:{name}:{weight}>") <= 100 else f"<lora:{name}:{weight}>"
+        
+        names = self.filter_names(choices, current, True)
+        names = [name for name in names if name in self.autocomplete_cache.get("loras", {})]
+        name_pairs = OrderedDict([(build_lora(name), build_lora(self.autocomplete_cache["loras"][name])) for name in names])
+        return [app_commands.Choice(name=display_name, value=name) for display_name, name in choice_pairs][:25]
     
 
     _parameter_descriptions = {
