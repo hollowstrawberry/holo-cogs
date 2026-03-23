@@ -38,6 +38,7 @@ class ArcEnCielAPI:
         member = context.user if isinstance(context, discord.Interaction) else context.author
         assert isinstance(context.channel, discord.abc.Messageable) and isinstance(member, discord.Member)
         parse_loras(payload)
+        log.info(payload)
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload, headers=self.headers) as response:
             r = await response.json()
@@ -119,6 +120,5 @@ class ArcEnCielAPI:
         }
         if await config.adetailer():
             payload.update(ADETAILER_ARGS)
-
-        log.info(payload)
+        
         return payload
