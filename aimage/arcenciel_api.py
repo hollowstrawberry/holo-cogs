@@ -12,7 +12,7 @@ from aimage.constants import ADETAILER_ARGS
 from aimage.schema import ImageGenParams
 from aimage.helpers import clean_model, is_nsfw
 
-logger = logging.getLogger("red.holo-cogs.aimage")
+log = logging.getLogger("red.holo-cogs.aimage")
 
 
 class ArcEnCielAPI:
@@ -53,6 +53,7 @@ class ArcEnCielAPI:
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload, headers=self.headers) as response:
             r = await response.json()
+        log.info(r)
         return r["job"]
     
     async def close_request(self, id: str):
