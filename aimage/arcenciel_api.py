@@ -53,6 +53,8 @@ class ArcEnCielAPI:
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload, headers=self.headers) as response:
             r = await response.json()
+        if r.get("error"):
+            raise ValueError(r["error"])
         return r["job"]
     
     async def close_request(self, id: str):
@@ -64,6 +66,8 @@ class ArcEnCielAPI:
         url = self.endpoint + "/generator/jobs"
         async with self.session.get(url, headers=self.headers) as response:
             r = await response.json()
+        if r.get("error"):
+            raise ValueError(r["error"])
         return r["jobs"]
     
     async def download_image(self, id: str) -> io.BytesIO:
