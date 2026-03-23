@@ -32,7 +32,6 @@ class ArcEnCielAPI:
                 self.cog.autocomplete_cache[key] = {clean_model(name): name for name in model_names}
             for key in ["samplers", "schedulers"]:
                 self.cog.autocomplete_cache[key] = {name: name for name in data["limits"][key]}
-        # this endpoint returns loras while the other doesn't
         url = self.endpoint + "/generator/models?includeLoras=true"
         async with self.session.get(url, headers=self.headers) as response:
             data = await response.json()
@@ -75,6 +74,7 @@ class ArcEnCielAPI:
         async with self.session.get(url, headers=self.headers) as response:
             b = await response.read()
         return b
+
     
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
         config = self.cog.config
@@ -94,10 +94,11 @@ class ArcEnCielAPI:
         loras = []
         for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt + params.lora):
             tag, name, weight = lora
-            loras.append({
-                "name": name,
-                "weight": weight,
-            })
+            if name in self.cog.autocomplete_cache["loras"]:
+                loras.append({
+                    "name": self.cog.autocomplete_cache["loras"][name],
+                    "weight": weight,
+                })
             params.prompt = params.prompt.replace(tag, "")
 
         payload = {
