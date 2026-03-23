@@ -1,0 +1,461 @@
+from datetime import datetime
+import re
+import logging
+import asyncio
+import aiohttp
+import discord
+from copy import copy
+from typing import Coroutine, List, Optional, Union
+from rapidfuzz import fuzz
+
+from discord.ext import tasks
+from redbot.core import app_commands, checks, commands
+from sd_prompt_reader.image_data_reader import ImageDataReader
+
+from aimage.arcenciel_api import ArcEnCielAPI
+from aimage.constants import DEFAULT_NEGATIVE_PROMPT, DEFAULT_TAGGER, DEFAULT_THRESHOLD
+from aimage.helpers import delete_button_after, is_nsfw, send_response, clean_tag
+from aimage.schema import ImageGenParams, QueuedImageGen
+from aimage.config import AImageConfig
+from aimage.views.image_actions import ImageActions
+
+log = logging.getLogger("red.bz_cogs.aimage")
+
+
+class AImage(AImageConfig):
+    """ Generate AI images using a A1111 endpoint """
+
+    def __init__(self, bot):
+        super().__init__(bot)
+        self.api: Optional[ArcEnCielAPI] = None
+
+        default_global = {
+            "endpoint": None,
+            "nsfw": True,
+            "nsfw_tuning": -0.025,
+            "blacklist_regex": "",
+            "negative_prompt": DEFAULT_NEGATIVE_PROMPT,
+            "cfg": 5,
+            "sampling_steps": 24,
+            "sampler": "Euler a",
+            "checkpoint": None,
+            "vae": None,
+            "adetailer": False,
+            "tiledvae": False,
+            "width": 1024,
+            "height": 1024,
+            "max_img2img": 1536,
+            "auth": None,
+            "headers": "",
+            "scheduler": "Automatic",
+        }
+        default_guild = {
+            "vip_role": -1,
+        }
+        default_member = {
+            "checkpoint": "",
+        }
+        self.config.register_guild(**default_guild)
+        self.config.register_member(**default_member)
+        self.config.register_global(**default_global)
+
+    async def cog_load(self):
+        await self.bot.wait_until_red_ready()
+        endpoint = await self.config.endpoint()
+        api_key = (await self.bot.get_shared_api_tokens("arcenciel")).get("api_key", "")
+        self.api = ArcEnCielAPI(self, endpoint, api_key)
+        asyncio.create_task(self.api.update_autocomplete_cache())
+        self.consume_queue.start()
+
+    async def cog_unload(self):
+        if self.consume_queue.is_running():
+            self.consume_queue.stop()
+        if self.api:
+            await self.api.session.close()
+
+
+    @tasks.loop(seconds=1, reconnect=True)
+    async def consume_queue(self):
+        assert self.api
+        if not self.queued_images:
+            return
+        jobs = await self.api.fetch_queue()
+        for job in jobs:
+            if job["id"] in self.queued_images and job["status"] in ["completed", "failed"]:
+                gen = self.queued_images[job["id"]]
+                del self.queued_images[job["id"]]
+                nsfw = list(job["safety"]["outputs"].values())[0]["rating"] in ["sensitive", "explicit"]
+                success = job["status"] == "completed"
+                error_message = None
+                if not success:
+                    error_message = f"`Reason: {job['safety']['reason'] or 'none'}`" f"`Error: {job['safety']['error'] or 'none'}`"
+                asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
+
+
+    async def generate_image(self,
+                             context: Union[commands.Context, discord.Interaction],
+                             payload: Optional[dict] = None,
+                             params: ImageGenParams = None,
+                             callback: Optional[Coroutine] = None,
+                             message_content: Optional[str] = None):
+        
+        user = context.user if isinstance(context, discord.Interaction) else context.author
+        channel = context.channel
+        assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.abc.MessageableChannel)
+        assert payload or params
+        payload = payload or await self.api.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
+
+        vip_role = await self.config.guild(context.guild).vip_role()
+        if any(gen.user == user for gen in self.queued_images.values()) and all(role.id != vip_role for role in user.roles):
+            content = ":warning: You must wait for your current image to finish generating before you can request a new one."
+            return await send_response(context, content=content, ephemeral=True)
+
+        prompt = params.prompt if params else payload.get("prompt", "")
+
+        if await self.contains_blacklisted_word(prompt):
+            return await send_response(context, content=":warning: Blocked prompt.")
+
+        if isinstance(context, discord.Interaction):
+            await context.response.defer(thinking=True)
+        else:
+            await context.message.add_reaction("⏳")
+
+        try:
+            job = await self.api.request_image(context, params, payload)
+            self.queued_images[job["id"]] = QueuedImageGen(job["id"], payload, user, channel, context, callback, message_content)
+        except Exception as error:
+            content = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
+            asyncio.create_task(send_response(context, content=content))
+            raise
+
+
+    async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: Optional[str]):
+        assert self.api and isinstance(gen.context, (commands.Context, discord.Interaction))
+
+        if nsfw and not is_nsfw(gen.channel):
+            return await send_response(gen.context, content=f"🔞 Blocked NSFW image.", allowed_mentions=discord.AllowedMentions.none())
+
+        if error_message:
+            return await send_response(gen.context, content=f":warning: Failed to generate image. {error_message}")
+        
+        try:
+            image_result = await self.api.download_image(gen.id)
+            metadata = ImageDataReader(image_result)
+            file_id = gen.context.id if isinstance(gen.context, discord.Interaction) else gen.context.message.id
+            file = discord.File(image_result, filename=f"image_{file_id}.png", spoiler=nsfw)
+            maxsize = await self.config.max_img2img()
+            view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
+
+            msg = await send_response(gen.context, file=file, view=view, content=gen.message_content, allowed_mentions=discord.AllowedMentions.none())
+
+            asyncio.create_task(delete_button_after(msg))
+
+            imagescanner = self.bot.get_cog("ImageScanner")
+            if imagescanner:
+                if gen.channel.id in imagescanner.scan_channels:  # type: ignore
+                    imagescanner.image_cache[msg.id] = ({0: metadata.raw or metadata.setting}, {0: image_result})  # type: ignore
+                    try:
+                        await msg.add_reaction("🔎")
+                    except discord.NotFound:
+                        pass
+
+        except Exception:
+            raise
+        else:
+            await self.api.close_request(gen.id)
+        finally:
+            if gen.callback:
+                asyncio.create_task(gen.callback)
+
+
+    async def build_autocomplete_choices(self, current: str, choices: list) -> List[app_commands.Choice[str]]:
+        if not choices:
+            return []
+        choices = self.filter_list(choices, current)
+        return [app_commands.Choice(name=choice, value=choice) for choice in choices[:25]]
+
+    async def samplers_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        choices = self.autocomplete_cache.get("samplers", [])
+        return await self.build_autocomplete_choices(current, choices)
+
+    async def checkpoint_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        choices = self.autocomplete_cache.get("checkpoints", [])
+        return await self.build_autocomplete_choices(current, choices)
+
+    async def vae_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        choices = self.autocomplete_cache.get("vae", [])
+        return await self.build_autocomplete_choices(current, choices)
+    
+    async def loras_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        choices = self.autocomplete_cache.get("loras", [])
+        if not choices:
+            return []
+
+        weight = "1"
+        previous = ""
+        if current:
+            if m := re.search(r"^((?:<[^>]+>\s*)+)([^<>]+)$", current): # multiple loras
+                current = m.group(2)
+                previous = m.group(1) + " "
+            if m := re.search(r"^([^:]+):([+-]?\d*\.?\d+)$", current): # lora weight
+                current = m.group(1)
+                weight = m.group(2)
+
+        choices = self.filter_list(choices, current, True)
+        choices = [f"{previous}<lora:{choice}:{weight}>" if len(f"{previous}<lora:{choice}:{weight}>") <= 100 else f"<lora:{choice}:{weight}>" for choice in choices]
+        return [app_commands.Choice(name=choice, value=choice) for choice in choices][:25]
+    
+
+    _parameter_descriptions = {
+        "prompt": "The prompt to generate an image from.",
+        "negative_prompt": "Undesired terms go here.",
+        "cfg": "Sets the intensity of the prompt, 5 is common.",
+        "seed": "Random number that generates the image, -1 for random.",
+        "checkpoint": "The main AI model used to generate the image.",
+        "vae": "The VAE converts the final details of the image.",
+        "lora": "Shortcut to insert LoRA into the prompt.",
+        "subseed": "Random number that defines variations on a set seed.",
+        "variation": "Also known as subseed strength, makes variations on a set seed.",
+    }
+
+    _parameter_autocompletes = {
+        "lora": loras_autocomplete,
+        "checkpoint": checkpoint_autocomplete,
+        "vae": vae_autocomplete,
+    }
+
+
+    @checks.bot_has_permissions(attach_files=True)
+    @checks.bot_in_a_guild()
+    @commands.command(name="txt2img")
+    async def imagine(self, ctx: commands.Context, *, prompt: str):
+        """
+        Generate an image with Stable Diffusion
+
+        **Arguments**
+            - `prompt` a prompt to generate an image from
+        """
+        assert ctx.guild
+        params = ImageGenParams(prompt=prompt)
+        message_content=f"Result of {ctx.message.jump_url} requested by {ctx.author.mention}"
+        await self.generate_image(ctx, params=params, message_content=message_content)
+
+
+    @app_commands.command(name="txt2img")
+    @app_commands.describe(resolution="The dimensions of the image.",
+                           **_parameter_descriptions)
+    @app_commands.autocomplete(**_parameter_autocompletes)
+    @app_commands.checks.bot_has_permissions(attach_files=True)
+    @app_commands.choices(resolution=[
+            app_commands.Choice(name="Square", value="1024x1024"),
+            app_commands.Choice(name="Portrait", value="832x1216"),
+            app_commands.Choice(name="Landscape", value="1216x832"),
+        ])
+    @app_commands.guild_only()
+    async def imagine_app(
+        self,
+        interaction: discord.Interaction,
+        prompt: str,
+        negative_prompt: str = None,
+        resolution: str = "832x1216",
+        checkpoint: str = None,
+        lora: str = "",
+        cfg: app_commands.Range[float, 2, 8] = None,
+        seed: app_commands.Range[int, -1, None] = -1,
+        subseed: app_commands.Range[int, -1, None] = -1,
+        variation: app_commands.Range[float, 0.0, 0.5] = 0,
+        vae: str = None,
+    ):
+        """
+        Generate an image using Stable Diffusion.
+        """
+        await interaction.response.defer(thinking=True)
+
+        ctx: commands.Context = await self.bot.get_context(interaction)  # noqa
+        if not await self.can_run_command(ctx, "txt2img"):
+            return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
+
+        width, height = tuple(int(x) for x in resolution.split("x"))
+
+        params = ImageGenParams(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            cfg=cfg,
+            seed=seed,
+            checkpoint=checkpoint,
+            vae=vae,
+            lora=lora,
+            subseed=subseed,
+            subseed_strength=variation
+        )
+
+        await self.generate_image(interaction, params=params)
+
+
+    @app_commands.command(name="img2img")
+    @app_commands.describe(image="The input image.",
+                           denoising="How much the image should change. Try around 0.6",
+                           scale="Resizes the image up or down, 0.5 to 2.0.",
+                           **_parameter_descriptions)
+    @app_commands.autocomplete(**_parameter_autocompletes)
+    @app_commands.checks.bot_has_permissions(attach_files=True)
+    @app_commands.guild_only()
+    async def reimagine_app(
+            self,
+            interaction: discord.Interaction,
+            image: discord.Attachment,
+            denoising: app_commands.Range[float, 0, 1],
+            prompt: str,
+            negative_prompt: str = None,
+            checkpoint: str = None,
+            lora: str = "",
+            scale: app_commands.Range[float, 0.5, 2.0] = 1,
+            cfg: app_commands.Range[float, 2, 8] = None,
+            seed: app_commands.Range[int, -1, None] = -1,
+            subseed: app_commands.Range[int, -1, None] = -1,
+            variation: app_commands.Range[float, 0.0, 0.5] = 0,
+            vae: str = None,
+    ):
+        """
+        Convert an image using Stable Diffusion.
+        """
+        await interaction.response.defer(thinking=True)
+
+        ctx: commands.Context = await self.bot.get_context(interaction)  # noqa
+        if not await self.can_run_command(ctx, "txt2img"):
+            return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
+
+        assert ctx.guild and image.content_type
+        if not image.content_type.startswith("image/"):
+            return await interaction.followup.send("The file you uploaded is not a valid image.", ephemeral=True)
+
+        assert image.width and image.height
+        size = image.width*image.height*scale*scale
+        maxsize = (await self.config.guild(ctx.guild).max_img2img())**2
+        if size > maxsize:
+            return await interaction.followup.send(
+                f"Max img2img size is {int(maxsize**0.5)}² pixels. "
+                f"Your image {'after resizing would be' if scale != 0 else 'is'} {int(size**0.5)}² pixels, which is too big.",
+                ephemeral=True)
+        
+        params = ImageGenParams(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            cfg=cfg,
+            seed=seed,
+            checkpoint=checkpoint,
+            vae=vae,
+            lora=lora,
+            subseed=subseed,
+            subseed_strength=variation,
+            # img2img
+            height=round(image.height*scale),
+            width=round(image.width*scale),
+            init_image=await image.read(),
+            denoising=denoising,
+        )
+
+        await self.generate_image(interaction, params=params)
+
+
+    @commands.command(name="autotag")
+    async def autotag_cmd(self, ctx: commands.Context):
+        """
+        Generate booru tags for an image.
+        """
+        if not ctx.message.attachments:
+            return await ctx.reply("You must use this command with an image.")
+
+        image = ctx.message.attachments[0]
+        assert ctx.guild and image.content_type
+        if not image.content_type.startswith("image/"):
+            return await ctx.reply("The file you uploaded is not a valid image.")
+        
+        async with ctx.typing():
+            await self.autotag(ctx, image, DEFAULT_THRESHOLD, DEFAULT_TAGGER)
+
+
+    @app_commands.command(name="autotag")
+    @app_commands.describe(image="The image to generate tags for",
+                           threshold="Lower means more tags but less accuracy",
+                           model="The WD tagger to use.")
+    @app_commands.choices(model=[app_commands.Choice(name="vit-large-v3", value="wd-vit-large-tagger-v3"),
+                                 app_commands.Choice(name="eva02-large-v3", value="wd-eva02-large-tagger-v3")])
+    @app_commands.checks.bot_has_permissions(attach_files=True)
+    @app_commands.guild_only()
+    async def autotag_app(
+            self,
+            interaction: discord.Interaction,
+            image: discord.Attachment,
+            threshold: app_commands.Range[float, 0.1, 0.7] = DEFAULT_THRESHOLD,
+            model: str = DEFAULT_TAGGER,
+    ):
+        """
+        Generate booru tags for an image.
+        """
+        ctx: commands.Context = await self.bot.get_context(interaction)  # noqa
+        if not await self.can_run_command(ctx, "autotag"):
+            return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
+
+        assert ctx.guild and image.content_type
+        if not image.content_type.startswith("image/"):
+            return await interaction.followup.send("The file you uploaded is not a valid image.", ephemeral=True)
+        
+        return await interaction.followup.send("This feature is temporarily disabled.", ephemeral=True)
+        
+        #await interaction.response.defer(thinking=True)
+        #await self.autotag(ctx, image, threshold, model)
+        
+
+    async def autotag(self, ctx: commands.Context, attachment: discord.Attachment, threshold: float, model: str):
+        image_bytes = await attachment.read()
+        try:
+            raise NotImplementedError
+        except aiohttp.ClientResponseError as error:
+            if error.status == 404:
+                await ctx.reply("For the tagger to work, the bot owner or administrator has to install the [wd tagger](https://github.com/Akegarasu/sd-webui-wd14-tagger) extension on the webui instance.")
+            else:
+                log.error("Trying to interrogate image through webui", exc_info=True)
+                await ctx.reply("Failed to tag the image, contact the bot owner. ")
+        except aiohttp.ClientError:
+            log.error("Trying to interrogate image through webui", exc_info=True)
+            await ctx.reply("Failed to tag the image, contact the bot owner. ")
+        else:
+            embed = discord.Embed(title="Autotagger Result", color=await self.bot.get_embed_color(ctx))
+            embed.set_thumbnail(url=attachment.url)
+            embed.description = ", ".join([f"`{clean_tag(tag)}`" for tag in tags])
+            await ctx.reply(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+
+
+    async def contains_blacklisted_word(self, prompt: str):
+        blacklist_regex = await self.config.blacklist_regex()
+        if blacklist_regex:
+            return re.search(blacklist_regex, prompt, re.IGNORECASE)
+        return False
+
+
+    async def can_run_command(self, ctx: commands.Context, command_name: str) -> bool:
+        prefix = await self.bot.get_prefix(ctx.message)
+        prefix = prefix[0] if isinstance(prefix, list) else prefix
+        fake_message = copy(ctx.message)
+        fake_message.content = prefix + command_name
+        command = ctx.bot.get_command(command_name)
+        fake_context: commands.Context = await ctx.bot.get_context(fake_message)  # noqa
+        try:
+            can = await command.can_run(fake_context, check_all_parents=True, change_permission_state=False)
+        except commands.CommandError:
+            can = False
+        return can
+
+    @staticmethod
+    def filter_list(options: list, current: str, strict: bool = False):
+        results = []
+        ratios = [(item, fuzz.partial_ratio(current.lower(), item.lower())) for item in options]
+        sorted_options = sorted(ratios, key=lambda x: x[1], reverse=True)
+        for item, ratio in sorted_options:
+            if strict and ratio < 75:
+                continue
+            results.append(item)
+        return results
