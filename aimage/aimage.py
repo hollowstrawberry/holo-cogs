@@ -1,3 +1,4 @@
+from io import BytesIO
 import re
 import logging
 import asyncio
@@ -134,11 +135,10 @@ class AImage(AImageConfig):
             return await send_response(gen.context, content=f":warning: Failed to generate image. {error_message}")
         
         try:
-            image_result = await self.api.download_image(gen.id)
-            metadata = ImageDataReader(image_result)
-            image_result.seek(0)
+            image_bytes = await self.api.download_image(gen.id)
+            metadata = ImageDataReader(BytesIO(image_bytes))
             file_id = gen.context.id if isinstance(gen.context, discord.Interaction) else gen.context.message.id
-            file = discord.File(image_result, filename=f"image_{file_id}.png", spoiler=nsfw)
+            file = discord.File(BytesIO(image_bytes), filename=f"image_{file_id}.png", spoiler=nsfw)
             maxsize = await self.config.max_img2img()
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
@@ -150,7 +150,7 @@ class AImage(AImageConfig):
             imagescanner = self.bot.get_cog("ImageScanner")
             if imagescanner:
                 if gen.channel.id in imagescanner.scan_channels:  # type: ignore
-                    imagescanner.image_cache[msg.id] = ({0: metadata.raw or metadata.setting}, {0: image_result})  # type: ignore
+                    imagescanner.image_cache[msg.id] = ({0: metadata.raw or metadata.setting}, {0: image_bytes})  # type: ignore
                     try:
                         await msg.add_reaction("🔎")
                     except discord.NotFound:

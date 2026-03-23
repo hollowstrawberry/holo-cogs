@@ -70,11 +70,11 @@ class ArcEnCielAPI:
             raise ValueError(r["error"])
         return r["jobs"]
     
-    async def download_image(self, job_id: str) -> io.BytesIO:
+    async def download_image(self, job_id: str) -> bytes:
         url = f"{self.endpoint}/generator/jobs/{job_id}/outputs/0/download"
         async with self.session.get(url, headers=self.headers) as response:
             b = await response.read()
-        return io.BytesIO(b)
+        return b
     
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
         config = self.cog.config
