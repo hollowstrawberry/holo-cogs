@@ -130,4 +130,5 @@ class ArcEnCielAPI:
         if await config.adetailer():
             payload.update(ADETAILER_ARGS)
 
+        log.info(payload)
         return payload
