@@ -16,14 +16,6 @@ class QueuedImageGen:
     message_content: Optional[str]
 
 @dataclass
-class ImageResponse:
-    data: Optional[bytes] = None
-    payload: dict = field(default_factory=dict)
-    is_nsfw: bool = False
-    info_string: str = ""
-    extension: str = "png"
-
-@dataclass
 class ImageGenParams:
     prompt: str
     negative_prompt: Optional[str] = None

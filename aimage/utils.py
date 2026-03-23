@@ -11,6 +11,11 @@ from aimage.constants import LORA_REGEX, PARAMS_BLACKLIST, VIEW_TIMEOUT, UUID_PR
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
+
+class ImageGenError(ValueError):
+    pass
+
+
 async def send_response(context: Union[commands.Context, discord.Interaction], **kwargs) -> discord.Message:
     if isinstance(context, discord.Interaction):
         return await context.followup.send(**kwargs)

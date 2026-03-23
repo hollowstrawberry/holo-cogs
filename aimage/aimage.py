@@ -14,7 +14,7 @@ from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.arcenciel_api import ArcEnCielAPI
 from aimage.constants import DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT
-from aimage.utils import delete_button_after, is_nsfw, send_response, clean_tag, clean_model
+from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response, clean_tag, clean_model
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
 from aimage.views.image_actions import ImageActions
@@ -119,7 +119,7 @@ class AImage(AImageConfig):
         try:
             job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(job["id"], payload, user, channel, context, callback, message_content)
-        except ValueError as error:
+        except ImageGenError as error:
             content = f":warning: The image couldn't be generated. ({error})"
             asyncio.create_task(send_response(context, content=content))
         except Exception as error:
@@ -132,10 +132,12 @@ class AImage(AImageConfig):
         assert self.api and isinstance(gen.context, (commands.Context, discord.Interaction))
 
         if nsfw and not is_nsfw(gen.channel):
-            return await send_response(gen.context, content=f"🔞 Blocked NSFW image.", allowed_mentions=discord.AllowedMentions.none())
+            content = f"🔞 Blocked NSFW image."
+            return await send_response(gen.context, content=content, allowed_mentions=discord.AllowedMentions.none())
 
         if error_message:
-            return await send_response(gen.context, content=f":warning: Failed to generate image. {error_message}")
+            content = f":warning: Failed to generate image. {error_message}"
+            return await send_response(gen.context, content=content)
         
         try:
             image_bytes = await self.api.download_image(gen.id)
@@ -145,27 +147,26 @@ class AImage(AImageConfig):
             maxsize = await self.config.max_img2img()
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
-
             msg = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
-
-            asyncio.create_task(delete_button_after(msg))
-
-            imagescanner = self.bot.get_cog("ImageScanner")
-            if imagescanner:
-                if gen.channel.id in imagescanner.scan_channels:  # type: ignore
-                    imagescanner.image_cache[msg.id] = ({0: metadata}, {0: image_bytes})  # type: ignore
-                    try:
-                        await msg.add_reaction("🔎")
-                    except discord.NotFound:
-                        pass
-
-        except Exception:
+        except ImageGenError as error:
+            content = f":warning: Failed to retrieve image. ({error})"
+            asyncio.create_task(send_response(gen.context, content=content))
+            return
+        except Exception as error:
+            content = f":warning: Failed to retrieve image! `{type(error).__name__}: {error}`"
+            asyncio.create_task(send_response(gen.context, content=content))
             raise
-        else:
-            await self.api.close_request(gen.id)
         finally:
             if gen.callback:
                 asyncio.create_task(gen.callback)
+
+        asyncio.create_task(self.api.close_request(gen.id))
+        asyncio.create_task(delete_button_after(msg))
+        imagescanner = self.bot.get_cog("ImageScanner")
+        if imagescanner:
+            if gen.channel.id in imagescanner.scan_channels:  # type: ignore
+                imagescanner.image_cache[msg.id] = ({0: metadata}, {0: image_bytes})  # type: ignore
+                asyncio.create_task(msg.add_reaction("🔎"))
 
 
     async def build_autocomplete_choices(self, current: str, choices: dict) -> List[app_commands.Choice[str]]:

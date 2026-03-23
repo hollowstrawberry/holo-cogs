@@ -8,7 +8,7 @@ from redbot.core import commands
 from aimage.base import AImageBase
 from aimage.constants import ADETAILER_ARGS
 from aimage.schema import ImageGenParams
-from aimage.utils import clean_model, is_nsfw, parse_loras
+from aimage.utils import ImageGenError, clean_model, parse_loras
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
@@ -43,7 +43,7 @@ class ArcEnCielAPI:
         async with self.session.post(url, json=payload, headers=self.headers) as response:
             r = await response.json()
         if r.get("error"):
-            raise ValueError(r["error"])
+            raise ImageGenError(r["error"])
         return r["job"]
     
     async def close_request(self, id: str):
@@ -56,7 +56,7 @@ class ArcEnCielAPI:
         async with self.session.get(url, headers=self.headers) as response:
             r = await response.json()
         if r.get("error"):
-            raise ValueError(r["error"])
+            raise ImageGenError(r["error"])
         return r["jobs"]
 
     async def search_loras(self, query: str) -> List[str]:
@@ -68,16 +68,17 @@ class ArcEnCielAPI:
         async with self.session.get(url, params=params, headers=self.headers) as response:
             r = await response.json()
         if r.get("error"):
-            raise ValueError(r["error"])
+            raise ImageGenError(r["error"])
         return [lora["name"] for lora in r["entries"]]
     
     async def download_image(self, job_id: str) -> bytes:
         url = f"{self.endpoint}/generator/jobs/{job_id}/outputs/0/download"
         async with self.session.get(url, headers=self.headers) as response:
+            response.raise_for_status()
+            if "json" in response.content_type:
+                r = await response.json()
+                raise ImageGenError(r.get("error", "error"))
             b = await response.read()
-            log.info(f"Generated image content_type={response.content_type}")
-            if response.status != 200 or "json" in response.content_type:
-                log.info(b)
         return b
         
     
