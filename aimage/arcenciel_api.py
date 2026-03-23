@@ -102,11 +102,10 @@ class ArcEnCielAPI:
         for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt + params.lora):
             tag, name, weight = lora
             name = f"{name.replace('.safetensors', '')}.safetensors"
-            if name in self.cog.autocomplete_cache["loras"]:
-                loras.append({
-                    "name": self.cog.autocomplete_cache["loras"][name],
-                    "weight": weight,
-                })
+            loras.append({
+                "name": name,
+                "weight": weight,
+            })
             params.prompt = params.prompt.replace(tag, "")
 
         payload = {
