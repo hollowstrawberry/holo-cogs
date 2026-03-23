@@ -104,7 +104,7 @@ class ImageActions(discord.ui.View):
         for key in output_dict.keys():
             if len(output_dict[key]) > 1000:
                 output_dict[key] = output_dict[key][:997] + "..."
-        return reordered_dict
+        return output_dict
 
 
     async def get_params_embed(self) -> Optional[discord.Embed]:
