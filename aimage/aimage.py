@@ -50,11 +50,11 @@ class AImage(AImageConfig):
         default_guild = {
             "vip_role": -1,
         }
-        default_member = {
+        default_user = {
             "checkpoint": "",
         }
         self.config.register_guild(**default_guild)
-        self.config.register_member(**default_member)
+        self.config.register_member(**default_user)
         self.config.register_global(**default_global)
 
     async def cog_load(self):

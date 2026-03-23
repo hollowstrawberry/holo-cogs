@@ -19,21 +19,19 @@ class AImageConfig(AImageBase):
         """
         Set the default checkpoint for yourself in this guild.
         """
-        assert ctx.guild and isinstance(ctx.author, discord.Member)
-
         if checkpoint is None:
-            checkpoint = await self.config.member(ctx.author).checkpoint()
+            checkpoint = await self.config.user(ctx.author).checkpoint()
             return await ctx.send(f"Your current default checkpoint is `{checkpoint or '(None)'}`")
 
         if checkpoint.lower().strip() in ("clear", "reset", "default"):
-            await self.config.member(ctx.author).checkpoint.set("")
+            await self.config.user(ctx.author).checkpoint.set("")
             return await ctx.send(f"Checkpoint reset")
         
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
         if checkpoint not in ckpt_names.keys():
             return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:\n`{', '.join(list(ckpt_names.keys()))}`"[:2000])
 
-        await self.config.member(ctx.author).checkpoint.set(ckpt_names[checkpoint])
+        await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
 
     @commands.group(name="aimage") # type: ignore

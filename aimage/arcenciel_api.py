@@ -104,7 +104,7 @@ class ArcEnCielAPI:
             "mode": "txt2img",
             "prompt": params.prompt,
             "negativePrompt": params.negative_prompt or await config.negative_prompt(),
-            "modelName": params.checkpoint or await config.member(member).checkpoint() or await config.checkpoint() or "",
+            "modelName": params.checkpoint or await config.user(member).checkpoint() or await config.checkpoint() or "",
             "vaeName": params.vae or await config.vae(),
             "seed": params.seed,
             "steps": params.steps or await config.sampling_steps(),
