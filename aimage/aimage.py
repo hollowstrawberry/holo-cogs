@@ -184,31 +184,10 @@ class AImage(AImageConfig):
         return await self.build_autocomplete_choices(current, choices)
     
     async def loras_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
-        choices = self.autocomplete_cache.get("loras") or {}
-        if not choices:
+        if len(current) < 3:
             return []
-
-        weight = "1"
-        previous = ("", "")
-        if current:
-            if m := re.search(r"^((?:<[^>]+>\s*)+)([^<>]+)$", current): # multiple loras
-                current = m.group(2)
-                if m.group(1) in choices:
-                    previous = (m.group(1) + " ", choices[m.group(1)])
-            if m := re.search(r"^([^:]+):([+-]?\d*\.?\d+)$", current): # lora weight
-                current = m.group(1)
-                weight = m.group(2)
-
-        def build_lora(name: str, old: str) -> str:
-            tag = f"<lora:{name}:{weight}>"
-            if old:
-                full = f"{old} {tag}"
-                return full if len(full) <= 100 else tag
-            else:
-                return tag
-                
-        names = self.filter_names(choices, current, True)
-        return [app_commands.Choice(name=build_lora(display_name, previous[0]), value=build_lora(name, previous[1])) for display_name, name in names][:25]
+        results = await self.api.search_loras(current)
+        return [app_commands.Choice(name=clean_model(name), value=name)) for display_name, name in names][:25]
     
 
     _parameter_descriptions = {
