@@ -25,6 +25,7 @@ class ArcEnCielAPI:
     async def update_autocomplete_cache(self) -> None:
         url = self.endpoint + "/generator/options"
         async with self.session.get(url, headers=self.headers) as response:
+            response.raise_for_status()
             data = await response.json()
             for key, model_names in data["models"].items():
                 self.cog.autocomplete_cache[key] = {clean_model(name): name for name in model_names}
@@ -41,6 +42,7 @@ class ArcEnCielAPI:
         log.info(payload)
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload, headers=self.headers) as response:
+            response.raise_for_status()
             r = await response.json()
         if r.get("error"):
             raise ImageGenError(r["error"])
@@ -54,6 +56,7 @@ class ArcEnCielAPI:
     async def fetch_queue(self) -> List[dict]:
         url = self.endpoint + "/generator/jobs"
         async with self.session.get(url, headers=self.headers) as response:
+            response.raise_for_status()
             r = await response.json()
         if r.get("error"):
             raise ImageGenError(r["error"])
@@ -66,6 +69,7 @@ class ArcEnCielAPI:
             "limit": 25,
         }
         async with self.session.get(url, params=params, headers=self.headers) as response:
+            response.raise_for_status()
             r = await response.json()
         if r.get("error"):
             raise ImageGenError(r["error"])
@@ -87,6 +91,7 @@ class ArcEnCielAPI:
         data.add_field("image", image, filename=f"image.{extension}", content_type=f"image/{extension}")
         data.add_field("kind", "img2img")
         async with self.session.post(url=url, data=data, headers=self.headers) as response:
+            response.raise_for_status()
             r = await response.json()
         if r.get("error"):
             raise ImageGenError(r["error"])
