@@ -56,8 +56,9 @@ def get_params_dict(metadata: ImageDataReader) -> Optional[dict]:
     
     if "Comfy" in metadata._tool:
         try:
-            log.info(metadata._parser._workflow)
-            workflow = json.loads(metadata._parser._workflow)  # type: ignore
+            log.info(metadata.raw)
+            log.info("{" + metadata.raw.split("{", 1)[1])
+            workflow = json.loads("{" + metadata.raw.split("{", 1)[1])
             for node in workflow.values():
                 if node["class_type"] == "LoraLoader":
                     lora_name = node.get("inputs", {}).get("lora_name", "").replace(".safetensors", "")
