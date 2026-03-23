@@ -81,9 +81,9 @@ class HiresModal(ui.Modal):
         ]
 
         params = get_params_dict(self.parent_view.metadata) or {}
-        self.payload["seed"] = int(params["seed"])
-        self.payload["extraSeed"] = int(params.get("extra seed", -1))
-        self.payload["extraSeedStrength"] = float(params.get("extra seed strength", 0))
+        self.payload["seed"] = int(params["Seed"])
+        self.payload["extraSeed"] = int(params.get("Extra Seed", -1))
+        self.payload["extraSeedStrength"] = float(params.get("Extra Seed Strength", 0))
 
         if adetailer:
             self.payload.update(ADETAILER_ARGS)
