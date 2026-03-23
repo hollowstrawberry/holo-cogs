@@ -1,5 +1,3 @@
-import io
-import re
 import logging
 from typing import List, Union
 
@@ -8,7 +6,7 @@ import discord
 from redbot.core import commands
 
 from aimage.base import AImageBase
-from aimage.constants import ADETAILER_ARGS
+from aimage.constants import ADETAILER_ARGS, LORA_REGEX
 from aimage.schema import ImageGenParams
 from aimage.utils import clean_model, is_nsfw
 
@@ -84,7 +82,7 @@ class ArcEnCielAPI:
     
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
         config = self.cog.config
-        
+
         stock_negative_prompt = await config.negative_prompt()
         if stock_negative_prompt not in (params.negative_prompt or ""):
             if params.negative_prompt:
@@ -102,7 +100,7 @@ class ArcEnCielAPI:
                 "name": f"{params.lora.replace('.safetensors', '')}.safetensors",
                 "weight": 1.0,
             })
-        for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt):
+        for lora in LORA_REGEX.findall(params.prompt):
             tag, name, weight = lora
             name = f"{name.replace('.safetensors', '')}.safetensors"
             if any(lora["name"] == name for lora in loras):

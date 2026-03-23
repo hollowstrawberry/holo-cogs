@@ -13,7 +13,7 @@ from redbot.core import app_commands, checks, commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.arcenciel_api import ArcEnCielAPI
-from aimage.constants import DEFAULT_NEGATIVE_PROMPT, DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT
+from aimage.constants import DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT
 from aimage.utils import delete_button_after, is_nsfw, send_response, clean_tag, clean_model
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
@@ -32,7 +32,7 @@ class AImage(AImageConfig):
         default_global = {
             "nsfw": True,
             "blacklist_regex": "",
-            "negative_prompt": DEFAULT_NEGATIVE_PROMPT,
+            "negative_prompt": "worst quality, low quality",
             "cfg": 5,
             "sampling_steps": 24,
             "sampler": "euler_ancestral",

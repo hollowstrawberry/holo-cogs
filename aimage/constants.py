@@ -2,12 +2,13 @@ import re
 
 ENDPOINT = "https://arcenciel.io/api"
 
-DEFAULT_NEGATIVE_PROMPT = "(worst quality, low quality:1.4)"
-
 VIEW_TIMEOUT = 15 * 60
+
+LORA_REGEX = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 
 UUID_PREFIX_REGEX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_ ]+", re.IGNORECASE)
 NUMERIC_PREFIX_REGEX = re.compile(r"^(?:\d{3,}[_-]){2,}")
+LORA_PREFIX_REGEX = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_',re.IGNORECASE)
 
 ADETAILER_ARGS = {
   "adetailer": {

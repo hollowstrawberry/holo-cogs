@@ -7,7 +7,7 @@ from collections import OrderedDict
 from redbot.core import commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
-from aimage.constants import PARAMS_BLACKLIST, VIEW_TIMEOUT, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX
+from aimage.constants import PARAMS_BLACKLIST, VIEW_TIMEOUT, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -39,6 +39,7 @@ def clean_tag(tag: str) -> str:
 def clean_model(name: str) -> str:
     name = UUID_PREFIX_REGEX.sub("", name)
     name = NUMERIC_PREFIX_REGEX.sub("", name)
+    name = LORA_PREFIX_REGEX.sub("", name)
     return name
 
 # https://github.com/hollowstrawberry/crab-cogs/blob/b1f28057ae9760dbc1d51dadb290bdeb141642bf/novelai/novelai.py#L200C1-L200C74
