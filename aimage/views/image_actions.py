@@ -7,8 +7,7 @@ from redbot.core.bot import Red
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.base import AImageBase
-from aimage.constants import PARAM_GROUP_REGEX, PARAM_REGEX, PARAMS_BLACKLIST, VIEW_TIMEOUT
-from aimage.helpers import delete_button_after
+from aimage.constants import PARAMS_BLACKLIST, VIEW_TIMEOUT
 
 
 class ImageActions(discord.ui.View):
@@ -36,7 +35,7 @@ class ImageActions(discord.ui.View):
         self.button_delete.callback = self.delete_image
 
         self.add_item(self.button_caption)
-        if not payload.get("enable_hr", False):
+        if not payload.get("upscaleProfiles", False):
             self.add_item(self.button_modify)
             self.add_item(self.button_variation)
             if self.payload["width"]*self.payload["height"]*1.1 < maxsize*maxsize:
@@ -95,12 +94,12 @@ class ImageActions(discord.ui.View):
 
     def get_params_dict(self) -> Optional[dict]:
         output_dict = OrderedDict()
-        output_dict["prompt"] = self.metadata.positive or self.metadata.positive_sdxl
-        output_dict["negative prompt"] = self.metadata.negative or self.metadata.negative_sdxl
+        output_dict["Prompt"] = self.metadata.positive or self.metadata.positive_sdxl
+        output_dict["Negative Prompt"] = self.metadata.negative or self.metadata.negative_sdxl
         for key, value in self.metadata.parameter.items():
             if len(output_dict) > 24 or any(blacklisted in key for blacklisted in PARAMS_BLACKLIST):
                 continue
-            output_dict[key] = value
+            output_dict[key.title()] = value
         for key in output_dict.keys():
             if len(output_dict[key]) > 1000:
                 output_dict[key] = output_dict[key][:997] + "..."
@@ -113,7 +112,7 @@ class ImageActions(discord.ui.View):
             return None
         embed = discord.Embed(title="Image Parameters", color=await self.bot.get_embed_color(self.channel))
         for key, value in params.items():
-            embed.add_field(name=key, value=value, inline="prompt" not in key)
+            embed.add_field(name=key, value=value, inline="Prompt" not in key)
         return embed
 
 

@@ -95,17 +95,17 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             params = ImageGenParams(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
-                cfg=float(metadata.get("CFG scale", 5)),
+                cfg=float(metadata.get("CFG", metadata.get("Cfg", 5))),
                 checkpoint=metadata.get("Model", ""),
                 width=width,
                 height=height,
                 sampler=metadata.get("Sampler", ""),
-                scheduler=metadata.get("Schedule type", ""),
+                scheduler=metadata.get("Scheduler", ""),
                 seed=int(metadata.get("Seed", -1)),
-                subseed=int(metadata.get("Variation seed", -1)),
-                subseed_strength=float(metadata.get("Variation seed strength", 0)),
+                subseed=int(metadata.get("Extra Seed", -1)),
+                subseed_strength=float(metadata.get("Extra Seed Strength", 0)),
                 steps=int(metadata.get("Steps", 30)),
-                vae=metadata.get("VAE", metadata.get("vae", ""))
+                vae=metadata.get("VAE", metadata.get("Vae", ""))
             )
         else:
             if aspect_ratio.lower() == "square":
