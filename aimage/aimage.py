@@ -122,6 +122,10 @@ class AImage(AImageConfig):
         except ImageGenError as error:
             content = f":warning: The image couldn't be generated. ({error})"
             asyncio.create_task(send_response(context, content=content))
+        except aiohttp.ClientResponseError as error:
+            content = f":warning: There was a problem generating the image! `{error.message}`"
+            asyncio.create_task(send_response(context, content=content))
+            log.exception("Queueing image")
         except Exception as error:
             content = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
             asyncio.create_task(send_response(context, content=content))
@@ -152,6 +156,10 @@ class AImage(AImageConfig):
             content = f":warning: Failed to retrieve image. ({error})"
             asyncio.create_task(send_response(gen.context, content=content))
             return
+        except aiohttp.ClientResponseError as error:
+            content = f":warning: Failed to retrieve image! `{error.message}`"
+            asyncio.create_task(send_response(gen.context, content=content))
+            raise
         except Exception as error:
             content = f":warning: Failed to retrieve image! `{type(error).__name__}: {error}`"
             asyncio.create_task(send_response(gen.context, content=content))
