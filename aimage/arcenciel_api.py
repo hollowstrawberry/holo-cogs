@@ -65,11 +65,11 @@ class ArcEnCielAPI:
 
     async def search_loras(self, query: str) -> List[str]:
         url = self.endpoint + "/generator/models/loras"
-        params = (
+        params = {
             "q": query,
             "limit": 25,
         }
-        async with self.session.get(url, headers=self.headers) as response:
+        async with self.session.get(url, params=params, headers=self.headers) as response:
             r = await response.json()
         if r.get("error"):
             raise ValueError(r["error"])

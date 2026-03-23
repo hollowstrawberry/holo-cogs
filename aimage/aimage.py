@@ -186,8 +186,9 @@ class AImage(AImageConfig):
     async def loras_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
         if len(current) < 3:
             return []
+        assert self.api
         results = await self.api.search_loras(current)
-        return [app_commands.Choice(name=clean_model(name), value=name)) for display_name, name in names][:25]
+        return [app_commands.Choice(name=clean_model(name), value=name) for name in results][:25]
     
 
     _parameter_descriptions = {
