@@ -150,7 +150,7 @@ class AImage(AImageConfig):
             imagescanner = self.bot.get_cog("ImageScanner")
             if imagescanner:
                 if gen.channel.id in imagescanner.scan_channels:  # type: ignore
-                    imagescanner.image_cache[msg.id] = ({0: metadata.raw or metadata.setting}, {0: image_bytes})  # type: ignore
+                    imagescanner.image_cache[msg.id] = ({0: metadata}, {0: image_bytes})  # type: ignore
                     try:
                         await msg.add_reaction("🔎")
                     except discord.NotFound:
