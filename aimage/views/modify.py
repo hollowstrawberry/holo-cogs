@@ -50,9 +50,10 @@ class ModifyModal(ui.Modal):
         assert isinstance(self.negative_prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.seed_select.component, discord.ui.Select)
         
-        same_prompt = self.prompt_edit.component.value == self.payload["prompt"] and self.negative_prompt_edit.component.value == self.payload["negativePrompt"]
+        same_prompt = self.prompt_edit.component.value == self.params["Prompt"] and self.negative_prompt_edit.component.value == self.params["Negative Prompt"]
         self.payload["prompt"] = self.prompt_edit.component.value
         self.payload["negativePrompt"] = self.negative_prompt_edit.component.value
+        del self.payload["loras"]  # already in prompt
 
         reroll = bool(int(self.seed_select.component.values[0]))
         if reroll:
