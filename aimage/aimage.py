@@ -31,22 +31,18 @@ class AImage(AImageConfig):
 
         default_global = {
             "nsfw": True,
-            "nsfw_tuning": -0.025,
             "blacklist_regex": "",
             "negative_prompt": DEFAULT_NEGATIVE_PROMPT,
             "cfg": 5,
             "sampling_steps": 24,
-            "sampler": "Euler a",
+            "sampler": "euler_ancestral",
             "checkpoint": None,
             "vae": None,
             "adetailer": False,
-            "tiledvae": False,
             "width": 1024,
             "height": 1024,
             "max_img2img": 1536,
-            "auth": None,
-            "headers": "",
-            "scheduler": "Automatic",
+            "scheduler": "normal",
         }
         default_guild = {
             "vip_role": -1,
