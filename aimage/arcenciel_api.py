@@ -53,7 +53,6 @@ class ArcEnCielAPI:
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload, headers=self.headers) as response:
             r = await response.json()
-        log.info(r)
         return r["job"]
     
     async def close_request(self, id: str):
@@ -113,8 +112,7 @@ class ArcEnCielAPI:
             "extraSeed": params.subseed,
             "extraSeedStrength": params.subseed_strength,
             "loras": loras,
-            "sfwMode": nsfw,
-            "retentionDays": 1,
+            "sfwMode": False,
         }
         if await config.adetailer():
             payload.update(ADETAILER_ARGS)
