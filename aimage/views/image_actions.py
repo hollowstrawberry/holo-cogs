@@ -97,11 +97,11 @@ class ImageActions(discord.ui.View):
         params = get_params_dict(self.metadata)
         if not params:
             return None
-        for key in params.keys():
-            if len(params[key]) > 1000:
-                params[key] = params[key][:997] + "..."
-
+        
         embed = discord.Embed(title="Image Parameters", color=await self.bot.get_embed_color(self.channel))
+        for key in params.keys():
+            if len(str(params[key])) > 1000:
+                params[key] = str(params[key])[:997] + "..."
         for key, value in params.items():
             embed.add_field(name=key, value=value, inline="Prompt" not in key)
 
