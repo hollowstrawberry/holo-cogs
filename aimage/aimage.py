@@ -13,7 +13,7 @@ from redbot.core import app_commands, checks, commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.arcenciel_api import ArcEnCielAPI
-from aimage.constants import DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT
+from aimage.constants import DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT, SUPPORTED_IMAGE_TYPES
 from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response, clean_tag, clean_model
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
@@ -117,6 +117,9 @@ class AImage(AImageConfig):
             await context.message.add_reaction("⏳")
 
         try:
+            if params and params.image:
+                path = await self.api.upload_image(params.image, params.image_extension)
+                payload["imagePath"] = path
             job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(job["id"], payload, user, channel, context, callback, message_content)
         except ImageGenError as error:
@@ -326,17 +329,17 @@ class AImage(AImageConfig):
         """
         await interaction.response.defer(thinking=True)
 
-        ctx: commands.Context = await self.bot.get_context(interaction)  # noqa
+        ctx: commands.Context = await self.bot.get_context(interaction)
         if not await self.can_run_command(ctx, "txt2img"):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
         assert ctx.guild and image.content_type
-        if not image.content_type.startswith("image/"):
+        if all(ext not in image.content_type for ext in SUPPORTED_IMAGE_TYPES):
             return await interaction.followup.send("The file you uploaded is not a valid image.", ephemeral=True)
 
         assert image.width and image.height
         size = image.width*image.height*scale*scale
-        maxsize = (await self.config.guild(ctx.guild).max_img2img())**2
+        maxsize = (await self.config.max_img2img())**2
         if size > maxsize:
             return await interaction.followup.send(
                 f"Max img2img size is {int(maxsize**0.5)}² pixels. "
@@ -354,10 +357,12 @@ class AImage(AImageConfig):
             subseed=subseed,
             subseed_strength=variation,
             # img2img
+            image=await image.read(),
+            image_extension=image.content_type.split("/")[-1],
+            denoising=denoising,
+            scale=scale,
             height=round(image.height*scale),
             width=round(image.width*scale),
-            init_image=await image.read(),
-            denoising=denoising,
         )
 
         await self.generate_image(interaction, params=params)
@@ -373,7 +378,7 @@ class AImage(AImageConfig):
 
         image = ctx.message.attachments[0]
         assert ctx.guild and image.content_type
-        if not image.content_type.startswith("image/"):
+        if all(ext not in image.content_type for ext in SUPPORTED_IMAGE_TYPES):
             return await ctx.reply("The file you uploaded is not a valid image.")
         
         async with ctx.typing():
@@ -403,32 +408,29 @@ class AImage(AImageConfig):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
         assert ctx.guild and image.content_type
-        if not image.content_type.startswith("image/"):
+        if all(ext not in image.content_type for ext in SUPPORTED_IMAGE_TYPES):
             return await interaction.followup.send("The file you uploaded is not a valid image.", ephemeral=True)
-        
-        return await interaction.followup.send("This feature is temporarily disabled.", ephemeral=True)
-        
-        #await interaction.response.defer(thinking=True)
-        #await self.autotag(ctx, image, threshold, model)
+                
+        await interaction.response.defer(thinking=True)
+        await self.autotag(ctx, image, threshold, model)
         
 
     async def autotag(self, ctx: commands.Context, attachment: discord.Attachment, threshold: float, model: str):
+        assert self.api
         image_bytes = await attachment.read()
         try:
-            raise NotImplementedError
+            tags = await self.api.interrogate(image_bytes)
         except aiohttp.ClientResponseError as error:
-            if error.status == 404:
-                await ctx.reply("For the tagger to work, the bot owner or administrator has to install the [wd tagger](https://github.com/Akegarasu/sd-webui-wd14-tagger) extension on the webui instance.")
-            else:
-                log.error("Trying to interrogate image through webui", exc_info=True)
-                await ctx.reply("Failed to tag the image, contact the bot owner. ")
-        except aiohttp.ClientError:
-            log.error("Trying to interrogate image through webui", exc_info=True)
-            await ctx.reply("Failed to tag the image, contact the bot owner. ")
+            log.exception("Autotagger")
+            await ctx.reply(f":warning: Failed to tag the image! `{error.message}`")
+        except Exception as error:
+            log.exception("Autotagger")
+            await ctx.reply(f":warning: Failed to tag the image! `{type(error).__name__}: {error}`")
         else:
             embed = discord.Embed(title="Autotagger Result", color=await self.bot.get_embed_color(ctx))
-            embed.set_thumbnail(url=attachment.url)
-            embed.description = ", ".join([f"`{clean_tag(tag)}`" for tag in tags])
+            if "sensitive" not in tags and "explicit" not in tags:
+                embed.set_thumbnail(url=attachment.url)
+            embed.description = f"`{', '.join([clean_tag(tag) for tag in tags])}`"
             await ctx.reply(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
 

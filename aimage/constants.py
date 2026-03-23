@@ -4,6 +4,8 @@ ENDPOINT = "https://arcenciel.io/api"
 
 VIEW_TIMEOUT = 15 * 60
 
+SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg"]
+
 LORA_REGEX = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 
 UUID_PREFIX_REGEX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_ ]+", re.IGNORECASE)

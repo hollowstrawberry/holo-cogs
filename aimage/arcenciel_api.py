@@ -1,12 +1,12 @@
+import base64
 import logging
-from typing import List, Union
-
 import aiohttp
 import discord
+from typing import List, Union
 from redbot.core import commands
 
 from aimage.base import AImageBase
-from aimage.constants import ADETAILER_ARGS
+from aimage.constants import ADETAILER_ARGS, EXCLUDE_TAGGER
 from aimage.schema import ImageGenParams
 from aimage.utils import ImageGenError, clean_model, parse_loras
 
@@ -80,6 +80,27 @@ class ArcEnCielAPI:
                 raise ImageGenError(r.get("error", "error"))
             b = await response.read()
         return b
+    
+    async def upload_image(self, image: bytes, extension: str) -> str:
+        url = self.endpoint + "/generator/uploads"
+        data = aiohttp.FormData()
+        data.add_field("image", image, filename=f"image.{extension}", content_type=f"image/{extension}")
+        data.add_field("kind", "img2img")
+        async with self.session.post(url=url, data=data, headers=self.headers) as response:
+            r = await response.json()
+        if r.get("error"):
+            raise ImageGenError(r["error"])
+        return r["path"]
+    
+    async def interrogate(self, image: bytes):
+        url = self.endpoint + "/tagger"
+        payload = {
+            "image": base64.b64encode(image).decode("utf8"),
+        }
+        async with self.session.post(url=url, json=payload, headers=self.headers) as response:
+            response.raise_for_status()
+            r = await response.json()
+            return [tag for tag in r.get("tags", []) if tag not in EXCLUDE_TAGGER]
         
     
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
@@ -104,7 +125,7 @@ class ArcEnCielAPI:
             })
 
         payload = {
-            "mode": "txt2img",
+            "mode": "img2img" if params.image else "txt2img",
             "prompt": params.prompt,
             "negativePrompt": params.negative_prompt or await config.negative_prompt(),
             "modelName": f"{checkpoint.replace('.safetensors', '')}.safetensors",
@@ -122,6 +143,15 @@ class ArcEnCielAPI:
             "loras": loras,
             "sfwMode": not nsfw,
         }
+
+        if params.image:
+            payload.update({
+                "denoising": params.denoising,
+                "scaleFactor": params
+
+            })
+
+
         if await config.adetailer():
             payload.update(ADETAILER_ARGS)
         
