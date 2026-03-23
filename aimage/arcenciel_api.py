@@ -74,11 +74,6 @@ class ArcEnCielAPI:
         url = f"{self.endpoint}/generator/jobs/{job_id}/outputs/0/download"
         async with self.session.get(url, headers=self.headers) as response:
             b = await response.read()
-            log.info("status:", response.status)
-            log.info("url:", str(response.url))
-            log.info("ct:", response.headers.get("Content-Type"))
-            log.info("len:", len(b))
-            log.info("head:", b[:32])
         return io.BytesIO(b)
     
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
