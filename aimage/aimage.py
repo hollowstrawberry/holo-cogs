@@ -112,9 +112,7 @@ class AImage(AImageConfig):
         if await self.contains_blacklisted_word(prompt):
             return await send_response(context, content=":warning: Blocked prompt.")
 
-        if isinstance(context, discord.Interaction):
-            await context.response.defer(thinking=True)
-        else:
+        if isinstance(context, commands.Context):
             await context.message.add_reaction("⏳")
 
         try:
