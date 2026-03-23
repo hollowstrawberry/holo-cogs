@@ -90,14 +90,15 @@ class ArcEnCielAPI:
 
         if "masterpiece" not in params.prompt and "best quality" not in params.prompt:
             params.prompt = "masterpiece, best quality, " + params.prompt
-            loras = []
-            for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt + params.lora):
-                tag, name, weight = lora
-                loras.append({
-                    "name": name,
-                    "weight": weight,
-                })
-                params.prompt = params.prompt.replace(tag, "")
+        
+        loras = []
+        for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt + params.lora):
+            tag, name, weight = lora
+            loras.append({
+                "name": name,
+                "weight": weight,
+            })
+            params.prompt = params.prompt.replace(tag, "")
 
         payload = {
             "mode": "txt2img",
