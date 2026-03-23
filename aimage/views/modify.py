@@ -53,7 +53,8 @@ class ModifyModal(ui.Modal):
         same_prompt = self.prompt_edit.component.value == self.params["Prompt"] and self.negative_prompt_edit.component.value == self.params["Negative Prompt"]
         self.payload["prompt"] = self.prompt_edit.component.value
         self.payload["negativePrompt"] = self.negative_prompt_edit.component.value
-        del self.payload["loras"]  # already in prompt
+        if "loras" in self.payload:
+            del self.payload["loras"]  # already in prompt
 
         reroll = bool(int(self.seed_select.component.values[0]))
         if reroll:
