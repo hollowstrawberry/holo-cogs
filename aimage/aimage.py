@@ -142,8 +142,9 @@ class AImage(AImageConfig):
             file = discord.File(image_result, filename=f"image_{file_id}.png", spoiler=nsfw)
             maxsize = await self.config.max_img2img()
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
-
-            msg = await send_response(gen.context, file=file, view=view, content=gen.message_content, allowed_mentions=discord.AllowedMentions.none())
+            content = f"-# {gen.message_content}" if gen.message_content else None
+            
+            msg = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
 
             asyncio.create_task(delete_button_after(msg))
 

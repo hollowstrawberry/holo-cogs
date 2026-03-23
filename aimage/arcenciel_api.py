@@ -73,6 +73,7 @@ class ArcEnCielAPI:
     async def download_image(self, id: str) -> io.BytesIO:
         url = f"{self.endpoint}/generator/jobs/{id}/outputs/0/download"
         async with self.session.get(url, headers=self.headers) as response:
+            response.raise_for_status()
             b = await response.read()
         return io.BytesIO(b)
     
