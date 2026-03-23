@@ -32,12 +32,6 @@ class ArcEnCielAPI:
                 self.cog.autocomplete_cache[key] = {clean_model(name): name for name in model_names}
             for key in ["samplers", "schedulers"]:
                 self.cog.autocomplete_cache[key] = {name: name for name in data["limits"][key]}
-        url = self.endpoint + "/generator/models?includeLoras=true"
-        async with self.session.get(url, headers=self.headers) as response:
-            data = await response.json()
-            for key, models in data.items():
-                self.cog.autocomplete_cache[key] = {clean_model(model["name"]): model["name"] for model in models}
-            
 
     async def request_image(self,
                             context: Union[commands.Context, discord.Interaction],
@@ -68,13 +62,25 @@ class ArcEnCielAPI:
         if r.get("error"):
             raise ValueError(r["error"])
         return r["jobs"]
+
+    async def search_loras(self, query: str) -> List[str]:
+        url = self.endpoint + "/generator/models/loras"
+        params = (
+            "q": query,
+            "limit": 25,
+        }
+        async with self.session.get(url, headers=self.headers) as response:
+            r = await response.json()
+        if r.get("error"):
+            raise ValueError(r["error"])
+        return [lora["name"] for lora in r["entries"]]
     
     async def download_image(self, job_id: str) -> bytes:
         url = f"{self.endpoint}/generator/jobs/{job_id}/outputs/0/download"
         async with self.session.get(url, headers=self.headers) as response:
             b = await response.read()
         return b
-
+        
     
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
         config = self.cog.config
