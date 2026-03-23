@@ -107,14 +107,13 @@ class ArcEnCielAPI:
         for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt):
             tag, name, weight = lora
             name = f"{name.replace('.safetensors', '')}.safetensors"
+            if any(lora["name"] == name for lora in loras):
+                continue
             loras.append({
                 "name": name,
                 "weight": weight,
             })
-            log.info(params.prompt)
-            log.info(tag)
             params.prompt = params.prompt.replace(tag, "")
-            log.info(params.prompt)
 
         payload = {
             "mode": "txt2img",
