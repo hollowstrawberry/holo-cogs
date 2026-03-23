@@ -14,7 +14,7 @@ from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.arcenciel_api import ArcEnCielAPI
 from aimage.constants import DEFAULT_NEGATIVE_PROMPT, DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT
-from aimage.helpers import delete_button_after, is_nsfw, send_response, clean_tag
+from aimage.helpers import delete_button_after, is_nsfw, send_response, clean_tag, clean_model
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
 from aimage.views.image_actions import ImageActions
@@ -159,8 +159,7 @@ class AImage(AImageConfig):
         except Exception:
             raise
         else:
-            pass
-            # await self.api.close_request(gen.id)
+            await self.api.close_request(gen.id)
         finally:
             if gen.callback:
                 asyncio.create_task(gen.callback)
@@ -190,22 +189,26 @@ class AImage(AImageConfig):
             return []
 
         weight = "1"
-        previous = ""
+        previous = ("", "")
         if current:
             if m := re.search(r"^((?:<[^>]+>\s*)+)([^<>]+)$", current): # multiple loras
                 current = m.group(2)
-                previous = m.group(1) + " "
+                if m.group(1) in choices:
+                    previous = (m.group(1) + " ", choices[m.group(1)])
             if m := re.search(r"^([^:]+):([+-]?\d*\.?\d+)$", current): # lora weight
                 current = m.group(1)
                 weight = m.group(2)
 
-        def build_lora(name: str) -> str:
-            return f"{previous}<lora:{name}:{weight}>" if len(f"{previous}<lora:{name}:{weight}>") <= 100 else f"<lora:{name}:{weight}>"
-        
+        def build_lora(name: str, old: str) -> str:
+            tag = f"<lora:{name}:{weight}>"
+            if old:
+                full = f"{old} {tag}"
+                return full if len(full) <= 100 else tag
+            else:
+                return tag
+                
         names = self.filter_names(choices, current, True)
-        names = [name for name in names if name in self.autocomplete_cache.get("loras", {})]
-        name_pairs = OrderedDict([(build_lora(name), build_lora(self.autocomplete_cache["loras"][name])) for name in names])
-        return [app_commands.Choice(name=display_name, value=name) for display_name, name in choice_pairs][:25]
+        return [app_commands.Choice(name=build_lora(display_name, previous[0]), value=build_lora(name, previous[1]) for display_name, name in names][:25]
     
 
     _parameter_descriptions = {
