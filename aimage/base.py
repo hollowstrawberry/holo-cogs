@@ -25,5 +25,5 @@ class AImageBase(commands.Cog):
                              ) -> None:
         raise NotImplementedError
 
-    async def update_autocomplete_cache(self, guild: discord.Guild):
+    async def update_autocomplete_cache(self):
         raise NotImplementedError
