@@ -204,7 +204,7 @@ class AImage(AImageConfig):
                 return tag
                 
         names = self.filter_names(choices, current, True)
-        return [app_commands.Choice(name=build_lora(display_name, previous[0]), value=build_lora(name, previous[1]) for display_name, name in names][:25]
+        return [app_commands.Choice(name=build_lora(display_name, previous[0]), value=build_lora(name, previous[1])) for display_name, name in names][:25]
     
 
     _parameter_descriptions = {
