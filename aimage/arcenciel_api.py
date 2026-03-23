@@ -99,7 +99,12 @@ class ArcEnCielAPI:
         
         checkpoint = params.checkpoint or await config.user(member).checkpoint() or await config.checkpoint() or ""
         loras = []
-        for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt + params.lora):
+        if params.lora:
+            loras.append({
+                "name": f"{params.lora.replace('.safetensors', '')}.safetensors",
+                "weight": 1.0,
+            })
+        for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt):
             tag, name, weight = lora
             name = f"{name.replace('.safetensors', '')}.safetensors"
             loras.append({
