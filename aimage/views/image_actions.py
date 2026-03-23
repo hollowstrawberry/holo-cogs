@@ -48,8 +48,6 @@ class ImageActions(discord.ui.View):
         embed = await self.get_params_embed()
         if embed:
             await interaction.response.send_message(embed=embed, ephemeral=True)
-            msg = await interaction.original_response()
-            asyncio.create_task(delete_button_after(msg))
         else:
             await interaction.response.send_message(f'Parameters for this image:\n```yaml\n{self.metadata}```')
 
@@ -97,22 +95,15 @@ class ImageActions(discord.ui.View):
 
     def get_params_dict(self) -> Optional[dict]:
         output_dict = OrderedDict()
+        output_dict["prompt"] = self.metadata.positive or self.metadata.positive_sdxl
+        output_dict["negative prompt"] = self.metadata.negative or self.metadata.negative_sdxl
         for key, value in self.metadata.parameter.items():
             if len(output_dict) > 24 or any(blacklisted in key for blacklisted in PARAMS_BLACKLIST):
                 continue
             output_dict[key] = value
-        for key in output_dict:
+        for key in output_dict.keys():
             if len(output_dict[key]) > 1000:
-                output_dict[key] = output_dict[key][:1000] + "..."
-
-        reordered_dict = OrderedDict()
-        for key, value in output_dict.items():
-            if "Prompt" in key:
-                reordered_dict[key] = value
-        for key, value in output_dict.items():
-            if "Prompt" not in key:
-                reordered_dict[key] = value
-
+                output_dict[key] = output_dict[key][:997] + "..."
         return reordered_dict
 
 
@@ -122,7 +113,7 @@ class ImageActions(discord.ui.View):
             return None
         embed = discord.Embed(title="Image Parameters", color=await self.bot.get_embed_color(self.channel))
         for key, value in params.items():
-            embed.add_field(name=key, value=value, inline="Prompt" not in key)
+            embed.add_field(name=key, value=value, inline="prompt" not in key)
         return embed
 
 
