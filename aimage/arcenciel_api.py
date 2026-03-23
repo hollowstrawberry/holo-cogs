@@ -84,15 +84,13 @@ class ArcEnCielAPI:
     
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
         config = self.cog.config
-
-        if params.negative_prompt is None:
-            params.negative_prompt = ""
-            stock_negative_prompt = await config.negative_prompt()
-            if stock_negative_prompt not in params.negative_prompt:
-                if params.negative_prompt:
-                    params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
-                else:
-                    params.negative_prompt = stock_negative_prompt
+        
+        stock_negative_prompt = await config.negative_prompt()
+        if stock_negative_prompt not in (params.negative_prompt or ""):
+            if params.negative_prompt:
+                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
+            else:
+                params.negative_prompt = stock_negative_prompt
 
         if "masterpiece" not in params.prompt and "best quality" not in params.prompt:
             params.prompt = "masterpiece, best quality, " + params.prompt
