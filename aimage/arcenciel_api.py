@@ -47,7 +47,7 @@ class ArcEnCielAPI:
                             ) -> dict:
         assert params or payload
         member = context.user if isinstance(context, discord.Interaction) else context.author
-        assert isinstance(context.channel, discord.abc.MessageableChannel) and isinstance(member, discord.Member)
+        assert isinstance(context.channel, discord.abc.Messageable) and isinstance(member, discord.Member)
         nsfw = is_nsfw(context.channel)
         payload = payload or await self.build_image_payload(params, member, nsfw)  # type: ignore
         url = self.endpoint + "/generator/jobs"

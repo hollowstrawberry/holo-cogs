@@ -12,7 +12,7 @@ from aimage.helpers import delete_button_after
 
 
 class ImageActions(discord.ui.View):
-    def __init__(self, cog: AImageBase, metadata: ImageDataReader, payload: dict, author: discord.Member, channel: discord.abc.MessageableChannel, maxsize: int):
+    def __init__(self, cog: AImageBase, metadata: ImageDataReader, payload: dict, author: discord.Member, channel: discord.abc.Messageable, maxsize: int):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.metadata = metadata
         self.payload = payload

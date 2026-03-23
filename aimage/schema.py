@@ -10,7 +10,7 @@ class QueuedImageGen:
     id: str
     payload: dict
     user: discord.Member
-    channel: discord.abc.MessageableChannel
+    channel: discord.abc.Messageable
     context: Union[commands.Context, discord.Interaction]
     callback: Optional[Coroutine]
     message_content: Optional[str]

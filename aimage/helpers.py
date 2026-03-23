@@ -16,7 +16,7 @@ async def send_response(context: Union[commands.Context, discord.Interaction], *
         asyncio.create_task(context.message.remove_reaction("⏳", context.bot.user))
         return msg
     
-def is_nsfw(channel: discord.abc.MessageableChannel):
+def is_nsfw(channel: discord.abc.Messageable):
     if isinstance(channel, discord.TextChannel):
         return channel.nsfw
     elif isinstance(channel, discord.Thread) and channel.parent:
