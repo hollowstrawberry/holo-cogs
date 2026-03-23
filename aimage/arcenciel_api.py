@@ -109,7 +109,7 @@ class ArcEnCielAPI:
             "steps": params.steps or await config.sampling_steps(),
             "cfg": params.cfg or await config.cfg(),
             "samplerName": params.sampler or await config.sampler(),
-            "scheduler": params.sampler or await config.sampler(),
+            "scheduler": params.scheduler or await config.scheduler(),
             "width": params.width or await config.width(),
             "height": params.height or await config.height(),
             "batchSize": 1,
