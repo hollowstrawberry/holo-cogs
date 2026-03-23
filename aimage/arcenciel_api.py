@@ -75,6 +75,9 @@ class ArcEnCielAPI:
         url = f"{self.endpoint}/generator/jobs/{job_id}/outputs/0/download"
         async with self.session.get(url, headers=self.headers) as response:
             b = await response.read()
+            log.info(f"Generated image content_type={response.content_type}")
+            if response.status != 200 or "json" in response.content_type:
+                log.info(b)
         return b
         
     
