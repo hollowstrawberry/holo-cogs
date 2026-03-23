@@ -119,6 +119,9 @@ class AImage(AImageConfig):
         try:
             job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(job["id"], payload, user, channel, context, callback, message_content)
+        except ValueError as error:
+            content = f":warning: The image couldn't be generated. {error}"
+            asyncio.create_task(send_response(context, content=content))
         except Exception as error:
             content = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
             asyncio.create_task(send_response(context, content=content))
