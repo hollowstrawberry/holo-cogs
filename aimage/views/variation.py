@@ -1,8 +1,8 @@
-import asyncio
 import discord
 import discord.ui as ui
 from copy import deepcopy
 
+from aimage.utils import get_params_dict
 from aimage.views.image_actions import ImageActions
 
 
@@ -47,7 +47,7 @@ class VariationModal(ui.Modal):
 
         reroll = bool(int(self.subseed_select.component.values[0])) if self.subseed_select.component.values else True
         strength = float(self.variation_select.component.values[0]) / 100
-        params = self.parent_view.get_params_dict() or {}
+        params = get_params_dict(self.parent_view.metadata) or {}
         self.payload["seed"] = int(params.get("seed", -1))
         self.payload["extraSeed"] = -1 if reroll else int(params.get("extra seed", -1))
         self.payload["extraSeedStrength"] = strength

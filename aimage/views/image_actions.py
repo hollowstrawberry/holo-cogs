@@ -5,8 +5,8 @@ from redbot.core.bot import Red
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.base import AImageBase
-from aimage.constants import PARAMS_BLACKLIST, VIEW_TIMEOUT
 from aimage.utils import get_params_dict
+from aimage.constants import VIEW_TIMEOUT
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
