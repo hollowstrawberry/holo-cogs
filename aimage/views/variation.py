@@ -12,10 +12,11 @@ class VariationModal(ui.Modal):
         self.parent_view = parent_view
         self.parent_button = parent_view.button_variation
         self.payload = deepcopy(parent_view.payload)
+        self.params = get_params_dict(self.parent_view.metadata) or {}
         self.generate_image = parent_view.generate_image
 
         default_strength_percent = 5
-        previous_strength = self.payload.get("extraSeedStrength", 0)
+        previous_strength = self.params.get("Extra Seed Strength", 0.0)
         if previous_strength > 0:
             default_strength_percent = round(previous_strength * 100)
 
@@ -47,9 +48,8 @@ class VariationModal(ui.Modal):
 
         reroll = bool(int(self.subseed_select.component.values[0])) if self.subseed_select.component.values else True
         strength = float(self.variation_select.component.values[0]) / 100
-        params = get_params_dict(self.parent_view.metadata) or {}
-        self.payload["seed"] = int(params.get("seed", -1))
-        self.payload["extraSeed"] = -1 if reroll else int(params.get("extra seed", -1))
+        self.payload["seed"] = int(self.params.get("Seed", -1))
+        self.payload["extraSeed"] = -1 if reroll else int(self.params.get("Extra Seed", -1))
         self.payload["extraSeedStrength"] = strength
 
         await interaction.response.defer(thinking=True)

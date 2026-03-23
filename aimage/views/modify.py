@@ -12,13 +12,14 @@ class ModifyModal(ui.Modal):
         self.parent_view = parent_view
         self.parent_button = parent_view.button_modify
         self.payload = deepcopy(parent_view.payload)
+        self.params = get_params_dict(self.parent_view.metadata) or {}
         self.generate_image = parent_view.generate_image
-
+        
         self.prompt_edit = ui.Label(
             text="Prompt",
             component=ui.TextInput(
                 style=discord.TextStyle.long,
-                default=self.payload["prompt"],
+                default=self.params.get("Prompt") or self.payload["prompt"],
                 min_length=4
             )
         )
@@ -26,7 +27,7 @@ class ModifyModal(ui.Modal):
             text="Negative Prompt",
             component=ui.TextInput(
                 style=discord.TextStyle.long,
-                default=self.payload["negativePrompt"],
+                default=self.params.get("Negative Prompt") or self.payload["negativePrompt"],
                 min_length=0
             )
         )
@@ -59,10 +60,9 @@ class ModifyModal(ui.Modal):
             self.payload["extraSeed"] = -1
             self.payload["extraSeedStrength"] = 0
         else:
-            params = get_params_dict(self.parent_view.metadata) or {}
-            self.payload["seed"] = int(params.get("seed", -1))
-            self.payload["extraSeed"] = int(params.get("extra seed", -1))
-            self.payload["extraSeedStrength"] = float(params.get("extra seed strength", 0))
+            self.payload["seed"] = int(self.params.get("seed", -1))
+            self.payload["extraSeed"] = int(self.params.get("extra seed", -1))
+            self.payload["extraSeedStrength"] = float(self.params.get("extra seed strength", 0))
 
         await interaction.response.defer(thinking=True)
         message_content = f"Reroll requested by {interaction.user.mention}" if same_prompt else f"Change requested by {interaction.user.mention}"
