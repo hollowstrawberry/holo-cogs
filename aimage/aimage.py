@@ -170,7 +170,9 @@ class AImage(AImageConfig):
             return []
         choices = self.filter_names(choices, current)
         return [app_commands.Choice(name=display_name.replace(".safetensors", ""), value=name.replace(".safetensors", ""))
-                for display_name, name in choices.items()][:25]
+                for display_name, name in choices.items()
+                if len(name.replace(".safetensors", "")) <= 100
+                ][:25]
 
     async def samplers_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
         choices = self.autocomplete_cache.get("samplers") or {}
@@ -190,7 +192,9 @@ class AImage(AImageConfig):
         assert self.api
         results = await self.api.search_loras(current)
         return [app_commands.Choice(name=clean_model(name.replace(".safetensors", "")), value=name.replace(".safetensors", ""))
-                for name in results][:25]
+                for name in results
+                if len(name.replace(".safetensors", "")) <= 100
+                ][:25]
     
 
     _parameter_descriptions = {
