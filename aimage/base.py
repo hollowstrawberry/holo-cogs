@@ -13,7 +13,7 @@ class AImageBase(commands.Cog):
     def __init__(self, bot: Red):
         self.bot: Red = bot
         self.config = Config.get_conf(self, identifier=75567113)
-        self.autocomplete_cache = defaultdict(list)
+        self.autocomplete_cache: Dict[str, Dict[str, str]] = defaultdict(dict)
         self.queued_images: Dict[str, QueuedImageGen] = {}
 
     async def generate_image(self,

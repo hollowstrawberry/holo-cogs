@@ -26,24 +26,14 @@ class AImageConfig(AImageBase):
             return await ctx.send(f"Your current default checkpoint is `{checkpoint or '(None)'}`")
 
         if checkpoint.lower().strip() in ("clear", "reset", "default"):
-            return await self.config.member(ctx.author).checkpoint.set("")
-
-        await ctx.message.add_reaction("🔄")
-        data = self.autocomplete_cache.get("checkpoints") or []
-        await ctx.message.remove_reaction("🔄", ctx.me)
+            await self.config.member(ctx.author).checkpoint.set("")
+            return await ctx.send(f"Checkpoint reset")
         
-        if checkpoint not in data:
-            checkpoints = []
-            remaining_length = 1900
-            for cp in data:
-                if len(cp) + 2 <= remaining_length:
-                    checkpoints.append(cp)
-                    remaining_length -= (len(cp) + 2)
-                else:
-                    break
-            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:`\n{', '.join(checkpoints)}`")
+        ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
+        if checkpoint not in ckpt_names.keys():
+            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:`\n{', '.join(list(ckpt_names.keys()))}`"[:2000])
 
-        await self.config.member(ctx.author).checkpoint.set(checkpoint)
+        await self.config.member(ctx.author).checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
 
     @commands.group(name="aimage") # type: ignore
@@ -163,14 +153,12 @@ class AImageConfig(AImageBase):
         Set the default sampler
         """
         assert ctx.guild
-        await ctx.message.add_reaction("🔄")
-        samplers = self.autocomplete_cache.get("samplers") or []
-        await ctx.message.remove_reaction("🔄", ctx.me)
 
-        if sampler not in samplers:
-            return await ctx.send(f":warning: Sampler must be one of: `{', '.join(samplers)}`")
+        sampler_names = self.autocomplete_cache.get("samplers") or {}
+        if sampler not in sampler_names.keys():
+            return await ctx.send(f":warning: Sampler must be one of: `{', '.join(list(sampler_names.keys()))}`"[:2000])
 
-        await self.config.guild(ctx.guild).sampler.set(sampler)
+        await self.config.guild(ctx.guild).sampler.set(sampler_names[sampler])
         await ctx.tick(message="✅ Default sampler updated.")
 
     @aimage.command(name="scheduler")
@@ -179,14 +167,12 @@ class AImageConfig(AImageBase):
         Set the default scheduler
         """
         assert ctx.guild
-        await ctx.message.add_reaction("🔄")
-        schedulers = self.autocomplete_cache.get("schedulers") or []
-        await ctx.message.remove_reaction("🔄", ctx.me)
 
-        if scheduler not in schedulers:
-            return await ctx.send(f":warning: scheduler must be one of: `{', '.join(schedulers)}`")
+        sch_names = self.autocomplete_cache.get("schedulers") or {}
+        if scheduler not in sch_names.keys():
+            return await ctx.send(f":warning: scheduler must be one of: `{', '.join(list(sch_names.keys()))}`"[:2000])
 
-        await self.config.guild(ctx.guild).scheduler.set(scheduler)
+        await self.config.guild(ctx.guild).scheduler.set(sch_names[scheduler])
         await ctx.tick(message="✅ Default scheduler updated.")
 
     @aimage.command(name="width")
@@ -229,23 +215,12 @@ class AImageConfig(AImageBase):
         Set the default checkpoint / model used for generating images.
         """
         assert ctx.guild
-        await ctx.message.add_reaction("🔄")
-        data = self.autocomplete_cache.get("checkpoints") or []
-        await ctx.message.remove_reaction("🔄", ctx.me)
         
-        if checkpoint not in data:
-            checkpoints = []
+        ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
+        if checkpoint not in ckpt_names.keys():
+            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:`\n{', '.join(list(ckpt_names.keys()))}`"[:2000])
 
-            remaining_length = 1900
-            for cp in data:
-                if len(cp) + 2 <= remaining_length:
-                    checkpoints.append(cp)
-                    remaining_length -= (len(cp) + 2)
-                else:
-                    break
-            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:`\n{', '.join(checkpoints)}`")
-
-        await self.config.guild(ctx.guild).checkpoint.set(checkpoint)
+        await self.config.guild(ctx.guild).checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
 
     @aimage.command(name="vae")
@@ -254,22 +229,12 @@ class AImageConfig(AImageBase):
         Set the default vae used for generating images.
         """
         assert ctx.guild
-        await ctx.message.add_reaction("🔄")
-        data = self.autocomplete_cache.get("vaes") or []
-        await ctx.message.remove_reaction("🔄", ctx.me)
-        if vae not in data:
-            vaes = []
 
-            remaining_length = 1900
-            for vae in data:
-                if len(vae) + 2 <= remaining_length:
-                    vaes.append(vae)
-                    remaining_length -= (len(vae) + 2)
-                else:
-                    break
-            return await ctx.send(f":warning: Invalid vae. Pick one of these:\n`{', '.join(vaes)}`")
+        vae_names = self.autocomplete_cache.get("vaes") or {}
+        if vae not in vae_names.keys():
+            return await ctx.send(f":warning: Invalid vae. Pick one of these:\n`{', '.join(list(vae_names.keys()))}`"[:2000])
 
-        await self.config.guild(ctx.guild).vae.set(vae)
+        await self.config.guild(ctx.guild).vae.set(vae_names[vae])
         await ctx.tick(message="✅ Default VAE updated.")
 
     @aimage.command(name="adetailer")

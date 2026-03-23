@@ -29,15 +29,15 @@ class ArcEnCielAPI:
         async with self.session.get(url, headers=self.headers) as response:
             data = await response.json()
             for key, model_names in data["models"].items():
-                self.cog.autocomplete_cache[key] = [(name, clean_model(name)) for name in model_names]
+                self.cog.autocomplete_cache[key] = {clean_model(name): name for name in model_names}
             for key in ["samplers", "schedulers"]:
-                self.cog.autocomplete_cache[key] = data["limits"][key]
+                self.cog.autocomplete_cache[key] = {name: name for name in data["limits"][key]}
         # this endpoint returns loras while the other doesn't
         url = self.endpoint + "/generator/models"
         async with self.session.get(url, headers=self.headers) as response:
             data = await response.json()
             for key, models in data.items():
-                self.cog.autocomplete_cache[key] = [(model["name"], clean_model(model["name"])) for model in models]
+                self.cog.autocomplete_cache[key] = {clean_model(model["name"]): model["name"] for model in models}
             
 
     async def request_image(self,

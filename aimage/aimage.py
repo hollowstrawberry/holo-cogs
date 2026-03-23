@@ -165,26 +165,26 @@ class AImage(AImageConfig):
                 asyncio.create_task(gen.callback)
 
 
-    async def build_autocomplete_choices(self, current: str, choices: list) -> List[app_commands.Choice[str]]:
+    async def build_autocomplete_choices(self, current: str, choices: dict) -> List[app_commands.Choice[str]]:
         if not choices:
             return []
-        choices = self.filter_list(choices, current)
-        return [app_commands.Choice(name=choice, value=choice) for choice in choices[:25]]
+        choices = self.filter_names(choices, current)
+        return [app_commands.Choice(name=display_name, value=name) for display_name, name in choices.items()][:25]
 
     async def samplers_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
-        choices = self.autocomplete_cache.get("samplers", [])
+        choices = self.autocomplete_cache.get("samplers") or {}
         return await self.build_autocomplete_choices(current, choices)
 
     async def checkpoint_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
-        choices = self.autocomplete_cache.get("checkpoints", [])
+        choices = self.autocomplete_cache.get("checkpoints") or {}
         return await self.build_autocomplete_choices(current, choices)
 
     async def vae_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
-        choices = self.autocomplete_cache.get("vae", [])
+        choices = self.autocomplete_cache.get("vae") or {}
         return await self.build_autocomplete_choices(current, choices)
     
     async def loras_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
-        choices = self.autocomplete_cache.get("loras", [])
+        choices = self.autocomplete_cache.get("loras") or {}
         if not choices:
             return []
 
@@ -198,7 +198,7 @@ class AImage(AImageConfig):
                 current = m.group(1)
                 weight = m.group(2)
 
-        choices = self.filter_list(choices, current, True)
+        choices = self.filter_names(choices, current, True)
         choices = [f"{previous}<lora:{choice}:{weight}>" if len(f"{previous}<lora:{choice}:{weight}>") <= 100 else f"<lora:{choice}:{weight}>" for choice in choices]
         return [app_commands.Choice(name=choice, value=choice) for choice in choices][:25]
     
@@ -447,12 +447,12 @@ class AImage(AImageConfig):
         return can
 
     @staticmethod
-    def filter_list(options: list, current: str, strict: bool = False):
-        results = []
-        ratios = [(item, fuzz.partial_ratio(current.lower(), item.lower())) for item in options]
+    def filter_names(options: dict, current: str, strict: bool = False) -> dict:
+        results = {}
+        ratios = [(item, fuzz.partial_ratio(current.lower(), item.lower())) for item in options.keys()]
         sorted_options = sorted(ratios, key=lambda x: x[1], reverse=True)
         for item, ratio in sorted_options:
             if strict and ratio < 75:
                 continue
-            results.append(item)
+            results[item] = options[item]
         return results
