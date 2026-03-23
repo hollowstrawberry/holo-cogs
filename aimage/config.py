@@ -87,7 +87,7 @@ class AImageConfig(AImageBase):
         Toggles filtering of NSFW images (A1111 only)
         """
         assert ctx.guild
-        nsfw = await self.config.guild(ctx.guild).nsfw()
+        nsfw = await self.config.nsfw()
         if nsfw:
             await ctx.message.add_reaction("🔄")
             data = self.autocomplete_cache.get("scripts") or []
@@ -95,7 +95,7 @@ class AImageConfig(AImageBase):
             if "censorscript" not in data:
                 return await ctx.send(":warning: sd-webui-nsfw-checker is not installed in webui, install <https://github.com/hollowstrawberry/sd-webui-nsfw-checker>")
 
-        await self.config.guild(ctx.guild).nsfw.set(not nsfw)
+        await self.config.nsfw.set(not nsfw)
         await ctx.send(f"NSFW filtering is now {'`disabled`' if not nsfw else '`enabled`'}")
 
     @aimage.command(name="nsfw_sensitivity")
@@ -106,7 +106,7 @@ class AImageConfig(AImageBase):
         """
         assert ctx.guild
         if value is None:
-            nsfw_tuning = await self.config.guild(ctx.guild).nsfw_tuning()
+            nsfw_tuning = await self.config.nsfw_tuning()
             await ctx.send(f"The sensitivity is currently set to `{nsfw_tuning:.3f}`")
         elif value < -0.2 or value > 0.2:
             await ctx.send(f"Valid values are between -0.2 and 0.2")
@@ -115,7 +115,7 @@ class AImageConfig(AImageBase):
             if "censorscript" not in data:
                 await ctx.send("You need [the updated CensorScript.py](<https://github.com/hollowstrawberry/sd-webui-nsfw-checker>) in your A1111 to use this.")
             else:
-                await self.config.guild(ctx.guild).nsfw_tuning.set(value)
+                await self.config.nsfw_tuning.set(value)
                 await ctx.send(f"The sensitivity is now set to `{value:.3f}`")
 
     @aimage.command(name="negative_prompt")
@@ -126,7 +126,7 @@ class AImageConfig(AImageBase):
         assert ctx.guild
         if not negative_prompt:
             negative_prompt = ""
-        await self.config.guild(ctx.guild).negative_prompt.set(negative_prompt)
+        await self.config.negative_prompt.set(negative_prompt)
         await ctx.tick(message="✅ Default negative prompt updated.")
 
     @aimage.command(name="cfg")
@@ -135,7 +135,7 @@ class AImageConfig(AImageBase):
         Set the default cfg
         """
         assert ctx.guild
-        await self.config.guild(ctx.guild).cfg.set(cfg)
+        await self.config.cfg.set(cfg)
         await ctx.tick(message="✅ Default CFG updated.")
 
     @aimage.command(name="sampling_steps")
@@ -144,7 +144,7 @@ class AImageConfig(AImageBase):
         Set the default sampling steps
         """
         assert ctx.guild
-        await self.config.guild(ctx.guild).sampling_steps.set(sampling_steps)
+        await self.config.sampling_steps.set(sampling_steps)
         await ctx.tick(message="✅ Default sampling steps updated.")
 
     @aimage.command(name="sampler")
@@ -158,7 +158,7 @@ class AImageConfig(AImageBase):
         if sampler not in sampler_names.keys():
             return await ctx.send(f":warning: Sampler must be one of: `{', '.join(list(sampler_names.keys()))}`"[:2000])
 
-        await self.config.guild(ctx.guild).sampler.set(sampler_names[sampler])
+        await self.config.sampler.set(sampler_names[sampler])
         await ctx.tick(message="✅ Default sampler updated.")
 
     @aimage.command(name="scheduler")
@@ -172,7 +172,7 @@ class AImageConfig(AImageBase):
         if scheduler not in sch_names.keys():
             return await ctx.send(f":warning: scheduler must be one of: `{', '.join(list(sch_names.keys()))}`"[:2000])
 
-        await self.config.guild(ctx.guild).scheduler.set(sch_names[scheduler])
+        await self.config.scheduler.set(sch_names[scheduler])
         await ctx.tick(message="✅ Default scheduler updated.")
 
     @aimage.command(name="width")
@@ -183,7 +183,7 @@ class AImageConfig(AImageBase):
         assert ctx.guild
         if width < 256 or width > 1536:
             return await ctx.send("Value must range between 256 and 1536.")
-        await self.config.guild(ctx.guild).width.set(width)
+        await self.config.width.set(width)
         await ctx.tick(message="✅ Default width updated.")
 
     @aimage.command(name="height")
@@ -194,7 +194,7 @@ class AImageConfig(AImageBase):
         assert ctx.guild
         if height < 256 or height > 1536:
             return await ctx.send("Value must range between 256 and 1536.")
-        await self.config.guild(ctx.guild).height.set(height)
+        await self.config.height.set(height)
         await ctx.tick(message="✅ Default height updated.")
 
     @aimage.command(name="max_img2img")
@@ -206,7 +206,7 @@ class AImageConfig(AImageBase):
         assert ctx.guild
         if resolution < 512 or resolution > 4096:
             return await ctx.send("Value must range between 512 and 4096.")
-        await self.config.guild(ctx.guild).max_img2img.set(resolution)
+        await self.config.max_img2img.set(resolution)
         await ctx.tick(message="✅ Maximum img2img size updated.")
 
     @aimage.command(name="checkpoint", aliases=["model"])
@@ -220,7 +220,7 @@ class AImageConfig(AImageBase):
         if checkpoint not in ckpt_names.keys():
             return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:\n`{', '.join(list(ckpt_names.keys()))}`"[:2000])
 
-        await self.config.guild(ctx.guild).checkpoint.set(ckpt_names[checkpoint])
+        await self.config.checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
 
     @aimage.command(name="vae")
@@ -234,7 +234,7 @@ class AImageConfig(AImageBase):
         if vae not in vae_names.keys():
             return await ctx.send(f":warning: Invalid vae. Pick one of these:\n`{', '.join(list(vae_names.keys()))}`"[:2000])
 
-        await self.config.guild(ctx.guild).vae.set(vae_names[vae])
+        await self.config.vae.set(vae_names[vae])
         await ctx.tick(message="✅ Default VAE updated.")
 
     @aimage.command(name="adetailer")
@@ -262,7 +262,7 @@ class AImageConfig(AImageBase):
         (Separate multiple inputs with spaces, and use quotes (\"\") if needed)
         """
         assert ctx.guild
-        current_words = await self.config.guild(ctx.guild).words_blacklist()
+        current_words = await self.config.words_blacklist()
         added = []
         for word in words:
             if word not in current_words:
@@ -270,7 +270,7 @@ class AImageConfig(AImageBase):
                 current_words.append(word)
         if not added:
             return await ctx.send("No words added")
-        await self.config.guild(ctx.guild).words_blacklist.set(current_words)
+        await self.config.words_blacklist.set(current_words)
         return await ctx.send(f"Added words `{', '.join(added)}` to the blacklist")
     
     @blacklist.command(name="regex")
@@ -281,13 +281,13 @@ class AImageConfig(AImageBase):
         """
         assert ctx.guild
         if not regex or not regex.strip():
-            regex = await self.config.guild(ctx.guild).blacklist_regex()
+            regex = await self.config.blacklist_regex()
             if not regex:
                 await ctx.send("No regex set")
             else:
                 await ctx.send(f"Current regex\n```re\n{regex}```")
         else:
-            await self.config.guild(ctx.guild).blacklist_regex.set(regex.strip())
+            await self.config.blacklist_regex.set(regex.strip())
             await ctx.send(f"Set regex\n```re\n{regex.strip()}```")
 
     @blacklist.command(name="remove")
@@ -298,7 +298,7 @@ class AImageConfig(AImageBase):
         (Separate multiple inputs with spaces, and use quotes (\"\") if needed)
         """
         assert ctx.guild
-        current_words = await self.config.guild(ctx.guild).words_blacklist()
+        current_words = await self.config.words_blacklist()
 
         removed = []
         for word in words:
@@ -307,7 +307,7 @@ class AImageConfig(AImageBase):
                 current_words.remove(word)
         if not removed:
             return await ctx.send("No words removed")
-        await self.config.guild(ctx.guild).words_blacklist.set(current_words)
+        await self.config.words_blacklist.set(current_words)
         return await ctx.send(f"Removed words `{', '.join(removed)}` from blacklist")
 
     @blacklist.command(name="list", aliases=["show"])
@@ -316,7 +316,7 @@ class AImageConfig(AImageBase):
         List all words in the blacklist
         """
         assert ctx.guild
-        current_words = await self.config.guild(ctx.guild).words_blacklist()
+        current_words = await self.config.words_blacklist()
 
         if not current_words:
             return await ctx.send("No words in blacklist")
@@ -343,7 +343,7 @@ class AImageConfig(AImageBase):
         Clear the blacklist to nothing!
         """
         assert ctx.guild
-        await self.config.guild(ctx.guild).words_blacklist.set([])
+        await self.config.words_blacklist.set([])
         await ctx.tick(message="✅ Blacklist cleared.")
 
     @aimage.command()
@@ -372,7 +372,7 @@ class AImageConfig(AImageBase):
         View the VIP role
         """
         assert ctx.guild
-        role_id = await self.config.guild(ctx.guild).vip_role()
+        role_id = await self.config.vip_role()
         role = ctx.guild.get_role(role_id)
         if role:
             await ctx.send(f"Current VIP role is {role.mention}", allowed_mentions=discord.AllowedMentions.none())
@@ -385,5 +385,5 @@ class AImageConfig(AImageBase):
         View the VIP role
         """
         assert ctx.guild
-        await self.config.guild(ctx.guild).vip_role.set(role.id)
+        await self.config.vip_role.set(role.id)
         await ctx.send(f"VIP role set to {role.mention}", allowed_mentions=discord.AllowedMentions.none())
