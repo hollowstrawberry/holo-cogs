@@ -1,13 +1,14 @@
-import asyncio
-from collections import OrderedDict
-from typing import Optional
-
+import logging
 import discord
+from typing import Optional
 from redbot.core.bot import Red
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.base import AImageBase
 from aimage.constants import PARAMS_BLACKLIST, VIEW_TIMEOUT
+from aimage.utils import get_params_dict
+
+log = logging.getLogger("red.holo-cogs.aimage")
 
 
 class ImageActions(discord.ui.View):
@@ -92,27 +93,18 @@ class ImageActions(discord.ui.View):
         self.stop()
 
 
-    def get_params_dict(self) -> Optional[dict]:
-        output_dict = OrderedDict()
-        output_dict["Prompt"] = self.metadata.positive or self.metadata.positive_sdxl
-        output_dict["Negative Prompt"] = self.metadata.negative or self.metadata.negative_sdxl
-        for key, value in self.metadata.parameter.items():
-            if len(output_dict) > 24 or any(blacklisted in key for blacklisted in PARAMS_BLACKLIST):
-                continue
-            output_dict[key.title()] = value
-        for key in output_dict.keys():
-            if len(output_dict[key]) > 1000:
-                output_dict[key] = output_dict[key][:997] + "..."
-        return output_dict
-
-
     async def get_params_embed(self) -> Optional[discord.Embed]:
-        params = self.get_params_dict()
+        params = get_params_dict(self.metadata)
         if not params:
             return None
+        for key in params.keys():
+            if len(params[key]) > 1000:
+                params[key] = params[key][:997] + "..."
+
         embed = discord.Embed(title="Image Parameters", color=await self.bot.get_embed_color(self.channel))
         for key, value in params.items():
             embed.add_field(name=key, value=value, inline="Prompt" not in key)
+
         return embed
 
 

@@ -7,7 +7,7 @@ from redbot.core import checks, commands
 from redbot.core.utils.menus import SimpleMenu # type: ignore
 
 from aimage.base import AImageBase
-from aimage.helpers import delete_button_after
+from aimage.utils import delete_button_after
 
 log = logging.getLogger("red.bz_cogs.aimage")
 

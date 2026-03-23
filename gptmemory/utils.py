@@ -1,4 +1,3 @@
-import re
 import discord
 import discord.ext.commands as commands
 import trafilatura

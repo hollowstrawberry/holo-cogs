@@ -10,7 +10,7 @@ from redbot.core import commands
 from aimage.base import AImageBase
 from aimage.constants import ADETAILER_ARGS
 from aimage.schema import ImageGenParams
-from aimage.helpers import clean_model, is_nsfw
+from aimage.utils import clean_model, is_nsfw
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
