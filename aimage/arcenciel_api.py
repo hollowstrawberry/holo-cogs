@@ -147,10 +147,8 @@ class ArcEnCielAPI:
         if params.image:
             payload.update({
                 "denoising": params.denoising,
-                "scaleFactor": params
-
+                "scaleFactor": params.scale
             })
-
 
         if await config.adetailer():
             payload.update(ADETAILER_ARGS)
