@@ -48,7 +48,7 @@ class VariationModal(ui.Modal):
         reroll = bool(int(self.subseed_select.component.values[0])) if self.subseed_select.component.values else True
         strength = float(self.variation_select.component.values[0]) / 100
         params = self.parent_view.get_params_dict() or {}
-        self.payload["seed"] = int(params.get("Seed", -1))
+        self.payload["seed"] = int(params.get("seed", -1))
         self.payload["extraSeed"] = -1 if reroll else int(params.get("Extra seed", -1))
         self.payload["extraSeedStrength"] = strength
 

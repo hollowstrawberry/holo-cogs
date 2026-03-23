@@ -60,9 +60,9 @@ class ModifyModal(ui.Modal):
             self.payload["extraSeedStrength"] = 0
         else:
             params = self.parent_view.get_params_dict() or {}
-            self.payload["seed"] = int(params.get("Seed", -1))
-            self.payload["extraSeed"] = int(params.get("Variation seed", -1))
-            self.payload["extraSeedStrength"] = float(params.get("Extra seed strength", 0))
+            self.payload["seed"] = int(params.get("seed", -1))
+            self.payload["extraSeed"] = int(params.get("extra seed", -1))
+            self.payload["extraSeedStrength"] = float(params.get("extra seed strength", 0))
 
         await interaction.response.defer(thinking=True)
         message_content = f"Reroll requested by {interaction.user.mention}" if same_prompt else f"Change requested by {interaction.user.mention}"
