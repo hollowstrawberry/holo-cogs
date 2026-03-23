@@ -143,7 +143,7 @@ class AImage(AImageConfig):
             maxsize = await self.config.max_img2img()
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
-            
+
             msg = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
 
             asyncio.create_task(delete_button_after(msg))
@@ -160,7 +160,8 @@ class AImage(AImageConfig):
         except Exception:
             raise
         else:
-            await self.api.close_request(gen.id)
+            pass
+            # await self.api.close_request(gen.id)
         finally:
             if gen.callback:
                 asyncio.create_task(gen.callback)
