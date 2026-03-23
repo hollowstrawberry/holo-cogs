@@ -135,8 +135,7 @@ def format_arcenciel_model(data: dict) -> str:
         versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
         if i == 0 and data['type'] == "LORA":
             versions_info += " [Activation tags:]"
-            filename = version.get('originalName') or version.get('fileName')
-            filename = re.sub(r"[^a-zA-Z0-9. _-]", "_", filename).replace(".safetensors", "") # sanitize
+            filename = version['fileName'].replace(".safetensors", "")
             lora = f"<lora:{filename}:1>" if filename else ""
             if version.get('activationTags', []):
                 for tags in version['activationTags']:

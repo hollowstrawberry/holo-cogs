@@ -97,9 +97,11 @@ class ArcEnCielAPI:
         if "masterpiece" not in params.prompt and "best quality" not in params.prompt:
             params.prompt = "masterpiece, best quality, " + params.prompt
         
+        checkpoint = params.checkpoint or await config.user(member).checkpoint() or await config.checkpoint() or ""
         loras = []
         for lora in re.findall(r"(<lora:([^:]+):(\d+\.?\d*)>)", params.prompt + params.lora):
             tag, name, weight = lora
+            name = f"{name.replace('.safetensors', '')}.safetensors"
             if name in self.cog.autocomplete_cache["loras"]:
                 loras.append({
                     "name": self.cog.autocomplete_cache["loras"][name],
@@ -111,7 +113,7 @@ class ArcEnCielAPI:
             "mode": "txt2img",
             "prompt": params.prompt,
             "negativePrompt": params.negative_prompt or await config.negative_prompt(),
-            "modelName": params.checkpoint or await config.user(member).checkpoint() or await config.checkpoint() or "",
+            "modelName": f"{checkpoint.replace('.safetensors', '')}.safetensors",
             "vaeName": params.vae or await config.vae(),
             "seed": params.seed,
             "steps": params.steps or await config.sampling_steps(),
