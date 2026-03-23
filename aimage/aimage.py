@@ -136,7 +136,7 @@ class AImage(AImageConfig):
         
         try:
             image_bytes = await self.api.download_image(gen.id)
-            metadata = ImageDataReader(BytesIO(image_bytes))
+            metadata = await asyncio.to_thread(ImageDataReader, BytesIO(image_bytes))
             file_id = gen.context.id if isinstance(gen.context, discord.Interaction) else gen.context.message.id
             file = discord.File(BytesIO(image_bytes), filename=f"image_{file_id}.png", spoiler=nsfw)
             maxsize = await self.config.max_img2img()
