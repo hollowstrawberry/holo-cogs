@@ -117,7 +117,7 @@ class AImage(AImageConfig):
             await context.message.add_reaction("⏳")
 
         try:
-            job = await self.api.request_image(context, params, payload)
+            job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(job["id"], payload, user, channel, context, callback, message_content)
         except Exception as error:
             content = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"

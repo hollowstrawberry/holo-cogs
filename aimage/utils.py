@@ -7,7 +7,7 @@ from collections import OrderedDict
 from redbot.core import commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
-from aimage.constants import PARAMS_BLACKLIST, VIEW_TIMEOUT, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX
+from aimage.constants import LORA_REGEX, PARAMS_BLACKLIST, VIEW_TIMEOUT, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -73,3 +73,16 @@ def get_params_dict(metadata: ImageDataReader) -> Optional[dict]:
         output_dict[key.title()] = value
             
     return output_dict
+
+def parse_loras(payload: dict):
+    for lora in LORA_REGEX.findall(payload["prompt"]):
+        tag, name, weight = lora
+        name = f"{name.replace('.safetensors', '')}.safetensors"
+        payload.setdefault("loras", [])
+        if any(lora["name"] == name for lora in payload["loras"]):
+            continue
+        payload["loras"].append({
+            "name": name,
+            "weight": weight,
+        })
+        payload["prompt"] = payload["prompt"].replace(tag, "")

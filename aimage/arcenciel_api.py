@@ -6,9 +6,9 @@ import discord
 from redbot.core import commands
 
 from aimage.base import AImageBase
-from aimage.constants import ADETAILER_ARGS, LORA_REGEX
+from aimage.constants import ADETAILER_ARGS
 from aimage.schema import ImageGenParams
-from aimage.utils import clean_model, is_nsfw
+from aimage.utils import clean_model, is_nsfw, parse_loras
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
@@ -33,14 +33,11 @@ class ArcEnCielAPI:
 
     async def request_image(self,
                             context: Union[commands.Context, discord.Interaction],
-                            params: ImageGenParams = None,
-                            payload: dict = None,
+                            payload: dict,
                             ) -> dict:
-        assert params or payload
         member = context.user if isinstance(context, discord.Interaction) else context.author
         assert isinstance(context.channel, discord.abc.Messageable) and isinstance(member, discord.Member)
-        nsfw = is_nsfw(context.channel)
-        payload = payload or await self.build_image_payload(params, member, nsfw)  # type: ignore
+        parse_loras(payload)
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload, headers=self.headers) as response:
             r = await response.json()
@@ -100,16 +97,6 @@ class ArcEnCielAPI:
                 "name": f"{params.lora.replace('.safetensors', '')}.safetensors",
                 "weight": 1.0,
             })
-        for lora in LORA_REGEX.findall(params.prompt):
-            tag, name, weight = lora
-            name = f"{name.replace('.safetensors', '')}.safetensors"
-            if any(lora["name"] == name for lora in loras):
-                continue
-            loras.append({
-                "name": name,
-                "weight": weight,
-            })
-            params.prompt = params.prompt.replace(tag, "")
 
         payload = {
             "mode": "txt2img",
@@ -128,7 +115,7 @@ class ArcEnCielAPI:
             "extraSeed": params.subseed,
             "extraSeedStrength": params.subseed_strength,
             "loras": loras,
-            "sfwMode": False,
+            "sfwMode": not nsfw,
         }
         if await config.adetailer():
             payload.update(ADETAILER_ARGS)
