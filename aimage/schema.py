@@ -36,6 +36,6 @@ class ImageGenParams:
     subseed_strength: float = 0.0
     # img2img
     image: bytes = field(default_factory=bytes)
-    image_extension: str = "png"
+    image_filename: Optional[str] = None
     denoising: Optional[float] = None
     scale: Optional[float] = None

@@ -14,7 +14,7 @@ from redbot.core import app_commands, checks, commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.arcenciel_api import ArcEnCielAPI
-from aimage.constants import DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT, SUPPORTED_IMAGE_TYPES
+from aimage.constants import DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT, EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
 from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response, clean_tag, clean_model
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
@@ -146,7 +146,7 @@ class AImage(AImageConfig):
 
         try:
             if params and params.image:
-                path = await self.api.upload_image(params.image, params.image_extension)
+                path = await self.api.upload_image(params.image, params.image_filename or "image.png")
                 payload["imagePath"] = path
             job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(job["id"], payload, user, channel, context, callback, message_content)
@@ -184,14 +184,9 @@ class AImage(AImageConfig):
             asyncio.create_task(send_response(gen.context, content=content))
             return
         except aiohttp.ClientResponseError as error:
-            if error.status == 403:
-                content = "🔞 Blocked NSFW image."
-                asyncio.create_task(send_response(gen.context, content=content))
-                return
-            else:
-                content = f":warning: Failed to retrieve image! `{error.message}`"
-                asyncio.create_task(send_response(gen.context, content=content))
-                raise
+            content = f":warning: Failed to retrieve image! `{error.message}`"
+            asyncio.create_task(send_response(gen.context, content=content))
+            raise
         except Exception as error:
             content = f":warning: Failed to retrieve image! `{type(error).__name__}: {error}`"
             asyncio.create_task(send_response(gen.context, content=content))
@@ -388,7 +383,7 @@ class AImage(AImageConfig):
             subseed_strength=variation,
             # img2img
             image=await image.read(),
-            image_extension=image.content_type.split("/")[-1],
+            image_filename=image.filename,
             denoising=denoising,
             scale=scale,
             height=round(image.height*scale),
@@ -449,7 +444,7 @@ class AImage(AImageConfig):
         assert self.api
         image_bytes = await attachment.read()
         try:
-            tags = await self.api.interrogate(image_bytes)
+            tags = await self.api.interrogate(image_bytes, attachment.filename)
         except aiohttp.ClientResponseError as error:
             log.exception("Autotagger")
             await ctx.reply(f":warning: Failed to tag the image! `{error.message}`")
@@ -460,7 +455,8 @@ class AImage(AImageConfig):
             embed = discord.Embed(title="Autotagger Result", color=await self.bot.get_embed_color(ctx))
             if "sensitive" not in tags and "explicit" not in tags:
                 embed.set_thumbnail(url=attachment.url)
-            embed.description = f"`{', '.join([clean_tag(tag) for tag in tags])}`"
+            cleaned_tags = ', '.join([clean_tag(tag) for tag in tags if tag not in EXCLUDE_TAGGER])
+            embed.description = f"`{cleaned_tags}`"
             await ctx.reply(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
 

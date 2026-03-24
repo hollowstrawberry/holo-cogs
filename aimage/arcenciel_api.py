@@ -1,17 +1,13 @@
-import base64
-import logging
+import json
 import aiohttp
 import discord
 from typing import List, Union
 from redbot.core import commands
 
 from aimage.base import AImageBase
-from aimage.constants import ADETAILER_ARGS, EXCLUDE_TAGGER
+from aimage.constants import ADETAILER_ARGS
 from aimage.schema import ImageGenParams
 from aimage.utils import ImageGenError, clean_model, parse_loras
-
-log = logging.getLogger("red.holo-cogs.aimage")
-
 
 class ArcEnCielAPI:
     def __init__(self, cog: AImageBase, endpoint: str, api_key: str):
@@ -25,12 +21,13 @@ class ArcEnCielAPI:
     async def update_autocomplete_cache(self) -> None:
         url = self.endpoint + "/generator/options"
         async with self.session.get(url, headers=self.headers) as response:
-            response.raise_for_status()
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
             data = await response.json()
-            for key, model_names in data["models"].items():
-                self.cog.autocomplete_cache[key] = {clean_model(name): name for name in model_names}
-            for key in ["samplers", "schedulers"]:
-                self.cog.autocomplete_cache[key] = {name: name for name in data["limits"][key]}
+        for key, model_names in data["models"].items():
+            self.cog.autocomplete_cache[key] = {clean_model(name): name for name in model_names}
+        for key in ["samplers", "schedulers"]:
+            self.cog.autocomplete_cache[key] = {name: name for name in data.get("limits", {}).get(key, [])}
 
     async def request_image(self,
                             context: Union[commands.Context, discord.Interaction],
@@ -39,13 +36,11 @@ class ArcEnCielAPI:
         member = context.user if isinstance(context, discord.Interaction) else context.author
         assert isinstance(context.channel, discord.abc.Messageable) and isinstance(member, discord.Member)
         parse_loras(payload)
-        log.info(payload)
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload, headers=self.headers) as response:
-            response.raise_for_status()
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
             r = await response.json()
-        if r.get("error"):
-            raise ImageGenError(r["error"])
         return r["job"]
     
     async def close_request(self, id: str):
@@ -56,10 +51,9 @@ class ArcEnCielAPI:
     async def fetch_queue(self) -> List[dict]:
         url = self.endpoint + "/generator/jobs"
         async with self.session.get(url, headers=self.headers) as response:
-            response.raise_for_status()
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
             r = await response.json()
-        if r.get("error"):
-            raise ImageGenError(r["error"])
         return r["jobs"]
 
     async def search_loras(self, query: str) -> List[str]:
@@ -69,45 +63,43 @@ class ArcEnCielAPI:
             "limit": 25,
         }
         async with self.session.get(url, params=params, headers=self.headers) as response:
-            response.raise_for_status()
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
             r = await response.json()
-        if r.get("error"):
-            raise ImageGenError(r["error"])
         return [lora["name"] for lora in r["entries"]]
     
     async def download_image(self, job_id: str) -> bytes:
         url = f"{self.endpoint}/generator/jobs/{job_id}/outputs/0/download"
         async with self.session.get(url, headers=self.headers) as response:
-            response.raise_for_status()
-            if "json" in response.content_type:
-                r = await response.json()
-                raise ImageGenError(r.get("error", "error"))
+            if response.status >= 400 or "json" in response.content_type:
+                raise ImageGenError(await self._extract_error(response))
             b = await response.read()
         return b
     
-    async def upload_image(self, image: bytes, extension: str) -> str:
+    async def upload_image(self, image: bytes, filename: str) -> str:
         url = self.endpoint + "/generator/uploads"
         data = aiohttp.FormData()
-        data.add_field("image", image, filename=f"image.{extension}", content_type=f"image/{extension}")
+        data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
         data.add_field("kind", "img2img")
         async with self.session.post(url=url, data=data, headers=self.headers) as response:
-            response.raise_for_status()
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
             r = await response.json()
-        if r.get("error"):
-            raise ImageGenError(r["error"])
         return r["path"]
     
-    async def interrogate(self, image: bytes):
-        url = self.endpoint + "/tagger"
-        payload = {
-            "image": base64.b64encode(image).decode("utf8"),
-        }
-        async with self.session.post(url=url, json=payload, headers=self.headers) as response:
-            response.raise_for_status()
+    async def interrogate(self, image: bytes, filename: str) -> List[str]:
+        url = self.endpoint + "/generator/autotag/interrogate"
+        data = aiohttp.FormData()
+        data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
+        data.add_field("kind", "tagger")
+        async with self.session.post(url=url, data=data, headers=self.headers) as response:
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
             r = await response.json()
-            return [tag for tag in r.get("tags", []) if tag not in EXCLUDE_TAGGER]
+        tags = r.get("tags", [])
+        tags.insert(0, r.get("rating", "unknown_rating"))
+        return tags
         
-    
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
         config = self.cog.config
 
@@ -150,12 +142,24 @@ class ArcEnCielAPI:
         }
 
         if params.image:
-            payload.update({
-                "denoising": params.denoising,
-                "scaleFactor": params.scale
-            })
+            if params.denoising is not None:
+                payload["denoise"] = params.denoising
+            if params.scale is not None:
+                payload["scaleFactor"] = params.scale
 
         if await config.adetailer():
             payload.update(ADETAILER_ARGS)
         
         return payload
+    
+    async def _extract_error(self, response: aiohttp.ClientResponse) -> str:
+        try:
+            data = await response.json()
+        except json.JSONDecodeError:
+            return await response.text()
+        for key in ("error", "message", "reason"):
+            if data.get(key):
+                return str(data["key"]).strip()
+        if data.get("errorCode"):
+            return str(data["errorCode"]).strip()
+        return f"HTTP {response.status}"
