@@ -256,6 +256,16 @@ class AImageConfig(AImageBase):
         """
         pass
 
+    @vip.command(name="quota")
+    async def vip_quota(self, ctx: commands.Context, gens: int):
+        """
+        Sets the number of gens a user can do per hour
+        """
+        if gens < 0 or gens > 1000:
+            return await ctx.send("Valid quota values range from 0 to 1000")
+        await self.config.quota.set(gens)
+        await ctx.send(f"Hourly quota set to {gens}")
+
     @vip.command(name="view")
     async def vip_view(self, ctx: commands.Context):
         """
@@ -263,17 +273,26 @@ class AImageConfig(AImageBase):
         """
         assert ctx.guild
         role_id = await self.config.guild(ctx.guild).vip_role()
-        role = ctx.guild.get_role(role_id)
-        if role:
-            await ctx.send(f"Current VIP role is {role.mention}", allowed_mentions=discord.AllowedMentions.none())
-        else:
-            await ctx.send("No VIP role set.")
+        all_users = await self.config.all_users()
+        users = [f"<@{uid}>" for uid, config in all_users.items() if config.get("vip")]
+        content = "`VIP role for this guild:` " + (f"<@&{role_id}>" if role_id and role_id >= 0 else "*none*")
+        content += "`VIP users globally:` " + (" ".join(users) if users else "*none*")
+        await ctx.send(content, allowed_mentions=discord.AllowedMentions.none())
 
-    @vip.command(name="set", aliases=["role"])
-    async def vip_set(self, ctx: commands.Context, role: discord.Role):
+    @vip.command(name="role")
+    async def vip_role(self, ctx: commands.Context, role: discord.Role):
         """
-        View the VIP role
+        Sets a VIP role for this server
         """
         assert ctx.guild
         await self.config.guild(ctx.guild).vip_role.set(role.id)
         await ctx.send(f"VIP role set to {role.mention}", allowed_mentions=discord.AllowedMentions.none())
+
+    @vip.command(name="user")
+    async def vip_user(self, ctx: commands.Context, user: discord.User):
+        """
+        Toggles whether a user is VIP
+        """
+        new = not await self.config.user(user).vip() 
+        await self.config.user(user).vip.set(new)
+        await ctx.send(f"User {user.mention} is {'now VIP' if new else 'no longer VIP'}", allowed_mentions=discord.AllowedMentions.none())

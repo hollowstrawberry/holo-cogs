@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import discord
 from collections import defaultdict
 from typing import Coroutine, Optional, Union, Dict
@@ -15,6 +17,8 @@ class AImageBase(commands.Cog):
         self.config = Config.get_conf(self, identifier=75567113)
         self.autocomplete_cache: Dict[str, Dict[str, str]] = defaultdict(dict)
         self.queued_images: Dict[str, QueuedImageGen] = {}
+        self.gen_count: Dict[int, int] = defaultdict(int)
+        self.last_quota = datetime.min
 
     async def generate_image(self,
                              context: Union[commands.Context, discord.Interaction],

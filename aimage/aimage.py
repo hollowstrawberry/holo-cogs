@@ -1,11 +1,12 @@
-from io import BytesIO
 import re
 import logging
 import asyncio
 import aiohttp
 import discord
+from io import BytesIO
 from copy import copy
 from typing import Coroutine, List, Optional, Union
+from datetime import datetime, timezone
 from rapidfuzz import fuzz
 
 from discord.ext import tasks
@@ -31,6 +32,7 @@ class AImage(AImageConfig):
 
         default_global = {
             "nsfw": True,
+            "quota": 5,
             "blacklist_regex": "",
             "negative_prompt": "worst quality, low quality",
             "cfg": 5,
@@ -45,9 +47,11 @@ class AImage(AImageConfig):
             "scheduler": "normal",
         }
         default_guild = {
+            "enabled": False,
             "vip_role": -1,
         }
         default_user = {
+            "vip": False,
             "checkpoint": "",
         }
         self.config.register_guild(**default_guild)
@@ -60,10 +64,13 @@ class AImage(AImageConfig):
         self.api = ArcEnCielAPI(self, ENDPOINT, api_key)
         asyncio.create_task(self.update_autocomplete_cache())
         self.consume_queue.start()
+        self.clear_quota.start()
 
     async def cog_unload(self):
         if self.consume_queue.is_running():
             self.consume_queue.stop()
+        if self.clear_quota.is_running():
+            self.clear_quota.cancel()
         if self.api:
             await self.api.session.close()
 
@@ -71,6 +78,11 @@ class AImage(AImageConfig):
         assert self.api
         return await self.api.update_autocomplete_cache()
 
+    @tasks.loop(hours=1)
+    async def clear_quota(self):
+        self.gen_count.clear()
+        self.last_quota_refresh = datetime.now(timezone.utc)
+        log.info("Refreshed hourly quota")
 
     @tasks.loop(seconds=1, reconnect=True)
     async def consume_queue(self):
@@ -103,10 +115,26 @@ class AImage(AImageConfig):
         assert payload or params
         payload = payload or await self.api.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
 
+        enabled = await self.config.guild(context.guild).enabled()
+        if not enabled:
+            return await send_response(context, content=":warning: The generator is not enabled for this server.")
+        
         vip_role = await self.config.guild(context.guild).vip_role()
-        if any(gen.user == user for gen in self.queued_images.values()) and all(role.id != vip_role for role in user.roles):
-            content = ":warning: You must wait for your current image to finish generating before you can request a new one."
-            return await send_response(context, content=content, ephemeral=True)
+        is_vip = await self.config.user(user).vip() or any(role.id == vip_role for role in user.roles)
+        quota = await self.config.quota()
+        has_ongoing_gen = any(gen.user == user for gen in self.queued_images.values())
+        elapsed_last_refresh = (datetime.now(timezone.utc) - self.last_quota_refresh).total_seconds()
+        if not is_vip:
+            if has_ongoing_gen:
+                content = "🕒 You must wait for your current image to finish generating before you can request a new one."
+                return await send_response(context, content=content, ephemeral=True)
+            elif self.gen_count[user.id] >= quota:
+                if quota == 0:
+                    content = ":warning: You are not authorized to use the generator at this time. You may be interested in the <https://arcenciel.io> generator."
+                else:
+                    content = "🕒 You have met your generation quota. You can wait for it to refresh, or try the <https://arcenciel.io> generator.\n" \
+                            + f"Time remaining: {60 - (elapsed_last_refresh // 60)} minutes."
+                return await send_response(context, content=content, ephemeral=True)
 
         prompt = params.prompt if params else payload.get("prompt", "")
 
@@ -172,6 +200,7 @@ class AImage(AImageConfig):
             if gen.callback:
                 asyncio.create_task(gen.callback)
 
+        self.gen_count[gen.user.id] += 1
         asyncio.create_task(self.api.close_request(gen.id))
         asyncio.create_task(delete_button_after(msg))
         imagescanner = self.bot.get_cog("ImageScanner")
