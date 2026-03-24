@@ -138,10 +138,6 @@ class AImage(AImageConfig):
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: Optional[str]):
         assert self.api and isinstance(gen.context, (commands.Context, discord.Interaction))
 
-        if nsfw and not is_nsfw(gen.channel):
-            content = f"🔞 Blocked NSFW image."
-            return await send_response(gen.context, content=content, allowed_mentions=discord.AllowedMentions.none())
-
         if error_message:
             content = f":warning: Failed to generate image. {error_message}"
             return await send_response(gen.context, content=content)
@@ -160,9 +156,14 @@ class AImage(AImageConfig):
             asyncio.create_task(send_response(gen.context, content=content))
             return
         except aiohttp.ClientResponseError as error:
-            content = f":warning: Failed to retrieve image! `{error.message}`"
-            asyncio.create_task(send_response(gen.context, content=content))
-            raise
+            if error.status == 403:
+                content = "🔞 Blocked NSFW image."
+                asyncio.create_task(send_response(gen.context, content=content))
+                return
+            else:
+                content = f":warning: Failed to retrieve image! `{error.message}`"
+                asyncio.create_task(send_response(gen.context, content=content))
+                raise
         except Exception as error:
             content = f":warning: Failed to retrieve image! `{type(error).__name__}: {error}`"
             asyncio.create_task(send_response(gen.context, content=content))
