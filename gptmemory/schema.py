@@ -37,6 +37,7 @@ class ToolCall:
 class ImageGenParams:
     prompt: str
     negative_prompt: Optional[str] = None
+    style: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
     cfg: Optional[float] = None
@@ -44,10 +45,15 @@ class ImageGenParams:
     scheduler: Optional[str] = None
     steps: Optional[int] = None
     seed: int = -1
+    variation: int = 0
+    variation_seed: int = -1
     checkpoint: Optional[str] = None
     vae: Optional[str] = None
     lora: str = ""
     subseed: int = -1
     subseed_strength: float = 0.0
-    init_image: bytes = field(default_factory=bytes)
+    # img2img
+    image: bytes = field(default_factory=bytes)
+    image_extension: str = "png"
     denoising: Optional[float] = None
+    scale: Optional[float] = None
