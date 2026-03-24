@@ -42,6 +42,24 @@ class AImageConfig(AImageBase):
         """ Manage AI Image cog settings for this server """
         pass
 
+    @aimage.command(name="enable")
+    async def aimage_enable(self, ctx: commands.Context):
+        """
+        Enables the generator on this server
+        """
+        assert ctx.guild
+        await self.config.guild(ctx.guild).enabled(True)
+        await ctx.tick()
+
+    @aimage.command(name="disable")
+    async def aimage_disable(self, ctx: commands.Context):
+        """
+        Disables the generator on this server
+        """
+        assert ctx.guild
+        await self.config.guild(ctx.guild).enabled(False)
+        await ctx.tick()
+
     @aimage.command(name="config")
     async def config_cmd(self, ctx: commands.Context):
         """
