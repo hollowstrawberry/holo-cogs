@@ -1,13 +1,9 @@
-import asyncio
 import logging
-from typing import Optional
-
 import discord
+from typing import Optional
 from redbot.core import checks, commands
-from redbot.core.utils.menus import SimpleMenu # type: ignore
 
 from aimage.base import AImageBase
-from aimage.utils import delete_button_after
 
 log = logging.getLogger("red.bz_cogs.aimage")
 

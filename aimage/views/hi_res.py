@@ -3,7 +3,6 @@ import discord
 import discord.ui as ui
 from copy import deepcopy
 
-from aimage.utils import get_params_dict
 from aimage.constants import ADETAILER_ARGS
 from aimage.views.image_actions import ImageActions
 
@@ -80,7 +79,7 @@ class HiresModal(ui.Modal):
             }
         ]
 
-        params = get_params_dict(self.parent_view.metadata) or {}
+        params = self.parent_view.metadata.as_dict()
         self.payload["seed"] = int(params["Seed"])
         self.payload["extraSeed"] = int(params.get("Extra Seed", -1))
         self.payload["extraSeedStrength"] = float(params.get("Extra Seed Strength", 0))

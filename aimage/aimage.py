@@ -11,9 +11,9 @@ from rapidfuzz import fuzz
 
 from discord.ext import tasks
 from redbot.core import app_commands, checks, commands
-from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.arcenciel_api import ArcEnCielAPI
+from aimage.comfy import ComfyMetadataReader
 from aimage.constants import ENDPOINT, EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
 from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response, clean_tag, clean_model
 from aimage.schema import ImageGenParams, QueuedImageGen
@@ -172,7 +172,7 @@ class AImage(AImageConfig):
         
         try:
             image_bytes = await self.api.download_image(gen.id)
-            metadata = await asyncio.to_thread(ImageDataReader, BytesIO(image_bytes))
+            metadata = await asyncio.to_thread(ComfyMetadataReader.from_bytes(BytesIO(image_bytes)))
             file_id = gen.context.id if isinstance(gen.context, discord.Interaction) else gen.context.message.id
             file = discord.File(BytesIO(image_bytes), filename=f"image_{file_id}.png", spoiler=nsfw)
             maxsize = await self.config.max_img2img()

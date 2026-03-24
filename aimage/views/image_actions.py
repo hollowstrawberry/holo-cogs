@@ -2,17 +2,16 @@ import logging
 import discord
 from typing import Optional
 from redbot.core.bot import Red
-from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.base import AImageBase
-from aimage.utils import get_params_dict
+from aimage.comfy import ComfyMetadata
 from aimage.constants import VIEW_TIMEOUT
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
 
 class ImageActions(discord.ui.View):
-    def __init__(self, cog: AImageBase, metadata: ImageDataReader, payload: dict, author: discord.Member, channel: discord.abc.Messageable, maxsize: int):
+    def __init__(self, cog: AImageBase, metadata: ComfyMetadata, payload: dict, author: discord.Member, channel: discord.abc.Messageable, maxsize: int):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.metadata = metadata
         self.payload = payload
@@ -94,7 +93,7 @@ class ImageActions(discord.ui.View):
 
 
     async def get_params_embed(self) -> Optional[discord.Embed]:
-        params = get_params_dict(self.metadata)
+        params = self.metadata.as_dict()
         if not params:
             return None
         
