@@ -309,10 +309,10 @@ class GptMemory(GptMemoryCommands):
             for depth in range(max_tool_depth):
                 response = await self.get_client(model).chat.completions.create(
                     model=model,
-                    messages=temp_messages, # type: ignore
-                    max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
-                    max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,
-                    tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools], # type: ignore
+                    messages=temp_messages,  # type: ignore
+                    max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
+                    max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
+                    tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools],  # type: ignore
                     reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
                 )
                 if response.usage:
