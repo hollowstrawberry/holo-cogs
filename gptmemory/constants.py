@@ -13,7 +13,7 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change).+", re.MULTILINE | re.IGNORECASE),
     "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
     "Loading message":              re.compile(r"`\s*[⏳⌛][^`]+`\s*"),
-    "Leftover symbol":              re.compile(r"""\n[}'"- ]+$""")
+    "Leftover symbol":              re.compile(r"""\n[}'" -]+$""")
 })
 
 GENERATE_IMAGE_PATTERNS = {
