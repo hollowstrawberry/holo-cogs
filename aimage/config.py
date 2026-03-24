@@ -294,7 +294,7 @@ class AImageConfig(AImageBase):
         all_users = await self.config.all_users()
         users = [f"<@{uid}>" for uid, config in all_users.items() if config.get("vip")]
         content = "`VIP role for this guild:` " + (f"<@&{role_id}>" if role_id and role_id >= 0 else "*none*")
-        content += "`VIP users globally:` " + (" ".join(users) if users else "*none*")
+        content += "\n`VIP users globally:` " + (" ".join(users) if users else "*none*")
         await ctx.send(content, allowed_mentions=discord.AllowedMentions.none())
 
     @vip.command(name="role")

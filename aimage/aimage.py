@@ -132,8 +132,8 @@ class AImage(AImageConfig):
                 if quota == 0:
                     content = ":warning: You are not authorized to use the generator at this time. You may be interested in the <https://arcenciel.io> generator."
                 else:
-                    content = "🕒 You have met your generation quota. You can wait for it to refresh, or try the <https://arcenciel.io> generator.\n" \
-                            + f"Time remaining: {60 - (elapsed_last_refresh // 60)} minutes."
+                    content = "🕒 You have met your generation quota. You can wait for it to refresh, or try the <https://arcenciel.io> generator." \
+                            + f"\n\nTime remaining: {int(60 - (elapsed_last_refresh // 60))} minutes."
                 return await send_response(context, content=content, ephemeral=True)
 
         prompt = params.prompt if params else payload.get("prompt", "")
