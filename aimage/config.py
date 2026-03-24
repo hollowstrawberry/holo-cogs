@@ -48,7 +48,7 @@ class AImageConfig(AImageBase):
         Enables the generator on this server
         """
         assert ctx.guild
-        await self.config.guild(ctx.guild).enabled(True)
+        await self.config.guild(ctx.guild).enabled.set(True)
         await ctx.tick()
 
     @aimage.command(name="disable")
@@ -57,7 +57,7 @@ class AImageConfig(AImageBase):
         Disables the generator on this server
         """
         assert ctx.guild
-        await self.config.guild(ctx.guild).enabled(False)
+        await self.config.guild(ctx.guild).enabled.set(False)
         await ctx.tick()
 
     @aimage.command(name="config")
