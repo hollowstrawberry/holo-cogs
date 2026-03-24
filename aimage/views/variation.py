@@ -2,7 +2,6 @@ import discord
 import discord.ui as ui
 from copy import deepcopy
 
-from aimage.utils import get_params_dict
 from aimage.views.image_actions import ImageActions
 
 
@@ -12,7 +11,7 @@ class VariationModal(ui.Modal):
         self.parent_view = parent_view
         self.parent_button = parent_view.button_variation
         self.payload = deepcopy(parent_view.payload)
-        self.params = get_params_dict(self.parent_view.metadata) or {}
+        self.params = self.parent_view.metadata.as_dict()
         self.generate_image = parent_view.generate_image
 
         default_strength_percent = 5

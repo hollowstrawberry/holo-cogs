@@ -8,6 +8,7 @@ from copy import copy
 from typing import Coroutine, List, Optional, Union
 from datetime import datetime, timezone
 from rapidfuzz import fuzz
+from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from discord.ext import tasks
 from redbot.core import app_commands, checks, commands
@@ -172,7 +173,8 @@ class AImage(AImageConfig):
         
         try:
             image_bytes = await self.api.download_image(gen.id)
-            metadata = await asyncio.to_thread(ComfyMetadataReader.from_bytes, image_bytes)
+            metadata_reader = await asyncio.to_thread(ImageDataReader, BytesIO(image_bytes))
+            metadata = ComfyMetadataReader.from_info(metadata_reader._info)
             file_id = gen.context.id if isinstance(gen.context, discord.Interaction) else gen.context.message.id
             file = discord.File(BytesIO(image_bytes), filename=f"image_{file_id}.png", spoiler=nsfw)
             maxsize = await self.config.max_img2img()
@@ -201,7 +203,7 @@ class AImage(AImageConfig):
         imagescanner = self.bot.get_cog("ImageScanner")
         if imagescanner:
             if gen.channel.id in imagescanner.scan_channels:  # type: ignore
-                imagescanner.image_cache[msg.id] = ({0: metadata}, {0: image_bytes})  # type: ignore
+                imagescanner.image_cache[msg.id] = ({0: metadata_reader}, {0: image_bytes})  # type: ignore
                 asyncio.create_task(msg.add_reaction("🔎"))
 
 
