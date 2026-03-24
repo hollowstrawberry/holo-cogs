@@ -80,7 +80,6 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             sent_by_me, message = False, None
         if message and sent_by_me:
             metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
-            log.info(f"run {type(metadata).__name__}")
             width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]
 
             # add negative tags that weren't already in the existing negative prompt
