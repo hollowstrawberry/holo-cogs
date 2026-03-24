@@ -14,7 +14,7 @@ from redbot.core import app_commands, checks, commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.arcenciel_api import ArcEnCielAPI
-from aimage.constants import DEFAULT_TAGGER, DEFAULT_THRESHOLD, ENDPOINT, EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
+from aimage.constants import ENDPOINT, EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
 from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response, clean_tag, clean_model
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
@@ -43,7 +43,7 @@ class AImage(AImageConfig):
             "adetailer": False,
             "width": 1024,
             "height": 1024,
-            "max_img2img": 1536,
+            "max_img2img": 2048,
             "scheduler": "normal",
         }
         default_guild = {
@@ -407,24 +407,14 @@ class AImage(AImageConfig):
             return await ctx.reply("The file you uploaded is not a valid image.")
         
         async with ctx.typing():
-            await self.autotag(ctx, image, DEFAULT_THRESHOLD, DEFAULT_TAGGER)
+            await self.autotag(ctx, image)
 
 
     @app_commands.command(name="autotag")
-    @app_commands.describe(image="The image to generate tags for",
-                           threshold="Lower means more tags but less accuracy",
-                           model="The WD tagger to use.")
-    @app_commands.choices(model=[app_commands.Choice(name="vit-large-v3", value="wd-vit-large-tagger-v3"),
-                                 app_commands.Choice(name="eva02-large-v3", value="wd-eva02-large-tagger-v3")])
+    @app_commands.describe(image="The image to generate tags for")
     @app_commands.checks.bot_has_permissions(attach_files=True)
     @app_commands.guild_only()
-    async def autotag_app(
-            self,
-            interaction: discord.Interaction,
-            image: discord.Attachment,
-            threshold: app_commands.Range[float, 0.1, 0.7] = DEFAULT_THRESHOLD,
-            model: str = DEFAULT_TAGGER,
-    ):
+    async def autotag_app(self, interaction: discord.Interaction, image: discord.Attachment):
         """
         Generate booru tags for an image.
         """
@@ -437,10 +427,10 @@ class AImage(AImageConfig):
             return await interaction.followup.send("The file you uploaded is not a valid image.", ephemeral=True)
                 
         await interaction.response.defer(thinking=True)
-        await self.autotag(ctx, image, threshold, model)
+        await self.autotag(ctx, image)
         
 
-    async def autotag(self, ctx: commands.Context, attachment: discord.Attachment, threshold: float, model: str):
+    async def autotag(self, ctx: commands.Context, attachment: discord.Attachment):
         assert self.api
         image_bytes = await attachment.read()
         try:
