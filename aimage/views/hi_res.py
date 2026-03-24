@@ -20,8 +20,8 @@ class HiresModal(ui.Modal):
 
         upscalers = sorted(set(parent_view.cache.get("upscale", [])))
         maxscale = ((maxsize*maxsize) / (self.payload["width"]*self.payload["height"]))**0.5
-        scales = [num/100 for num in range(100, min(max(int(maxscale * 100) + 1, 101), 201), 25)] # 1.00 1.25 1.50 1.75 2.00
-        default_scale = 1.5 if 1.5 in scales else scales[-1]
+        scales = [s for s in [1.0, 1.1, 1.25, 1.5, 1.75, 2.0] if s <= maxscale]
+        default_scale = 2.0 if 2.0 in scales else scales[-1]
 
         self.upscaler_select = ui.Label(
             text="Upscaler",
@@ -55,7 +55,7 @@ class HiresModal(ui.Modal):
         )
 
         self.add_item(self.upscaler_select)
-        self.add_item(self.scale_select)
+        #self.add_item(self.scale_select)
         self.add_item(self.denoising_select)
         self.add_item(self.adetailer_select)
 
@@ -72,7 +72,7 @@ class HiresModal(ui.Modal):
         upscaler = self.upscaler_select.component.values[0]
         adetailer = bool(int(self.adetailer_select.component.values[0]))
 
-        self.payload["scaleFactor"] = scale
+        #self.payload["scaleFactor"] = scale
         self.payload["upscaleProfiles"] = [
             {
                 "modelName": upscaler,
