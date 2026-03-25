@@ -264,7 +264,5 @@ class AImage(AImageCommands):
 
 
     async def delete_message(self, message: discord.Message):
-        log.info("before deleting imagegen message")
         await asyncio.sleep(0.5)
-        log.info("deleted imagegen message")
         await message.delete()
