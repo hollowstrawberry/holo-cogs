@@ -119,18 +119,17 @@ class AImage(AImageConfig):
                 log.info(f"{job['progress']['phase']} {job['progress']['percent']}% {job['progress']['etaMs']}ms")
                 if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
                     continue
-                eta = job["progress"]["etaMs"]
-                if eta and eta / 1000 < PROGRESS_UPDATE_PERIOD:
-                    continue
-
                 gen.last_updated = now
                 loading = await self.config.loading_emoji()
                 if job["progress"]["phase"] == "queued":
                     content = f"{loading} Image request in queue"
+                elif job["progress"]["phase"] == "upscaling":
+                    content = f"{loading} Upscaling image"
                 else:
-                    content = f"{loading} Generating image. Estimated progress: `{job['progress']['percent']}%"
-                if eta:
-                    estimate = now + timedelta(milliseconds=eta)
+                    content = f"{loading} Generating image"
+                content += f". Estimated progress: `{job['progress']['percent']}%`"
+                if job["progress"]["etaMs"]:
+                    estimate = now + timedelta(milliseconds=job["progress"]["etaMs"])
                     content += f", estimated arrival <t:{int(estimate.timestamp())}:R>"
                 
                 if gen.last_content != content:
