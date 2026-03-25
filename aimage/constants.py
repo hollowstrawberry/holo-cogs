@@ -3,8 +3,8 @@ import re
 ENDPOINT = "https://arcenciel.io/api"
 
 VIEW_TIMEOUT = 15 * 60
-
-PROGRESS_UPDATE_PERIOD = 2
+JOB_TIMEOUT = 10 * 60
+PROGRESS_UPDATE_PERIOD = 3
 
 SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg"]
 
