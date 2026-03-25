@@ -93,6 +93,7 @@ class AImage(AImageConfig):
         assert self.api
         if not self.queued_images:
             return
+            
         jobs = await self.api.fetch_queue()
         for job in jobs:
             if job["id"] not in self.queued_images:
@@ -118,18 +119,20 @@ class AImage(AImageConfig):
                 log.info(f"{job['progress']['phase']} {job['progress']['percent']}% {job['progress']['etaMs']}ms")
                 if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
                     continue
-                if job["progress"]["etaMs"] / 1000 < PROGRESS_UPDATE_PERIOD:
+                eta = job["progress"]["etaMs"]
+                if eta and eta / 1000 < PROGRESS_UPDATE_PERIOD:
                     continue
 
                 gen.last_updated = now
                 loading = await self.config.loading_emoji()
                 if job["progress"]["phase"] == "queued":
-                    #estimate = now + timedelta(milliseconds=job["progress"]["etaMs"])
-                    #content = f"{loading} Image request in queue. Estimated arrival <t:{int(estimate.timestamp())}:R>"
                     content = f"{loading} Image request in queue"
                 else:
-                    content = f"{loading} Generating image. Estimated progress: `{job['progress']['percent']}%`"
-
+                    content = f"{loading} Generating image. Estimated progress: `{job['progress']['percent']}%"
+                if eta:
+                    estimate = now + timedelta(milliseconds=eta)
+                    content += f", estimated arrival <t:{int(estimate.timestamp())}:R>"
+                
                 if gen.last_content != content:
                     gen.last_content = content
                     embed = discord.Embed(description=content)
@@ -182,7 +185,7 @@ class AImage(AImageConfig):
         current_content = ""
         progress_message = None
         loading = await self.config.loading_emoji()
-        current_content = f"{loading} Image equest received. Please wait..."
+        current_content = f"{loading} Image request received. Please wait..."
         embed = discord.Embed(description=current_content)
         embed.color = await self.bot.get_embed_color(channel)
         if isinstance(context, commands.Context):
