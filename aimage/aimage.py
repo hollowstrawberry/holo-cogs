@@ -56,6 +56,7 @@ class AImage(AImageCommands):
         assert self.api
         if not self.queued_images:
             return
+        log.info("fetch arc en ciel api")
         jobs = await self.api.fetch_queue()
         for job in jobs:
             gen = self.queued_images.get(job["id"])
@@ -74,6 +75,7 @@ class AImage(AImageCommands):
         assert isinstance(gen.context.channel, discord.abc.Messageable)
         now = datetime.now(timezone.utc)
         created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
+        log.info(f"job {gen.id} is running")
 
         if (now - created).total_seconds() > JOB_TIMEOUT:
             del self.queued_images[gen.id]
@@ -108,14 +110,15 @@ class AImage(AImageCommands):
                 estimate = now + timedelta(milliseconds=progress_eta)
                 content += f", estimated arrival <t:{int(estimate.timestamp())}:R>"
             
-            if gen.last_content != content:
-                gen.last_content = content
+            if gen.last_progress != progress_percent:
+                gen.last_progress = progress_percent
                 embed = discord.Embed(description=content)
                 embed.color = await self.bot.get_embed_color(gen.context.channel)
+                log.info(f"job {gen.id} updated")
                 if isinstance(gen.context, discord.Interaction):
-                    asyncio.create_task(gen.context.edit_original_response(embed=embed))
+                    await gen.context.edit_original_response(embed=embed)
                 elif gen.progress_message:
-                    asyncio.create_task(gen.progress_message.edit(embed=embed))
+                    await gen.progress_message.edit(embed=embed)
 
 
     async def generate_image(self,
@@ -168,9 +171,8 @@ class AImage(AImageCommands):
                 context,
                 callback,
                 message_content,
-                datetime.now(timezone.utc),
-                current_content,
                 progress_message,
+                datetime.now(timezone.utc),
             )
         except ImageGenError as error:
             content = f":warning: The image couldn't be generated. ({error})"

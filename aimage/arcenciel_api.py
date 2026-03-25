@@ -1,4 +1,5 @@
 import json
+import logging
 import aiohttp
 import discord
 from redbot.core import commands
@@ -7,6 +8,9 @@ from aimage.base import AImageBase
 from aimage.constants import ADETAILER_ARGS
 from aimage.schema import ImageGenParams
 from aimage.utils import ImageGenError, clean_model, parse_loras
+
+log = logging.getLogger("red.holo-cogs.aimage")
+
 
 class ArcEnCielAPI:
     def __init__(self, cog: AImageBase, endpoint: str, api_key: str):
@@ -46,6 +50,7 @@ class ArcEnCielAPI:
         url = f"{self.endpoint}/generator/jobs/{id}"
         async with self.session.delete(url, headers=self.headers) as response:
             response.raise_for_status()
+        log.info(f"job {id} deleted")
 
     async def fetch_queue(self) -> list[dict]:
         url = self.endpoint + "/generator/jobs"

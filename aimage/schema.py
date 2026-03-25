@@ -15,9 +15,9 @@ class QueuedImageGen:
     context: commands.Context | discord.Interaction
     callback: Coroutine | None
     message_content: str | None
-    last_updated: datetime
-    last_content: str = ""
     progress_message: discord.Message | None = None
+    last_updated: datetime = datetime.min
+    last_progress: int = -1
 
 @dataclass
 class ImageGenParams:
