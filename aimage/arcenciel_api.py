@@ -114,6 +114,7 @@ class ArcEnCielAPI:
             params.prompt = "masterpiece, best quality, " + params.prompt
         
         checkpoint = params.checkpoint or await config.user(member).checkpoint() or await config.checkpoint() or ""
+        vae = params.vae or await config.vae()
         loras = []
         if params.lora:
             loras.append({
@@ -125,8 +126,8 @@ class ArcEnCielAPI:
             "mode": "img2img" if params.image else "txt2img",
             "prompt": params.prompt,
             "negativePrompt": params.negative_prompt or await config.negative_prompt(),
-            "modelName": f"{checkpoint.replace('.safetensors', '')}.safetensors",
-            "vaeName": params.vae or await config.vae(),
+            "modelName": checkpoint.replace(".safetensors", "") + ".safetensors",
+            "vaeName": vae.replace(".safetensors", "") + ".safetensors",
             "seed": params.seed,
             "steps": params.steps or await config.sampling_steps(),
             "cfg": params.cfg or await config.cfg(),
