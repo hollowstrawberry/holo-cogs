@@ -112,10 +112,10 @@ class AImage(AImageCommands):
                 embed.description += f"Generating image..."
             if current_percent > 0:
                 embed.add_field(name="Progress", value=f"`{current_percent}%`")
-            if current_eta and current_eta > 1000:
+            if current_eta is not None and current_eta > 1000:
                 estimate = now + timedelta(milliseconds=current_eta)
                 embed.add_field(name="ETA", value=f"<t:{int(estimate.timestamp())}:R>")
-            else:
+            elif current_percent > 0:
                 embed.add_field(name="ETA", value="`soon`")
 
             if isinstance(gen.context, discord.Interaction):
