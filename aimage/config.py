@@ -70,16 +70,16 @@ class AImageConfig(AImageBase):
         if len(negative_prompt) > 1000:
             negative_prompt = negative_prompt[:1000] + "..."
         embed.add_field(name="Default Negative Prompt", value=f"`{negative_prompt}`", inline=False)
-
+        
         embed.add_field(name="Default Checkpoint", value=f"`{config['checkpoint']}`")
         embed.add_field(name="Default VAE", value=f"`{config['vae']}`")
         embed.add_field(name="Default Sampler", value=f"`{config['sampler']}`")
+        embed.add_field(name="Default Scheduler", value=f"`{config['scheduler']}`")
         embed.add_field(name="Default CFG", value=f"`{config['cfg']}`")
         embed.add_field(name="Default Steps", value=f"`{config['sampling_steps']}`")
         embed.add_field(name="Default Size", value=f"`{config['width']}x{config['height']}`")
         embed.add_field(name="NSFW allowed", value=f"`{config['nsfw']}`")
         embed.add_field(name="Use ADetailer", value=f"`{config['adetailer']}`")
-        embed.add_field(name="Use Tiled VAE", value=f"`{config['tiledvae']}`")
         embed.add_field(name="Max img2img size", value=f"`{config['max_img2img']}`²")
         embed.add_field(name="Blacklist regex", value=f"`{config['blacklist_regex']}`", inline=False)
 
