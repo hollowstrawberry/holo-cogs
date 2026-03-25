@@ -185,8 +185,9 @@ class AImage(AImageCommands):
             content = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
             log.exception("Queueing image")
             asyncio.create_task(send_response(context, content=content))
-        finally:
-            if callback:
+        else:
+            return
+        if callback:
                 await callback
 
 
