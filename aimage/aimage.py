@@ -9,10 +9,10 @@ from discord.ext import tasks
 from redbot.core import commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
-from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response, clean_tag, clean_model
+from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
-from aimage.constants import ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_PERIOD
+from aimage.constants import ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL
 from aimage.comfy import ComfyMetadataReader
 from aimage.views.image_actions import ImageActions
 from aimage.arcenciel_api import ArcEnCielAPI
@@ -51,7 +51,7 @@ class AImage(AImageCommands):
         log.info("Refreshed hourly quota")
 
 
-    @tasks.loop(seconds=1, reconnect=True)
+    @tasks.loop(seconds=PROGRESS_UPDATE_INTERVAL/2, reconnect=True)
     async def consume_queue(self):
         assert self.api
         if not self.queued_images:
@@ -95,7 +95,7 @@ class AImage(AImageCommands):
             progress_percent: int = job['progress']['percent']
             progress_eta: int | None = job['progress']['etaMs']
             log.info(f"{progress_phase} {progress_percent}% {progress_eta}ms")
-            if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
+            if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
             gen.last_updated = now
 
@@ -155,7 +155,7 @@ class AImage(AImageCommands):
         if isinstance(context, commands.Context):
             progress_message = await context.reply(embed=embed, mention_author=False)
             if not callback:
-                callback = progress_message.delete()
+                callback = self.delete_message(progress_message)
         else:
             await context.edit_original_response(embed=embed)
         try:
@@ -260,3 +260,8 @@ class AImage(AImageCommands):
             await send_response(context, content=content, ephemeral=True)
             return True
         return False
+
+
+    async def delete_message(self, message: discord.Message):
+        await asyncio.sleep(0.5)
+        await message.delete()
