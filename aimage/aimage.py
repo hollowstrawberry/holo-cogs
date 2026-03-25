@@ -115,17 +115,20 @@ class AImage(AImageConfig):
                 asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
                 
             elif job["status"] in ["queued", "running"]:
+                log.info(f"{job['progress']['phase']} {job['progress']['percent']} {job['progress']['etaMs']}")
                 if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
                     continue
                 if job["progress"]["etaMs"] / 1000 < PROGRESS_UPDATE_PERIOD:
                     continue
+
                 gen.last_updated = now
                 loading = await self.config.loading_emoji()
-                if job["status"] == "running":
-                    content = f"{loading} Generating image. Estimated progress: `{job['progress']['percent']}%`"
-                else:
+                if job["progress"]["phase"] == "queued":
                     estimate = now + timedelta(milliseconds=job["progress"]["etaMs"])
                     content = f"{loading} Image request in queue. Estimated arrival <t:{int(estimate.timestamp())}:R>"
+                else:
+                    content = f"{loading} Generating image. Estimated progress: `{job['progress']['percent']}%`"
+
                 if gen.last_content != content:
                     gen.last_content = content
                     embed = discord.Embed(description=content)
