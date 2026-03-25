@@ -302,7 +302,7 @@ class AImageSettings(AImageBase):
         await ctx.send(content, allowed_mentions=discord.AllowedMentions.none())
 
     @vip_cmd.command(name="role")
-    async def vip_role(self, ctx: commands.Context, role: discord.Role):
+    async def vip_role(self, ctx: commands.Context, *, role: discord.Role):
         """
         Sets a VIP role for this server
         """
@@ -311,7 +311,7 @@ class AImageSettings(AImageBase):
         await ctx.send(f"VIP role set to {role.mention}", allowed_mentions=discord.AllowedMentions.none())
 
     @vip_cmd.command(name="user")
-    async def vip_user(self, ctx: commands.Context, user: discord.User):
+    async def vip_user(self, ctx: commands.Context, *, user: discord.User):
         """
         Toggles whether a user is VIP
         """

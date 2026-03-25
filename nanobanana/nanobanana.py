@@ -205,7 +205,7 @@ class NanoBanana(commands.Cog):
 
     @command_roles.command(name="add")
     @commands.is_owner()
-    async def command_roles_add(self, ctx: commands.Context, role: discord.Role):
+    async def command_roles_add(self, ctx: commands.Context, *, role: discord.Role):
         """Add a role to the allowed list."""
         assert ctx.guild
         async with self.config.roles() as roles:
@@ -217,7 +217,7 @@ class NanoBanana(commands.Cog):
 
     @command_roles.command(name="remove")
     @commands.is_owner()
-    async def command_roles_remove(self, ctx: commands.Context, role: discord.Role):
+    async def command_roles_remove(self, ctx: commands.Context, *, role: discord.Role):
         """Remove a role from the allowed list."""
         assert ctx.guild
         async with self.config.roles() as roles:
@@ -244,7 +244,7 @@ class NanoBanana(commands.Cog):
 
     @command_users.command(name="add")
     @commands.is_owner()
-    async def command_users_add(self, ctx: commands.Context, user: discord.Member):
+    async def command_users_add(self, ctx: commands.Context, *, user: discord.Member):
         """Add a user to the allowed list."""
         assert ctx.guild
         async with self.config.users() as users:
@@ -256,7 +256,7 @@ class NanoBanana(commands.Cog):
 
     @command_users.command(name="remove")
     @commands.is_owner()
-    async def command_users_remove(self, ctx: commands.Context, user: discord.Member):
+    async def command_users_remove(self, ctx: commands.Context, *, user: discord.Member):
         """Remove a user from the allowed list."""
         assert ctx.guild
         async with self.config.users() as users:
