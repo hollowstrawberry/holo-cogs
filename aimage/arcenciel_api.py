@@ -127,7 +127,7 @@ class ArcEnCielAPI:
             "prompt": params.prompt,
             "negativePrompt": params.negative_prompt or await config.negative_prompt(),
             "modelName": checkpoint.replace(".safetensors", "") + ".safetensors",
-            "vaeName": vae.replace(".safetensors", "") + ".safetensors",
+            "vaeName": vae.replace(".safetensors", "") + ".safetensors" if vae else None,
             "seed": params.seed,
             "steps": params.steps or await config.sampling_steps(),
             "cfg": params.cfg or await config.cfg(),
