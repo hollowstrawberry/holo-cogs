@@ -20,24 +20,24 @@ class ComfyLora:
 
 @dataclass
 class ComfyMetadata:
-    is_comfy: bool = False
-    prompt: str | None = None
-    negative_prompt: str | None = None
-    seed: int | str | None = None
-    steps: int | None = None
-    cfg: float | None = None
-    checkpoint: str | None = None
-    vae: str | None = None
-    scheduler: str | None = None
-    sampler: str | None = None
-    extra_seed: int | None = None
+    is_comfy: bool                  = False
+    prompt: str | None              = None
+    negative_prompt: str | None     = None
+    seed: int | str | None          = None
+    steps: int | None               = None
+    cfg: float | None               = None
+    checkpoint: str | None          = None
+    vae: str | None                 = None
+    scheduler: str | None           = None
+    sampler: str | None             = None
+    extra_seed: int | None          = None
     extra_seed_strength: float | None = None
-    upscaler: str | None = None
-    denoise: float | None = None
-    adetailer_model: str | None = None
+    upscaler: str | None            = None
+    denoise: float | None           = None
+    adetailer_model: str | None     = None
     adetailer_denoise: float | None = None
-    loras: list[ComfyLora] = field(default_factory=list)
-    error: str | None = None
+    loras: list[ComfyLora]          = field(default_factory=list)
+    error: str | None               = None
 
     def as_dict(self) -> OrderedDict[str, Any]:
         output: dict[str, Any] = OrderedDict()

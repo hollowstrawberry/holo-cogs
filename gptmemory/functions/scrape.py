@@ -2,7 +2,7 @@ import re
 import logging
 import aiohttp
 import trafilatura
-from typing import Awaitable, Callable, Dict, OrderedDict
+from typing import Awaitable, Callable, OrderedDict
 
 from gptmemory.utils import format_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
@@ -34,7 +34,7 @@ class ScrapeFunctionCall(FunctionCallBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.custom_scrapers: Dict[re.Pattern, Callable[[re.Match], Awaitable[str]]] = OrderedDict({
+        self.custom_scrapers: dict[re.Pattern, Callable[[re.Match], Awaitable[str]]] = OrderedDict({
             GITHUB_FILE_URL_PATTERN: self.scrape_github_file,
             ARCENCIEL_MODEL_URL_PATTERN: self.scrape_arcenciel_model,
         })

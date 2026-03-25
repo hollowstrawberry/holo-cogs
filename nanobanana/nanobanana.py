@@ -2,7 +2,7 @@ import logging
 import discord
 from io import BytesIO
 from base64 import b64encode, b64decode
-from typing import Any, Awaitable, Callable, List, Optional, Union
+from typing import Any, Awaitable, Callable, Optional
 from redbot.core import commands, app_commands, Config
 from redbot.core.bot import Red
 
@@ -21,7 +21,7 @@ def make_image_content(image: bytes) -> dict:
 
 
 class RemixModal(discord.ui.Modal):
-    def __init__(self, generate: Callable[..., Awaitable[Any]], attachments: List[discord.Attachment]):
+    def __init__(self, generate: Callable[..., Awaitable[Any]], attachments: list[discord.Attachment]):
         super().__init__(title="Remix Image")
         self.generate = generate
         self.attachments = attachments
@@ -54,7 +54,7 @@ class NanoBanana(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
-        self.openrouter_client: Optional[AsyncOpenAI] = None
+        self.openrouter_client: AsyncOpenAI | None = None
         self.config = Config.get_conf(self, identifier=1947582011)
         self.config.register_global(**{
             "prompt": "Create an image following the user's prompt as closely as possible while also being creative.",
@@ -140,7 +140,7 @@ class NanoBanana(commands.Cog):
         await interaction.response.send_modal(RemixModal(self.generate_nanobanana, attachments[:3]))
 
 
-    async def generate_nanobanana(self, interaction: discord.Interaction, prompt: str, input_images: List[bytes]):
+    async def generate_nanobanana(self, interaction: discord.Interaction, prompt: str, input_images: list[bytes]):
         if not self.openrouter_client:
             await self.initialize_openrouter_client()
         if not self.openrouter_client:

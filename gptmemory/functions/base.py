@@ -1,17 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Type
 from dataclasses import asdict
 from discord.ext import commands
 
 from gptmemory.schema import ToolCall
-from gptmemory.config import GptMemoryConfig
+from gptmemory.settings import GptMemorySettings
 
 
 class FunctionCallBase(ABC):
     schema: ToolCall
-    apis: List[Tuple[str, str]] = []
+    apis: list[tuple[str, str]] = []  # [(service_name, key),]
 
-    def __init__(self, ctx: commands.Context, cog: GptMemoryConfig):
+    def __init__(self, ctx: commands.Context, cog: GptMemorySettings):
         self.ctx = ctx
         self.cog = cog
 
@@ -24,5 +23,5 @@ class FunctionCallBase(ABC):
         raise NotImplementedError
     
 
-def get_all_function_calls() -> List[Type[FunctionCallBase]]:
+def get_all_function_calls() -> list[type[FunctionCallBase]]:
     return FunctionCallBase.__subclasses__()

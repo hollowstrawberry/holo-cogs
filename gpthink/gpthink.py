@@ -1,7 +1,7 @@
 import re
 import discord
 import logging
-from typing import Optional, Dict
+from typing import Optional
 from datetime import datetime, timedelta
 from redbot.core import commands, app_commands, Config
 from redbot.core.bot import Red
@@ -135,9 +135,9 @@ class GptThink(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
-        self.client: Optional[AsyncOpenAI] = None
-        self.generating: Dict[int, bool] = {}
-        self.user_last_prompt: Dict[int, datetime] = {}
+        self.client: AsyncOpenAI | None = None
+        self.generating: dict[int, bool] = {}
+        self.user_last_prompt: dict[int, datetime] = {}
         self.config = Config.get_conf(self, identifier=646156651)
         defaults_global = {
             "vip": [],

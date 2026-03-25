@@ -1,4 +1,3 @@
-from typing import Dict, Optional
 from openai import AsyncOpenAI
 from redbot.core import commands, Config
 from redbot.core.bot import Red
@@ -7,16 +6,16 @@ import gptmemory.defaults as defaults
 from gptmemory.constants import DISCORD_EPOCH_DATETIME
 
 
-class GptMemoryConfig(commands.Cog):
+class GptMemorySettings(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
-        self.memory: Dict[int, Dict[str, str]] = {}
+        self.memory: dict[int, dict[str, str]] = {}  # {guild_id: {memory_name: memory_content}}
         self.extended_logging = True
         self.config = Config.get_conf(self, identifier=19475820)
         
-        self.openai_client: Optional[AsyncOpenAI] = None
-        self.openrouter_client: Optional[AsyncOpenAI] = None
+        self.openai_client: AsyncOpenAI | None = None
+        self.openrouter_client: AsyncOpenAI | None = None
         
         self.config.register_global(**{
             "extended_logging": True

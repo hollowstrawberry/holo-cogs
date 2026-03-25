@@ -2,7 +2,7 @@ import json
 import logging
 import itertools
 import aiofiles
-from typing import Any, Dict, List, Set
+from typing import Any
 from rapidfuzz import process, fuzz
 from redbot.core.data_manager import bundled_data_path
 
@@ -37,7 +37,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
         return tag
     
     @classmethod
-    def build_index(cls, data: Dict[str, Any]):
+    def build_index(cls, data: dict[str, Any]):
         cls.tag_groups = {}
         for _, group_content in data.items():
             for subgroup_name, subgroup_content in group_content.items():
@@ -51,10 +51,10 @@ class BooruTagsFunctionCall(FunctionCallBase):
         cls.all_tags = list(itertools.chain.from_iterable(cls.tag_groups.values()))                
         
     @classmethod
-    def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> List[str]:
+    def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> list[str]:
         query = cls.normalize(query)
 
-        matches: Set[str] = set()
+        matches: set[str] = set()
 
         for group, tags in cls.tag_groups.items():
             if query in group:

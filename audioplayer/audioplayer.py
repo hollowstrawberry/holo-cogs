@@ -57,7 +57,7 @@ class AudioPlayer(Cog):
     async def player_loop(self):
         if not self.channel:
             return
-        audio: Optional[Audio] = self.bot.get_cog("Audio") # type: ignore
+        audio: Audio | None = self.bot.get_cog("Audio") # type: ignore
         if not audio:
             return
         

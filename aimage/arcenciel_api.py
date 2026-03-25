@@ -1,7 +1,6 @@
 import json
 import aiohttp
 import discord
-from typing import List, Union
 from redbot.core import commands
 
 from aimage.base import AImageBase
@@ -30,7 +29,7 @@ class ArcEnCielAPI:
             self.cog.autocomplete_cache[key] = {name: name for name in data.get("limits", {}).get(key, [])}
 
     async def request_image(self,
-                            context: Union[commands.Context, discord.Interaction],
+                            context: commands.Context | discord.Interaction,
                             payload: dict,
                             ) -> dict:
         member = context.user if isinstance(context, discord.Interaction) else context.author
@@ -48,7 +47,7 @@ class ArcEnCielAPI:
         async with self.session.delete(url, headers=self.headers) as response:
             response.raise_for_status()
 
-    async def fetch_queue(self) -> List[dict]:
+    async def fetch_queue(self) -> list[dict]:
         url = self.endpoint + "/generator/jobs"
         async with self.session.get(url, headers=self.headers) as response:
             if response.status >= 400:
@@ -56,7 +55,7 @@ class ArcEnCielAPI:
             r = await response.json()
         return r["jobs"]
 
-    async def search_loras(self, query: str) -> List[str]:
+    async def search_loras(self, query: str) -> list[str]:
         url = self.endpoint + "/generator/models/loras"
         params = {
             "q": query,
@@ -87,7 +86,7 @@ class ArcEnCielAPI:
             r = await response.json()
         return r["path"]
     
-    async def interrogate(self, image: bytes, filename: str) -> List[str]:
+    async def interrogate(self, image: bytes, filename: str) -> list[str]:
         url = self.endpoint + "/generator/autotag/interrogate"
         data = aiohttp.FormData()
         data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")

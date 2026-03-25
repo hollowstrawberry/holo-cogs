@@ -32,7 +32,7 @@ class GptWelcome(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
-        self.openai_client: Optional[AsyncOpenAI] = None
+        self.openai_client: AsyncOpenAI | None = None
         self.config = Config.get_conf(self, identifier=1947582011)
         self.config.register_guild(**{
             "enabled": False,

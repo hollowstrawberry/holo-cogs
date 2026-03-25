@@ -5,7 +5,6 @@ from io import BytesIO
 from re import Match
 from copy import deepcopy
 from base64 import b64encode
-from typing import Optional, List
 from PIL import Image, UnidentifiedImageError
 
 from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
@@ -30,7 +29,7 @@ def make_image_content(fp: BytesIO) -> dict:
         }
     }
 
-def process_image(buffer: BytesIO, size: int) -> Optional[BytesIO]:
+def process_image(buffer: BytesIO, size: int) -> BytesIO | None:
     try:
         image = Image.open(buffer)
     except UnidentifiedImageError:
@@ -46,7 +45,7 @@ def process_image(buffer: BytesIO, size: int) -> Optional[BytesIO]:
     fp.seek(0)
     return fp
 
-def get_text_contents(messages: List[dict]):
+def get_text_contents(messages: list[dict]):
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.

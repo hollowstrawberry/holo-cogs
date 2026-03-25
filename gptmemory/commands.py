@@ -1,14 +1,14 @@
 import discord
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 from difflib import get_close_matches
 from redbot.core import commands
 
-from gptmemory.config import GptMemoryConfig
+from gptmemory.settings import GptMemorySettings
 from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.functions.base import get_all_function_calls
 
 
-class GptMemoryCommands(GptMemoryConfig):
+class GptMemoryCommands(GptMemorySettings):
 
     @commands.command(name="forget")
     async def command_forget(self, ctx: commands.Context):
@@ -179,7 +179,7 @@ class GptMemoryCommands(GptMemoryConfig):
         pass
 
     PromptTypes = Literal["recaller", "responder", "memorizer"]
-    AllPromptTypes = Union[PromptTypes, Literal["autoresponder"]]
+    AllPromptTypes = PromptTypes | Literal["autoresponder"]
 
     @memoryconfig.command("model")
     @commands.is_owner()

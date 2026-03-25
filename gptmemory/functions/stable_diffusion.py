@@ -2,7 +2,7 @@
 import logging
 import asyncio
 import discord
-from typing import Any, Optional, Tuple
+from typing import Any
 from redbot.core import commands
 
 from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams
@@ -39,7 +39,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 required=["prompt"],
             )))
 
-    async def find_attachment(self, filename: str) -> Tuple[bool, Optional[discord.Message]]:
+    async def find_attachment(self, filename: str) -> tuple[bool, (discord.Message | None)]:
         assert self.ctx.guild
         limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
         messages = [message async for message in self.ctx.channel.history(limit=limit)]
@@ -67,10 +67,10 @@ class StableDiffusionFunctionCall(FunctionCallBase):
 
         if not prompt:
             return "[No prompt provided]"
-        aimage: Optional[commands.Cog] = self.ctx.bot.get_cog("AImage")
+        aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
         if not aimage:
             return "[`aimage` cog not installed, please notify the bot owner]"
-        imagescanner: Optional[commands.Cog] = self.ctx.bot.get_cog("ImageScanner")
+        imagescanner: commands.Cog | None = self.ctx.bot.get_cog("ImageScanner")
         if not imagescanner:
             return "[`imagescanner` cog not installed, please notify the bot owner]"
         

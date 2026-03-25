@@ -3,7 +3,6 @@ import logging
 import discord
 import lavalink
 from copy import copy
-from typing import Optional
 from datetime import datetime
 from discord.ui import View
 from redbot.core import commands
@@ -19,7 +18,7 @@ class AudioPlayerView(View):
     def __init__(self, cog):
         super().__init__(timeout=None)
         self.cog = cog
-        self.message: Optional[discord.Message] = None
+        self.message: discord.Message | None = None
 
     def set_paused(self, paused: bool):
         self.pause.emoji = "▶️" if paused else "⏸️"

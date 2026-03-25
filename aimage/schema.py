@@ -1,6 +1,6 @@
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Coroutine, Optional
+from typing import Coroutine
 
 import discord
 from discord.ext import commands
@@ -13,33 +13,33 @@ class QueuedImageGen:
     user: discord.Member
     channel: discord.abc.Messageable
     context: commands.Context | discord.Interaction
-    callback: Optional[Coroutine]
-    message_content: Optional[str]
+    callback: Coroutine | None
+    message_content: str | None
     last_updated: datetime
     last_content: str = ""
-    progress_message: Optional[discord.Message] = None
+    progress_message: discord.Message | None = None
 
 @dataclass
 class ImageGenParams:
     prompt: str
-    negative_prompt: Optional[str] = None
-    style: Optional[str] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
-    cfg: Optional[float] = None
-    sampler: Optional[str] = None
-    scheduler: Optional[str] = None
-    steps: Optional[int] = None
-    seed: int = -1
-    variation: int = 0
-    variation_seed: int = -1
-    checkpoint: Optional[str] = None
-    vae: Optional[str] = None
-    lora: str = ""
-    subseed: int = -1
-    subseed_strength: float = 0.0
+    negative_prompt: str | None = None
+    style: str | None           = None
+    width: int | None           = None
+    height: int | None          = None
+    cfg: float | None           = None
+    sampler: str | None         = None
+    scheduler: str | None       = None
+    steps: int | None           = None
+    seed: int                   = -1
+    variation: int              = 0
+    variation_seed: int         = -1
+    checkpoint: str | None      = None
+    vae: str | None             = None
+    lora: str                   = ""
+    subseed: int                = -1
+    subseed_strength: float     = 0.0
     # img2img
-    image: bytes = field(default_factory=bytes)
-    image_filename: Optional[str] = None
-    denoising: Optional[float] = None
-    scale: Optional[float] = None
+    image: bytes                = field(default_factory=bytes)
+    image_filename: str | None  = None
+    denoising: float | None     = None
+    scale: float | None         = None

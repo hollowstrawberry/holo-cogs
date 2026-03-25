@@ -8,7 +8,7 @@ from aimage.base import AImageBase
 log = logging.getLogger("red.bz_cogs.aimage")
 
 
-class AImageConfig(AImageBase):
+class AImageSettings(AImageBase):
 
     @commands.command(name="ckpt") # type: ignore
     async def member_checkpoint(self, ctx: commands.Context, *, checkpoint: Optional[str]):

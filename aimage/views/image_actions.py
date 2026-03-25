@@ -1,6 +1,5 @@
 import logging
 import discord
-from typing import Optional
 from redbot.core.bot import Red
 
 from aimage.base import AImageBase
@@ -92,7 +91,7 @@ class ImageActions(discord.ui.View):
         self.stop()
 
 
-    async def get_params_embed(self) -> Optional[discord.Embed]:
+    async def get_params_embed(self) -> discord.Embed | None:
         params = self.metadata.as_dict()
         if not params:
             return None

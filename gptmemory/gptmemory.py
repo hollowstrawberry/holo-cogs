@@ -7,7 +7,7 @@ from io import BytesIO
 from random import random
 from datetime import datetime, timezone
 from difflib import get_close_matches
-from typing import Optional, Union, List, Dict, Any
+from typing import Any
 from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
@@ -25,8 +25,8 @@ from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
 
-GptImageContent = List[Dict[str, str]]
-GptMessage = Dict[str, Union[str, GptImageContent]]
+GptImageContent = list[dict[str, str]]
+GptMessage = dict[str, (str | GptImageContent)]
 
 
 @dataclass
@@ -46,7 +46,7 @@ class GptMemory(GptMemoryCommands):
 
     def __init__(self, bot: Red):
         super().__init__(bot)
-        self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
+        self.image_cache: dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
         self.available_function_calls = set(get_all_function_calls())
         all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
         log.info(f"{all_function_names=}")
@@ -111,7 +111,7 @@ class GptMemory(GptMemoryCommands):
         if not await self.is_valid_trigger(ctx):
             return
 
-        assert ctx.guild and isinstance(ctx.channel, Union[discord.TextChannel, discord.Thread])
+        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
 
         if self.bot.user not in ctx.message.mentions:
             autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
@@ -198,10 +198,10 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_recaller(self,
                                ctx: commands.Context,
-                               messages: List[GptMessage],
-                               memories: List[str],
+                               messages: list[GptMessage],
+                               memories: list[str],
                                result: GptMemoryResult
-                               ) -> Dict[str, str]:
+                               ) -> dict[str, str]:
         """
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a dictionary of memories and their contents as chosen by the LLM.
@@ -247,9 +247,9 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_responder_and_memorizer(self,
                                               ctx: commands.Context,
-                                              messages: List[GptMessage],
-                                              memories: List[str],
-                                              recalled_memories: Dict[str, str],
+                                              messages: list[GptMessage],
+                                              memories: list[str],
+                                              recalled_memories: dict[str, str],
                                               result: GptMemoryResult
                                               ) -> None:
         task_results = await asyncio.gather(
@@ -264,8 +264,8 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_responder(self,
                                 ctx: commands.Context,
-                                messages: List[GptMessage],
-                                recalled_memories: Dict[str, str],
+                                messages: list[GptMessage],
+                                recalled_memories: dict[str, str],
                                 result: GptMemoryResult,
                                 auto: bool = False,
                                 ) -> GptMessage:
@@ -388,9 +388,9 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_memorizer(self,
                                 ctx: commands.Context,
-                                messages: List[GptMessage],
-                                memories: List[str],
-                                recalled_memories: Dict[str, str],
+                                messages: list[GptMessage],
+                                memories: list[str],
+                                recalled_memories: dict[str, str],
                                 result: GptMemoryResult
                                 ) -> None:
         """
@@ -470,7 +470,7 @@ class GptMemory(GptMemoryCommands):
             await ctx.send(f"-# Revised memories: {', '.join(memory_changes)}")
 
 
-    async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> List[GptMessage]:
+    async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> list[GptMessage]:
         assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         limit = await self.config.guild(ctx.guild).backread_messages()
         after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
@@ -539,8 +539,8 @@ class GptMemory(GptMemoryCommands):
 
     async def extract_images(self,
                              message: discord.Message,
-                             quote: Optional[discord.Message],
-                             processed_sources: List[Union[str, discord.Attachment]],
+                             quote: discord.Message | None,
+                             processed_sources: list[str | discord.Attachment],
                              max_images: int,
                              max_image_size: int,
                             ) -> GptImageContent:
@@ -561,7 +561,7 @@ class GptMemory(GptMemoryCommands):
                 processed_sources.append(image)
                 
                 fp_before = BytesIO()
-                imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
+                imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
                 if imagescanner and message.id in imagescanner.image_cache: # type: ignore
                     _, image_bytes = self.image_cache.get(message.id, ({}, {}))
                     if i in image_bytes:
@@ -629,8 +629,8 @@ class GptMemory(GptMemoryCommands):
 
     async def parse_discord_message(self,
                                     message: discord.Message,
-                                    quote: Optional[discord.Message],
-                                    backread: List[discord.Message],
+                                    quote:  discord.Message | None,
+                                    backread: list[discord.Message],
                                     recursive: bool,
                                     max_quote_length: int,
                                     max_file_length: int,
@@ -652,7 +652,7 @@ class GptMemory(GptMemoryCommands):
 
         is_generated_image = False
         if message.attachments and len(message.attachments) == 1:
-            imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
+            imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
             metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
             if metadata and metadata.get("Prompt", None):
                 is_generated_image = True
@@ -749,7 +749,7 @@ class GptMemory(GptMemoryCommands):
                 await ctx.message.add_reaction("❌")
             return
         
-        aimage: Optional[commands.Cog] = ctx.bot.get_cog("AImage")
+        aimage: commands.Cog | None = ctx.bot.get_cog("AImage")
         if not aimage:
             await ctx.message.add_reaction("❌")
             return

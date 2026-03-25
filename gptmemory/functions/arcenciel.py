@@ -1,6 +1,5 @@
 import logging
 import aiohttp
-from typing import Optional
 
 from gptmemory.utils import format_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
@@ -35,7 +34,7 @@ class ArcencielFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> str:
         query = arguments.get("query", "")
         user = arguments.get("user", None)
-        found_user: Optional[int] = None
+        found_user: int | None = None
 
         if user:
             params = {"q": user}
