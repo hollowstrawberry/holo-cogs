@@ -120,13 +120,13 @@ class AImage(AImageConfig):
                 if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
                     continue
                 gen.last_updated = now
-                loading = await self.config.loading_emoji()
+                content = await self.config.loading_emoji()
                 if job["progress"]["phase"] == "queued":
-                    content = f"{loading} Image request in queue"
+                    content += f" Image request in queue"
                 elif job["progress"]["phase"] == "upscaling":
-                    content = f"{loading} Upscaling image"
+                    content += f" Upscaling image"
                 else:
-                    content = f"{loading} Generating image"
+                    content += f" Generating image"
                 content += f". Estimated progress: `{job['progress']['percent']}%`"
                 if job["progress"]["etaMs"]:
                     estimate = now + timedelta(milliseconds=job["progress"]["etaMs"])
