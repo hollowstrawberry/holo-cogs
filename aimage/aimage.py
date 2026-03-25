@@ -15,7 +15,7 @@ from redbot.core import app_commands, checks, commands
 
 from aimage.arcenciel_api import ArcEnCielAPI
 from aimage.comfy import ComfyMetadataReader
-from aimage.constants import ENDPOINT, EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
+from aimage.constants import ENDPOINT, EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, PROGRESS_UPDATE_PERIOD
 from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response, clean_tag, clean_model
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.config import AImageConfig
@@ -92,16 +92,25 @@ class AImage(AImageConfig):
             return
         jobs = await self.api.fetch_queue()
         for job in jobs:
-            if job["id"] in self.queued_images and job["status"] in ["completed", "failed"]:
+            if job["id"] in self.queued_images:
                 gen = self.queued_images[job["id"]]
-                del self.queued_images[job["id"]]
-                nsfw = list(job["safety"]["outputs"].values())[0]["rating"] in ["sensitive", "explicit"]
-                success = job["status"] == "completed"
-                error_message = None
-                if not success:
-                    error_message = f"`Reason: {job['safety']['reason'] or 'none'}`" f"`Error: {job['safety']['error'] or 'none'}`"
-                asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
-
+                if job["status"] in ["completed", "failed"]:
+                    del self.queued_images[job["id"]]
+                    nsfw = list(job["safety"]["outputs"].values())[0]["rating"] in ["sensitive", "explicit"]
+                    error_message = None
+                    if job["status"] == "failed":
+                        error_message = f"`Reason: {job['safety']['reason'] or 'none'}`" f"`Error: {job['safety']['error'] or 'none'}`"
+                    asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
+                elif job["status"] in ["queued", "running"] and isinstance(gen.context, discord.Interaction):
+                    now = datetime.now(timezone.utc)
+                    if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
+                        continue
+                    gen.last_updated = now
+                    percent = job.get("progress", dict).get("percent")
+                    eta = job.get("progress", dict).get("etaMs")
+                    content = f"{percent=} {eta=}"
+                    log.info(content)
+                    asyncio.create_task(gen.context.edit_original_response(content=content))
 
     async def generate_image(self,
                              context: Union[commands.Context, discord.Interaction],
@@ -150,7 +159,16 @@ class AImage(AImageConfig):
                 path = await self.api.upload_image(params.image, params.image_filename or "image.png")
                 payload["imagePath"] = path
             job = await self.api.request_image(context, payload)
-            self.queued_images[job["id"]] = QueuedImageGen(job["id"], payload, user, channel, context, callback, message_content)
+            self.queued_images[job["id"]] = QueuedImageGen(
+                job["id"],
+                payload,
+                user,
+                channel,
+                context,
+                callback,
+                message_content,
+                datetime.now(timezone.utc)
+            )
         except ImageGenError as error:
             content = f":warning: The image couldn't be generated. ({error})"
             asyncio.create_task(send_response(context, content=content))

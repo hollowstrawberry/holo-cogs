@@ -14,7 +14,10 @@ class ImageGenError(ValueError):
 
 async def send_response(context: commands.Context | discord.Interaction, **kwargs) -> discord.Message:
     if isinstance(context, discord.Interaction):
-        return await context.followup.send(**kwargs)
+        if context.response.is_done():
+            return await context.edit_original_response(**kwargs)
+        else:
+            return await context.followup.send(**kwargs)
     else:
         msg = await context.send(**kwargs)
         asyncio.create_task(context.message.remove_reaction("⏳", context.bot.user))

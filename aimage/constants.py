@@ -4,6 +4,8 @@ ENDPOINT = "https://arcenciel.io/api"
 
 VIEW_TIMEOUT = 15 * 60
 
+PROGRESS_UPDATE_PERIOD = 2
+
 SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg"]
 
 LORA_REGEX = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
