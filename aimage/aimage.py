@@ -100,6 +100,7 @@ class AImage(AImageConfig):
             gen = self.queued_images[job["id"]]
             now = datetime.now(timezone.utc)
             created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
+            assert isinstance(gen.context.channel, discord.abc.Messageable)
 
             if (now - created).total_seconds() > JOB_TIMEOUT:
                 del self.queued_images[job["id"]]
@@ -121,16 +122,18 @@ class AImage(AImageConfig):
                 gen.last_updated = now
                 loading = await self.config.loading_emoji()
                 if job["status"] == "running":
-                    content = f"{loading} Generating. Estimated progress: `{job['progress']['percent']}%`"
+                    content = f"{loading} Generating image. Estimated progress: `{job['progress']['percent']}%`"
                 else:
                     estimate = now + timedelta(milliseconds=job["progress"]["etaMs"])
-                    content = f"{loading} Request in queue. Estimated arrival <t:{int(estimate.timestamp())}:R>"
+                    content = f"{loading} Image request in queue. Estimated arrival <t:{int(estimate.timestamp())}:R>"
                 if gen.last_content != content:
                     gen.last_content = content
+                    embed = discord.Embed(description=content)
+                    embed.color = await self.bot.get_embed_color(gen.context.channel)
                     if isinstance(gen.context, discord.Interaction):
-                        asyncio.create_task(gen.context.edit_original_response(content=content))
+                        asyncio.create_task(gen.context.edit_original_response(embed=embed))
                     elif gen.progress_message:
-                        asyncio.create_task(gen.progress_message.edit(content=content))
+                        asyncio.create_task(gen.progress_message.edit(embed=embed))
 
 
     async def generate_image(self,
@@ -175,11 +178,13 @@ class AImage(AImageConfig):
         current_content = ""
         progress_message = None
         loading = await self.config.loading_emoji()
-        current_content = f"{loading} Request received. Please wait..."
+        current_content = f"{loading} Image equest received. Please wait..."
+        embed = discord.Embed(description=current_content)
+        embed.color = await self.bot.get_embed_color(channel)
         if isinstance(context, commands.Context):
-            progress_message = await context.reply(current_content, mention_author=False)
+            progress_message = await context.reply(embed=embed, mention_author=False)
         else:
-            await context.edit_original_response(content=current_content)
+            await context.edit_original_response(embed=embed)
 
         try:
             if params and params.image:

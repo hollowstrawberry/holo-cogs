@@ -18,6 +18,8 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
             if "file" in kwargs:
                 kwargs["attachments"] = [kwargs["file"]]
                 del kwargs["file"]
+            if "embed" not in kwargs:
+                kwargs["embed"] = None
             return await context.edit_original_response(**kwargs)
         else:
             return await context.followup.send(**kwargs)
