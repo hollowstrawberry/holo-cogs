@@ -15,6 +15,9 @@ class ImageGenError(ValueError):
 async def send_response(context: commands.Context | discord.Interaction, **kwargs) -> discord.Message:
     if isinstance(context, discord.Interaction):
         if context.response.is_done():
+            if "file" in kwargs:
+                kwargs["attachments"] = [kwargs["file"]]
+                del kwargs["file"]
             return await context.edit_original_response(**kwargs)
         else:
             return await context.followup.send(**kwargs)
