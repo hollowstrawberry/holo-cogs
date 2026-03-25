@@ -74,7 +74,6 @@ class AImage(AImageCommands):
         assert isinstance(gen.context.channel, discord.abc.Messageable)
         now = datetime.now(timezone.utc)
         created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
-        log.info(f"job {gen.id} is running")
 
         if (now - created).total_seconds() > JOB_TIMEOUT:
             del self.queued_images[gen.id]
@@ -93,14 +92,15 @@ class AImage(AImageCommands):
             progress_phase: str = job['progress']['phase']
             progress_percent: int = job['progress']['percent']
             progress_eta: int | None = job['progress']['etaMs']
-            log.info(f"{progress_phase} {progress_percent}% {progress_eta}ms")
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
-            if gen.last_progress == progress_percent:
+            removed_eta = progress_eta == None and gen.last_eta != None
+            if not removed_eta and gen.last_percent == progress_percent:
                 return
-            gen.last_updated = now          
-            gen.last_progress = progress_percent
-            log.info(f"Updating job {gen.id}")
+            gen.last_updated = now  
+            gen.last_percent = progress_percent
+            gen.last_eta = progress_eta
+            log.info(f"Updating job {gen.id} with ({progress_phase}, {progress_percent}%, {progress_eta}ms)")
             
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
             embed.description = f"### {await self.config.loading_emoji()} "
@@ -111,10 +111,12 @@ class AImage(AImageCommands):
             else:
                 embed.description += f"Generating image..."
             if progress_percent > 0:
-                embed.add_field(name="Progress", value=f"{progress_percent}%")
+                embed.add_field(name="Progress", value=f"`{progress_percent}%`")
             if progress_eta and progress_eta > 1000:
                 estimate = now + timedelta(milliseconds=progress_eta)
                 embed.add_field(name="ETA", value=f"<t:{int(estimate.timestamp())}:R>")
+            else:
+                embed.add_field(name="ETA", value="`soon`")
 
             if isinstance(gen.context, discord.Interaction):
                 await gen.context.edit_original_response(embed=embed)
