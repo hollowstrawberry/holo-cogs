@@ -51,7 +51,7 @@ class AImage(AImageCommands):
         log.info("Refreshed hourly quota")
 
 
-    @tasks.loop(seconds=PROGRESS_UPDATE_INTERVAL/2, reconnect=True)
+    @tasks.loop(seconds=1, reconnect=True)
     async def consume_queue(self):
         assert self.api
         if not self.queued_images:
@@ -94,7 +94,8 @@ class AImage(AImageCommands):
             progress_eta: int | None = job['progress']['etaMs']
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
-            if gen.last_eta == progress_eta and gen.last_percent == progress_percent:
+            same_eta = gen.last_eta == progress_eta or progress_eta is not None and gen.last_eta is not None and abs(gen.last_eta - progress_eta) >= 1000
+            if not same_eta and gen.last_percent == progress_percent:
                 return
             gen.last_updated = now  
             gen.last_percent = progress_percent
