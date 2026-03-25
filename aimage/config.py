@@ -39,7 +39,7 @@ class AImageConfig(AImageBase):
         pass
 
     @aimage.command(name="enable")
-    async def aimage_enable(self, ctx: commands.Context):
+    async def enable_cmd(self, ctx: commands.Context):
         """
         Enables the generator on this server
         """
@@ -48,7 +48,7 @@ class AImageConfig(AImageBase):
         await ctx.tick()
 
     @aimage.command(name="disable")
-    async def aimage_disable(self, ctx: commands.Context):
+    async def disable_cmd(self, ctx: commands.Context):
         """
         Disables the generator on this server
         """
@@ -86,7 +86,7 @@ class AImageConfig(AImageBase):
         return await ctx.send(embed=embed)
 
     @aimage.command(name="nsfw")
-    async def nsfw(self, ctx: commands.Context):
+    async def nsfw_cmd(self, ctx: commands.Context):
         """
         Toggles filtering of NSFW images (A1111 only)
         """
@@ -103,7 +103,7 @@ class AImageConfig(AImageBase):
         await ctx.send(f"NSFW filtering is now {'`disabled`' if not nsfw else '`enabled`'}")
 
     @aimage.command(name="negative_prompt")
-    async def negative_prompt(self, ctx: commands.Context, *, negative_prompt: Optional[str]):
+    async def negative_prompt_cmd(self, ctx: commands.Context, *, negative_prompt: Optional[str]):
         """
         Set the default negative prompt
         """
@@ -114,7 +114,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default negative prompt updated.")
 
     @aimage.command(name="cfg")
-    async def cfg(self, ctx: commands.Context, cfg: int):
+    async def cfg_cmd(self, ctx: commands.Context, cfg: int):
         """
         Set the default cfg
         """
@@ -123,7 +123,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default CFG updated.")
 
     @aimage.command(name="steps")
-    async def sampling_steps(self, ctx: commands.Context, sampling_steps: int):
+    async def sampling_steps_cmd(self, ctx: commands.Context, sampling_steps: int):
         """
         Set the default sampling steps
         """
@@ -132,7 +132,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default sampling steps updated.")
 
     @aimage.command(name="sampler")
-    async def sampler(self, ctx: commands.Context, *, sampler: str):
+    async def sampler_cmd(self, ctx: commands.Context, *, sampler: str):
         """
         Set the default sampler
         """
@@ -146,7 +146,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default sampler updated.")
 
     @aimage.command(name="scheduler")
-    async def scheduler(self, ctx: commands.Context, *, scheduler: str):
+    async def scheduler_cmd(self, ctx: commands.Context, *, scheduler: str):
         """
         Set the default scheduler
         """
@@ -160,7 +160,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default scheduler updated.")
 
     @aimage.command(name="width")
-    async def width(self, ctx: commands.Context, width: int):
+    async def width_cmd(self, ctx: commands.Context, width: int):
         """
         Set the default width
         """
@@ -171,7 +171,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default width updated.")
 
     @aimage.command(name="height")
-    async def height(self, ctx: commands.Context, height: int):
+    async def height_cmd(self, ctx: commands.Context, height: int):
         """
         Set the default height
         """
@@ -182,7 +182,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default height updated.")
 
     @aimage.command(name="max_img2img")
-    async def max_img2img(self, ctx: commands.Context, resolution: int):
+    async def max_img2img_cmd(self, ctx: commands.Context, resolution: int):
         """
         Set the maximum size (in pixels squared) of img2img and hires upscale.
         Used to prevent out of memory errors. Default is 1536.
@@ -194,7 +194,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Maximum img2img size updated.")
 
     @aimage.command(name="checkpoint", aliases=["model"])
-    async def checkpoint(self, ctx: commands.Context, *, checkpoint: str):
+    async def checkpoint_cmd(self, ctx: commands.Context, *, checkpoint: str):
         """
         Set the default checkpoint / model used for generating images.
         """
@@ -208,7 +208,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default checkpoint updated.")
 
     @aimage.command(name="vae")
-    async def vae(self, ctx: commands.Context, *, vae: str):
+    async def vae_cmd(self, ctx: commands.Context, *, vae: str):
         """
         Set the default vae used for generating images.
         """
@@ -222,7 +222,7 @@ class AImageConfig(AImageBase):
         await ctx.tick(message="✅ Default VAE updated.")
 
     @aimage.command(name="adetailer")
-    async def adetailer(self, ctx: commands.Context):
+    async def adetailer_cmd(self, ctx: commands.Context):
         """
         Whether to use face adetailer, which improves quality.
         """
@@ -233,11 +233,10 @@ class AImageConfig(AImageBase):
 
     @aimage.command(name="blacklist")
     @commands.is_owner()
-    async def blacklist_regex(self, ctx: commands.Context, *, regex: Optional[str]):
+    async def blacklist_cmd(self, ctx: commands.Context, *, regex: Optional[str]):
         """
         Sets a blacklist regex for prompts
         """
-        assert ctx.guild
         if not regex or not regex.strip():
             regex = await self.config.blacklist_regex()
             if not regex:
@@ -248,10 +247,19 @@ class AImageConfig(AImageBase):
             await self.config.blacklist_regex.set(regex.strip())
             await ctx.send(f"Set regex\n```re\n{regex.strip()}```")
 
+    @aimage.command(name="loading_emoji")
+    @commands.is_owner()
+    async def loading_emoji_cmd(self, ctx: commands.Context, emoji: str):
+        """
+        Sets a loading emoji for the progress message
+        """
+        await self.config.loading_emoji.set(emoji)
+        await ctx.tick()
+
     @aimage.command()
     @checks.is_owner()
     @checks.bot_in_a_guild()
-    async def sync(self, ctx: commands.Context):
+    async def sync_cmd(self, ctx: commands.Context):
         """
         Updates the autocomplete cache
         """
@@ -264,13 +272,13 @@ class AImageConfig(AImageBase):
     @aimage.group()
     @checks.is_owner()
     @checks.bot_in_a_guild()
-    async def vip(self, _: commands.Context):
+    async def vip_cmd(self, _: commands.Context):
         """
         Manage the VIP role for image generation, which can generate as many images at the same time as they want.
         """
         pass
 
-    @vip.command(name="quota")
+    @vip_cmd.command(name="quota")
     async def vip_quota(self, ctx: commands.Context, gens: int):
         """
         Sets the number of gens a user can do per hour
@@ -280,7 +288,7 @@ class AImageConfig(AImageBase):
         await self.config.quota.set(gens)
         await ctx.send(f"Hourly quota set to {gens}")
 
-    @vip.command(name="view")
+    @vip_cmd.command(name="view")
     async def vip_view(self, ctx: commands.Context):
         """
         View the VIP role
@@ -293,7 +301,7 @@ class AImageConfig(AImageBase):
         content += "\n`VIP users globally:` " + (" ".join(users) if users else "*none*")
         await ctx.send(content, allowed_mentions=discord.AllowedMentions.none())
 
-    @vip.command(name="role")
+    @vip_cmd.command(name="role")
     async def vip_role(self, ctx: commands.Context, role: discord.Role):
         """
         Sets a VIP role for this server
@@ -302,7 +310,7 @@ class AImageConfig(AImageBase):
         await self.config.guild(ctx.guild).vip_role.set(role.id)
         await ctx.send(f"VIP role set to {role.mention}", allowed_mentions=discord.AllowedMentions.none())
 
-    @vip.command(name="user")
+    @vip_cmd.command(name="user")
     async def vip_user(self, ctx: commands.Context, user: discord.User):
         """
         Toggles whether a user is VIP

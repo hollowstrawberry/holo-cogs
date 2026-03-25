@@ -6,7 +6,7 @@ import discord
 from io import BytesIO
 from copy import copy
 from typing import Coroutine, List, Optional, Union
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from rapidfuzz import fuzz
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
@@ -34,6 +34,7 @@ class AImage(AImageConfig):
         default_global = {
             "nsfw": True,
             "quota": 5,
+            "loading_emoji": "⏳",
             "blacklist_regex": "",
             "negative_prompt": "worst quality, low quality",
             "cfg": 5,
@@ -79,11 +80,13 @@ class AImage(AImageConfig):
         assert self.api
         return await self.api.update_autocomplete_cache()
 
+
     @tasks.loop(hours=1)
     async def clear_quota(self):
         self.gen_count.clear()
         self.last_quota_refresh = datetime.now(timezone.utc)
         log.info("Refreshed hourly quota")
+
 
     @tasks.loop(seconds=1, reconnect=True)
     async def consume_queue(self):
@@ -97,9 +100,11 @@ class AImage(AImageConfig):
             gen = self.queued_images[job["id"]]
             now = datetime.now(timezone.utc)
             created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
+
             if (now - created).total_seconds() > JOB_TIMEOUT:
                 del self.queued_images[job["id"]]
                 asyncio.create_task(self.finalize_image_generation(gen, False, "Timed out."))
+
             elif job["status"] in ["completed", "failed"]:
                 del self.queued_images[job["id"]]
                 nsfw = list(job["safety"]["outputs"].values())[0]["rating"] in ["sensitive", "explicit"]
@@ -107,15 +112,26 @@ class AImage(AImageConfig):
                 if job["status"] == "failed":
                     error_message = f"`Reason: {job['safety']['reason'] or 'none'}`" f"`Error: {job['safety']['error'] or 'none'}`"
                 asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
-            elif job["status"] in ["queued", "running"] and isinstance(gen.context, discord.Interaction):
+                
+            elif job["status"] in ["queued", "running"]:
                 if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
                     continue
+                if job["progress"]["etaMs"] / 1000 < PROGRESS_UPDATE_PERIOD:
+                    continue
                 gen.last_updated = now
-                percent = job.get("progress", {}).get("percent")
-                eta = job.get("progress", {}).get("etaMs")
-                content = f"{percent=} {eta=}"
-                log.info(content)
-                asyncio.create_task(gen.context.edit_original_response(content=content))
+                loading = await self.config.loading_emoji()
+                if job["status"] == "running":
+                    content = f"{loading} Generating. Estimated progress: `{job['progress']['percent']}%`"
+                else:
+                    estimate = now + timedelta(milliseconds=job["progress"]["etaMs"])
+                    content = f"{loading} Request in queue. Estimated arrival <t:{int(estimate.timestamp())}:R>"
+                if gen.last_content != content:
+                    gen.last_content = content
+                    if isinstance(gen.context, discord.Interaction):
+                        asyncio.create_task(gen.context.edit_original_response(content=content))
+                    elif gen.progress_message:
+                        asyncio.create_task(gen.progress_message.edit(content=content))
+
 
     async def generate_image(self,
                              context: Union[commands.Context, discord.Interaction],
@@ -156,13 +172,21 @@ class AImage(AImageConfig):
         if await self.contains_blacklisted_word(prompt):
             return await send_response(context, content=":warning: Blocked prompt.")
 
+        current_content = ""
+        progress_message = None
+        loading = await self.config.loading_emoji()
+        current_content = f"{loading} Request received. Please wait..."
         if isinstance(context, commands.Context):
-            await context.message.add_reaction("⏳")
+            progress_message = await context.reply(current_content, mention_author=False)
+        else:
+            await context.edit_original_response(content=current_content)
 
         try:
             if params and params.image:
                 path = await self.api.upload_image(params.image, params.image_filename or "image.png")
                 payload["imagePath"] = path
+            if not callback and progress_message:
+                callback = progress_message.delete()
             job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(
                 job["id"],
@@ -172,19 +196,21 @@ class AImage(AImageConfig):
                 context,
                 callback,
                 message_content,
-                datetime.now(timezone.utc)
+                datetime.now(timezone.utc),
+                current_content,
+                progress_message,
             )
         except ImageGenError as error:
             content = f":warning: The image couldn't be generated. ({error})"
             asyncio.create_task(send_response(context, content=content))
         except aiohttp.ClientResponseError as error:
             content = f":warning: There was a problem generating the image! `{error.message}`"
-            asyncio.create_task(send_response(context, content=content))
             log.exception("Queueing image")
+            asyncio.create_task(send_response(context, content=content))
         except Exception as error:
             content = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
-            asyncio.create_task(send_response(context, content=content))
             log.exception("Queueing image")
+            asyncio.create_task(send_response(context, content=content))
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: Optional[str]):

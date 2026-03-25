@@ -23,7 +23,6 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
             return await context.followup.send(**kwargs)
     else:
         msg = await context.send(**kwargs)
-        asyncio.create_task(context.message.remove_reaction("⏳", context.bot.user))
         return msg
     
 def is_nsfw(channel: discord.abc.Messageable):

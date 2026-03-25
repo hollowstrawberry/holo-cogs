@@ -1,6 +1,6 @@
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Coroutine, Optional, Union
+from typing import Coroutine, Optional
 
 import discord
 from discord.ext import commands
@@ -12,10 +12,12 @@ class QueuedImageGen:
     payload: dict
     user: discord.Member
     channel: discord.abc.Messageable
-    context: Union[commands.Context, discord.Interaction]
+    context: commands.Context | discord.Interaction
     callback: Optional[Coroutine]
     message_content: Optional[str]
-    last_updated: datetime = datetime.min
+    last_updated: datetime
+    last_content: str = ""
+    progress_message: Optional[discord.Message] = None
 
 @dataclass
 class ImageGenParams:

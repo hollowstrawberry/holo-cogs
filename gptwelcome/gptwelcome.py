@@ -115,7 +115,7 @@ class GptWelcome(commands.Cog):
         response = await self.openai_client.beta.chat.completions.parse(
             model=model,
             messages=messages, # type: ignore
-            reasoning_effort="low" if "GPT-5" in model else NotGiven()
+            reasoning_effort="low" if "GPT-5" in model else NotGiven()  # type: ignore
         )
         completion = response.choices[0].message.content
         try:
