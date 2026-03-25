@@ -94,8 +94,7 @@ class AImage(AImageCommands):
             progress_eta: int | None = job['progress']['etaMs']
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
-            removed_eta = progress_eta == None and gen.last_eta != None
-            if not removed_eta and gen.last_percent == progress_percent:
+            if gen.last_eta == progress_eta and gen.last_percent == progress_percent:
                 return
             gen.last_updated = now  
             gen.last_percent = progress_percent

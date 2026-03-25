@@ -49,10 +49,10 @@ class ArcEnCielAPI:
     async def close_request(self, id: str):
         url = f"{self.endpoint}/generator/jobs/{id}"
         async with self.session.delete(url, headers=self.headers) as response:
-            if response.status == 200:
-                log.info(f"job {id} deleted")
-            else:
+            if response.status >= 400:
                 log.info(f"job {id} couldn't be deleted {response.status}")
+            else:
+                log.info(f"job {id} deleted")
 
     async def fetch_queue(self) -> list[dict]:
         url = self.endpoint + "/generator/jobs"
