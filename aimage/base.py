@@ -6,7 +6,6 @@ from redbot.core import Config, commands
 from redbot.core.bot import Red
 
 from aimage.schema import ImageGenParams, QueuedImageGen
-from aimage.arcenciel_api import ArcEnCielAPI
 
 
 class AImageBase(commands.Cog):
@@ -17,6 +16,7 @@ class AImageBase(commands.Cog):
         self.queued_images: dict[str, QueuedImageGen] = {}
         self.gen_count: dict[int, int] = defaultdict(int)
         self.last_quota = datetime.min
+        from aimage.arcenciel_api import ArcEnCielAPI
         self.api: ArcEnCielAPI | None = None
 
         self.config = Config.get_conf(self, identifier=75567113)
