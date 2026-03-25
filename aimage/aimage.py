@@ -81,27 +81,31 @@ class AImage(AImageCommands):
 
         elif job["status"] in ["completed", "failed"]:
             del self.queued_images[gen.id]
-            nsfw = list(job["safety"]["outputs"].values())[0]["rating"] in ["sensitive", "explicit"]
+            rating = list(job["safety"]["outputs"].values())[0]["rating"] 
+            nsfw = rating in ["sensitive", "explicit"]
             error_message = None
             if job["status"] == "failed":
-                error_message = f"`Reason: {job['safety']['reason'] or 'none'}` `Error: {job['safety']['error'] or 'none'}`"
+                error_message = f"Reason: `{job['safety']['reason'] or 'none'}`, Error: `{job['safety']['error'] or 'none'}`"
             asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
             
         elif job["status"] in ["queued", "running"]:
-            log.info(f"{job['progress']['phase']} {job['progress']['percent']}% {job['progress']['etaMs']}ms")
+            progress_phase: str = job['progress']['phase']
+            progress_percent: int = job['progress']['percent']
+            progress_eta: int | None = job['progress']['etaMs']
+            log.info(f"{progress_phase} {progress_percent}% {progress_eta}ms")
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
                 return
             gen.last_updated = now
 
             content = await self.config.loading_emoji()
-            if job["progress"]["phase"] == "queued":
+            if progress_phase == "queued":
                 content += f" Image request in queue"
-            elif job["progress"]["phase"] == "upscaling":
+            elif progress_phase == "upscaling":
                 content += f" Upscaling image"
             else:
-                content += f" Generating image. Estimated progress: `{job['progress']['percent']}%`"
-            if job["progress"]["etaMs"]:
-                estimate = now + timedelta(milliseconds=job["progress"]["etaMs"])
+                content += f" Generating image. Estimated progress: `{progress_percent}%`"
+            if progress_eta:
+                estimate = now + timedelta(milliseconds=progress_eta)
                 content += f", estimated arrival <t:{int(estimate.timestamp())}:R>"
             
             if gen.last_content != content:
