@@ -104,7 +104,7 @@ class AImage(AImageCommands):
                 content += f" Upscaling image"
             else:
                 content += f" Generating image. Estimated progress: `{progress_percent}%`"
-            if progress_eta:
+            if progress_eta and progress_eta > 1000:
                 estimate = now + timedelta(milliseconds=progress_eta)
                 content += f", estimated arrival <t:{int(estimate.timestamp())}:R>"
             
