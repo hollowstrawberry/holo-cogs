@@ -106,8 +106,8 @@ class AImage(AImageConfig):
                     if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_PERIOD:
                         continue
                     gen.last_updated = now
-                    percent = job.get("progress", dict).get("percent")
-                    eta = job.get("progress", dict).get("etaMs")
+                    percent = job.get("progress", {}).get("percent")
+                    eta = job.get("progress", {}).get("etaMs")
                     content = f"{percent=} {eta=}"
                     log.info(content)
                     asyncio.create_task(gen.context.edit_original_response(content=content))
