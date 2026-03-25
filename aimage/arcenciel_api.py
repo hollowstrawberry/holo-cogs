@@ -159,7 +159,7 @@ class ArcEnCielAPI:
             return await response.text()
         for key in ("error", "message", "reason"):
             if data.get(key):
-                return str(data["key"]).strip()
+                return str(data[key]).strip()
         if data.get("errorCode"):
             return str(data["errorCode"]).strip()
         return f"HTTP {response.status}"
