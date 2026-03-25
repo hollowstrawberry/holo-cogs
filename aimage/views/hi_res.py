@@ -66,7 +66,7 @@ class HiresModal(ui.Modal):
         assert isinstance(self.denoising_select.component, discord.ui.Select)
         assert isinstance(self.adetailer_select.component, discord.ui.Select)
 
-        scale = float(self.scale_select.component.values[0])
+        #scale = float(self.scale_select.component.values[0])
         denoise = float(self.denoising_select.component.values[0])
         upscaler = self.upscaler_select.component.values[0]
         adetailer = bool(int(self.adetailer_select.component.values[0]))
