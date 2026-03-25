@@ -96,7 +96,7 @@ class AImage(AImageConfig):
                 continue
             gen = self.queued_images[job["id"]]
             now = datetime.now(timezone.utc)
-            created = datetime.fromtimestamp(job["createdAt"] / 1000)
+            created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
             if (now - created).total_seconds() > JOB_TIMEOUT:
                 del self.queued_images[job["id"]]
                 asyncio.create_task(self.finalize_image_generation(gen, False, "Timed out."))
