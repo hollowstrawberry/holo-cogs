@@ -56,7 +56,6 @@ class AImage(AImageCommands):
         assert self.api
         if not self.queued_images:
             return
-        log.info("fetch arc en ciel api")
         jobs = await self.api.fetch_queue()
         for job in jobs:
             gen = self.queued_images.get(job["id"])
@@ -97,28 +96,30 @@ class AImage(AImageCommands):
             log.info(f"{progress_phase} {progress_percent}% {progress_eta}ms")
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
-            gen.last_updated = now
-
-            content = await self.config.loading_emoji()
+            if gen.last_progress == progress_percent:
+                return
+            gen.last_updated = now          
+            gen.last_progress = progress_percent
+            log.info(f"Updating job {gen.id}")
+            
+            embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
+            embed.description = f"# {await self.config.loading_emoji()} "
             if progress_phase == "queued":
-                content += f" Image request in queue"
+                embed.description += f"Image request in queue..."
             elif progress_phase == "upscaling":
-                content += f" Upscaling image"
+                embed.description += f"Upscaling image..."
             else:
-                content += f" Generating image. Estimated progress: `{progress_percent}%`"
+                embed.description += f"Generating image..."
+            if progress_percent > 0:
+                embed.add_field(name="Progress", value=f"{progress_percent}%")
             if progress_eta and progress_eta > 1000:
                 estimate = now + timedelta(milliseconds=progress_eta)
-                content += f", estimated arrival <t:{int(estimate.timestamp())}:R>"
-            
-            if gen.last_progress != progress_percent:
-                gen.last_progress = progress_percent
-                embed = discord.Embed(description=content)
-                embed.color = await self.bot.get_embed_color(gen.context.channel)
-                log.info(f"job {gen.id} updated")
-                if isinstance(gen.context, discord.Interaction):
-                    await gen.context.edit_original_response(embed=embed)
-                elif gen.progress_message:
-                    await gen.progress_message.edit(embed=embed)
+                embed.add_field(name="ETA", value=f"<t:{int(estimate.timestamp())}:R>")
+
+            if isinstance(gen.context, discord.Interaction):
+                await gen.context.edit_original_response(embed=embed)
+            elif gen.progress_message:
+                await gen.progress_message.edit(embed=embed)
 
 
     async def generate_image(self,
@@ -149,7 +150,7 @@ class AImage(AImageCommands):
         current_content = ""
         progress_message = None
         loading = await self.config.loading_emoji()
-        current_content = f"{loading} Image request received. Please wait..."
+        current_content = f"# {loading} Image request received..."
         embed = discord.Embed(description=current_content)
         embed.color = await self.bot.get_embed_color(channel)
         if isinstance(context, commands.Context):
