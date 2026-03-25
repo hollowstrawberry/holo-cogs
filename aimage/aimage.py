@@ -103,7 +103,7 @@ class AImage(AImageCommands):
             log.info(f"Updating job {gen.id}")
             
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
-            embed.description = f"# {await self.config.loading_emoji()} "
+            embed.description = f"## {await self.config.loading_emoji()} "
             if progress_phase == "queued":
                 embed.description += f"Image request in queue..."
             elif progress_phase == "upscaling":
@@ -150,7 +150,7 @@ class AImage(AImageCommands):
         current_content = ""
         progress_message = None
         loading = await self.config.loading_emoji()
-        current_content = f"# {loading} Image request received..."
+        current_content = f"## {loading} Image request received..."
         embed = discord.Embed(description=current_content)
         embed.color = await self.bot.get_embed_color(channel)
         if isinstance(context, commands.Context):
