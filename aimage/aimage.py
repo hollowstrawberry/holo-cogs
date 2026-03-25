@@ -155,7 +155,7 @@ class AImage(AImageCommands):
         if isinstance(context, commands.Context):
             progress_message = await context.reply(embed=embed, mention_author=False)
             if not callback:
-                callback = self.delete_message(progress_message)
+                callback = progress_message.delete()
         else:
             await context.edit_original_response(embed=embed)
         try:
@@ -261,8 +261,3 @@ class AImage(AImageCommands):
             await send_response(context, content=content, ephemeral=True)
             return True
         return False
-
-
-    async def delete_message(self, message: discord.Message):
-        await asyncio.sleep(0.5)
-        await message.delete()
