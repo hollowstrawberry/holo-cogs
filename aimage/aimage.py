@@ -112,7 +112,7 @@ class AImage(AImageConfig):
                 nsfw = list(job["safety"]["outputs"].values())[0]["rating"] in ["sensitive", "explicit"]
                 error_message = None
                 if job["status"] == "failed":
-                    error_message = f"`Reason: {job['safety']['reason'] or 'none'}`" f"`Error: {job['safety']['error'] or 'none'}`"
+                    error_message = f"`Reason: {job['safety']['reason'] or 'none'}` `Error: {job['safety']['error'] or 'none'}`"
                 asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
                 
             elif job["status"] in ["queued", "running"]:
@@ -126,8 +126,7 @@ class AImage(AImageConfig):
                 elif job["progress"]["phase"] == "upscaling":
                     content += f" Upscaling image"
                 else:
-                    content += f" Generating image"
-                content += f". Estimated progress: `{job['progress']['percent']}%`"
+                    content += f" Generating image. Estimated progress: `{job['progress']['percent']}%`"
                 if job["progress"]["etaMs"]:
                     estimate = now + timedelta(milliseconds=job["progress"]["etaMs"])
                     content += f", estimated arrival <t:{int(estimate.timestamp())}:R>"
