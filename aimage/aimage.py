@@ -89,32 +89,31 @@ class AImage(AImageCommands):
             asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
             
         elif job["status"] in ["queued", "running"]:
-            progress_phase: str = job['progress']['phase']
-            progress_percent: int = job['progress']['percent']
-            progress_eta: int | None = job['progress']['etaMs']
+            current_phase: str = job['progress']['phase']
+            current_percent: int = job['progress']['percent']
+            current_eta: int | None = job['progress']['etaMs']
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
-            log.info(f"job {gen.id} {gen.last_eta=} {progress_eta=}")
-            similar_eta = progress_eta is not None and gen.last_eta is not None and abs(gen.last_eta - progress_eta) >= 1000
-            if (gen.last_eta == progress_eta or similar_eta) and gen.last_percent == progress_percent:
+            similar_eta = gen.last_eta == current_eta or (current_eta is not None and gen.last_eta is not None and abs(gen.last_eta - current_eta) >= 1000)
+            if similar_eta and gen.last_percent == current_percent:
                 return
             gen.last_updated = now  
-            gen.last_percent = progress_percent
-            gen.last_eta = progress_eta
-            log.info(f"Updating job {gen.id} with ({progress_phase}, {progress_percent}%, {progress_eta}ms)")
+            gen.last_percent = current_percent
+            gen.last_eta = current_eta
+            log.info(f"Updating job {gen.id} with ({current_phase}, {current_percent}%, {current_eta}ms)")
             
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
             embed.description = f"{await self.config.loading_emoji()} "
-            if progress_phase == "queued":
+            if current_phase == "queued":
                 embed.description += f"Image request in queue..."
-            elif progress_phase == "upscaling":
+            elif current_phase == "upscaling":
                 embed.description += f"Upscaling image..."
             else:
                 embed.description += f"Generating image..."
-            if progress_percent > 0:
-                embed.add_field(name="Progress", value=f"`{progress_percent}%`")
-            if progress_eta and progress_eta > 1000:
-                estimate = now + timedelta(milliseconds=progress_eta)
+            if current_percent > 0:
+                embed.add_field(name="Progress", value=f"`{current_percent}%`")
+            if current_eta and current_eta > 1000:
+                estimate = now + timedelta(milliseconds=current_eta)
                 embed.add_field(name="ETA", value=f"<t:{int(estimate.timestamp())}:R>")
             else:
                 embed.add_field(name="ETA", value="`soon`")
