@@ -64,6 +64,8 @@ class ImageActions(discord.ui.View):
 
     async def upscale_image(self, interaction: discord.Interaction):
         from aimage.views.hi_res import HiresModal
+        if not self.cache.get("upscale"):
+            return await interaction.response.send_message(content=":warning: Upscaling is not available at this time. Please contact the bot owner.", ephemeral=True)
         modal = HiresModal(self, interaction, self.maxsize)
         await interaction.response.send_modal(modal)
 
@@ -88,7 +90,7 @@ class ImageActions(discord.ui.View):
                 allowed_mentions=discord.AllowedMentions.none(),
                 ephemeral=True)
 
-        self.stop()
+        self.stop)()
 
 
     async def get_params_embed(self) -> discord.Embed | None:
