@@ -111,7 +111,7 @@ class AImage(AImageCommands):
             elif current_phase == "upscaling":
                 embed.description += "Upscaling image..."
             elif current_phase == "finalizing":
-                embed.descriptuon += "Finishing image..."
+                embed.description += "Finishing image..."
             else:
                 embed.description += f"Generating image..."
             if current_percent > 0:
