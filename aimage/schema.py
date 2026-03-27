@@ -15,7 +15,7 @@ class QueuedImageGen:
     context: commands.Context | discord.Interaction
     callback: Coroutine | None
     message_content: str | None
-    progress_message: discord.Message | None = None
+    progress_message: discord.Message | None
     last_updated: datetime
     last_position: int
     last_percent: int = 0
