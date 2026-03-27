@@ -91,7 +91,7 @@ class AImage(AImageCommands):
         elif job["status"] in ["queued", "running"]:
             current_phase: str = job['progress']['phase']
             current_percent: int = job['progress']['percent']
-            current_eta: int | None = job['progress']['etaMs']
+            current_eta: int = job['progress']['etaMs'] or job.get("queueEtaMs", 0)
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
             similar_eta = gen.last_eta == current_eta or (current_eta is not None and gen.last_eta is not None and abs(gen.last_eta - current_eta) >= 1000)
@@ -105,14 +105,18 @@ class AImage(AImageCommands):
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
             embed.description = f"{await self.config.loading_emoji()} "
             if current_phase == "queued":
-                embed.description += f"Image request in queue..."
+                embed.description += "Image request received..."
+                if job.get("position"):
+                    embed.add_field(name="Position in queue", value=f"`{job['position']}`")
             elif current_phase == "upscaling":
-                embed.description += f"Upscaling image..."
+                embed.description += "Upscaling image..."
+            elif current_phase == "finalizing":
+                embed.descriptuon += "Finishing image..."
             else:
                 embed.description += f"Generating image..."
             if current_percent > 0:
                 embed.add_field(name="Progress", value=f"`{current_percent}%`")
-            if current_eta is not None and current_eta > 1000:
+            if current_eta > 1000:
                 estimate = now + timedelta(milliseconds=current_eta)
                 embed.add_field(name="ETA", value=f"<t:{int(estimate.timestamp())}:R>")
             elif current_percent > 0:
