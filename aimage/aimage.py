@@ -156,8 +156,7 @@ class AImage(AImageCommands):
         current_content = ""
         progress_message = None
         loading = await self.config.loading_emoji()
-        embed = discord.Embed(description=f"{loading} Image request received...")
-        embed.add_field(name="Position in queue", value=f"`{job['position']}`")
+        embed = discord.Embed(description=f"{loading} Image request sent...")
         embed.color = await self.bot.get_embed_color(channel)
         if isinstance(context, commands.Context):
             progress_message = await context.reply(embed=embed, mention_author=False)
@@ -180,7 +179,6 @@ class AImage(AImageCommands):
                 message_content,
                 progress_message,
                 datetime.now(timezone.utc),
-                job["position"]
             )
         except ImageGenError as error:
             content = f":warning: The image couldn't be generated. ({error})"
