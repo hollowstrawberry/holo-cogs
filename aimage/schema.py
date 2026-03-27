@@ -18,7 +18,8 @@ class QueuedImageGen:
     progress_message: discord.Message | None = None
     last_updated: datetime = datetime.min
     last_percent: int = 0
-    last_eta: int = 0
+    last_eta: int = 1_000_000
+    last_position: int = -1
 
 @dataclass
 class ImageGenParams:
