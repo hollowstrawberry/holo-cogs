@@ -91,22 +91,23 @@ class AImage(AImageCommands):
         elif job["status"] in ["queued", "running"]:
             current_phase: str = job["progress"]["phase"]
             current_percent: int = job["progress"]["percent"]
-            current_eta: int = job["progress"]["etaMs"] or job.get("queueEtaMs", 0)
+            current_eta: int = job["progress"]["etaMs"] or job["queueEtaMs"] or 0
+            current_position: int = job["position"]
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
-            if abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent:
+            if abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent and gen.last_position == current_position:
                 return
             gen.last_updated = now  
             gen.last_percent = current_percent
             gen.last_eta = current_eta
-            log.info(f"Updating job {gen.id} with ({current_phase}, {current_percent}%, {current_eta}ms)")
+            gen.last_position = current_position
+            log.info(f"Updating job {gen.id} with ({current_phase}, {current_percent}%, {current_eta}ms, #{current_position})")
             
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
             embed.description = f"{await self.config.loading_emoji()} "
             if current_phase == "queued":
                 embed.description += "Image request received..."
-                if job.get("position"):
-                    embed.add_field(name="Position in queue", value=f"`{job['position']}`")
+                embed.add_field(name="Position in queue", value=f"`{current_position}`")
             elif current_phase == "upscaling":
                 embed.description += "Upscaling image..."
             elif current_phase == "finalizing":
