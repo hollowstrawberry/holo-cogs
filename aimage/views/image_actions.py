@@ -90,7 +90,7 @@ class ImageActions(discord.ui.View):
                 allowed_mentions=discord.AllowedMentions.none(),
                 ephemeral=True)
 
-        self.stop)()
+        self.stop()
 
 
     async def get_params_embed(self) -> discord.Embed | None:
