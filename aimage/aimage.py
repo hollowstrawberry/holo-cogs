@@ -89,15 +89,12 @@ class AImage(AImageCommands):
             asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
             
         elif job["status"] in ["queued", "running"]:
-            current_phase: str = job['progress']['phase']
-            current_percent: int = job['progress']['percent']
-            current_eta: int = job['progress']['etaMs'] or job.get("queueEtaMs", 0)
-            if current_phase == "queued":
-                log.info(f"{job.get('queueEtaMs')=}")
+            current_phase: str = job["progress"]["phase"]
+            current_percent: int = job["progress"]["percent"]
+            current_eta: int = job["progress"]["etaMs"] or job.get("queueEtaMs", 0)
             if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
                 return
-            similar_eta = gen.last_eta == current_eta or (current_eta is not None and gen.last_eta is not None and abs(gen.last_eta - current_eta) >= 1000)
-            if similar_eta and gen.last_percent == current_percent:
+            if abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent:
                 return
             gen.last_updated = now  
             gen.last_percent = current_percent
