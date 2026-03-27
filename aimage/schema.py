@@ -16,7 +16,7 @@ class QueuedImageGen:
     callback: Coroutine | None
     message_content: str | None
     progress_message: discord.Message | None = None
-    last_updated: datetime = datetime.min
+    last_updated: datetime
     last_position: int
     last_percent: int = 0
     last_eta: int = 1_000_000
