@@ -17,13 +17,13 @@ LORA_PREFIX_REGEX = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 ADETAILER_ARGS = {
   "adetailer": {
         "enabled": True,
-        "model": "yolov8n.pt",
-        "detector": "yolov8n.pt",
+        "model": "478_1062_Anzhc_20Face_20seg_201024_20v2_20y8n.pt",
+        "detector": "478_1062_Anzhc_20Face_20seg_201024_20v2_20y8n.pt",
         "confidence": 0.3,
-        "iou": 0.45,
+        "iou": 0.5,
         "dilate": 4,
         "maskBlur": 4,
-        "maxDetections": 8,
+        "maxDetections": 4,
         "detectionOrder": "left-to-right"
     }
 }
