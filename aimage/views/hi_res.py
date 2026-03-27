@@ -20,7 +20,7 @@ class HiresModal(ui.Modal):
         upscalers = sorted(set(parent_view.cache.get("upscale", [])))
         maxscale = ((maxsize*maxsize) / (self.payload["width"]*self.payload["height"]))**0.5
         scales = [s for s in [1.0, 1.1, 1.25, 1.5, 1.75, 2.0] if s <= maxscale]
-        default_scale = 2.0 if 2.0 in scales else scales[-1]
+        default_scale = scales[-1]
 
         self.upscaler_select = ui.Label(
             text="Upscaler",
@@ -32,7 +32,7 @@ class HiresModal(ui.Modal):
         self.scale_select = ui.Label(
             text="Scale",
             component=ui.Select(options=[
-                discord.SelectOption(label=f"x{num:.2f}", value=str(num), default=num==default_scale)
+                discord.SelectOption(label=f"x{num:.2f}", value=f"{num:.2f}", default=num==default_scale)
                 for num in scales
             ])
         )
@@ -40,8 +40,8 @@ class HiresModal(ui.Modal):
             text="Denoising",
             description="How much the image will change.",
             component=ui.Select(options=[
-                discord.SelectOption(label=f"{num / 100:.2f}", value=str(num / 100), default=num == 40)
-                for num in range(0, 100, 5)
+                discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==5)
+                for num in range(1, 26)
             ])
         )
         self.adetailer_select = ui.Label(
