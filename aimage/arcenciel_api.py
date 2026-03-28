@@ -2,12 +2,13 @@ import json
 import logging
 import aiohttp
 import discord
+from copy import deepcopy
 from redbot.core import commands
 
 from aimage.base import AImageBase
-from aimage.constants import ADETAILER_ARGS
-from aimage.schema import ImageGenParams
 from aimage.utils import ImageGenError, clean_model, parse_loras
+from aimage.schema import ImageGenParams
+from aimage.constants import ADETAILER_ARGS
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
@@ -155,7 +156,7 @@ class ArcEnCielAPI:
                 payload["scaleFactor"] = params.scale
 
         if await config.adetailer():
-            payload.update(ADETAILER_ARGS)
+            payload["adetailer"] = deepcopy(ADETAILER_ARGS)
         
         return payload
     

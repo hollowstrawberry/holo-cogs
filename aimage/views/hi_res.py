@@ -37,26 +37,26 @@ class HiresModal(ui.Modal):
             ])
         )
         self.denoising_select = ui.Label(
-            text="Denoising",
+            text="Denoise",
             description="How much the image will change.",
             component=ui.Select(options=[
                 discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==5)
                 for num in range(1, 26)
             ])
         )
-        self.adetailer_select = ui.Label(
-            text="ADetailer",
-            description="Improves small faces.",
+        self.adetailer_denoising_select = ui.Label(
+            text="ADetailer Denoise",
+            description="How much the face will change.",
             component=ui.Select(options=[
-                discord.SelectOption(label="Enabled", value="1", default=True),
-                discord.SelectOption(label="Disabled", value="0"),
+                discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==45)
+                for num in range(0, 81, 5)
             ])
         )
 
         self.add_item(self.upscaler_select)
         self.add_item(self.scale_select)
         self.add_item(self.denoising_select)
-        self.add_item(self.adetailer_select)
+        self.add_item(self.adetailer_denoising_select)
 
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -64,12 +64,12 @@ class HiresModal(ui.Modal):
         assert isinstance(self.upscaler_select.component, discord.ui.Select)
         assert isinstance(self.scale_select.component, discord.ui.Select)
         assert isinstance(self.denoising_select.component, discord.ui.Select)
-        assert isinstance(self.adetailer_select.component, discord.ui.Select)
+        assert isinstance(self.adetailer_denoising_select.component, discord.ui.Select)
 
         scale = float(self.scale_select.component.values[0])
         denoise = float(self.denoising_select.component.values[0])
         upscaler = self.upscaler_select.component.values[0]
-        adetailer = bool(int(self.adetailer_select.component.values[0]))
+        adetailer_denoising = float(self.adetailer_denoising_select.component.values[0])
 
         self.payload["scaleFactor"] = scale
         self.payload["upscaleProfiles"] = [
@@ -84,10 +84,9 @@ class HiresModal(ui.Modal):
         self.payload["extraSeed"] = int(params.get("Extra Seed", -1))
         self.payload["extraSeedStrength"] = float(params.get("Extra Seed Strength", 0))
 
-        if adetailer:
-            self.payload.update(ADETAILER_ARGS)
-        elif "adetailer" in self.payload:
-            del self.payload["adetailer"]
+        if adetailer_denoising > 0:
+            self.payload["adetailer"] = deepcopy(ADETAILER_ARGS)
+            self.payload["adetailer"]["denoise"] = adetailer_denoising
 
         await interaction.response.defer(thinking=True)
         message_content = f"Upscale requested by {interaction.user.mention}"
