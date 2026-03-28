@@ -207,6 +207,7 @@ class AImage(AImageCommands):
             content = f":warning: Failed to generate image. {error_message}"
             return await send_response(gen.context, content=content)
         
+        final_tasks: list[Coroutine] = []
         try:
             image_bytes = await self.api.download_image(gen.id)
             metadata_reader = await asyncio.to_thread(ImageDataReader, BytesIO(image_bytes))
@@ -216,8 +217,14 @@ class AImage(AImageCommands):
             maxsize = await self.config.max_img2img()
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
-            msg = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
-            view.message = msg
+            # send it
+            message = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
+            view.message = message
+            self.gen_count[gen.user.id] += 1
+            imagescanner = self.bot.get_cog("ImageScanner")
+            if message and imagescanner and gen.channel.id in imagescanner.scan_channels:  # type: ignore
+                imagescanner.image_cache[message.id] = ({0: metadata_reader}, {0: image_bytes})  # type: ignore
+                final_tasks.append(message.add_reaction("🔎"))
         except ImageGenError as error:
             error_message = f":warning: Failed to retrieve image. ({error})"
         except (aiohttp.ContentTypeError, aiohttp.ClientConnectionError) as error:
@@ -229,18 +236,13 @@ class AImage(AImageCommands):
         except Exception as error:
             error_message = f":warning: Failed to retrieve image! `{type(error).__name__}: {error}`"
             log.exception("Finalizing image")
+
         if error_message:
-            return await send_response(gen.context, content=content)
-        
-        tasks = []
+            final_tasks.append(send_response(gen.context, content=error_message))
         if gen.callback:
-            tasks.append(gen.callback)
-        self.gen_count[gen.user.id] += 1
-        imagescanner = self.bot.get_cog("ImageScanner")
-        if imagescanner and msg and gen.channel.id in imagescanner.scan_channels:  # type: ignore
-            imagescanner.image_cache[msg.id] = ({0: metadata_reader}, {0: image_bytes})  # type: ignore
-            tasks.append(msg.add_reaction("🔎"))
-        await asyncio.gather(*tasks)
+            final_tasks.append(gen.callback)
+            
+        await asyncio.gather(*final_tasks)
 
 
     async def reject_non_vip(self, context: commands.Context | discord.Interaction) -> bool:
