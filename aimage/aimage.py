@@ -154,7 +154,6 @@ class AImage(AImageCommands):
         if await self.contains_blacklisted_word(prompt):
             return await send_response(context, content=":warning: Blocked prompt.")
 
-        current_content = ""
         progress_message = None
         loading = await self.config.loading_emoji()
         embed = discord.Embed(description=f"{loading} Image request sent...")
@@ -182,20 +181,21 @@ class AImage(AImageCommands):
                 datetime.now(timezone.utc),
             )
         except ImageGenError as error:
-            content = f":warning: The image couldn't be generated. ({error})"
-            asyncio.create_task(send_response(context, content=content))
+            error_message = f":warning: The image couldn't be generated. ({error})"
+        except (aiohttp.ContentTypeError, aiohttp.ClientConnectionError) as error:
+            error_message = f":warning: The image couldn't be generated. ({error})"
+            log.warning("Queueing image", f"{type(error).__name__}: {error}")
         except aiohttp.ClientResponseError as error:
-            content = f":warning: There was a problem generating the image! `{error.message}`"
+            error_message = f":warning: There was a problem generating the image! `{error.message}`"
             log.exception("Queueing image")
-            asyncio.create_task(send_response(context, content=content))
         except Exception as error:
-            content = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
+            error_message = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
             log.exception("Queueing image")
-            asyncio.create_task(send_response(context, content=content))
         else:
             return
-        if callback:
-                await callback
+        # After exception
+        tasks = [callback, send_response(context, content=error_message)]
+        await asyncio.gather(*[t for t in tasks if t])
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
@@ -217,29 +217,30 @@ class AImage(AImageCommands):
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
             msg = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
+            view.message = msg
         except ImageGenError as error:
-            content = f":warning: Failed to retrieve image. ({error})"
-            asyncio.create_task(send_response(gen.context, content=content))
-            return
+            error_message = f":warning: Failed to retrieve image. ({error})"
+        except (aiohttp.ContentTypeError, aiohttp.ClientConnectionError) as error:
+            error_message = f":warning: Failed to retrieve image! Service is down temporarily."
+            log.warning(f"Finalizing image", f"{type(error).__name__}: {error}")
         except aiohttp.ClientResponseError as error:
-            content = f":warning: Failed to retrieve image! `{error.message}`"
-            asyncio.create_task(send_response(gen.context, content=content))
-            raise
+            error_message = f":warning: Failed to retrieve image! `{error.message}`"
+            log.exception("Finalizing image")
         except Exception as error:
-            content = f":warning: Failed to retrieve image! `{type(error).__name__}: {error}`"
-            asyncio.create_task(send_response(gen.context, content=content))
-            raise
-        finally:
-            if gen.callback:
-                asyncio.create_task(gen.callback)
-
-        view.message = msg
+            error_message = f":warning: Failed to retrieve image! `{type(error).__name__}: {error}`"
+            log.exception("Finalizing image")
+        if error_message:
+            return await send_response(gen.context, content=content)
+        
+        tasks = []
+        if gen.callback:
+            tasks.append(gen.callback)
         self.gen_count[gen.user.id] += 1
         imagescanner = self.bot.get_cog("ImageScanner")
-        if imagescanner and msg:
-            if gen.channel.id in imagescanner.scan_channels:  # type: ignore
-                imagescanner.image_cache[msg.id] = ({0: metadata_reader}, {0: image_bytes})  # type: ignore
-                asyncio.create_task(msg.add_reaction("🔎"))
+        if imagescanner and msg and gen.channel.id in imagescanner.scan_channels:  # type: ignore
+            imagescanner.image_cache[msg.id] = ({0: metadata_reader}, {0: image_bytes})  # type: ignore
+            tasks.append(msg.add_reaction("🔎"))
+        await asyncio.gather(*tasks)
 
 
     async def reject_non_vip(self, context: commands.Context | discord.Interaction) -> bool:
