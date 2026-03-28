@@ -260,9 +260,9 @@ class AImage(AImageCommands):
             return True
         if self.gen_count[user.id] >= quota:
             if quota == 0:
-                content = ":warning: You are not authorized to use the generator at this time. You may be interested in the <https://arcenciel.io> generator."
+                content = ":warning: You are not authorized to use the generator at this time. You may be interested in [<https://arcenciel.io>](our web generator)."
             else:
-                content = "🕒 You have met your generation quota. You can wait for it to refresh, or try the <https://arcenciel.io> generator." \
+                content = "🕒 You have met your generation quota. You can wait for it to refresh, or try [<https://arcenciel.io>](our web generator)." \
                         + f"\n\nTime remaining: {int(60 - (elapsed_last_refresh // 60))} minutes."
             await send_response(context, content=content, ephemeral=True)
             return True
