@@ -9,7 +9,7 @@ from discord.ext import tasks
 from redbot.core import commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
-from aimage.utils import ImageGenError, delete_button_after, is_nsfw, send_response
+from aimage.utils import ImageGenError, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
 from aimage.constants import ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL
@@ -216,6 +216,7 @@ class AImage(AImageCommands):
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
             msg = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
+            view.message = msg
         except ImageGenError as error:
             content = f":warning: Failed to retrieve image. ({error})"
             asyncio.create_task(send_response(gen.context, content=content))
@@ -233,7 +234,6 @@ class AImage(AImageCommands):
                 asyncio.create_task(gen.callback)
 
         self.gen_count[gen.user.id] += 1
-        asyncio.create_task(delete_button_after(msg))
         imagescanner = self.bot.get_cog("ImageScanner")
         if imagescanner:
             if gen.channel.id in imagescanner.scan_channels:  # type: ignore

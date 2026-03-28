@@ -10,7 +10,13 @@ log = logging.getLogger("red.holo-cogs.aimage")
 
 
 class ImageActions(discord.ui.View):
-    def __init__(self, cog: AImageBase, metadata: ComfyMetadata, payload: dict, author: discord.Member, channel: discord.abc.Messageable, maxsize: int):
+    def __init__(self,
+                 cog: AImageBase,
+                 metadata: ComfyMetadata,
+                 payload: dict,
+                 author: discord.Member,
+                 channel: discord.abc.Messageable,
+                 maxsize: int):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.metadata = metadata
         self.payload = payload
@@ -21,6 +27,7 @@ class ImageActions(discord.ui.View):
         self.channel = channel
         self.maxsize = maxsize
         self.generate_image = cog.generate_image
+        self.message: discord.Message | None = None
 
         self.button_caption = discord.ui.Button(emoji='🔎')
         self.button_caption.callback = self.get_caption
@@ -118,3 +125,11 @@ class ImageActions(discord.ui.View):
         can_delete = await self.bot.is_owner(member) or interaction.channel.permissions_for(member).manage_messages
 
         return is_og_user or can_delete
+    
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.delete()
+            except discord.NotFound:
+                pass

@@ -50,13 +50,6 @@ def clean_model(name: str) -> str:
     name = LORA_PREFIX_REGEX.sub("", name)
     return name
 
-async def delete_button_after(msg: discord.Message):
-    await asyncio.sleep(VIEW_TIMEOUT)
-    try:
-        await msg.edit(view=None)
-    except Exception:
-        return
-
 def parse_loras(payload: dict):
     for lora in LORA_REGEX.findall(payload["prompt"]):
         tag, name, weight = lora
