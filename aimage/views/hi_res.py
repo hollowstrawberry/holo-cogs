@@ -54,7 +54,7 @@ class HiresModal(ui.Modal):
         )
 
         self.add_item(self.upscaler_select)
-        #self.add_item(self.scale_select)
+        self.add_item(self.scale_select)
         self.add_item(self.denoising_select)
         self.add_item(self.adetailer_select)
 
@@ -66,12 +66,12 @@ class HiresModal(ui.Modal):
         assert isinstance(self.denoising_select.component, discord.ui.Select)
         assert isinstance(self.adetailer_select.component, discord.ui.Select)
 
-        #scale = float(self.scale_select.component.values[0])
+        scale = float(self.scale_select.component.values[0])
         denoise = float(self.denoising_select.component.values[0])
         upscaler = self.upscaler_select.component.values[0]
         adetailer = bool(int(self.adetailer_select.component.values[0]))
 
-        #self.payload["scaleFactor"] = scale
+        self.payload["scaleFactor"] = scale
         self.payload["upscaleProfiles"] = [
             {
                 "modelName": upscaler,
