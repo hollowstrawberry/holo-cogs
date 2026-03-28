@@ -33,6 +33,7 @@ class GptWelcome(commands.Cog):
         super().__init__()
         self.bot = bot
         self.openai_client: AsyncOpenAI | None = None
+        self.openrouter_client: AsyncOpenAI | None = None
         self.config = Config.get_conf(self, identifier=1947582011)
         self.config.register_guild(**{
             "enabled": False,
@@ -41,22 +42,37 @@ class GptWelcome(commands.Cog):
         })
 
     async def cog_load(self):
-        await self.initialize_openai_client()
+        await self.initialize_client()
 
     async def cog_unload(self):
         if self.openai_client:
             await self.openai_client.close()
+        if self.openrouter_client:
+            await self.openrouter_client.close()
 
-    async def initialize_openai_client(self):
-        api_key = (await self.bot.get_shared_api_tokens("openai")).get("api_key")
-        if not api_key:
-            return
-        self.openai_client = AsyncOpenAI(api_key=api_key)
+    async def initialize_client(self):
+        openai_api_key = (await self.bot.get_shared_api_tokens("openai")).get("api_key")
+        if openai_api_key:
+            if self.openai_client:
+                await self.openai_client.close()
+            self.openai_client = AsyncOpenAI(api_key=openai_api_key)
+        openrouter_api_key = (await self.bot.get_shared_api_tokens("openrouter")).get("api_key")
+        if openrouter_api_key:
+            if self.openrouter_client:
+                await self.openrouter_client.close()
+            self.openrouter_client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
+
+    def get_client(self, model: str) -> AsyncOpenAI | None:
+        client = self.openrouter_client if "/" in model else self.openai_client
+        if client is None:
+            log.error(f"{'OpenRouter' if '/' in model else 'OpenAI'} client not initialized. Did you set up an api_key?")
+            return None
+        return client
 
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name, _):
         if service_name == "openai":
-            await self.initialize_openai_client()
+            await self.initialize_client()
 
     @commands.Cog.listener()
     async def on_message_without_command(self, message: discord.Message):
@@ -74,15 +90,15 @@ class GptWelcome(commands.Cog):
         await self.welcome_user(ctx)
 
     async def welcome_user(self, ctx: commands.Context):
-        if not self.openai_client:
-            await self.initialize_openai_client()
-        if not self.openai_client:
-            return
+        if not self.openai_client and not self.openrouter_client:
+            await self.initialize_client()
         if not ctx.guild:
             return
         
+        model = await self.config.guild(ctx.guild).model()
         prompt = await self.config.guild(ctx.guild).prompt()
-        if not prompt:
+        client = self.get_client(model)
+        if not prompt or not client:
             return
         
         messages =  [{ "role": "system", "content": prompt }]
@@ -111,11 +127,10 @@ class GptWelcome(commands.Cog):
                 ]
             })
 
-        model = await self.config.guild(ctx.guild).model()
-        response = await self.openai_client.beta.chat.completions.parse(
+        response = await client.beta.chat.completions.parse(
             model=model,
             messages=messages, # type: ignore
-            reasoning_effort="low" if "GPT-5" in model else NotGiven()  # type: ignore
+            reasoning_effort="low",
         )
         completion = response.choices[0].message.content
         try:
@@ -148,16 +163,19 @@ class GptWelcome(commands.Cog):
     @gptwelcome.command("model")
     @commands.is_owner()
     async def gptwelcome_model(self, ctx: commands.Context, model: Optional[str]):
-        """Views or changes the OpenAI model being used for welcoming."""
+        """The OpenAI reasoning model to use. Careful of costs, see https://openai.com/api/pricing/"""
         assert ctx.guild
         if not model or not model.strip():
             model = await self.config.guild(ctx.guild).model()
-            await ctx.reply(f"Current model for the welcomer is {model}")
-        elif model.strip().lower() not in VISION_MODELS:
+            await ctx.reply(f"Current welcomer model is {model}")
+        elif "/" not in model and model.strip().lower() not in VISION_MODELS:
             await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
         else:
             await self.config.guild(ctx.guild).model.set(model.strip().lower())
-            await ctx.tick(message="Model changed")
+            if "/" in model:
+                await ctx.reply("Model changed. Note that this model will be used through OpenRouter, and things may break unexpectedly.")
+            else:
+                await ctx.tick(message="Model changed")
 
     @gptwelcome.command(name="prompt")
     @commands.has_permissions(manage_guild=True)
