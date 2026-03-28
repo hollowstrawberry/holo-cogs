@@ -229,7 +229,7 @@ class AImageSettings(AImageBase):
         assert ctx.guild
         new = not await self.config.adetailer()
         await self.config.adetailer.set(new)
-        await ctx.send(f"ADetailer is now {'`disabled`' if not new else '`enabled`'}")
+        await ctx.send(f"ADetailer is now {'`disabled`' if not new else '`enabled`'} for basic gens")
 
     @aimage.command(name="blacklist")
     @commands.is_owner()
@@ -256,7 +256,7 @@ class AImageSettings(AImageBase):
         await self.config.loading_emoji.set(emoji)
         await ctx.tick()
 
-    @aimage.command()
+    @aimage.command(name="sync")
     @checks.is_owner()
     @checks.bot_in_a_guild()
     async def sync_cmd(self, ctx: commands.Context):
@@ -269,7 +269,7 @@ class AImageSettings(AImageBase):
         await ctx.message.add_reaction("✅")
         await ctx.message.remove_reaction("⏳", ctx.guild.me)
         
-    @aimage.group()
+    @aimage.group(name="vip")
     @checks.is_owner()
     @checks.bot_in_a_guild()
     async def vip_cmd(self, _: commands.Context):
