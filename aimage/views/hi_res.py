@@ -11,22 +11,25 @@ class HiresModal(ui.Modal):
     def __init__(self, parent_view: ImageActions, parent_interaction: discord.Interaction, maxsize: int):
         super().__init__(title="Upscale Image")
         assert parent_interaction.guild
+        assert parent_view.cache["upscale"]
         self.parent_view = parent_view
         self.parent_interaction = parent_interaction
         self.parent_button = parent_view.button_upscale
         self.payload = deepcopy(parent_view.payload)
         self.generate_image = parent_view.generate_image
 
-        upscalers = sorted(set(parent_view.cache.get("upscale", [])))
+        upscalers = sorted(set(parent_view.cache["upscale"]))
+        default_upscaler = DEFAULT_UPSCALER if DEFAULT_UPSCALER in upscalers else upscalers[-1]
         maxscale = ((maxsize*maxsize) / (self.payload["width"]*self.payload["height"]))**0.5
         scales = [s for s in [1.0, 1.1, 1.25, 1.5, 1.75, 2.0] if s <= maxscale]
         default_scale = scales[-1]
+        denoise_steps = list(range(1, 7)) + list(range(8, 21, 2)) + list(range(25, 81, 5))
 
         self.upscaler_select = ui.Label(
             text="Upscaler",
             component=ui.Select(options=[
-                discord.SelectOption(label=name, default=name==DEFAULT_UPSCALER)
-                for i, name in enumerate(upscalers[:25])
+                discord.SelectOption(label=name.rsplit(".", 1)[0], value=name, default=name==default_upscaler)
+                for name in upscalers[:25]
             ])
         )
         self.scale_select = ui.Label(
@@ -40,16 +43,16 @@ class HiresModal(ui.Modal):
             text="Denoise",
             description="How much the image will change.",
             component=ui.Select(options=[
-                discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==DEFAULT_DENOISE)
-                for num in range(1, 26)
+                discord.SelectOption(label=f"{num}%", value=f"{num / 100:.2f}", default=num==DEFAULT_DENOISE)
+                for num in denoise_steps
             ])
         )
         self.adetailer_denoising_select = ui.Label(
             text="ADetailer Denoise",
             description="How much the face will change.",
             component=ui.Select(options=[
-                discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==DEFAULT_ADETAILER_DENOISE)
-                for num in range(0, 81, 5)
+                discord.SelectOption(label=f"{num}%", value=f"{num / 100:.2f}", default=num==DEFAULT_ADETAILER_DENOISE)
+                for num in denoise_steps
             ])
         )
 

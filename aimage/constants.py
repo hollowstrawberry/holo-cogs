@@ -15,7 +15,7 @@ NUMERIC_PREFIX_REGEX = re.compile(r"^(?:\d{3,}[_-]){2,}")
 LORA_PREFIX_REGEX = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_',re.IGNORECASE)
 
 DEFAULT_UPSCALER = "2x-AnimeSharpV4_RCAN.safetensors"
-DEFAULT_DENOISE = 10
+DEFAULT_DENOISE = 20
 DEFAULT_ADETAILER_DENOISE = 50
 
 ADETAILER_ARGS = {
