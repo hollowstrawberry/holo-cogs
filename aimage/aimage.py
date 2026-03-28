@@ -112,7 +112,7 @@ class AImage(AImageCommands):
             elif current_phase == "upscaling":
                 embed.description += "Upscaling image..."
                 if current_percent >= 90:  # upscaling only goes from 90->100
-                    current_percent = max(current_percent, 91) % 10 * 10)
+                    current_percent = max(current_percent, 91) % 10 * 10
             elif current_phase == "finalizing":
                 embed.description += "Finishing image..."
             else:
