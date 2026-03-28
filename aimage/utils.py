@@ -3,7 +3,7 @@ import asyncio
 import discord
 from redbot.core import commands
 
-from aimage.constants import LORA_REGEX, VIEW_TIMEOUT, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX
+from aimage.constants import LORA_REGEX, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX
 
 log = logging.getLogger("red.bz_cogs.aimage")
 

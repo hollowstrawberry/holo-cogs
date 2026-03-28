@@ -128,6 +128,7 @@ class ImageActions(discord.ui.View):
     
 
     async def on_timeout(self):
+        await super().on_timeout()
         if self.message:
             try:
                 await self.message.delete()
