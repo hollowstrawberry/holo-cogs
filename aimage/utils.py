@@ -12,17 +12,23 @@ class ImageGenError(ValueError):
     pass
 
 
-async def send_response(context: commands.Context | discord.Interaction, **kwargs) -> discord.Message:
+async def send_response(context: commands.Context | discord.Interaction, **kwargs) -> discord.Message | None:
     if isinstance(context, discord.Interaction):
+        assert isinstance(context.channel, discord.abc.Messageable)
         if context.response.is_done():
             if "file" in kwargs:
                 kwargs["attachments"] = [kwargs["file"]]
                 del kwargs["file"]
             if "embed" not in kwargs:
                 kwargs["embed"] = None
-            return await context.edit_original_response(**kwargs)
+            msg = await context.edit_original_response(**kwargs)
         else:
-            return await context.followup.send(**kwargs)
+            msg = await context.followup.send(**kwargs)
+        try:
+            return await context.channel.fetch_message(msg.id)  # the other objects expire
+        except discord.NotFound:
+            log.exception("Grabbing interaction message")
+            return None
     else:
         msg = await context.send(**kwargs)
         return msg

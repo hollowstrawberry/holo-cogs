@@ -83,7 +83,7 @@ class AImage(AImageCommands):
         elif job["status"] in ["completed", "failed"]:
             del self.queued_images[gen.id]
             ratings = job.get("safety", {}).get("outputs", {}).values()
-            nsfw = [r.get("rating") in ["sensitive", "explicit"] for r in ratings]
+            nsfw = any(r.get("rating") in ["sensitive", "explicit"] for r in ratings)
             error_message = None
             if job["status"] == "failed":
                 error_message = f"Reason: `{job['safety']['reason'] or 'none'}`, Error: `{job['safety']['error'] or 'none'}`"
@@ -217,7 +217,6 @@ class AImage(AImageCommands):
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
             msg = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
-            view.message = msg
         except ImageGenError as error:
             content = f":warning: Failed to retrieve image. ({error})"
             asyncio.create_task(send_response(gen.context, content=content))
@@ -234,9 +233,10 @@ class AImage(AImageCommands):
             if gen.callback:
                 asyncio.create_task(gen.callback)
 
+        view.message = msg
         self.gen_count[gen.user.id] += 1
         imagescanner = self.bot.get_cog("ImageScanner")
-        if imagescanner:
+        if imagescanner and msg:
             if gen.channel.id in imagescanner.scan_channels:  # type: ignore
                 imagescanner.image_cache[msg.id] = ({0: metadata_reader}, {0: image_bytes})  # type: ignore
                 asyncio.create_task(msg.add_reaction("🔎"))
