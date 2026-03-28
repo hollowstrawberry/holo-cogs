@@ -64,7 +64,8 @@ class AImage(AImageCommands):
             try:
                 await self.update_job(job, gen)
             except Exception as error:
-                del self.queued_images[job["id"]]
+                if gen.id in self.queued_images:
+                    del self.queued_images[gen.id]
                 log.exception("Updating job")
                 error_message = f"The bot aborted the operation due to an unexpected error.\n`{type(error).__name__}: {error}`"
                 asyncio.create_task(self.finalize_image_generation(gen, False, error_message))
@@ -81,8 +82,8 @@ class AImage(AImageCommands):
 
         elif job["status"] in ["completed", "failed"]:
             del self.queued_images[gen.id]
-            rating = list(job["safety"]["outputs"].values())[0]["rating"] 
-            nsfw = rating in ["sensitive", "explicit"]
+            ratings = job.get("safety", {}).get("outputs", {}).values()
+            nsfw = [r.get("rating") in ["sensitive", "explicit"] for r in ratings]
             error_message = None
             if job["status"] == "failed":
                 error_message = f"Reason: `{job['safety']['reason'] or 'none'}`, Error: `{job['safety']['error'] or 'none'}`"
