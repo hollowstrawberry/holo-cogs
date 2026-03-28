@@ -138,7 +138,7 @@ class AImage(AImageCommands):
         
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
-        assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.abc.Messageable)
+        assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
         assert payload or params
         payload = payload or await self.api.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
 

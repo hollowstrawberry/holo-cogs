@@ -11,7 +11,7 @@ class QueuedImageGen:
     id: str
     payload: dict
     user: discord.Member
-    channel: discord.abc.MessageableChannel
+    channel: discord.TextChannel | discord.Thread
     context: commands.Context | discord.Interaction
     callback: Coroutine | None
     message_content: str | None
