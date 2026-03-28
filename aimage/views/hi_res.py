@@ -3,7 +3,7 @@ import discord
 import discord.ui as ui
 from copy import deepcopy
 
-from aimage.constants import ADETAILER_ARGS
+from aimage.constants import ADETAILER_ARGS, DEFAULT_UPSCALER, DEFAULT_DENOISE, DEFAULT_ADETAILER_DENOISE
 from aimage.views.image_actions import ImageActions
 
 
@@ -25,7 +25,7 @@ class HiresModal(ui.Modal):
         self.upscaler_select = ui.Label(
             text="Upscaler",
             component=ui.Select(options=[
-                discord.SelectOption(label=name, default=i==0)
+                discord.SelectOption(label=name, default=name==DEFAULT_UPSCALER)
                 for i, name in enumerate(upscalers[:25])
             ])
         )
@@ -40,7 +40,7 @@ class HiresModal(ui.Modal):
             text="Denoise",
             description="How much the image will change.",
             component=ui.Select(options=[
-                discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==5)
+                discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==DEFAULT_DENOISE)
                 for num in range(1, 26)
             ])
         )
@@ -48,7 +48,7 @@ class HiresModal(ui.Modal):
             text="ADetailer Denoise",
             description="How much the face will change.",
             component=ui.Select(options=[
-                discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==45)
+                discord.SelectOption(label=f"{num / 100:.2f}", value=f"{num / 100:.2f}", default=num==DEFAULT_ADETAILER_DENOISE)
                 for num in range(0, 81, 5)
             ])
         )
