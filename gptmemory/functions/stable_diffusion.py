@@ -53,12 +53,13 @@ class StableDiffusionFunctionCall(FunctionCallBase):
         return (False, None)
     
     async def run(self, arguments: dict) -> str:
-        assert self.ctx.guild
+        assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
         channel_mode = await self.cog.config.guild(self.ctx.guild).generation_channel_mode()
         channels = await self.cog.config.guild(self.ctx.guild).generation_channels()
         if channel_mode == "blacklist" and self.ctx.channel.id in channels \
                 or channel_mode == "whitelist" and self.ctx.channel.id not in channels:
-            return "[Image generation is not allowed in this channel]"
+            if not self.ctx.channel.permissions_for(self.ctx.author).manage_messages:
+                return "[Image generation is not allowed in this channel for non-moderators]"
 
         existing = arguments.get("existing", "")
         prompt = arguments.get("prompt", "")
