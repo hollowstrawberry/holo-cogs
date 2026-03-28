@@ -3,12 +3,12 @@ from typing import Literal, Optional
 from difflib import get_close_matches
 from redbot.core import commands
 
-from gptmemory.settings import GptMemorySettings
+from gptmemory.base import GptMemoryBase
 from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.functions.base import get_all_function_calls
 
 
-class GptMemoryCommands(GptMemorySettings):
+class GptMemoryCommands(GptMemoryBase):
 
     @commands.command(name="forget")
     async def command_forget(self, ctx: commands.Context):

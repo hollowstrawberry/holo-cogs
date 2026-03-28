@@ -6,7 +6,7 @@ import gptmemory.defaults as defaults
 from gptmemory.constants import DISCORD_EPOCH_DATETIME
 
 
-class GptMemorySettings(commands.Cog):
+class GptMemoryBase(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot

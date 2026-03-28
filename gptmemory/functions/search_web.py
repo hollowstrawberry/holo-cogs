@@ -59,7 +59,7 @@ class AgenticSearchFunctionCall(FunctionCallBase):
         else:
             response = await self.cog.openai_client.responses.create(
                 model=model,
-                reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},
+                reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},  # type: ignore
                 tools=[{"type": "web_search"}],  # type: ignore
                 input=arguments["query"],
             )
