@@ -68,6 +68,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
 
         if not prompt:
             return "[No prompt provided]"
+        if "||" in prompt:
+            return "[The prompt is divided into regions, which is not supported]"
         aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
         if not aimage:
             return "[`aimage` cog not installed, please notify the bot owner]"

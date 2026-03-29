@@ -123,9 +123,9 @@ class ArcEnCielAPI:
         checkpoint = params.checkpoint or await config.user(member).checkpoint() or await config.checkpoint() or ""
         vae = params.vae or await config.vae()
         loras = []
-        if params.lora:
+        for lora in params.loras:
             loras.append({
-                "name": f"{params.lora.replace('.safetensors', '')}.safetensors",
+                "name": f"{lora.replace('.safetensors', '')}.safetensors",
                 "weight": 1.0,
             })
 
@@ -150,10 +150,22 @@ class ArcEnCielAPI:
         }
 
         if params.image:
-            if params.denoising is not None:
-                payload["denoise"] = params.denoising
-            if params.scale is not None:
-                payload["scaleFactor"] = params.scale
+            if params.image.denoising is not None:
+                payload["denoise"] = params.image.denoising
+            if params.image.scale is not None:
+                payload["scaleFactor"] = params.image.scale
+
+        if params.regions:
+            payload["attentionCouple"] = {
+                "enabled": True,
+                "layoutPreset": params.regions.split_type.value,
+                "splitPercent": params.regions.split_percent,
+                "globalPromptWeight": 0.3,
+                "regions": [
+                    {"prompt": params.regions.prompt1, "weight": 1,},
+                    {"prompt": params.regions.prompt2, "weight": 1,},
+                ],
+            }
 
         if await config.adetailer():
             payload["adetailer"] = deepcopy(ADETAILER_ARGS)

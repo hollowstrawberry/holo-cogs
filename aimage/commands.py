@@ -8,7 +8,7 @@ from rapidfuzz import fuzz
 from redbot.core import app_commands, checks, commands
 
 from aimage.utils import clean_tag, clean_model
-from aimage.schema import ImageGenParams
+from aimage.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
 from aimage.settings import AImageSettings
 from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
 
@@ -79,8 +79,7 @@ class AImageCommands(AImageSettings):
                 ][:25]
     
 
-    _parameter_descriptions = {
-        "prompt": "The prompt to generate an image from.",
+    _shared_parameter_descriptions = {
         "negative_prompt": "Undesired terms go here.",
         "cfg": "Sets the intensity of the prompt, 5 is common.",
         "seed": "Random number that generates the image, -1 for random.",
@@ -89,12 +88,6 @@ class AImageCommands(AImageSettings):
         "lora": "Shortcut to insert LoRA into the prompt.",
         "subseed": "Random number that defines variations on a set seed.",
         "variation": "Also known as subseed strength, makes variations on a set seed.",
-    }
-
-    _parameter_autocompletes = {
-        "lora": loras_autocomplete,
-        "checkpoint": checkpoint_autocomplete,
-        "vae": vae_autocomplete,
     }
 
 
@@ -112,9 +105,16 @@ class AImageCommands(AImageSettings):
 
 
     @app_commands.command(name="txt2img")
-    @app_commands.describe(resolution="The dimensions of the image.",
-                           **_parameter_descriptions)
-    @app_commands.autocomplete(**_parameter_autocompletes)
+    @app_commands.describe(
+        prompt="The prompt to generate an image from.",
+        resolution="The dimensions of the image.",
+        **_shared_parameter_descriptions,
+    )
+    @app_commands.autocomplete(
+        lora=loras_autocomplete,
+        vae=vae_autocomplete,
+        checkpoint=checkpoint_autocomplete,
+    )
     @app_commands.checks.bot_has_permissions(attach_files=True)
     @app_commands.choices(resolution=[
             app_commands.Choice(name="Square", value="1024x1024"),
@@ -156,7 +156,7 @@ class AImageCommands(AImageSettings):
             seed=seed,
             checkpoint=checkpoint,
             vae=vae,
-            lora=lora,
+            loras=[lora] if lora else [],
             subseed=subseed,
             subseed_strength=variation
         )
@@ -164,12 +164,107 @@ class AImageCommands(AImageSettings):
         await self.generate_image(interaction, params=params)
 
 
+    @app_commands.command(name="txt2img-regions")
+    @app_commands.describe(
+        shared_prompt="Prompt to put on all regions of the image.",
+        prompt1="Prompt to put on the first region of the image.",
+        prompt2="Prompt to put on the second region of the image.",
+        lora2="Shortcut to insert LoRA into the prompt.",
+        split="How to split the image",
+        split_percent="Size of the first region, 50 to split the image in half.",
+        resolution="The dimensions of the image.",
+        **_shared_parameter_descriptions,
+    )
+    @app_commands.autocomplete(
+        lora=loras_autocomplete,
+        lora2=loras_autocomplete,
+        vae=vae_autocomplete,
+        checkpoint=checkpoint_autocomplete,
+    )
+    @app_commands.choices(
+        resolution=[
+            app_commands.Choice(name="Square", value="1024x1024"),
+            app_commands.Choice(name="Portrait", value="832x1216"),
+            app_commands.Choice(name="Landscape", value="1216x832"),
+        ],
+        split=[
+            app_commands.Choice(name="Left/Right", value=SplitType.HORIZONTAL.value),
+            app_commands.Choice(name="Top/Bottom", value=SplitType.VERTICAL.value),
+        ],
+        )
+    @app_commands.checks.bot_has_permissions(attach_files=True)
+    @app_commands.guild_only()
+    async def regional_app(
+        self,
+        interaction: discord.Interaction,
+        split: SplitType,
+        prompt1: str,
+        prompt2: str,
+        shared_prompt: str = "",
+        split_percent: app_commands.Range[int, 10, 90] = 50,
+        negative_prompt: str = None,
+        resolution: str = "832x1216",
+        checkpoint: str = None,
+        lora: str = "",
+        lora2: str = "",
+        cfg: app_commands.Range[float, 2, 8] = None,
+        seed: app_commands.Range[int, -1, None] = -1,
+        subseed: app_commands.Range[int, -1, None] = -1,
+        variation: app_commands.Range[float, 0.0, 0.5] = 0,
+        vae: str = None,
+    ):
+        """
+        Generate an image with regional prompts using Stable Diffusion
+        """
+        await interaction.response.defer(thinking=True)
+
+        ctx: commands.Context = await self.bot.get_context(interaction)  # noqa
+        if not await self.can_run_command(ctx, "txt2img"):
+            return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
+
+        width, height = tuple(int(x) for x in resolution.split("x"))
+        prompt1 = prompt1.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
+        prompt2 = prompt2.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
+        shared_prompt = shared_prompt.strip(" ,") + ", "
+        final_prompt = f"{shared_prompt}{prompt1} || {shared_prompt}{prompt2}"
+        
+        regions = ImageRegionalParams(
+            prompt1=prompt1,
+            prompt2=prompt2,
+            split_type=split,
+            split_percent=split_percent,
+        )
+
+        params = ImageGenParams(
+            prompt=final_prompt,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            cfg=cfg,
+            seed=seed,
+            checkpoint=checkpoint,
+            vae=vae,
+            loras=[l for l in (lora, lora2) if l],
+            subseed=subseed,
+            subseed_strength=variation,
+            regions=regions,
+        )
+
+        await self.generate_image(interaction, params=params)
+
+
     @app_commands.command(name="img2img")
-    @app_commands.describe(image="The input image.",
-                           denoising="How much the image should change. Try around 0.6",
-                           scale="Resizes the image up or down, 0.5 to 2.0.",
-                           **_parameter_descriptions)
-    @app_commands.autocomplete(**_parameter_autocompletes)
+    @app_commands.describe(
+        image="The input image.",
+        denoising="How much the image should change. Try around 0.6",
+        scale="Resizes the image up or down, 0.5 to 2.0.",
+        **_shared_parameter_descriptions,
+    )
+    @app_commands.autocomplete(
+        lora=loras_autocomplete,
+        vae=vae_autocomplete,
+        checkpoint=checkpoint_autocomplete,
+    )
     @app_commands.checks.bot_has_permissions(attach_files=True)
     @app_commands.guild_only()
     async def reimagine_app(
@@ -210,6 +305,13 @@ class AImageCommands(AImageSettings):
                 f"Your image {'after resizing would be' if scale != 0 else 'is'} {int(size**0.5)}² pixels, which is too big.",
                 ephemeral=True)
         
+        img2img_params = ImageToImageParams(
+            data=await image.read(),
+            filename=image.filename,
+            denoising=denoising,
+            scale=scale,
+        )
+
         params = ImageGenParams(
             prompt=prompt,
             negative_prompt=negative_prompt,
@@ -217,16 +319,12 @@ class AImageCommands(AImageSettings):
             seed=seed,
             checkpoint=checkpoint,
             vae=vae,
-            lora=lora,
+            loras=[lora] if lora else [],
             subseed=subseed,
             subseed_strength=variation,
-            # img2img
-            image=await image.read(),
-            image_filename=image.filename,
-            denoising=denoising,
-            scale=scale,
             height=round(image.height*scale),
             width=round(image.width*scale),
+            image=img2img_params,
         )
 
         await self.generate_image(interaction, params=params)

@@ -166,9 +166,10 @@ class AImage(AImageCommands):
                 callback = progress_message.delete()
         else:
             await context.edit_original_response(embed=embed)
+            
         try:
             if params and params.image:
-                path = await self.api.upload_image(params.image, params.image_filename or "image.png")
+                path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
                 payload["imagePath"] = path
             job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(

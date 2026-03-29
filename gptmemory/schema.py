@@ -49,11 +49,8 @@ class ImageGenParams:
     variation_seed: int         = -1
     checkpoint: str | None      = None
     vae: str | None             = None
-    lora: str                   = ""
+    loras: list[str]            = field(default_factory=list)
     subseed: int                = -1
     subseed_strength: float     = 0.0
-    # img2img
-    image: bytes                = field(default_factory=bytes)
-    image_filename: str | None  = None
-    denoising: float | None     = None
-    scale: float | None         = None
+    image: None = None
+    regions: None = None

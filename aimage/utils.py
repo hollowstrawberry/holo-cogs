@@ -1,6 +1,8 @@
+import io
 import logging
-import asyncio
 import discord
+from typing import Literal
+from PIL import Image, ImageDraw
 from redbot.core import commands
 
 from aimage.constants import LORA_REGEX, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX
@@ -68,3 +70,45 @@ def parse_loras(payload: dict):
             "weight": weight,
         })
         payload["prompt"] = payload["prompt"].replace(tag, "")
+
+def clamp(value: int, min_value: int, max_value: int) -> int:
+    return max(min_value, min(max_value, value))
+
+def make_region_mask(width: int, height: int, rect: tuple[int, int, int, int]) -> bytes:
+    # Same logic as Arc Web: black full image, target region transparent.
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 255))
+    draw = ImageDraw.Draw(img)
+
+    x, y, w, h = rect
+    x2 = x + max(1, w) - 1
+    y2 = y + max(1, h) - 1
+    draw.rectangle((x, y, x2, y2), fill=(0, 0, 0, 0))
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+def build_split_masks(
+    width: int,
+    height: int,
+    split_percent: float = 50.0,
+    layout: Literal["horizontal", "vertical"] = "horizontal",
+) -> list[tuple[str, bytes]]:
+    if layout == "horizontal":
+        split_x = clamp(round(width * (split_percent / 100.0)), 1, width - 1)
+        rects = [
+            (0, 0, split_x, height),              # region 1
+            (split_x, 0, width - split_x, height) # region 2
+        ]
+    else:
+        split_y = clamp(round(height * (split_percent / 100.0)), 1, height - 1)
+        rects = [
+            (0, 0, width, split_y),               # region 1
+            (0, split_y, width, height - split_y) # region 2
+        ]
+
+    out: list[tuple[str, bytes]] = []
+    for i, rect in enumerate(rects, start=1):
+        filename = f"attention-region-{i}-{width}x{height}.png"
+        out.append((filename, make_region_mask(width, height, rect)))
+    return out

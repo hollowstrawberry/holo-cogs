@@ -1,9 +1,15 @@
+from enum import Enum
+from typing import Coroutine
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Coroutine
 
 import discord
 from discord.ext import commands
+
+
+class SplitType(Enum):
+    HORIZONTAL = "split-horizontal-2"
+    VERTICAL = "split-vertical-2"
 
 
 @dataclass
@@ -22,6 +28,20 @@ class QueuedImageGen:
     last_eta: int = 1_000_000
 
 @dataclass
+class ImageToImageParams:
+    data: bytes
+    filename: str
+    denoising: float
+    scale: float
+
+@dataclass
+class ImageRegionalParams:
+    prompt1: str
+    prompt2: str
+    split_type: SplitType
+    split_percent: int
+
+@dataclass
 class ImageGenParams:
     prompt: str
     negative_prompt: str | None = None
@@ -37,11 +57,8 @@ class ImageGenParams:
     variation_seed: int         = -1
     checkpoint: str | None      = None
     vae: str | None             = None
-    lora: str                   = ""
+    loras: list[str]            = field(default_factory=list)
     subseed: int                = -1
     subseed_strength: float     = 0.0
-    # img2img
-    image: bytes                = field(default_factory=bytes)
-    image_filename: str | None  = None
-    denoising: float | None     = None
-    scale: float | None         = None
+    image: ImageToImageParams | None = None
+    regions: ImageRegionalParams | None = None
