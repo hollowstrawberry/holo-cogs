@@ -152,10 +152,9 @@ class AImage(AImageCommands):
             return
 
         prompt = params.prompt if params else payload.get("prompt", "")
-
         if await self.contains_blacklisted_word(prompt):
             return await send_response(context, content=":warning: Blocked prompt.")
-
+        
         progress_message = None
         loading = await self.config.loading_emoji()
         embed = discord.Embed(description=f"{loading} Image request sent...")
@@ -168,6 +167,8 @@ class AImage(AImageCommands):
             await context.edit_original_response(embed=embed)
             
         try:
+            if "masterpiece" not in prompt and "best quality" not in prompt:
+                payload["prompt"] = "masterpiece, best quality, " + prompt
             if params and params.image:
                 path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
                 payload["imagePath"] = path

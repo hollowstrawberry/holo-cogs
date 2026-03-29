@@ -116,9 +116,6 @@ class ArcEnCielAPI:
                 params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
             else:
                 params.negative_prompt = stock_negative_prompt
-
-        if "masterpiece" not in params.prompt and "best quality" not in params.prompt:
-            params.prompt = "masterpiece, best quality, " + params.prompt
         
         checkpoint = params.checkpoint or await config.user(member).checkpoint() or await config.checkpoint() or ""
         vae = params.vae or await config.vae()

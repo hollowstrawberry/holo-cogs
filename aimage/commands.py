@@ -198,12 +198,12 @@ class AImageCommands(AImageSettings):
         self,
         interaction: discord.Interaction,
         split: SplitType,
+        shared_prompt: str,
         prompt1: str,
         prompt2: str,
-        shared_prompt: str = "",
         split_percent: app_commands.Range[int, 10, 90] = 50,
         negative_prompt: str = None,
-        resolution: str = "832x1216",
+        resolution: str = "1024x1024",
         checkpoint: str = None,
         lora: str = "",
         lora2: str = "",
@@ -223,10 +223,14 @@ class AImageCommands(AImageSettings):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
         width, height = tuple(int(x) for x in resolution.split("x"))
-        prompt1 = prompt1.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
-        prompt2 = prompt2.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
         shared_prompt = shared_prompt.strip(" ,") + ", "
-        final_prompt = f"{shared_prompt}{prompt1} || {shared_prompt}{prompt2}"
+        prompt1 = shared_prompt + prompt1.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
+        prompt2 = shared_prompt + prompt2.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
+        if "masterpiece" not in prompt1 and "best quality" not in prompt1:
+            prompt1 = "masterpiece, best quality, " + prompt1
+        if "masterpiece" not in prompt2 and "best quality" not in prompt2:
+            prompt1 = "masterpiece, best quality, " + prompt2
+        final_prompt = f"{prompt1} || {prompt2}"
         
         regions = ImageRegionalParams(
             prompt1=prompt1,
