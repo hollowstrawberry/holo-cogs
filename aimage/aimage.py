@@ -9,7 +9,7 @@ from discord.ext import tasks
 from redbot.core import commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
-from aimage.utils import ImageGenError, is_nsfw, send_response
+from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
 from aimage.constants import ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL
@@ -171,6 +171,14 @@ class AImage(AImageCommands):
             if params and params.image:
                 path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
                 payload["imagePath"] = path
+            if params and params.regions and payload.get("attentionCouple"):
+                mask_paths = []
+                masks = build_split_masks(payload["width"], payload["height"], params.regions.split_percent, params.regions.split_type)
+                for filename, data in reversed(masks):  # :clueless:
+                    mask_paths.append(await self.api.upload_image(data, filename or "image.png"))
+                for i, path in enumerate(mask_paths):
+                    payload["attentionCouple"]["regions"][i]["maskPath"] = path
+                
             job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(
                 job["id"],

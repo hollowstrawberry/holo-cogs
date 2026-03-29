@@ -1,10 +1,10 @@
 import io
 import logging
 import discord
-from typing import Literal
 from PIL import Image, ImageDraw
 from redbot.core import commands
 
+from aimage.schema import SplitType
 from aimage.constants import LORA_REGEX, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX
 
 log = logging.getLogger("red.bz_cogs.aimage")
@@ -91,10 +91,10 @@ def make_region_mask(width: int, height: int, rect: tuple[int, int, int, int]) -
 def build_split_masks(
     width: int,
     height: int,
-    split_percent: float = 50.0,
-    layout: Literal["horizontal", "vertical"] = "horizontal",
+    split_percent: float,
+    layout: SplitType,
 ) -> list[tuple[str, bytes]]:
-    if layout == "horizontal":
+    if layout == SplitType.HORIZONTAL:
         split_x = clamp(round(width * (split_percent / 100.0)), 1, width - 1)
         rects = [
             (0, 0, split_x, height),              # region 1

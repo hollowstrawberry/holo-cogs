@@ -87,7 +87,7 @@ class ArcEnCielAPI:
         url = self.endpoint + "/generator/uploads"
         data = aiohttp.FormData()
         data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
-        data.add_field("kind", "img2img")
+        data.add_field("kind", "REDBOT")
         async with self.session.post(url=url, data=data, headers=self.headers) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
@@ -162,8 +162,8 @@ class ArcEnCielAPI:
                 "splitPercent": params.regions.split_percent,
                 "globalPromptWeight": 0.3,
                 "regions": [
-                    {"prompt": params.regions.prompt1, "weight": 1,},
-                    {"prompt": params.regions.prompt2, "weight": 1,},
+                    {"prompt": params.regions.prompt1, "weight": 1, "maskPath": None,},
+                    {"prompt": params.regions.prompt2, "weight": 1, "maskPath": None,},
                 ],
             }
 

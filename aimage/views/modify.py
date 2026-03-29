@@ -49,13 +49,24 @@ class ModifyModal(ui.Modal):
         assert isinstance(self.negative_prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.seed_select.component, discord.ui.Select)
         
-        same_prompt = self.prompt_edit.component.value == self.params["Prompt"] and self.negative_prompt_edit.component.value == self.params["Negative Prompt"]
-        self.payload["prompt"] = self.prompt_edit.component.value
-        self.payload["negativePrompt"] = self.negative_prompt_edit.component.value
-        if "loras" in self.payload:
-            del self.payload["loras"]  # already in prompt
-
+        is_prompt_unchanged = self.prompt_edit.component.value == self.params["Prompt"] and self.negative_prompt_edit.component.value == self.params["Negative Prompt"]
+        prompt = self.prompt_edit.component.value
         reroll = bool(int(self.seed_select.component.values[0]))
+        self.payload["prompt"] = prompt
+        self.payload["negativePrompt"] = self.negative_prompt_edit.component.value
+        
+        if not is_prompt_unchanged and self.payload.get("attentionCouple"):  # parse regional prompt
+            regions = self.payload["attentionCouple"]["regions"]
+            region_prompts = [p.strip() for p in prompt.split("||")]
+            if len(region_prompts) != len(regions):
+                content = ":warning: This image has regional prompts separated by `||`, but your edited prompt didn't result in the same number of regions."
+                return await interaction.response.send_message(content=content, ephemeral=True)
+            for i, region_prompt in enumerate(region_prompts):
+                regions[i]["prompt"] = region_prompt
+        
+        if "loras" in self.payload:
+            del self.payload["loras"]  # already gets parsed from prompt by generate_image
+
         if reroll:
             self.payload["seed"] = -1
             self.payload["extraSeed"] = -1
@@ -66,5 +77,5 @@ class ModifyModal(ui.Modal):
             self.payload["extraSeedStrength"] = float(self.params.get("Extra Seed Strength", 0.0))
 
         await interaction.response.defer(thinking=True)
-        message_content = f"Reroll requested by {interaction.user.mention}" if same_prompt else f"Change requested by {interaction.user.mention}"
+        message_content = f"Reroll requested by {interaction.user.mention}" if is_prompt_unchanged else f"Change requested by {interaction.user.mention}"
         await self.generate_image(interaction, payload=self.payload, message_content=message_content)
