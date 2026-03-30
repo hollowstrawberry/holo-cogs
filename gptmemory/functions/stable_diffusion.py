@@ -92,6 +92,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             width, height = 832, 1216
         elif aspect_ratio.lower() == "ultrawide":
             width, height = 1536, 640
+        elif regions:
+            width, height = 1216, 832
         else:
             width, height = None, None
 
