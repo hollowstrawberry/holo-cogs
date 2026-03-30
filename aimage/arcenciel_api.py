@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import aiohttp
@@ -31,7 +32,10 @@ class ArcEnCielAPI:
     async def request_image(self, context: commands.Context | discord.Interaction, payload: dict) -> dict:
         parse_loras(payload)
 
-        file = discord.File(json.dumps(payload, indent=2), f"payload.json")
+        with io.StringIO() as f:
+            f.write(json.dumps(payload, indent=2))
+            f.seek(0)
+            file = discord.File(f, f"payload.json")
         channel = context.guild.get_channel(context.channel_id)
         await channel.send(content="fuck", file=file)
 
