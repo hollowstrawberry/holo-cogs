@@ -317,4 +317,4 @@ class AImage(AImageCommands):
                 link = f"[[{choice['type']}] {choice['title']}](https://arcenciel.io/models/{choice['id']})"
                 await self.cache_set(hint, link)
                 hyperlinks.add(link)
-        return list(hyperlinks)
+        return sorted(list(hyperlinks))

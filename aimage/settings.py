@@ -256,6 +256,15 @@ class AImageSettings(AImageBase):
         await self.config.loading_emoji.set(emoji)
         await ctx.tick()
 
+    @aimage.command(name="arcenciel_emoji")
+    @commands.is_owner()
+    async def arcenciel_emoji_cmd(self, ctx: commands.Context, emoji: str):
+        """
+        Sets the arcenciel emoji for search results
+        """
+        await self.config.arcenciel_emoji.set(emoji)
+        await ctx.tick()
+
     @aimage.command(name="sync")
     @checks.is_owner()
     @checks.bot_in_a_guild()
