@@ -27,6 +27,7 @@ class ImageActions(discord.ui.View):
         self.channel = channel
         self.maxsize = maxsize
         self.generate_image = cog.generate_image
+        self.get_resources = cog.resolve_arcenciel_resources
         self.message: discord.Message | None = None
 
         self.button_caption = discord.ui.Button(emoji='🔎')
@@ -111,6 +112,11 @@ class ImageActions(discord.ui.View):
                 params[key] = str(params[key])[:997] + "..."
         for key, value in params.items():
             embed.add_field(name=key, value=value, inline="Prompt" not in key)
+
+        resources = await self.get_resources(self.metadata)
+        if resources:
+            emote = await self.config.arcenciel_emoji()
+            embed.description = "\n".join(f"{emote} {res}" for res in resources)
 
         return embed
 

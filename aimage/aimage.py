@@ -12,8 +12,8 @@ from sd_prompt_reader.image_data_reader import ImageDataReader
 from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
-from aimage.constants import ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL
-from aimage.comfy import ComfyMetadataReader
+from aimage.constants import ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_HASH_REGEX
+from aimage.comfy import ComfyMetadata, ComfyMetadataReader
 from aimage.views.image_actions import ImageActions
 from aimage.arcenciel_api import ArcEnCielAPI
 
@@ -283,3 +283,36 @@ class AImage(AImageCommands):
             await send_response(context, content=content, ephemeral=True)
             return True
         return False
+
+
+    async def resolve_arcenciel_resources(self, metadata: ComfyMetadata) -> list[str]:
+        assert self.api
+        hyperlinks: set[str] = set()
+        for hint in metadata.resource_hint_strings():
+            if hint not in self.resource_cache and hint in self.resource_not_found_cache:
+                continue
+            if hint in self.resource_cache:
+                hyperlinks.add(self.resource_cache[hint])
+                continue
+            is_hash = RESOURCE_HASH_REGEX.match(hint) is not None
+            resources = await self.api.search_resource(hint, hash_only=is_hash)
+            log.info(f"Resource matches for {hint} /// " + ", ".join([model["id"] for model in resources]))
+            if not resources:
+                await self.cache_set(hint, None)
+                continue
+            if is_hash or len(resources) == 1:
+                choice = resources[0]
+            else:
+                choice = None
+                for model in resources:
+                    version_names = []
+                    for version in model["versions"]:
+                        version_names += [version.get("fileName", ""), version.get("filePath", ""), version.get("originalName")]
+                    if any(hint in name for name in version_names):
+                        choice = model
+                        break
+            if choice:
+                link = f"[[{choice['type']}] {choice['title']}](https://arcenciel.io/models/{choice['id']})"
+                await self.cache_set(hint, link)
+                hyperlinks.add(link)
+        return list(hyperlinks)

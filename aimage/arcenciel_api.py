@@ -1,14 +1,16 @@
 import json
 import logging
+import os
 import aiohttp
 import discord
 from copy import deepcopy
 from redbot.core import commands
 
 from aimage.base import AImageBase
+from aimage.comfy import ComfyMetadata
 from aimage.utils import ImageGenError, clean_model, parse_loras
 from aimage.schema import ImageGenParams
-from aimage.constants import ADETAILER_ARGS
+from aimage.constants import ADETAILER_ARGS, RESOURCE_HASH_REGEX
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
@@ -94,6 +96,22 @@ class ArcEnCielAPI:
             r = await response.json()
         return r["path"]
     
+    async def search_resource(self, query: str, *, hash_only: bool = False, limit: int = 10) -> list[dict]:
+        if not query.strip():
+            return []
+        url = self.endpoint + "/models/search"
+        params: dict[str, str] = {
+            "search": query,
+            "limit": str(limit),
+        }
+        if hash_only:
+            params["hashOnly"] = "1"
+        async with self.session.get(url, params=params, headers=self.headers) as response:
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
+            data = await response.json()
+        return data["data"]
+    
     async def interrogate(self, image: bytes, filename: str) -> list[str]:
         url = self.endpoint + "/generator/autotag/interrogate"
         data = aiohttp.FormData()
@@ -168,7 +186,7 @@ class ArcEnCielAPI:
             payload["adetailer"] = deepcopy(ADETAILER_ARGS)
         
         return payload
-    
+
     async def _extract_error(self, response: aiohttp.ClientResponse) -> str:
         try:
             data = await response.json()
