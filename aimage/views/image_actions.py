@@ -51,11 +51,12 @@ class ImageActions(discord.ui.View):
 
 
     async def get_caption(self, interaction: discord.Interaction):
+        await interaction.response.defer(thinking=True, ephemeral=True)
         embed = await self.get_params_embed()
         if embed:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
         else:
-            await interaction.response.send_message(f'Parameters for this image:\n```yaml\n{self.metadata}```')
+            await interaction.followup.send(f'Parameters for this image:\n```yaml\n{self.metadata}```', ephemeral=True)
 
 
     async def modify_image(self, interaction: discord.Interaction):
