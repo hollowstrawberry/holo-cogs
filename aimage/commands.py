@@ -17,6 +17,18 @@ log = logging.getLogger("red.holo-cogs.aimage")
 class AImageCommands(AImageSettings):
 
     @staticmethod
+    def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
+        shared_prompt = shared_prompt.strip(" ,") + ", "
+        edited_prompts = list(prompts)
+        for i, prompt in enumerate(prompts):
+            prompt = shared_prompt + prompt.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
+            if "masterpiece" not in prompt and "best quality" not in prompt:
+                prompt = "masterpiece, best quality, " + prompt
+            edited_prompts[i] = prompt
+        final_prompt = " || ".join(edited_prompts)
+        return [final_prompt, *edited_prompts]
+
+    @staticmethod
     def filter_names(options: dict, current: str, strict: bool = False) -> dict:
         results = {}
         ratios = [(item, fuzz.partial_ratio(current.lower(), item.lower())) for item in options.keys()]
@@ -99,12 +111,37 @@ class AImageCommands(AImageSettings):
         Generate an image with Stable Diffusion
         """
         assert ctx.guild
-        params = ImageGenParams(prompt=prompt)
+
+        width, height = None, None
+        negative_prompt = None
+        regions = None
+
+        if "--" in prompt:
+            prompt, negative_prompt = [p.strip() for p in prompt.rsplit("--", 1)]
+
+        if "||" in prompt:
+            segments = [p.strip() for p in prompt.split("||")]
+            if len(segments) != 3:
+                content = ":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
+                return await ctx.send(content)
+            segments = self.edit_regional_prompts(*segments)
+            prompt = segments[0]
+            width, height = 1216, 832
+            regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL, 50)
+
+        params = ImageGenParams(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            regions=regions)
         message_content=f"Result of {ctx.message.jump_url} requested by {ctx.author.mention}"
         await self.generate_image(ctx, params=params, message_content=message_content)
 
 
     @app_commands.command(name="txt2img")
+    @app_commands.guild_only()
+    @app_commands.checks.bot_has_permissions(attach_files=True, embed_links=True)
     @app_commands.describe(
         prompt="The prompt to generate an image from.",
         resolution="The dimensions of the image.",
@@ -121,7 +158,6 @@ class AImageCommands(AImageSettings):
             app_commands.Choice(name="Portrait", value="832x1216"),
             app_commands.Choice(name="Landscape", value="1216x832"),
         ])
-    @app_commands.guild_only()
     async def imagine_app(
         self,
         interaction: discord.Interaction,
@@ -147,6 +183,16 @@ class AImageCommands(AImageSettings):
 
         width, height = tuple(int(x) for x in resolution.split("x"))
 
+        regions = None
+        if "||" in prompt:
+            segments = [p.strip() for p in prompt.split("||")]
+            if len(segments) != 3:
+                content = ":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
+                return await interaction.followup.send(content=content, ephemeral=True)
+            segments = self.edit_regional_prompts(*segments)
+            prompt = segments[0]
+            regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL, 50)
+            
         params = ImageGenParams(
             prompt=prompt,
             negative_prompt=negative_prompt,
@@ -158,13 +204,16 @@ class AImageCommands(AImageSettings):
             vae=vae,
             loras=[lora] if lora else [],
             subseed=subseed,
-            subseed_strength=variation
+            subseed_strength=variation,
+            regions=regions,
         )
 
         await self.generate_image(interaction, params=params)
 
 
     @app_commands.command(name="txt2img-regions")
+    @app_commands.guild_only()
+    @app_commands.checks.bot_has_permissions(attach_files=True, embed_links=True)
     @app_commands.describe(
         shared_prompt="Prompt to put on all regions of the image.",
         prompt1="Prompt to put on the first region of the image.",
@@ -192,8 +241,6 @@ class AImageCommands(AImageSettings):
             app_commands.Choice(name="Top/Bottom", value=SplitType.VERTICAL.value),
         ],
         )
-    @app_commands.checks.bot_has_permissions(attach_files=True)
-    @app_commands.guild_only()
     async def regional_app(
         self,
         interaction: discord.Interaction,
@@ -223,21 +270,8 @@ class AImageCommands(AImageSettings):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
         width, height = tuple(int(x) for x in resolution.split("x"))
-        shared_prompt = shared_prompt.strip(" ,") + ", "
-        prompt1 = shared_prompt + prompt1.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
-        prompt2 = shared_prompt + prompt2.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
-        if "masterpiece" not in prompt1 and "best quality" not in prompt1:
-            prompt1 = "masterpiece, best quality, " + prompt1
-        if "masterpiece" not in prompt2 and "best quality" not in prompt2:
-            prompt2 = "masterpiece, best quality, " + prompt2
-        final_prompt = f"{prompt1} || {prompt2}"
-        
-        regions = ImageRegionalParams(
-            prompt1=prompt1,
-            prompt2=prompt2,
-            split_type=split,
-            split_percent=split_percent,
-        )
+        final_prompt, prompt1, prompt2 = self.edit_regional_prompts(shared_prompt, prompt1, prompt2)
+        regions = ImageRegionalParams(prompt1, prompt2, split, split_percent)
 
         params = ImageGenParams(
             prompt=final_prompt,
@@ -309,12 +343,7 @@ class AImageCommands(AImageSettings):
                 f"Your image {'after resizing would be' if scale != 0 else 'is'} {int(size**0.5)}² pixels, which is too big.",
                 ephemeral=True)
         
-        img2img_params = ImageToImageParams(
-            data=await image.read(),
-            filename=image.filename,
-            denoising=denoising,
-            scale=scale,
-        )
+        img2img_params = ImageToImageParams(await image.read(), image.filename, denoising, scale)
 
         params = ImageGenParams(
             prompt=prompt,
