@@ -317,7 +317,7 @@ class AImage(AImageCommands):
                         choice = model
                         break
             if choice:
-                link = f"`{choice['type']}` {choice['title']}](https://arcenciel.io/models/{choice['id']})"
+                link = f"`{choice['type']}` [{choice['title']}](https://arcenciel.io/models/{choice['id']})"
                 await self.cache_set(hint, link)
                 hyperlinks.add(link)
         return sorted(list(hyperlinks))
