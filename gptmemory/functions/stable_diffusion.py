@@ -6,6 +6,7 @@ from typing import Any
 from redbot.core import commands
 
 from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
+from gptmemory.constants import LORA_PATTERN
 from gptmemory.functions.base import FunctionCallBase
 
 log = logging.getLogger("gptmemory.stablediffusion")
@@ -63,10 +64,10 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             if not self.ctx.channel.permissions_for(self.ctx.author).manage_messages:
                 return "[Error: Image generation is not allowed in this channel unless the user is a moderator]"
 
-        existing = arguments.get("existing", "")
-        prompt = arguments.get("prompt", "")
-        negative_prompt_extra = arguments.get("negative_prompt", "")
-        aspect_ratio = arguments.get("resolution", "")
+        existing: str = arguments.get("existing", "")
+        prompt: str = arguments.get("prompt", "")
+        negative_prompt_extra: str = arguments.get("negative_prompt", "")
+        aspect_ratio: str = arguments.get("resolution", "")
 
         if not prompt:
             return "[Error: No prompt provided]"
@@ -76,6 +77,11 @@ class StableDiffusionFunctionCall(FunctionCallBase):
         imagescanner: commands.Cog | None = self.ctx.bot.get_cog("ImageScanner")
         if not imagescanner:
             return "[Error: `imagescanner` cog not installed, please notify the bot owner]"
+
+        loras = []
+        for lora, name, _ in LORA_PATTERN.findall(prompt):
+            prompt = prompt.replace(lora, "").strip()
+            loras.append(name)
         
         regions = None
         if "||" in prompt:
@@ -132,6 +138,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 subseed_strength=float(metadata.get("Extra Seed Strength", 0)),
                 steps=int(metadata.get("Steps", 30)),
                 vae=metadata.get("VAE", metadata.get("Vae", "")),
+                loras=loras,
                 regions=regions,
             )
         else:
@@ -147,6 +154,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 negative_prompt=negative_prompt or None,
                 width=width,
                 height=height,
+                loras=loras,
                 regions=regions,
             )
 
