@@ -5,7 +5,7 @@ import discord
 from typing import Any
 from redbot.core import commands
 
-from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams
+from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
 from gptmemory.functions.base import FunctionCallBase
 
 log = logging.getLogger("gptmemory.stablediffusion")
@@ -24,7 +24,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "The prompt for image generation. Uses booru tags instead of sentences."
+                        "description": "The prompt for image generation. Uses booru tags instead of sentences. " +
+                                       "Can be split into left prompt and right prompt by putting || between them."
                     },
                     "negative_prompt": {
                         "type": "string",
@@ -32,8 +33,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                     },
                     "resolution": {
                         "type": "string",
-                        "description": "Image resolution. Not compatible with an existing image.",
-                        "enum": ["square", "portrait", "landscape"]
+                        "description": "Aspect ratio for the image.",
+                        "enum": ["square", "portrait", "landscape", "ultrawide"]
                     },
                 },
                 required=["prompt"],
@@ -54,12 +55,13 @@ class StableDiffusionFunctionCall(FunctionCallBase):
     
     async def run(self, arguments: dict) -> str:
         assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
+        
         channel_mode = await self.cog.config.guild(self.ctx.guild).generation_channel_mode()
         channels = await self.cog.config.guild(self.ctx.guild).generation_channels()
         if channel_mode == "blacklist" and self.ctx.channel.id in channels \
                 or channel_mode == "whitelist" and self.ctx.channel.id not in channels:
             if not self.ctx.channel.permissions_for(self.ctx.author).manage_messages:
-                return "[Image generation is not allowed in this channel for non-moderators]"
+                return "[Error: Image generation is not allowed in this channel unless the user is a moderator]"
 
         existing = arguments.get("existing", "")
         prompt = arguments.get("prompt", "")
@@ -67,23 +69,39 @@ class StableDiffusionFunctionCall(FunctionCallBase):
         aspect_ratio = arguments.get("resolution", "")
 
         if not prompt:
-            return "[No prompt provided]"
-        if "||" in prompt:
-            return "[The prompt is divided into regions, which is not supported]"
+            return "[Error: No prompt provided]"
         aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
         if not aimage:
-            return "[`aimage` cog not installed, please notify the bot owner]"
+            return "[Error: `aimage` cog not installed, please notify the bot owner]"
         imagescanner: commands.Cog | None = self.ctx.bot.get_cog("ImageScanner")
         if not imagescanner:
-            return "[`imagescanner` cog not installed, please notify the bot owner]"
+            return "[Error: `imagescanner` cog not installed, please notify the bot owner]"
         
+        regions = None
+        if "||" in prompt:
+            segments = prompt.split("||")
+            if len(segments) != 2:
+                return "[Error: The prompt was divided into regions but was not in the format left||right]"
+            regions = ImageRegionalParams(segments[0], segments[1], SplitType.HORIZONTAL, 50)
+
+        if aspect_ratio.lower() == "square":
+            width, height = 1024, 1024
+        elif aspect_ratio.lower() == "landscape":
+            width, height = 1216, 832
+        elif aspect_ratio.lower() == "portrait":
+            width, height = 832, 1216
+        elif aspect_ratio.lower() == "ultrawide":
+            width, height = 1536, 640
+        else:
+            width, height = None, None
+
         if existing:
             sent_by_me, message = await self.find_attachment(existing)
         else:
             sent_by_me, message = False, None
+
         if message and sent_by_me:
             metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
-            width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]
 
             # add negative tags that weren't already in the existing negative prompt
             negative_prompt = metadata.get("Negative Prompt", "")
@@ -94,6 +112,9 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 for tag in tags:
                     if tag not in negative_prompt:
                         negative_prompt += f", {tag}"
+
+            if width is None or height is None:
+                width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]
 
             params = ImageGenParams(
                 prompt=prompt,
@@ -108,18 +129,10 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 subseed=int(metadata.get("Extra Seed", -1)),
                 subseed_strength=float(metadata.get("Extra Seed Strength", 0)),
                 steps=int(metadata.get("Steps", 30)),
-                vae=metadata.get("VAE", metadata.get("Vae", ""))
+                vae=metadata.get("VAE", metadata.get("Vae", "")),
+                regions=regions,
             )
         else:
-            if aspect_ratio.lower() == "square":
-                width, height = 1024, 1024
-            elif aspect_ratio.lower() == "landscape":
-                width, height = 1216, 832
-            elif aspect_ratio.lower() == "portrait":
-                width, height = 832, 1216
-            else:
-                width, height = None, None
-
             # add negative tags that weren't already in the default negative prompt
             default_negative_prompt = await aimage.config.guild(self.ctx.guild).negative_prompt() # type: ignore
             negative_prompt = ""
@@ -131,17 +144,16 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 prompt=prompt,
                 negative_prompt=negative_prompt or None,
                 width=width,
-                height=height
+                height=height,
+                regions=regions,
             )
 
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
         asyncio.create_task(aimage.generate_image(self.ctx, params=params, message_content=message_content))  # type: ignore
 
-        response = "[Image generation started successfully, the user will have to wait for it to finsh]"
+        response = "[Image generation started successfully, the user will have to wait for it to finish]"
         if existing and not message:
             response += " [Warning: The original image was not found, so a new one will be made]"
         elif existing and not sent_by_me:
             response += " [Warning: Only images generated by the bot can be revised, so a new image will be made]"
-        elif existing and aspect_ratio:
-            response += " [Warning: It is not possible to change the size of a revised image, so the original size was kept]"
         return response

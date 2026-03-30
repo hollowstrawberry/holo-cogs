@@ -1,4 +1,5 @@
 from typing import Literal
+from discord import Enum
 from pydantic import BaseModel
 from dataclasses import dataclass, field
 
@@ -33,6 +34,17 @@ class ToolCall:
     function: Function
     type: str = "function"
 
+class SplitType(Enum):
+    HORIZONTAL = "split-horizontal-2"
+    VERTICAL = "split-vertical-2"
+
+@dataclass
+class ImageRegionalParams:
+    prompt1: str
+    prompt2: str
+    split_type: SplitType
+    split_percent: int
+
 @dataclass
 class ImageGenParams:
     prompt: str
@@ -52,5 +64,5 @@ class ImageGenParams:
     loras: list[str]            = field(default_factory=list)
     subseed: int                = -1
     subseed_strength: float     = 0.0
-    image: None = None
-    regions: None = None
+    image: None                 = None
+    regions: ImageRegionalParams | None = None

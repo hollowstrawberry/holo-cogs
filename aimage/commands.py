@@ -105,8 +105,16 @@ class AImageCommands(AImageSettings):
     _resolution_shorthands = {
         re.compile(r"(^|\s*,\s*)(vertical|portrait)(?=$|\s*,\s*)", re.IGNORECASE): (832, 1216),
         re.compile(r"(^|\s*,\s*)(horizontal|landscape)(?=$|\s*,\s*)", re.IGNORECASE): (1216, 832),
-        re.compile(r"(^|\s*,\s*)(square)(?=$|\s*,\s*)", re.IGNORECASE): (1024, 1024)
+        re.compile(r"(^|\s*,\s*)(square)(?=$|\s*,\s*)", re.IGNORECASE): (1024, 1024),
+        re.compile(r"(^|\s*,\s*)(ultrawide)(?=$|\s*,\s*)", re.IGNORECASE): (1536, 640),
     }
+
+    _resolution_choices = [
+        app_commands.Choice(name="Square", value="1024x1024"),
+        app_commands.Choice(name="Portrait", value="832x1216"),
+        app_commands.Choice(name="Landscape", value="1216x832"),
+        app_commands.Choice(name="Ultrawide", value="1536x640"),
+    ]
 
 
     @checks.bot_has_permissions(attach_files=True)
@@ -167,11 +175,7 @@ class AImageCommands(AImageSettings):
         checkpoint=checkpoint_autocomplete,
     )
     @app_commands.checks.bot_has_permissions(attach_files=True)
-    @app_commands.choices(resolution=[
-            app_commands.Choice(name="Square", value="1024x1024"),
-            app_commands.Choice(name="Portrait", value="832x1216"),
-            app_commands.Choice(name="Landscape", value="1216x832"),
-        ])
+    @app_commands.choices(resolution=_resolution_choices)
     async def imagine_app(
         self,
         interaction: discord.Interaction,
@@ -246,16 +250,12 @@ class AImageCommands(AImageSettings):
         checkpoint=checkpoint_autocomplete,
     )
     @app_commands.choices(
-        resolution=[
-            app_commands.Choice(name="Square", value="1024x1024"),
-            app_commands.Choice(name="Portrait", value="832x1216"),
-            app_commands.Choice(name="Landscape", value="1216x832"),
-        ],
+        resolution=_resolution_choices,
         split=[
             app_commands.Choice(name="Left/Right", value=SplitType.HORIZONTAL.value),
             app_commands.Choice(name="Top/Bottom", value=SplitType.VERTICAL.value),
         ],
-        )
+    )
     async def regional_app(
         self,
         interaction: discord.Interaction,
