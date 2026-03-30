@@ -1,16 +1,14 @@
 import json
 import logging
-import os
 import aiohttp
 import discord
 from copy import deepcopy
 from redbot.core import commands
 
 from aimage.base import AImageBase
-from aimage.comfy import ComfyMetadata
 from aimage.utils import ImageGenError, clean_model, parse_loras
 from aimage.schema import ImageGenParams
-from aimage.constants import ADETAILER_ARGS, RESOURCE_HASH_REGEX
+from aimage.constants import ADETAILER_ARGS
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
@@ -19,14 +17,11 @@ class ArcEnCielAPI:
     def __init__(self, cog: AImageBase, endpoint: str, api_key: str):
         self.cog = cog
         self.endpoint = endpoint
-        self.headers = {
-            "x-api-key": api_key
-        }
-        self.session = aiohttp.ClientSession()
+        self.session = aiohttp.ClientSession(headers={"x-api-key": api_key})
 
     async def update_autocomplete_cache(self) -> None:
         url = self.endpoint + "/generator/options"
-        async with self.session.get(url, headers=self.headers) as response:
+        async with self.session.get(url) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
             data = await response.json()
@@ -43,7 +38,7 @@ class ArcEnCielAPI:
         assert isinstance(context.channel, discord.abc.Messageable) and isinstance(member, discord.Member)
         parse_loras(payload)
         url = self.endpoint + "/generator/jobs"
-        async with self.session.post(url, json=payload, headers=self.headers) as response:
+        async with self.session.post(url, json=payload) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
@@ -51,7 +46,7 @@ class ArcEnCielAPI:
     
     async def close_request(self, id: str):
         url = f"{self.endpoint}/generator/jobs/{id}"
-        async with self.session.delete(url, headers=self.headers) as response:
+        async with self.session.delete(url) as response:
             if response.status >= 400:
                 log.info(f"job {id} couldn't be deleted {response.status}")
             else:
@@ -59,7 +54,7 @@ class ArcEnCielAPI:
 
     async def fetch_queue(self) -> list[dict]:
         url = self.endpoint + "/generator/jobs"
-        async with self.session.get(url, headers=self.headers) as response:
+        async with self.session.get(url) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
@@ -71,7 +66,7 @@ class ArcEnCielAPI:
             "q": query,
             "limit": 25,
         }
-        async with self.session.get(url, params=params, headers=self.headers) as response:
+        async with self.session.get(url, params=params) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
@@ -79,7 +74,7 @@ class ArcEnCielAPI:
     
     async def download_image(self, job_id: str) -> bytes:
         url = f"{self.endpoint}/generator/jobs/{job_id}/outputs/0/download"
-        async with self.session.get(url, headers=self.headers) as response:
+        async with self.session.get(url) as response:
             if response.status >= 400 or "json" in response.content_type:
                 raise ImageGenError(await self._extract_error(response))
             b = await response.read()
@@ -90,7 +85,7 @@ class ArcEnCielAPI:
         data = aiohttp.FormData()
         data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
         data.add_field("kind", "REDBOT")
-        async with self.session.post(url=url, data=data, headers=self.headers) as response:
+        async with self.session.post(url=url, data=data) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
@@ -106,7 +101,7 @@ class ArcEnCielAPI:
         }
         if hash_only:
             params["hashOnly"] = True
-        async with self.session.get(url, params=params, headers=self.headers) as response:
+        async with self.session.get(url, params=params) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
             data = await response.json()
@@ -117,7 +112,7 @@ class ArcEnCielAPI:
         data = aiohttp.FormData()
         data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
         data.add_field("kind", "tagger")
-        async with self.session.post(url=url, data=data, headers=self.headers) as response:
+        async with self.session.post(url=url, data=data) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
