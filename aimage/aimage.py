@@ -182,7 +182,7 @@ class AImage(AImageCommands):
                 for filename, data in masks:
                     mask_paths.append(await self.api.upload_image(data, filename or "image.png"))
                     file = discord.File(BytesIO(data), "fuck.png")
-                    await context.channel.send(content=hashlib.sha256(data).digest().decode(), file=file)
+                    await context.channel.send(content=hashlib.sha256(data).hexdigest(), file=file)
                 for i, path in enumerate(mask_paths):
                     payload["attentionCouple"]["regions"][i]["maskPath"] = path
                 
