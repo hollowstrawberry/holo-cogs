@@ -89,7 +89,8 @@ class AImage(AImageCommands):
             nsfw = any(r.get("rating") in ["sensitive", "explicit"] for r in ratings)
             error_message = None
             if job["status"] == "failed":
-                error_message = f"Reason: `{job['safety']['reason'] or 'none'}`, Error: `{job['safety']['error'] or 'none'}`"
+                error_message = f"Reason: `{job.get('safety', {}).get('reason') or 'none'}`, " \
+                              + f"Error: `{job.get('safety', {}).get('error') or 'none'}`"
             asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
             
         elif job["status"] in ["queued", "running"]:
