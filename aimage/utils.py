@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 from redbot.core import commands
 
 from aimage.schema import SplitType
-from aimage.constants import LORA_REGEX, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX
+from aimage.constants import LORA_REGEX, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX, LORA_REGEX
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -70,6 +70,8 @@ def parse_loras(payload: dict):
             "weight": weight,
         })
         payload["prompt"] = payload["prompt"].replace(tag, "")
+        for region in payload.get("attentionCouple", {}).get("regions", []):
+            region["prompt"] = LORA_REGEX.sub("", region["prompt"]).strip()
 
 def clamp(value: int, min_value: int, max_value: int) -> int:
     return max(min_value, min(max_value, value))
@@ -112,3 +114,15 @@ def build_split_masks(
         filename = f"attention-region-{i}-{width}x{height}.png"
         out.append((filename, make_region_mask(width, height, rect)))
     return out
+
+def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
+    shared_prompt = shared_prompt.strip(" ,") + ", "
+    edited_prompts = list(prompts)
+    for i, prompt in enumerate(prompts):
+        prompt = shared_prompt + prompt.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
+        prompt = LORA_REGEX.sub("", prompt).strip()
+        if "masterpiece" not in prompt and "best quality" not in prompt:
+            prompt = "masterpiece, best quality, " + prompt
+        edited_prompts[i] = prompt
+    final_prompt = " || ".join(edited_prompts)
+    return [final_prompt, *edited_prompts]

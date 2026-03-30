@@ -7,7 +7,7 @@ from rapidfuzz import fuzz
 
 from redbot.core import app_commands, checks, commands
 
-from aimage.utils import clean_tag, clean_model
+from aimage.utils import clean_tag, clean_model, edit_regional_prompts
 from aimage.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
 from aimage.settings import AImageSettings
 from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
@@ -15,18 +15,6 @@ from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
 log = logging.getLogger("red.holo-cogs.aimage")
  
 class AImageCommands(AImageSettings):
-
-    @staticmethod
-    def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
-        shared_prompt = shared_prompt.strip(" ,") + ", "
-        edited_prompts = list(prompts)
-        for i, prompt in enumerate(prompts):
-            prompt = shared_prompt + prompt.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
-            if "masterpiece" not in prompt and "best quality" not in prompt:
-                prompt = "masterpiece, best quality, " + prompt
-            edited_prompts[i] = prompt
-        final_prompt = " || ".join(edited_prompts)
-        return [final_prompt, *edited_prompts]
 
     @staticmethod
     def filter_names(options: dict, current: str, strict: bool = False) -> dict:
@@ -145,7 +133,7 @@ class AImageCommands(AImageSettings):
             if len(segments) != 3:
                 content = f":warning: Your prompt contains regions divided by `{split}`, but it's not in the format `shared {split} left {split} right`"
                 return await ctx.send(content)
-            segments = self.edit_regional_prompts(*segments)
+            segments = edit_regional_prompts(*segments)
             prompt = segments[0]
             if width is None or height is None:
                 width, height = 1216, 832
@@ -208,7 +196,7 @@ class AImageCommands(AImageSettings):
             if len(segments) != 3:
                 content = f":warning: Your prompt contains regions divided by `{split}`, but it's not in the format `shared {split} left {split} right`"
                 return await interaction.followup.send(content=content, ephemeral=True)
-            segments = self.edit_regional_prompts(*segments)
+            segments = edit_regional_prompts(*segments)
             prompt = segments[0]
             regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL.value, 50)
             
@@ -285,7 +273,7 @@ class AImageCommands(AImageSettings):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
         width, height = tuple(int(x) for x in resolution.split("x"))
-        final_prompt, prompt1, prompt2 = self.edit_regional_prompts(shared_prompt, prompt1, prompt2)
+        final_prompt, prompt1, prompt2 = edit_regional_prompts(shared_prompt, prompt1, prompt2)
         regions = ImageRegionalParams(prompt1, prompt2, split, split_percent)
 
         params = ImageGenParams(
