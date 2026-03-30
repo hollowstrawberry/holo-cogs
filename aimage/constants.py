@@ -8,13 +8,13 @@ PROGRESS_UPDATE_INTERVAL = 5
 
 SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg"]
 
-LORA_REGEX = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
+LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
+RESOURCE_FILE_PATTERN = re.compile(r"\"[^\"]+\.(?:safetensors|ckpt|pth|pt|bin)\"", re.IGNORECASE)
+RESOURCE_HASH_PATTERN = re.compile(r"\b(?:0x)?[0-9a-f]{10,64}\b", re.IGNORECASE)
 
-UUID_PREFIX_REGEX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_ ]+", re.IGNORECASE)
-NUMERIC_PREFIX_REGEX = re.compile(r"^(?:\d{3,}[_-]){2,}")
-LORA_PREFIX_REGEX = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_',re.IGNORECASE)
-RESOURCE_HASH_REGEX = re.compile(r"\b(?:0x)?[0-9a-f]{10,64}\b", re.IGNORECASE)
-RESOURCE_FILE_REGEX = re.compile(r"\"[^\"]+\.(?:safetensors|ckpt|pth|pt|bin)\"", re.IGNORECASE)
+UUID_PREFIX_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_ ]+", re.IGNORECASE)
+NUMERIC_PREFIX_PATTERN = re.compile(r"^(?:\d{3,}[_-]){2,}")
+LORA_PREFIX_PATTERN = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_',re.IGNORECASE)
 
 DEFAULT_UPSCALER = "2x-AnimeSharpV4_RCAN.safetensors"
 DEFAULT_DENOISE = 20

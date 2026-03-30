@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 from redbot.core import commands
 
 from aimage.schema import SplitType
-from aimage.constants import LORA_REGEX, UUID_PREFIX_REGEX, NUMERIC_PREFIX_REGEX, LORA_PREFIX_REGEX, LORA_REGEX
+from aimage.constants import LORA_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -53,13 +53,13 @@ def clean_tag(tag: str) -> str:
         return tag
     
 def clean_model(name: str) -> str:
-    name = UUID_PREFIX_REGEX.sub("", name)
-    name = NUMERIC_PREFIX_REGEX.sub("", name)
-    name = LORA_PREFIX_REGEX.sub("", name)
+    name = UUID_PREFIX_PATTERN.sub("", name)
+    name = NUMERIC_PREFIX_PATTERN.sub("", name)
+    name = LORA_PREFIX_PATTERN.sub("", name)
     return name
 
 def parse_loras(payload: dict):
-    for lora in LORA_REGEX.findall(payload["prompt"]):
+    for lora in LORA_PATTERN.findall(payload["prompt"]):
         tag, name, weight = lora
         name = f"{name.replace('.safetensors', '')}.safetensors"
         payload.setdefault("loras", [])
@@ -71,7 +71,7 @@ def parse_loras(payload: dict):
         })
         payload["prompt"] = payload["prompt"].replace(tag, "")
         for region in payload.get("attentionCouple", {}).get("regions", []):
-            region["prompt"] = LORA_REGEX.sub("", region["prompt"]).strip()
+            region["prompt"] = LORA_PATTERN.sub("", region["prompt"]).strip()
 
 def clamp(value: int, min_value: int, max_value: int) -> int:
     return max(min_value, min(max_value, value))
@@ -120,7 +120,7 @@ def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
     edited_prompts = list(prompts)
     for i, prompt in enumerate(prompts):
         prompt = shared_prompt + prompt.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
-        prompt = LORA_REGEX.sub("", prompt).strip()
+        prompt = LORA_PATTERN.sub("", prompt).strip()
         if "masterpiece" not in prompt and "best quality" not in prompt:
             prompt = "masterpiece, best quality, " + prompt
         edited_prompts[i] = prompt

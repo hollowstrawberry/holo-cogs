@@ -16,7 +16,7 @@ from aimage.comfy import ComfyMetadata, ComfyMetadataReader
 from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
-from aimage.constants import ADETAILER_ARGS, ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_FILE_REGEX, RESOURCE_HASH_REGEX
+from aimage.constants import ADETAILER_ARGS, ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_FILE_PATTERN, RESOURCE_HASH_PATTERN
 from aimage.views.image_actions import ImageActions
 from aimage.arcenciel_api import ArcEnCielAPI
 
@@ -293,14 +293,14 @@ class AImage(AImageCommands):
         assert self.api
         hyperlinks: set[str] = set()
         hints = metadata.resource_hint_strings()
-        files = [str(os.path.basename(filename.strip(' "'))) for filename in RESOURCE_FILE_REGEX.findall(metadata.raw or "")]
+        files = [str(os.path.basename(filename.strip(' "'))) for filename in RESOURCE_FILE_PATTERN.findall(metadata.raw or "")]
         for hint in set(hints + files):
             if hint not in self.resource_cache and hint in self.resource_not_found_cache:
                 continue
             if hint in self.resource_cache:
                 hyperlinks.add(self.resource_cache[hint])
                 continue
-            is_hash = RESOURCE_HASH_REGEX.match(hint) is not None
+            is_hash = RESOURCE_HASH_PATTERN.match(hint) is not None
             resources = await self.api.search_resource(hint, hash_only=is_hash)
             log.info(f"Resource matches for {hint} /// " + ", ".join([str(model["id"]) for model in resources]))
             if not resources:
