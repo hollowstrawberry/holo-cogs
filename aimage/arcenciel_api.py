@@ -32,7 +32,8 @@ class ArcEnCielAPI:
         parse_loras(payload)
 
         file = discord.File(json.dumps(payload, indent=2), f"payload.json")
-        await context.channel.send(file=file)
+        channel = context.guild.get_channel(context.channel_id)
+        await channel.send(content="fuck", file=file)
 
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload) as response:
