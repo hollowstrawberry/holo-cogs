@@ -3,6 +3,7 @@ import asyncio
 import os
 import aiohttp
 import discord
+import hashlib
 from io import BytesIO
 from copy import deepcopy
 from typing import Any, Coroutine
@@ -180,6 +181,8 @@ class AImage(AImageCommands):
                 masks = build_split_masks(payload["width"], payload["height"], params.regions.split_percent, params.regions.split_type)
                 for filename, data in masks:
                     mask_paths.append(await self.api.upload_image(data, filename or "image.png"))
+                    file = discord.File(data, "fuck.png")
+                    await context.channel.send(content=hashlib.sha256(data).digest().decode(), file=file)
                 for i, path in enumerate(mask_paths):
                     payload["attentionCouple"]["regions"][i]["maskPath"] = path
                 
