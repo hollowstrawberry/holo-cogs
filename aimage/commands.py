@@ -102,6 +102,12 @@ class AImageCommands(AImageSettings):
         "variation": "Also known as subseed strength, makes variations on a set seed.",
     }
 
+    _resolution_shorthands = {
+        re.compile(r"(^|\s*,\s*)(vertical|portrait)(?=$|\s*,\s*)", re.IGNORECASE): (832, 1216),
+        re.compile(r"(^|\s*,\s*)(horizontal|landscape)(?=$|\s*,\s*)", re.IGNORECASE): (1216, 832),
+        re.compile(r"(^|\s*,\s*)(square)(?=$|\s*,\s*)", re.IGNORECASE): (1024, 1024)
+    }
+
 
     @checks.bot_has_permissions(attach_files=True)
     @checks.bot_in_a_guild()
@@ -119,6 +125,12 @@ class AImageCommands(AImageSettings):
         if "--" in prompt:
             prompt, negative_prompt = [p.strip() for p in prompt.rsplit("--", 1)]
 
+        for pattern, size in self._resolution_shorthands.items():
+            if pattern.search(prompt):
+                prompt = pattern.sub("", prompt).strip(" ,")
+                width, height = size
+                break
+              
         if "|" in prompt:
             split = "||" if "||" in prompt else "|"
             segments = [p.strip() for p in prompt.split(split)]
@@ -127,7 +139,8 @@ class AImageCommands(AImageSettings):
                 return await ctx.send(content)
             segments = self.edit_regional_prompts(*segments)
             prompt = segments[0]
-            width, height = 1216, 832
+            if width is None or height is None:
+                width, height = 1216, 832
             regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL, 50)
 
         params = ImageGenParams(
