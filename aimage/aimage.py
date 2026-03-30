@@ -183,7 +183,7 @@ class AImage(AImageCommands):
                 for i, path in enumerate(mask_paths):
                     payload["attentionCouple"]["regions"][i]["maskPath"] = path
                 
-            job = await self.api.request_image(context, payload)
+            job = await self.api.request_image(payload)
             self.queued_images[job["id"]] = QueuedImageGen(
                 job["id"],
                 payload,
@@ -349,14 +349,14 @@ class AImage(AImageCommands):
             "vaeName": vae.replace(".safetensors", "") + ".safetensors" if vae else None,
             "seed": params.seed,
             "steps": params.steps or await self.config.sampling_steps(),
-            "cfg": params.cfg or await self.config.cfg(),
+            "cfg": float(params.cfg or await self.config.cfg()),
             "samplerName": params.sampler or await self.config.sampler(),
             "scheduler": params.scheduler or await self.config.scheduler(),
             "width": params.width or await self.config.width(),
             "height": params.height or await self.config.height(),
             "batchSize": 1,
             "extraSeed": params.subseed,
-            "extraSeedStrength": params.subseed_strength,
+            "extraSeedStrength": float(params.subseed_strength),
             "loras": loras,
             "sfwMode": not nsfw,
         }
