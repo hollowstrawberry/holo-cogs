@@ -36,7 +36,7 @@ class ArcEnCielAPI:
             f.write(json.dumps(payload, indent=2))
             f.seek(0)
             file = discord.File(f, f"payload.json")
-        channel = context.guild.get_channel(context.channel_id)
+        channel = context.guild.get_channel(context.channel.id)
         await channel.send(content="fuck", file=file)
 
         url = self.endpoint + "/generator/jobs"
