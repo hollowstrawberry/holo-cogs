@@ -229,7 +229,7 @@ class AImageCommands(AImageSettings):
         if "masterpiece" not in prompt1 and "best quality" not in prompt1:
             prompt1 = "masterpiece, best quality, " + prompt1
         if "masterpiece" not in prompt2 and "best quality" not in prompt2:
-            prompt1 = "masterpiece, best quality, " + prompt2
+            prompt2 = "masterpiece, best quality, " + prompt2
         final_prompt = f"{prompt1} || {prompt2}"
         
         regions = ImageRegionalParams(
