@@ -105,7 +105,6 @@ class AImage(AImageCommands):
             gen.last_percent = current_percent
             gen.last_eta = current_eta
             gen.last_position = current_position
-            log.info(f"Updating job {gen.id} with ({current_phase}, {current_percent}%, {current_eta}ms, #{current_position})")
             
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
             embed.description = f"{await self.config.loading_emoji()} "
@@ -293,7 +292,6 @@ class AImage(AImageCommands):
         hyperlinks: set[str] = set()
         hints = metadata.resource_hint_strings()
         files = [str(os.path.basename(filename.strip(' "'))) for filename in RESOURCE_FILE_REGEX.findall(metadata.raw or "")]
-        log.info(f"hints {hints} /// files {files}")
         for hint in set(hints + files):
             if hint not in self.resource_cache and hint in self.resource_not_found_cache:
                 continue
