@@ -28,13 +28,12 @@ class ArcEnCielAPI:
         for key in ["samplers", "schedulers"]:
             self.cog.autocomplete_cache[key] = {name: name for name in data.get("limits", {}).get(key, [])}
 
-    async def request_image(self,
-                            context: commands.Context | discord.Interaction,
-                            payload: dict,
-                            ) -> dict:
-        member = context.user if isinstance(context, discord.Interaction) else context.author
-        assert isinstance(context.channel, discord.abc.Messageable) and isinstance(member, discord.Member)
+    async def request_image(self, context: commands.Context | discord.Interaction, payload: dict) -> dict:
         parse_loras(payload)
+
+        file = discord.File(json.dumps(payload, indent=2), f"payload.json")
+        await context.channel.send(file=file)
+
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload) as response:
             if response.status >= 400:
