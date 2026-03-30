@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import os
 import aiohttp
 import discord
 from io import BytesIO
@@ -14,7 +15,7 @@ from aimage.comfy import ComfyMetadata, ComfyMetadataReader
 from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
-from aimage.constants import ADETAILER_ARGS, ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_HASH_REGEX
+from aimage.constants import ADETAILER_ARGS, ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_FILE_REGEX, RESOURCE_HASH_REGEX
 from aimage.views.image_actions import ImageActions
 from aimage.arcenciel_api import ArcEnCielAPI
 
@@ -290,7 +291,10 @@ class AImage(AImageCommands):
     async def resolve_arcenciel_resources(self, metadata: ComfyMetadata) -> list[str]:
         assert self.api
         hyperlinks: set[str] = set()
-        for hint in metadata.resource_hint_strings():
+        hints = metadata.resource_hint_strings()
+        files = [str(os.path.basename(filename.strip(' "'))) for filename in RESOURCE_FILE_REGEX.findall(metadata.raw or "")]
+        log.info(f"hints {hints} /// files {files}")
+        for hint in hints + files:
             if hint not in self.resource_cache and hint in self.resource_not_found_cache:
                 continue
             if hint in self.resource_cache:
