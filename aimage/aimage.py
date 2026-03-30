@@ -294,7 +294,7 @@ class AImage(AImageCommands):
         hints = metadata.resource_hint_strings()
         files = [str(os.path.basename(filename.strip(' "'))) for filename in RESOURCE_FILE_REGEX.findall(metadata.raw or "")]
         log.info(f"hints {hints} /// files {files}")
-        for hint in hints + files:
+        for hint in set(hints + files):
             if hint not in self.resource_cache and hint in self.resource_not_found_cache:
                 continue
             if hint in self.resource_cache:
