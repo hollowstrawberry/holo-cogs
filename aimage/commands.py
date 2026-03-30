@@ -119,10 +119,11 @@ class AImageCommands(AImageSettings):
         if "--" in prompt:
             prompt, negative_prompt = [p.strip() for p in prompt.rsplit("--", 1)]
 
-        if "||" in prompt:
-            segments = [p.strip() for p in prompt.split("||")]
+        if "|" in prompt:
+            split = "||" if "||" in prompt else "|"
+            segments = [p.strip() for p in prompt.split(split)]
             if len(segments) != 3:
-                content = ":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
+                content = f":warning: Your prompt contains regions divided by `{split}`, but it's not in the format `shared {split} left {split} right`"
                 return await ctx.send(content)
             segments = self.edit_regional_prompts(*segments)
             prompt = segments[0]
@@ -184,10 +185,11 @@ class AImageCommands(AImageSettings):
         width, height = tuple(int(x) for x in resolution.split("x"))
 
         regions = None
-        if "||" in prompt:
-            segments = [p.strip() for p in prompt.split("||")]
+        if "|" in prompt:
+            split = "||" if "||" in prompt else "|"
+            segments = [p.strip() for p in prompt.split(split)]
             if len(segments) != 3:
-                content = ":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
+                content = f":warning: Your prompt contains regions divided by `{split}`, but it's not in the format `shared {split} left {split} right`"
                 return await interaction.followup.send(content=content, ephemeral=True)
             segments = self.edit_regional_prompts(*segments)
             prompt = segments[0]
