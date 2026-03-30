@@ -181,12 +181,10 @@ class AImage(AImageCommands):
                 masks = build_split_masks(payload["width"], payload["height"], params.regions.split_percent, params.regions.split_type)
                 for filename, data in masks:
                     mask_paths.append(await self.api.upload_image(data, filename or "image.png"))
-                    file = discord.File(BytesIO(data), "fuck.png")
-                    await context.channel.send(content=hashlib.sha256(data).hexdigest(), file=file)
                 for i, path in enumerate(mask_paths):
                     payload["attentionCouple"]["regions"][i]["maskPath"] = path
                 
-            job = await self.api.request_image(context, payload)
+            job = await self.api.request_image(payload)
             self.queued_images[job["id"]] = QueuedImageGen(
                 job["id"],
                 payload,
@@ -373,7 +371,7 @@ class AImage(AImageCommands):
         if params.regions:
             payload["attentionCouple"] = {
                 "enabled": True,
-                "layoutPreset": params.regions.split_type.value,
+                "layoutPreset": params.regions.split_type,
                 "splitPercent": params.regions.split_percent,
                 "globalPromptWeight": 0.3,
                 "regions": [

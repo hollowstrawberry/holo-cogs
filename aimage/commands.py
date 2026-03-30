@@ -149,7 +149,7 @@ class AImageCommands(AImageSettings):
             prompt = segments[0]
             if width is None or height is None:
                 width, height = 1216, 832
-            regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL, 50)
+            regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL.value, 50)
 
         params = ImageGenParams(
             prompt=prompt,
@@ -210,7 +210,7 @@ class AImageCommands(AImageSettings):
                 return await interaction.followup.send(content=content, ephemeral=True)
             segments = self.edit_regional_prompts(*segments)
             prompt = segments[0]
-            regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL, 50)
+            regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL.value, 50)
             
         params = ImageGenParams(
             prompt=prompt,
@@ -259,7 +259,7 @@ class AImageCommands(AImageSettings):
     async def regional_app(
         self,
         interaction: discord.Interaction,
-        split: SplitType,
+        split: str,
         shared_prompt: str,
         prompt1: str,
         prompt2: str,

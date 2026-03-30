@@ -42,7 +42,7 @@ class SplitType(Enum):
 class ImageRegionalParams:
     prompt1: str
     prompt2: str
-    split_type: SplitType
+    split_type: str
     split_percent: int
 
 @dataclass

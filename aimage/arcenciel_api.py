@@ -1,4 +1,3 @@
-import io
 import json
 import logging
 import aiohttp
@@ -29,16 +28,8 @@ class ArcEnCielAPI:
         for key in ["samplers", "schedulers"]:
             self.cog.autocomplete_cache[key] = {name: name for name in data.get("limits", {}).get(key, [])}
 
-    async def request_image(self, context: commands.Context | discord.Interaction, payload: dict) -> dict:
+    async def request_image(self, payload: dict) -> dict:
         parse_loras(payload)
-
-        with io.StringIO() as f:
-            f.write(json.dumps(payload, indent=2))
-            f.seek(0)
-            file = discord.File(f, f"payload.json")
-        channel = context.guild.get_channel(context.channel.id)
-        await channel.send(content="fuck", file=file)
-
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload) as response:
             if response.status >= 400:

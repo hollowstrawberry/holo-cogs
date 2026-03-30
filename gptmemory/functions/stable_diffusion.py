@@ -88,7 +88,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             segments = prompt.split("||")
             if len(segments) != 2:
                 return "[Error: The prompt was divided into regions but was not in the format left||right]"
-            regions = ImageRegionalParams(segments[0].strip(), segments[1].strip(), SplitType.HORIZONTAL, 50)
+            regions = ImageRegionalParams(segments[0].strip(), segments[1].strip(), SplitType.HORIZONTAL.value, 50)
 
         if aspect_ratio.lower() == "square":
             width, height = 1024, 1024

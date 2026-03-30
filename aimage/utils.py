@@ -92,19 +92,19 @@ def build_split_masks(
     width: int,
     height: int,
     split_percent: float,
-    layout: SplitType,
+    layout: str,
 ) -> list[tuple[str, bytes]]:
-    if layout == SplitType.HORIZONTAL:
-        split_x = clamp(round(width * (split_percent / 100.0)), 1, width - 1)
-        rects = [
-            (0, 0, split_x, height),              # region 1
-            (split_x, 0, width - split_x, height) # region 2
-        ]
-    else:
+    if layout == SplitType.VERTICAL.value:
         split_y = clamp(round(height * (split_percent / 100.0)), 1, height - 1)
         rects = [
             (0, 0, width, split_y),               # region 1
             (0, split_y, width, height - split_y) # region 2
+        ]
+    else:
+        split_x = clamp(round(width * (split_percent / 100.0)), 1, width - 1)
+        rects = [
+            (0, 0, split_x, height),              # region 1
+            (split_x, 0, width - split_x, height) # region 2
         ]
 
     out: list[tuple[str, bytes]] = []
