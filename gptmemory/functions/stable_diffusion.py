@@ -135,9 +135,9 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             )
 
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
-        asyncio.create_task(aimage.generate_image(self.ctx, params=params, message_content=message_content)) # type: ignore
+        asyncio.create_task(aimage.generate_image(self.ctx, params=params, message_content=message_content))  # type: ignore
 
-        response = "[Image generation started successfully]"
+        response = "[Image generation started successfully, the user will have to wait for it to finsh]"
         if existing and not message:
             response += " [Warning: The original image was not found, so a new one will be made]"
         elif existing and not sent_by_me:
