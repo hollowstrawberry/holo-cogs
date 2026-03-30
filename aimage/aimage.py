@@ -183,7 +183,7 @@ class AImage(AImageCommands):
                 for i, path in enumerate(mask_paths):
                     payload["attentionCouple"]["regions"][i]["maskPath"] = path
                 
-            job = await self.api.request_image(payload)
+            job = await self.api.request_image(context, payload)
             self.queued_images[job["id"]] = QueuedImageGen(
                 job["id"],
                 payload,
