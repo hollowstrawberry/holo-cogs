@@ -30,6 +30,7 @@ class AImage(AImageCommands):
         asyncio.create_task(self.update_autocomplete_cache())
         self.consume_queue.start()
         self.clear_quota.start()
+        self.resource_cache = await self.config.resource_cache()
 
     async def cog_unload(self):
         if self.consume_queue.is_running():

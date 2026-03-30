@@ -96,16 +96,16 @@ class ArcEnCielAPI:
             r = await response.json()
         return r["path"]
     
-    async def search_resource(self, query: str, *, hash_only: bool = False, limit: int = 10) -> list[dict]:
+    async def search_resource(self, query: str, *, hash_only: bool = False) -> list[dict]:
         if not query.strip():
             return []
         url = self.endpoint + "/models/search"
-        params: dict[str, str] = {
+        params = {
             "search": query,
-            "limit": str(limit),
+            "limit": 10,
         }
         if hash_only:
-            params["hashOnly"] = "1"
+            params["hashOnly"] = True
         async with self.session.get(url, params=params, headers=self.headers) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
