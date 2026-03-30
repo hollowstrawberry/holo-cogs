@@ -297,7 +297,7 @@ class AImage(AImageCommands):
                 continue
             is_hash = RESOURCE_HASH_REGEX.match(hint) is not None
             resources = await self.api.search_resource(hint, hash_only=is_hash)
-            log.info(f"Resource matches for {hint} /// " + ", ".join([model["id"] for model in resources]))
+            log.info(f"Resource matches for {hint} /// " + ", ".join([str(model["id"]) for model in resources]))
             if not resources:
                 await self.cache_set(hint, None)
                 continue
