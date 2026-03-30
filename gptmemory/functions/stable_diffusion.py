@@ -98,8 +98,6 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             width, height = 832, 1216
         elif aspect_ratio.lower() == "ultrawide":
             width, height = 1536, 640
-        elif regions:
-            width, height = 1216, 832
         else:
             width, height = None, None
 
@@ -122,7 +120,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                         negative_prompt += f", {tag}"
 
             if width is None or height is None:
-                width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]
+                width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]                
 
             params = ImageGenParams(
                 prompt=prompt,
@@ -148,6 +146,9 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             if negative_prompt_extra:
                 tags = [tag.strip() for tag in negative_prompt_extra.split(",")]
                 negative_prompt = ", ".join([tag.strip() for tag in tags if tag.strip() not in default_negative_prompt])
+
+            if regions and (width is None or height is None):
+                width, height = 1216, 832
 
             params = ImageGenParams(
                 prompt=prompt,
