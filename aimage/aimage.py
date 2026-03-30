@@ -3,17 +3,18 @@ import asyncio
 import aiohttp
 import discord
 from io import BytesIO
+from copy import deepcopy
 from typing import Any, Coroutine
 from datetime import datetime, timedelta, timezone
 from discord.ext import tasks
 from redbot.core import commands
 from sd_prompt_reader.image_data_reader import ImageDataReader
 
+from aimage.comfy import ComfyMetadata, ComfyMetadataReader
 from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
-from aimage.constants import ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_HASH_REGEX
-from aimage.comfy import ComfyMetadata, ComfyMetadataReader
+from aimage.constants import ADETAILER_ARGS, ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_HASH_REGEX
 from aimage.views.image_actions import ImageActions
 from aimage.arcenciel_api import ArcEnCielAPI
 
@@ -143,7 +144,7 @@ class AImage(AImageCommands):
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
         assert payload or params
-        payload = payload or await self.api.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
+        payload = payload or await self.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
 
         enabled = await self.config.guild(context.guild).enabled()
         if not enabled:
@@ -318,3 +319,64 @@ class AImage(AImageCommands):
                 await self.cache_set(hint, link)
                 hyperlinks.add(link)
         return sorted(list(hyperlinks))
+
+
+    async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
+        stock_negative_prompt = await self.config.negative_prompt()
+        if stock_negative_prompt not in (params.negative_prompt or ""):
+            if params.negative_prompt:
+                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
+            else:
+                params.negative_prompt = stock_negative_prompt
+        
+        checkpoint = params.checkpoint or await self.config.user(member).checkpoint() or await self.config.checkpoint() or ""
+        vae = params.vae or await self.config.vae()
+        loras = []
+        for lora in params.loras:
+            loras.append({
+                "name": f"{lora.replace('.safetensors', '')}.safetensors",
+                "weight": 1.0,
+            })
+
+        payload = {
+            "mode": "img2img" if params.image else "txt2img",
+            "prompt": params.prompt,
+            "negativePrompt": params.negative_prompt or await self.config.negative_prompt(),
+            "modelName": checkpoint.replace(".safetensors", "") + ".safetensors",
+            "vaeName": vae.replace(".safetensors", "") + ".safetensors" if vae else None,
+            "seed": params.seed,
+            "steps": params.steps or await self.config.sampling_steps(),
+            "cfg": params.cfg or await self.config.cfg(),
+            "samplerName": params.sampler or await self.config.sampler(),
+            "scheduler": params.scheduler or await self.config.scheduler(),
+            "width": params.width or await self.config.width(),
+            "height": params.height or await self.config.height(),
+            "batchSize": 1,
+            "extraSeed": params.subseed,
+            "extraSeedStrength": params.subseed_strength,
+            "loras": loras,
+            "sfwMode": not nsfw,
+        }
+
+        if params.image:
+            if params.image.denoising is not None:
+                payload["denoise"] = params.image.denoising
+            if params.image.scale is not None:
+                payload["scaleFactor"] = params.image.scale
+
+        if params.regions:
+            payload["attentionCouple"] = {
+                "enabled": True,
+                "layoutPreset": params.regions.split_type.value,
+                "splitPercent": params.regions.split_percent,
+                "globalPromptWeight": 0.3,
+                "regions": [
+                    {"prompt": params.regions.prompt1, "weight": 1, "maskPath": None,},
+                    {"prompt": params.regions.prompt2, "weight": 1, "maskPath": None,},
+                ],
+            }
+
+        if await self.config.adetailer():
+            payload["adetailer"] = deepcopy(ADETAILER_ARGS)
+        
+        return payload

@@ -7,8 +7,6 @@ from redbot.core import commands
 
 from aimage.base import AImageBase
 from aimage.utils import ImageGenError, clean_model, parse_loras
-from aimage.schema import ImageGenParams
-from aimage.constants import ADETAILER_ARGS
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
@@ -119,68 +117,6 @@ class ArcEnCielAPI:
         tags = r.get("tags", [])
         tags.insert(0, r.get("rating", "unknown_rating"))
         return tags
-        
-    async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
-        config = self.cog.config
-
-        stock_negative_prompt = await config.negative_prompt()
-        if stock_negative_prompt not in (params.negative_prompt or ""):
-            if params.negative_prompt:
-                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
-            else:
-                params.negative_prompt = stock_negative_prompt
-        
-        checkpoint = params.checkpoint or await config.user(member).checkpoint() or await config.checkpoint() or ""
-        vae = params.vae or await config.vae()
-        loras = []
-        for lora in params.loras:
-            loras.append({
-                "name": f"{lora.replace('.safetensors', '')}.safetensors",
-                "weight": 1.0,
-            })
-
-        payload = {
-            "mode": "img2img" if params.image else "txt2img",
-            "prompt": params.prompt,
-            "negativePrompt": params.negative_prompt or await config.negative_prompt(),
-            "modelName": checkpoint.replace(".safetensors", "") + ".safetensors",
-            "vaeName": vae.replace(".safetensors", "") + ".safetensors" if vae else None,
-            "seed": params.seed,
-            "steps": params.steps or await config.sampling_steps(),
-            "cfg": params.cfg or await config.cfg(),
-            "samplerName": params.sampler or await config.sampler(),
-            "scheduler": params.scheduler or await config.scheduler(),
-            "width": params.width or await config.width(),
-            "height": params.height or await config.height(),
-            "batchSize": 1,
-            "extraSeed": params.subseed,
-            "extraSeedStrength": params.subseed_strength,
-            "loras": loras,
-            "sfwMode": not nsfw,
-        }
-
-        if params.image:
-            if params.image.denoising is not None:
-                payload["denoise"] = params.image.denoising
-            if params.image.scale is not None:
-                payload["scaleFactor"] = params.image.scale
-
-        if params.regions:
-            payload["attentionCouple"] = {
-                "enabled": True,
-                "layoutPreset": params.regions.split_type.value,
-                "splitPercent": params.regions.split_percent,
-                "globalPromptWeight": 0.3,
-                "regions": [
-                    {"prompt": params.regions.prompt1, "weight": 1, "maskPath": None,},
-                    {"prompt": params.regions.prompt2, "weight": 1, "maskPath": None,},
-                ],
-            }
-
-        if await config.adetailer():
-            payload["adetailer"] = deepcopy(ADETAILER_ARGS)
-        
-        return payload
 
     async def _extract_error(self, response: aiohttp.ClientResponse) -> str:
         try:
