@@ -98,7 +98,7 @@ class ArcEnCielAPI:
             "limit": 10,
         }
         if hash_only:
-            params["hashOnly"] = True
+            params["hashOnly"] = "1"
         async with self.session.get(url, params=params) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
