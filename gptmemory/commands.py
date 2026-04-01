@@ -4,6 +4,7 @@ from difflib import get_close_matches
 from redbot.core import commands
 
 from gptmemory.base import GptMemoryBase
+from gptmemory.utils import chunk_and_send
 from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.functions.base import get_all_function_calls
 
@@ -249,7 +250,7 @@ class GptMemoryCommands(GptMemoryBase):
         elif module == "autoresponder":
             prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
         
-        await ctx.reply(f"`[{module} prompt]`\n>>> {prompt or '*None*'}", mention_author=False)
+        await chunk_and_send(ctx, f"`[{module} prompt]`\n```\n{prompt or '*None*'}\n```", False)
 
     @memoryconfig_prompt.command(name="set", aliases=["edit"])
     async def memoryconfig_prompt_set(self, ctx: commands.Context, module: AllPromptTypes, *, prompt):
@@ -275,7 +276,7 @@ class GptMemoryCommands(GptMemoryBase):
         elif module == "autoresponder":
             await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
 
-        await ctx.reply(f"`[New {module} prompt]`\n>>> {prompt}", mention_author=False)
+        await ctx.tick()
 
     @memoryconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
     async def memoryconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
