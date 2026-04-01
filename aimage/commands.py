@@ -10,7 +10,7 @@ from redbot.core import app_commands, checks, commands
 from aimage.utils import clean_tag, clean_model, edit_regional_prompts
 from aimage.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
 from aimage.settings import AImageSettings
-from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES
+from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, LORA_PATTERN
 
 log = logging.getLogger("red.holo-cogs.aimage")
  
@@ -118,6 +118,11 @@ class AImageCommands(AImageSettings):
         negative_prompt = None
         regions = None
 
+        loras = []
+        for lora, name, _ in LORA_PATTERN.findall(prompt):
+            prompt = prompt.replace(lora, "").strip()
+            loras.append(name)
+
         if "--" in prompt:
             prompt, negative_prompt = [p.strip() for p in prompt.rsplit("--", 1)]
 
@@ -144,7 +149,9 @@ class AImageCommands(AImageSettings):
             negative_prompt=negative_prompt,
             width=width,
             height=height,
-            regions=regions)
+            regions=regions,
+            loras=loras,
+        )
         message_content=f"Result of {ctx.message.jump_url} requested by {ctx.author.mention}"
         await self.generate_image(ctx, params=params, message_content=message_content)
 
@@ -189,6 +196,11 @@ class AImageCommands(AImageSettings):
 
         width, height = tuple(int(x) for x in resolution.split("x"))
 
+        loras = [lora] if lora else []
+        for lora, name, _ in LORA_PATTERN.findall(prompt):
+            prompt = prompt.replace(lora, "").strip()
+            loras.append(name)
+
         regions = None
         if "|" in prompt:
             split = "||" if "||" in prompt else "|"
@@ -209,7 +221,7 @@ class AImageCommands(AImageSettings):
             seed=seed,
             checkpoint=checkpoint,
             vae=vae,
-            loras=[lora] if lora else [],
+            loras=loras,
             subseed=subseed,
             subseed_strength=variation,
             regions=regions,
