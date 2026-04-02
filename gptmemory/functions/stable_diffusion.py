@@ -1,4 +1,3 @@
-
 import logging
 import asyncio
 import discord
@@ -47,7 +46,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
         messages = [message async for message in self.ctx.channel.history(limit=limit)]
         if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
             quoted = await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
-            messages.append(quoted)
+            messages.insert(0, quoted)
         for message in messages:
             for attachment in message.attachments:
                 if attachment.filename == filename and self.ctx.guild:
