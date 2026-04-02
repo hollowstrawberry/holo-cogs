@@ -49,6 +49,7 @@ class ImageTaggingFunctionCall(FunctionCallBase):
         filename: str = arguments.get("filename", "")
         if not filename:
             return "[Error: No filename provided]"
+        log.info(filename)
         aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
         if not aimage:
             return "[Error: `aimage` cog not installed, please notify the bot owner]"
@@ -56,8 +57,11 @@ class ImageTaggingFunctionCall(FunctionCallBase):
         if not attachment:
             return f"[Error: Can't find image '{filename}' in recent chat logs]"
         try:
+            log.info("attachment")
             image_bytes = await attachment.read()
+            log.info("image_bytes")
             tags = await aimage.api.interrogate(image_bytes, attachment.filename)
+            log.info("interrogate")
             return f"`{', '.join([self.clean_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
