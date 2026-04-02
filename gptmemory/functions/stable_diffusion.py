@@ -141,7 +141,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             )
         else:
             # add negative tags that weren't already in the default negative prompt
-            default_negative_prompt = await aimage.config.guild(self.ctx.guild).negative_prompt() # type: ignore
+            default_negative_prompt = await aimage.config.negative_prompt() # type: ignore
             negative_prompt = ""
             if negative_prompt_extra:
                 tags = [tag.strip() for tag in negative_prompt_extra.split(",")]
