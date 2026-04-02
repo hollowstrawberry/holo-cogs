@@ -35,6 +35,9 @@ class ImageTaggingFunctionCall(FunctionCallBase):
     async def find_attachment(self, filename: str) -> discord.Attachment | None:
         assert self.ctx.guild
         limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
+        log.info(f"{limit=}")
+        if limit > 20:
+            return
         messages = [message async for message in self.ctx.channel.history(limit=limit)]
         if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
             quoted = await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
