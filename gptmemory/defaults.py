@@ -20,7 +20,7 @@ IMAGE_SIZE = 1024
 ALLOW_MEMORIZER = True
 MEMORIZER_USER_ONLY = True
 MEMORIZER_ALERTS = True
-DISABLED_FUNCTIONS = ["search_booru_tags", "search_models_arcenciel", "generate_stable_diffusion"]
+DISABLED_FUNCTIONS = ["search_booru_tags", "search_models_arcenciel", "generate_stable_diffusion", "image_tagging"]
 
 PROMPT_RECALLER = """\
 You are a conversation parser. You will be given a list of topics as well as a conversation between various users, \
