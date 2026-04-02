@@ -305,34 +305,35 @@ class GptMemory(GptMemoryCommands):
             if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
         past_tool_calls = []
-        await ctx.channel.typing()
-        for depth in range(max_tool_depth):
-            response = await self.get_client(model).chat.completions.create(
-                model=model,
-                messages=temp_messages,  # type: ignore
-                max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
-                max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
-                tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools],  # type: ignore
-                reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
-            )
-            if response.usage:
-                result.tokens_responder += response.usage.completion_tokens
-                if depth > 0:
-                    result.tokens_after_tools += response.usage.completion_tokens
+        async with ctx.channel.typing():
+            for depth in range(max_tool_depth):
+                response = await self.get_client(model).chat.completions.create(
+                    model=model,
+                    messages=temp_messages,  # type: ignore
+                    max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
+                    max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
+                    tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools],  # type: ignore
+                    reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
+                )
+                if response.usage:
+                    result.tokens_responder += response.usage.completion_tokens
+                    if depth > 0:
+                        result.tokens_after_tools += response.usage.completion_tokens
 
-            if not response.choices:  # request may get rejected
-                log.error(f"Empty response from responder: {response}")
-                await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe
-                await ctx.message.add_reaction("🤐")
-                return {}
+                if not response.choices:  # request may get rejected
+                    log.error(f"Empty response from responder: {response}")
+                    await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe
+                    await ctx.message.add_reaction("🤐")
+                    return {}
 
-            if not response.choices[0].message.tool_calls:
-                break
-            else:
+                if not response.choices[0].message.tool_calls:
+                    break
+                  
                 temp_messages.append(response.choices[0].message) # type: ignore
                 for call in response.choices[0].message.tool_calls:
                     assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                     try:
+                        log.info(f"{call.function.name=}")
                         cls = next(t for t in tools if t.schema.function.name == call.function.name)
                         args = json.loads(call.function.arguments)
                         tool_result = await cls(ctx, self).run(args)
