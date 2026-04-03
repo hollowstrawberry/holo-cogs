@@ -46,6 +46,19 @@ def is_nsfw(channel: discord.abc.Messageable):
 def round_to_nearest(x, base):
     return int(base * round(x/base))
 
+def scale_to_size(width: int, height: int, pixels: int) -> Tuple[int, int]:
+    scale = (pixels / (width * height)) ** 0.5
+    return int(width * scale), int(height * scale)
+
+def normalize_image(b: bytes, max_pixels: int) -> bytes:
+    image = Image.open(io.BytesIO(b))
+    if image.width*image.height > max_pixels:
+        width, height = scale_to_size(image.width, image.height, max_pixels)
+        image = image.resize((width, height), Image.Resampling.LANCZOS)
+    fp = io.BytesIO()
+    image.save(fp, "PNG")
+    return fp.read()
+
 def clean_tag(tag: str) -> str:
     if len(tag) > 3:
         return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
