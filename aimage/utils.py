@@ -2,6 +2,7 @@ import io
 import logging
 import discord
 from PIL import Image, ImageDraw
+from rapidfuzz import fuzz
 from redbot.core import commands
 
 from aimage.schema import SplitType
@@ -58,6 +59,16 @@ def normalize_image(b: bytes, max_pixels: int) -> bytes:
     fp = io.BytesIO()
     image.save(fp, "PNG")
     return fp.read()
+
+def filter_names(options: dict, current: str, strict: bool = False) -> dict:
+    results = {}
+    ratios = [(item, fuzz.partial_ratio(current.lower(), item.lower())) for item in options.keys()]
+    sorted_options = sorted(ratios, key=lambda x: x[1], reverse=True)
+    for item, ratio in sorted_options:
+        if strict and ratio < 75:
+            continue
+        results[item] = options[item]
+    return results
 
 def clean_tag(tag: str) -> str:
     if len(tag) > 3:
