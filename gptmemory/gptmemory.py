@@ -5,9 +5,9 @@ import aiohttp
 import discord
 from io import BytesIO
 from random import random
-from datetime import datetime, timezone
-from difflib import get_close_matches
 from typing import Any
+from difflib import get_close_matches
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
@@ -37,6 +37,7 @@ class GptMemoryResult:
     tokens_recaller: int = 0
     tokens_system: int = 0
     tokens_responder: int = 0
+    tokens_tools: int = 0
     tokens_after_tools: int = 0
     tokens_memorizer: int = 0
 
@@ -187,12 +188,12 @@ class GptMemory(GptMemoryCommands):
         memories = list(self.memory[ctx.guild.id].keys())
 
         result = GptMemoryResult()
-        messages = await self.get_message_history(ctx, result)
-        recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
-        if auto:
-            await self.execute_responder(ctx, messages, recalled_memories, result, auto=True)
-        else:
-            await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories, result)
+        async with ctx.typing():
+            messages = await self.get_message_history(ctx, result)
+            recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
+            if not auto:
+                asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result)
+            await self.execute_responder(ctx, messages, recalled_memories, result, auto)
         log.info(result)
 
 
@@ -243,24 +244,7 @@ class GptMemory(GptMemoryCommands):
 
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         return recalled_memories or {}
-
-
-    async def execute_responder_and_memorizer(self,
-                                              ctx: commands.Context,
-                                              messages: list[GptMessage],
-                                              memories: list[str],
-                                              recalled_memories: dict[str, str],
-                                              result: GptMemoryResult
-                                              ) -> None:
-        task_results = await asyncio.gather(
-            self.execute_responder(ctx, messages, recalled_memories, result),
-            self.execute_memorizer(ctx, messages, memories, recalled_memories, result),
-            return_exceptions=True
-        )
-        for idx, res in enumerate(task_results):
-            if isinstance(res, BaseException) or "Error" in type(res).__name__:  # Strange behavior where openai error is not an exception
-                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", exc_info=res)  # type: ignore
-
+  
 
     async def execute_responder(self,
                                 ctx: commands.Context,
@@ -305,54 +289,53 @@ class GptMemory(GptMemoryCommands):
             if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
         past_tool_calls = []
-        async with ctx.channel.typing():
-            for depth in range(max_tool_depth):
-                response = await self.get_client(model).chat.completions.create(
-                    model=model,
-                    messages=temp_messages,  # type: ignore
-                    max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
-                    max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
-                    tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools],  # type: ignore
-                    reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
-                )
-                if response.usage:
-                    result.tokens_responder += response.usage.completion_tokens
-                    if depth > 0:
-                        result.tokens_after_tools += response.usage.completion_tokens
+        for depth in range(max_tool_depth):
+            response = await self.get_client(model).chat.completions.create(
+                model=model,
+                messages=temp_messages,  # type: ignore
+                max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
+                max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
+                tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools],  # type: ignore
+                reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
+            )
+            if response.usage:
+                result.tokens_responder += response.usage.completion_tokens
+                if depth > 0:
+                    result.tokens_after_tools += response.usage.completion_tokens
 
-                if not response.choices:  # request may get rejected
-                    log.error(f"Empty response from responder: {response}")
-                    await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe
-                    await ctx.message.add_reaction("🤐")
-                    return {}
+            if not response.choices:  # request may get rejected
+                log.error(f"Empty response from responder: {response}")
+                await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe
+                await ctx.message.add_reaction("🤐")
+                return {}
 
-                if not response.choices[0].message.tool_calls:
-                    break
+            if not response.choices[0].message.tool_calls:
+                break
                   
-                temp_messages.append(response.choices[0].message) # type: ignore
-                for call in response.choices[0].message.tool_calls:
-                    assert isinstance(call, ChatCompletionMessageFunctionToolCall)
-                    try:
-                        cls = next(t for t in tools if t.schema.function.name == call.function.name)
-                        args = json.loads(call.function.arguments)
-                        tool_result = await cls(ctx, self).run(args)
-                    except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
-                        tool_result = "[Error]"
-                        log.exception(f"Calling tool {call.function.name}")
+            temp_messages.append(response.choices[0].message) # type: ignore
+            for call in response.choices[0].message.tool_calls:
+                assert isinstance(call, ChatCompletionMessageFunctionToolCall)
+                try:
+                    cls = next(t for t in tools if t.schema.function.name == call.function.name)
+                    args = json.loads(call.function.arguments)
+                    tool_result = await cls(ctx, self).run(args)
+                except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
+                    tool_result = "[Error]"
+                    log.exception(f"Calling tool {call.function.name}")
 
-                    past_tool_calls.append(call.function.name)
-                    tool_result = tool_result.strip()
-                    if len(tool_result) > max_tool_length:
-                        tool_result = tool_result[:max_tool_length-3] + "..."
-                    if self.extended_logging:
-                        log.info(f"{call.function.name=} {call.function.arguments=}")
-                        log.info(f"{tool_result=}")
+                past_tool_calls.append(call.function.name)
+                tool_result = tool_result.strip()
+                if len(tool_result) > max_tool_length:
+                    tool_result = tool_result[:max_tool_length-3] + "..."
+                if self.extended_logging:
+                    log.info(f"{call.function.name=} {call.function.arguments=}")
+                    log.info(f"{tool_result=}")
 
-                    temp_messages.append({
-                        "role": "tool",
-                        "content": tool_result,
-                        "tool_call_id": call.id,
-                    })
+                temp_messages.append({
+                    "role": "tool",
+                    "content": tool_result,
+                    "tool_call_id": call.id,
+                })
 
         completion = response.choices[0].message.content
         if completion:
