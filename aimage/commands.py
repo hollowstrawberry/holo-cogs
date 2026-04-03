@@ -3,29 +3,17 @@ import logging
 import aiohttp
 import discord
 from copy import copy
-from rapidfuzz import fuzz
 
 from redbot.core import app_commands, checks, commands
 
-from aimage.utils import clean_tag, clean_model, edit_regional_prompts
+from aimage.utils import clean_tag, clean_model, edit_regional_prompts, filter_names, normalize_image
 from aimage.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
 from aimage.settings import AImageSettings
-from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, LORA_PATTERN
+from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, LORA_PATTERN, MAX_IMAGE_PIXELS
 
 log = logging.getLogger("red.holo-cogs.aimage")
  
 class AImageCommands(AImageSettings):
-
-    @staticmethod
-    def filter_names(options: dict, current: str, strict: bool = False) -> dict:
-        results = {}
-        ratios = [(item, fuzz.partial_ratio(current.lower(), item.lower())) for item in options.keys()]
-        sorted_options = sorted(ratios, key=lambda x: x[1], reverse=True)
-        for item, ratio in sorted_options:
-            if strict and ratio < 75:
-                continue
-            results[item] = options[item]
-        return results
     
     async def contains_blacklisted_word(self, prompt: str):
         blacklist_regex = await self.config.blacklist_regex()
@@ -50,7 +38,7 @@ class AImageCommands(AImageSettings):
     async def build_autocomplete_choices(self, current: str, choices: dict) -> list[app_commands.Choice[str]]:
         if not choices:
             return []
-        choices = self.filter_names(choices, current)
+        choices = filter_names(choices, current)
         return [app_commands.Choice(name=display_name.replace(".safetensors", ""), value=name.replace(".safetensors", ""))
                 for display_name, name in choices.items()
                 if len(name.replace(".safetensors", "")) <= 100
@@ -350,15 +338,16 @@ class AImageCommands(AImageSettings):
             return await interaction.followup.send("The file you uploaded is not a valid image.", ephemeral=True)
 
         assert image.width and image.height
-        size = image.width*image.height*scale*scale
         maxsize = (await self.config.max_img2img())**2
+        size = image.width*image.height*scale*scale
         if size > maxsize:
             return await interaction.followup.send(
                 f"Max img2img size is {int(maxsize**0.5)}² pixels. "
                 f"Your image {'after resizing would be' if scale != 0 else 'is'} {int(size**0.5)}² pixels, which is too big.",
                 ephemeral=True)
-        
-        img2img_params = ImageToImageParams(await image.read(), image.filename, denoising, scale)
+
+        image_bytes = await asyncio.to_thread(normalize_image, await image.read(), maxsize)
+        img2img_params = ImageToImageParams(image_bytes, image.filename, denoising, scale)
 
         params = ImageGenParams(
             prompt=prompt,
@@ -417,7 +406,7 @@ class AImageCommands(AImageSettings):
 
     async def autotag(self, ctx: commands.Context, attachment: discord.Attachment):
         assert self.api
-        image_bytes = await attachment.read()
+        image_bytes = await asyncio.to_thread(normalize_image, await attachment.read(), MAX_IMAGE_PIXELS)
         try:
             tags = await self.api.interrogate(image_bytes, attachment.filename)
         except aiohttp.ClientResponseError as error:
