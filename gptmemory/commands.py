@@ -348,7 +348,7 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
 
-    @memoryconfig.group(name="functions")
+    @memoryconfig.group(name="functions". aliases=["function", "tools", "tool"])
     async def memoryconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
         pass
@@ -398,12 +398,12 @@ class GptMemoryCommands(GptMemoryBase):
         if not key:
             lines = [f"`{k}`: `{setting_values.get(k, '')}`" for k in setting_keys]
             return await ctx.send(">>> " + "\n".join(lines))
-        key = key.strip(" `\n")
         if key not in setting_keys:
             return await ctx.send("Invalid setting name. Options are: " + ", ".join([f"`{k}`" for k in setting_keys]))
+        value = value.strip(" `\n")
         if "emoji" in key or "emote" in key:
             try:
-                await ctx.react_quietly(key)
+                await ctx.react_quietly(value)
             except (discord.NotFound, discord.Forbidden):
                 return await ctx.reply("Invalid emoji. Note that I must be in the same server as the emoji to use it.")
         async with self.config.tool_settings() as settings:
