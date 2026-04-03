@@ -68,8 +68,10 @@ class BooruTagsFunctionCall(FunctionCallBase):
         return sorted(matches)
 
     async def run(self, arguments: dict) -> str:
-        query = arguments["query"]
-
+        query = arguments.get("query", "")
+        if len(query) < 3:
+            return "[Error: Query must be at least 3 characters long]"
+        
         emoji = await self.get_setting("boorutag_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
@@ -80,6 +82,6 @@ class BooruTagsFunctionCall(FunctionCallBase):
 
         results = self.search_booru_tags(query)
         if results:
-            return ", ".join(results)
+            return f"`{', '.join(results)}`"
         else:
             return "(No results)"
