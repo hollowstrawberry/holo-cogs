@@ -19,7 +19,7 @@ class GptMemoryBase(commands.Cog):
         
         self.config.register_global(**{
             "extended_logging": True,
-            "search_emoji": "🌐",
+            "tool_settings": {},
         })
         self.config.register_channel(**{
             "start": DISCORD_EPOCH_DATETIME.isoformat(),
