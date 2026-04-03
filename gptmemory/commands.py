@@ -348,7 +348,7 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
 
-    @memoryconfig.group(name="functions". aliases=["function", "tools", "tool"])
+    @memoryconfig.group(name="functions", aliases=["function", "tools", "tool"])
     async def memoryconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
         pass
