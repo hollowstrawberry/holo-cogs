@@ -347,9 +347,9 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
 
-    @memoryconfig.command(name="searching_emoji")
+    @memoryconfig.command(name="search_emoji")
     @commands.is_owner()
-    async def searching_emoji_cmd(self, ctx: commands.Context, emoji: discord.Emoji):
+    async def search_emoji_cmd(self, ctx: commands.Context, emoji: discord.Emoji):
         """
         Sets an emoji for the search function
         """
@@ -358,7 +358,7 @@ class GptMemoryCommands(GptMemoryBase):
         except (discord.NotFound, discord.Forbidden):
             await ctx.reply("I don't have access to that emoji. I must be in the same server to use it.")
         else:
-            await self.config.searching_emoji.set(str(emoji))
+            await self.config.search_emoji.set(str(emoji))
             await ctx.tick()
 
     @memoryconfig.group(name="functions")
