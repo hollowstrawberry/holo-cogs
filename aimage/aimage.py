@@ -237,7 +237,7 @@ class AImage(AImageCommands):
             self.gen_count[gen.user.id] += 1
             imagescanner = self.bot.get_cog("ImageScanner")
             if message and imagescanner and gen.channel.id in imagescanner.scan_channels:  # type: ignore
-                imagescanner.image_cache[message.id] = ({0: metadata_reader}, {0: image_bytes})  # type: ignore
+                imagescanner.image_cache[message.id] = ({0: metadata}, {0: image_bytes})  # type: ignore
                 final_tasks.append(message.add_reaction("🔎"))
         except ImageGenError as error:
             error_message = f":warning: Failed to retrieve image. ({error})"
