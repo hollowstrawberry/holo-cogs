@@ -131,7 +131,7 @@ def format_arcenciel_model(data: dict) -> str:
     versions_info = ""
     for i, version in enumerate(versions):
         versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
-        if i == 0 and data['type'] == "LORA":
+        if i <= 1 and data['type'] == "LORA":
             versions_info += " [Activation tags:]"
             filename = version['filePath'].split("/")[-1].replace(".safetensors", "")
             lora = f"<lora:{filename}:1>" if filename else ""
@@ -144,6 +144,8 @@ def format_arcenciel_model(data: dict) -> str:
                     versions_info += f" [{lora} {tags}]"
             else:
                 versions_info += f" {lora}"
+        else:
+            versions_info += " [Incomplete data]"
         versions_info += " ]]"
     content = f"{model_info} [Model description:] {description}\n{versions_info}"
     return content
