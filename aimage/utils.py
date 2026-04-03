@@ -36,7 +36,7 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
         msg = await context.send(**kwargs)
         return msg
     
-def is_nsfw(channel: discord.abc.Messageable):
+def is_nsfw(channel: discord.abc.Messageable) -> bool:
     if isinstance(channel, discord.TextChannel):
         return channel.nsfw
     elif isinstance(channel, discord.Thread) and channel.parent:
@@ -44,10 +44,10 @@ def is_nsfw(channel: discord.abc.Messageable):
     else:
         return False
 
-def round_to_nearest(x, base):
+def round_to_nearest(x, base) -> int:
     return int(base * round(x/base))
 
-def scale_to_size(width: int, height: int, pixels: int) -> Tuple[int, int]:
+def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
     scale = (pixels / (width * height)) ** 0.5
     return int(width * scale), int(height * scale)
 
@@ -82,7 +82,7 @@ def clean_model(name: str) -> str:
     name = LORA_PREFIX_PATTERN.sub("", name)
     return name
 
-def parse_loras(payload: dict):
+def parse_loras(payload: dict) -> None:
     for lora in LORA_PATTERN.findall(payload["prompt"]):
         tag, name, weight = lora
         name = f"{name.replace('.safetensors', '')}.safetensors"
@@ -114,12 +114,7 @@ def make_region_mask(width: int, height: int, rect: tuple[int, int, int, int]) -
     img.save(buf, format="PNG")
     return buf.getvalue()
 
-def build_split_masks(
-    width: int,
-    height: int,
-    split_percent: float,
-    layout: str,
-) -> list[tuple[str, bytes]]:
+def build_split_masks(width: int, height: int, split_percent: float, layout: str) -> list[tuple[str, bytes]]:
     if layout == SplitType.VERTICAL.value:
         split_y = clamp(round(height * (split_percent / 100.0)), 1, height - 1)
         rects = [
