@@ -13,6 +13,7 @@ log = logging.getLogger("gptmemory.scrape")
 
 
 class ScrapeFunctionCall(FunctionCallBase):
+    settings = {"scrape_emoji": "🔗"}
     schema = ToolCall(
         Function(
             name="open_url",
@@ -40,7 +41,13 @@ class ScrapeFunctionCall(FunctionCallBase):
         })
 
     async def run(self, arguments: dict) -> str:
-        url = arguments["url"]
+        url = arguments.get("url")
+        if not url:
+            return "[Error: No URL provided]"
+            
+        emoji = await self.get_setting("scrape_emoji")
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
+        
         for pattern, method in self.custom_scrapers.items():
             if match := pattern.search(url):
                 return await method(match)
