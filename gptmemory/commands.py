@@ -388,7 +388,6 @@ class GptMemoryCommands(GptMemoryBase):
         await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")
 
     @memoryconfig_functions.command(name="setting", aliases=["settings"])
-    @commands.is_owner()
     async def memoryconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
         """
         Sets a tool-specific key-value setting.
