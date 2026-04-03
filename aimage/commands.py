@@ -9,7 +9,7 @@ from redbot.core import app_commands, checks, commands
 from aimage.utils import clean_tag, clean_model, edit_regional_prompts, filter_names, normalize_image
 from aimage.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
 from aimage.settings import AImageSettings
-from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, LORA_PATTERN, MAX_IMAGE_PIXELS
+from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, LORA_PATTERN, MAX_UPLOAD_PIXELS
 
 log = logging.getLogger("red.holo-cogs.aimage")
  
@@ -406,7 +406,7 @@ class AImageCommands(AImageSettings):
 
     async def autotag(self, ctx: commands.Context, attachment: discord.Attachment):
         assert self.api
-        image_bytes = await asyncio.to_thread(normalize_image, await attachment.read(), MAX_IMAGE_PIXELS)
+        image_bytes = await asyncio.to_thread(normalize_image, await attachment.read(), MAX_UPLOAD_PIXELS)
         try:
             tags = await self.api.interrogate(image_bytes, attachment.filename)
         except aiohttp.ClientResponseError as error:
