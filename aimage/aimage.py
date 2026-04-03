@@ -1,9 +1,9 @@
-import logging
-import asyncio
 import os
+import logging
+import hashlib
+import asyncio
 import aiohttp
 import discord
-import hashlib
 from io import BytesIO
 from copy import deepcopy
 from typing import Any, Coroutine
@@ -25,7 +25,7 @@ log = logging.getLogger("red.holo-cogs.aimage")
 class AImage(AImageCommands):
     """ Generate AI images using a A1111 endpoint """
 
-    async def cog_load(self):
+    async def cog_load_when_ready(self):
         await self.bot.wait_until_red_ready()
         api_key = (await self.bot.get_shared_api_tokens("arcenciel")).get("api_key", "")
         self.api = ArcEnCielAPI(self, ENDPOINT, api_key)
@@ -33,7 +33,10 @@ class AImage(AImageCommands):
         self.consume_queue.start()
         self.clear_quota.start()
         self.resource_cache = await self.config.resource_cache()
-
+    
+    async def cog_load(self):
+        asyncio.create_task(self.cog_load_when_ready())
+        
     async def cog_unload(self):
         if self.consume_queue.is_running():
             self.consume_queue.stop()
