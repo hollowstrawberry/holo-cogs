@@ -5,6 +5,7 @@ ENDPOINT = "https://arcenciel.io/api"
 VIEW_TIMEOUT = 15 * 60
 JOB_TIMEOUT = 10 * 60
 PROGRESS_UPDATE_INTERVAL = 5
+MAX_UPLOAD_PIXELS = 2048*2048
 
 SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg"]
 
