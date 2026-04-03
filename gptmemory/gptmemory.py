@@ -192,7 +192,7 @@ class GptMemory(GptMemoryCommands):
             messages = await self.get_message_history(ctx, result)
             recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
             if not auto:
-                asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result)
+                asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
             await self.execute_responder(ctx, messages, recalled_memories, result, auto)
         log.info(result)
 
