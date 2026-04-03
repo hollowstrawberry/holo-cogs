@@ -657,7 +657,9 @@ class GptMemory(GptMemoryCommands):
         is_generated_image = False
         if message.attachments and len(message.attachments) == 1:
             imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
+            log.info(f"metadating {message.attachments[0].filename}")
             metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
+            log.info(f"metadated {message.attachments[0].filename}")
             if metadata and metadata.get("Prompt", None):
                 is_generated_image = True
                 if message.author == message.guild.me:
