@@ -9,6 +9,7 @@ from gptmemory.base import GptMemoryBase
 class FunctionCallBase(ABC):
     schema: ToolCall
     apis: list[tuple[str, str]] = []  # [(service_name, key),]
+    settings: list[str] = []
 
     def __init__(self, ctx: commands.Context, cog: GptMemoryBase):
         self.ctx = ctx
