@@ -1,5 +1,6 @@
 import re
 import logging
+import asyncio
 import aiohttp
 import trafilatura
 from typing import Awaitable, Callable, OrderedDict
