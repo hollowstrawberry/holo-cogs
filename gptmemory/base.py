@@ -18,7 +18,8 @@ class GptMemoryBase(commands.Cog):
         self.openrouter_client: AsyncOpenAI | None = None
         
         self.config.register_global(**{
-            "extended_logging": True
+            "extended_logging": True,
+            "search_emoji": "🌐",
         })
         self.config.register_channel(**{
             "start": DISCORD_EPOCH_DATETIME.isoformat(),
@@ -57,5 +58,4 @@ class GptMemoryBase(commands.Cog):
             "max_image_resolution": defaults.IMAGE_SIZE,
             "autoresponder_chance": 0.0,
             "autoresponder_cooldown_minutes": 60,
-            "search_emoji": "🌐",
         })
