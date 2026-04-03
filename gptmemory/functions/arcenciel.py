@@ -9,6 +9,7 @@ log = logging.getLogger("gptmemory.arcenciel")
 
 
 class ArcencielFunctionCall(FunctionCallBase):
+    settings = {"arcenciel_emoji": "📁"}
     schema = ToolCall(
         Function(
             name="search_models_arcenciel",
@@ -35,6 +36,9 @@ class ArcencielFunctionCall(FunctionCallBase):
         query = arguments.get("query", "")
         user = arguments.get("user", None)
         found_user: int | None = None
+
+        emoji = await self.get_setting("arcenciel_emoji")
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if user:
             params = {"q": user}
