@@ -23,7 +23,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "A short term to find matches for booru tags or tag groups.",
+                        "description": "A short phrase (1-3 words) to find close matches for booru tags or tag groups.",
                     }},
                 required=["query"],
             )))
