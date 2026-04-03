@@ -1,6 +1,7 @@
 import json
 import logging
 import itertools
+import asyncio
 import aiofiles
 from typing import Any
 from rapidfuzz import process, fuzz
@@ -13,6 +14,7 @@ log = logging.getLogger("gptmemory.boorutags")
 
 
 class BooruTagsFunctionCall(FunctionCallBase):
+    settings = {"boorutag_emoji": "🗒️"}
     schema = ToolCall(
         Function(
             name="search_booru_tags",
@@ -53,7 +55,6 @@ class BooruTagsFunctionCall(FunctionCallBase):
     @classmethod
     def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> list[str]:
         query = cls.normalize(query)
-
         matches: set[str] = set()
 
         for group, tags in cls.tag_groups.items():
@@ -68,6 +69,9 @@ class BooruTagsFunctionCall(FunctionCallBase):
 
     async def run(self, arguments: dict) -> str:
         query = arguments["query"]
+
+        emoji = await self.get_setting("boorutag_emoji")
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if not self.tag_groups:
             async with aiofiles.open(bundled_data_path(self.cog).absolute() / "tag_groups.json", "r") as fp:
