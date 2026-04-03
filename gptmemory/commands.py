@@ -1,7 +1,7 @@
 import discord
 from typing import Literal, Optional
 from difflib import get_close_matches
-from itertooka import chain
+from itertools import chain
 from redbot.core import commands
 
 from gptmemory.base import GptMemoryBase
