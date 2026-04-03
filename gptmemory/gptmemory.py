@@ -299,6 +299,7 @@ class GptMemory(GptMemoryCommands):
                 reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
             )
             if response.usage:
+                log.info(response.usage)
                 result.tokens_responder += response.usage.completion_tokens
                 if depth > 0:
                     result.tokens_after_tools += response.usage.completion_tokens
