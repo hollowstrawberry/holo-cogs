@@ -57,4 +57,5 @@ class GptMemoryBase(commands.Cog):
             "max_image_resolution": defaults.IMAGE_SIZE,
             "autoresponder_chance": 0.0,
             "autoresponder_cooldown_minutes": 60,
+            "search_emoji": "🌐",
         })
