@@ -11,6 +11,7 @@ log = logging.getLogger("gptmemory.imagetagger")
 
 
 class ImageTaggingFunctionCall(FunctionCallBase):
+    settings = {"tagging_emoji": "🖼️"}
     schema = ToolCall(
         Function(
             name="image_tagging",
@@ -55,6 +56,9 @@ class ImageTaggingFunctionCall(FunctionCallBase):
         attachment = await self.find_attachment(filename.strip())
         if not attachment:
             return f"[Error: Can't find image '{filename}' in recent chat logs]"
+
+        emoji = await self.get_setting("tagging_emoji")
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
         try:
             image_bytes = await attachment.read()
             tags = await aimage.api.interrogate(image_bytes, attachment.filename)  # type: ignore
