@@ -333,7 +333,6 @@ class GptMemory(GptMemoryCommands):
                 for call in response.choices[0].message.tool_calls:
                     assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                     try:
-                        log.info(f"{call.function.name=}")
                         cls = next(t for t in tools if t.schema.function.name == call.function.name)
                         args = json.loads(call.function.arguments)
                         tool_result = await cls(ctx, self).run(args)
@@ -346,7 +345,7 @@ class GptMemory(GptMemoryCommands):
                     if len(tool_result) > max_tool_length:
                         tool_result = tool_result[:max_tool_length-3] + "..."
                     if self.extended_logging:
-                        log.info(f"{call.function.arguments=}")
+                        log.info(f"{call.function.name=} {call.function.arguments=}")
                         log.info(f"{tool_result=}")
 
                     temp_messages.append({
@@ -569,15 +568,12 @@ class GptMemory(GptMemoryCommands):
                         fp_before = BytesIO(image_bytes[i]) # type: ignore
                 if fp_before.getbuffer().nbytes == 0:
                     try:
-                        log.info(f"Saving {image.filename}")
                         await image.save(fp_before, seek_begin=True)
-                        log.info(f"Saved {image.filename}")
                     except discord.DiscordException as error:
                         log.warning(f"Processing image attachments: {type(error).__name__}: {error}")
                         continue
 
                 fp_after = await asyncio.to_thread(process_image, fp_before, max_image_size)
-                log.info("processed {image.filename}")
                 del fp_before
                 if not fp_after:
                     continue
@@ -657,9 +653,7 @@ class GptMemory(GptMemoryCommands):
         is_generated_image = False
         if message.attachments and len(message.attachments) == 1:
             imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
-            log.info(f"metadating {message.attachments[0].filename}")
             metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
-            log.info(f"metadated {message.attachments[0].filename}")
             if metadata and metadata.get("Prompt", None):
                 is_generated_image = True
                 if message.author == message.guild.me:

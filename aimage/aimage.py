@@ -10,7 +10,6 @@ from typing import Any, Coroutine
 from datetime import datetime, timedelta, timezone
 from discord.ext import tasks
 from redbot.core import commands
-from sd_prompt_reader.image_data_reader import ImageDataReader
 
 from aimage.comfy import ComfyMetadata, ComfyMetadataReader
 from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
@@ -137,10 +136,10 @@ class AImage(AImageCommands):
 
     async def generate_image(self,
                              context: commands.Context | discord.Interaction,
-                             payload: dict = None,
-                             params: ImageGenParams = None,
-                             callback: Coroutine = None,
-                             message_content: str = None):
+                             payload: dict | None = None,
+                             params: ImageGenParams | None = None,
+                             callback: Coroutine | None = None,
+                             message_content: str | None = None):
         
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
@@ -226,8 +225,7 @@ class AImage(AImageCommands):
         final_tasks: list[Coroutine] = []
         try:
             image_bytes = await self.api.download_image(gen.id)
-            metadata_reader = await asyncio.to_thread(ImageDataReader, BytesIO(image_bytes))
-            metadata = ComfyMetadataReader.from_info(metadata_reader._info)
+            metadata = ComfyMetadataReader.from_bytes(image_bytes)
             file_id = gen.context.id if isinstance(gen.context, discord.Interaction) else gen.context.message.id
             file = discord.File(BytesIO(image_bytes), filename=f"image_{file_id}.png", spoiler=nsfw)
             maxsize = await self.config.max_img2img()

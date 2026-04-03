@@ -35,9 +35,6 @@ class ImageTaggingFunctionCall(FunctionCallBase):
     async def find_attachment(self, filename: str) -> discord.Attachment | None:
         assert self.ctx.guild
         limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
-        log.info(f"{limit=}")
-        if limit > 20:
-            return
         messages = [message async for message in self.ctx.channel.history(limit=limit)]
         if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
             quoted = await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
@@ -52,7 +49,6 @@ class ImageTaggingFunctionCall(FunctionCallBase):
         filename: str = arguments.get("filename", "")
         if not filename:
             return "[Error: No filename provided]"
-        log.info(filename)
         aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
         if not aimage:
             return "[Error: `aimage` cog not installed, please notify the bot owner]"
@@ -60,11 +56,8 @@ class ImageTaggingFunctionCall(FunctionCallBase):
         if not attachment:
             return f"[Error: Can't find image '{filename}' in recent chat logs]"
         try:
-            log.info("attachment")
             image_bytes = await attachment.read()
-            log.info("image_bytes")
-            tags = await aimage.api.interrogate(image_bytes, attachment.filename)
-            log.info("interrogate")
+            tags = await aimage.api.interrogate(image_bytes, attachment.filename)  # type: ignore
             return f"`{', '.join([self.clean_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
