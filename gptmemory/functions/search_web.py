@@ -9,6 +9,7 @@ log = logging.getLogger("gptmemory.searchweb")
 
 
 class AgenticSearchFunctionCall(FunctionCallBase):
+    settings = {"search_emoji": "🌐"}
     schema = ToolCall(
         Function(
             name="search_web",
@@ -25,7 +26,7 @@ class AgenticSearchFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> str:
         assert self.ctx.guild and self.cog.openai_client and self.cog.openrouter_client
         if self.ctx.bot_permissions.add_reactions:
-            emoji = await self.cog.config.search_emoji()
+            emoji = await self.get_setting("search_emoji")
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
