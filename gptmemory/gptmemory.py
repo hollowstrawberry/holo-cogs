@@ -299,7 +299,6 @@ class GptMemory(GptMemoryCommands):
                 reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
             )
             if response.usage:
-                log.info(response.usage)
                 result.tokens_responder += response.usage.completion_tokens
                 if depth > 0:
                     result.tokens_after_tools += response.usage.completion_tokens
@@ -328,10 +327,12 @@ class GptMemory(GptMemoryCommands):
                 tool_result = tool_result.strip()
                 if len(tool_result) > max_tool_length:
                     tool_result = tool_result[:max_tool_length-3] + "..."
-                if self.extended_logging:
-                    log.info(f"{call.function.name=} {call.function.arguments=}")
-                    log.info(f"{tool_result=}")
+                result.tokens_tools += len(encoding.encode(tool_result))
 
+                log.info(f"{call.function.name=} {call.function.arguments=}")
+                if self.extended_logging:
+                    log.info(f"{tool_result=}")
+              
                 temp_messages.append({
                     "role": "tool",
                     "content": tool_result,
