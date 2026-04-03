@@ -569,12 +569,15 @@ class GptMemory(GptMemoryCommands):
                         fp_before = BytesIO(image_bytes[i]) # type: ignore
                 if fp_before.getbuffer().nbytes == 0:
                     try:
+                        log.info(f"Saving {image.filename}")
                         await image.save(fp_before, seek_begin=True)
+                        log.info(f"Saved {image.filename}")
                     except discord.DiscordException as error:
                         log.warning(f"Processing image attachments: {type(error).__name__}: {error}")
                         continue
 
-                fp_after = process_image(fp_before, max_image_size)
+                fp_after = await asyncio.to_thread(process_image, fp_before, max_image_size)
+                log.info("processed {image.filename}")
                 del fp_before
                 if not fp_after:
                     continue
