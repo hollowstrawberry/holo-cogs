@@ -1,6 +1,7 @@
 import discord
 from typing import Literal, Optional
 from difflib import get_close_matches
+from itertooka import chain
 from redbot.core import commands
 
 from gptmemory.base import GptMemoryBase
@@ -347,20 +348,6 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
 
-    @memoryconfig.command(name="search_emoji")
-    @commands.is_owner()
-    async def search_emoji_cmd(self, ctx: commands.Context, emoji: discord.Emoji):
-        """
-        Sets an emoji for the search function
-        """
-        try:
-            await ctx.react_quietly(emoji)
-        except (discord.NotFound, discord.Forbidden):
-            await ctx.reply("I don't have access to that emoji. I must be in the same server to use it.")
-        else:
-            await self.config.search_emoji.set(str(emoji))
-            await ctx.tick()
-
     @memoryconfig.group(name="functions")
     async def memoryconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
@@ -399,6 +386,29 @@ class GptMemoryCommands(GptMemoryBase):
         await self.config.guild(ctx.guild).disabled_functions.set(disabled_functions)
         enabled = not enabled
         await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")
+
+    @memoryconfig_functions.command(name="setting", aliases=["settings"])
+    @commands.is_owner()
+    async def memoryconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
+        """
+        Sets a tool-specific key-value setting.
+        """
+        setting_keys = list(chain(func.settings.keys() for func in get_all_function_calls()))
+        setting_values = await self.config.tool_settings()
+        if not key:
+            lines = [f"`{k}`: `{setting_values.get(k, '')}`" for k in setting_keys]
+            return await ctx.send(">>> " + "\n".join(lines))
+        key = key.strip(" `\n")
+        if key not in setting_keys:
+            return await ctx.send("Invalid setting name. Options are: " + ", ".join([f"`{k}`" for k in setting_keys]))
+        if "emoji" in key or "emote" in key:
+            try:
+                await ctx.react_quietly(key)
+            except (discord.NotFound, discord.Forbidden):
+                return await ctx.reply("Invalid emoji. Note that I must be in the same server as the emoji to use it.")
+        async with self.config.tool_settings() as settings:
+            settings[key] = value
+        await ctx.tick()
 
     @memoryconfig.group(name="limits")
     async def memoryconfig_limits(self, _: commands.Context):
@@ -483,7 +493,7 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).max_tool.set(value)
         await ctx.reply(f"`[max_tool:]` {value}", mention_author=False)
 
-    @memoryconfig_limits.command(name="max_tool_depth")
+    @memoryconfig_limits.command(name="max_depth", aliases=["max_tool_depth"])
     async def memoryconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
         """How many tools the AI can use one after the other."""
         assert ctx.guild
