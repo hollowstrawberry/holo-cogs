@@ -1,7 +1,7 @@
 import discord
 from typing import Literal, Optional
 from difflib import get_close_matches
-from itertools import chain
+from functools import reduce
 from redbot.core import commands
 
 from gptmemory.base import GptMemoryBase
@@ -392,12 +392,12 @@ class GptMemoryCommands(GptMemoryBase):
         """
         Sets a tool-specific key-value setting.
         """
-        setting_keys = list(chain(*[list(func.settings.keys()) for func in get_all_function_calls()]))
+        setting_dict = reduce(lambda a, b: a | b, [func.settings for func in get_all_function_calls()])
         setting_values = await self.config.tool_settings()
         if not key:
-            lines = [f"`{k}`: `{setting_values.get(k, '')}`" for k in setting_keys]
+            lines = [f"`{key}`: `{setting_values.get(key, default or '(empty)')}`" for key, default in setting_dict.items()]
             return await ctx.send(">>> " + "\n".join(lines))
-        if key not in setting_keys:
+        if key not in setting_dict:
             return await ctx.send("Invalid setting name. Options are: " + ", ".join([f"`{k}`" for k in setting_keys]))
         value = value.strip(" `\n")
         if "emoji" in key or "emote" in key:
