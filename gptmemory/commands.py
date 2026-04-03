@@ -392,7 +392,7 @@ class GptMemoryCommands(GptMemoryBase):
         """
         Sets a tool-specific key-value setting.
         """
-        setting_keys = list(chain(func.settings.keys() for func in get_all_function_calls()))
+        setting_keys = list(chain([func.settings.keys() for func in get_all_function_calls()]))
         setting_values = await self.config.tool_settings()
         if not key:
             lines = [f"`{k}`: `{setting_values.get(k, '')}`" for k in setting_keys]
