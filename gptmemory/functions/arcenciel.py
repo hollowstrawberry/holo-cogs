@@ -1,4 +1,5 @@
 import logging
+import asyncio
 import aiohttp
 
 from gptmemory.utils import format_arcenciel_model
