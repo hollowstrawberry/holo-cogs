@@ -129,8 +129,6 @@ class ComfyMetadata:
             output["CFG"] = self.cfg
         if self.sampler and "Sampler" not in output:
             output["Sampler"] = self.sampler
-        if self.width and self.height:
-            output["Size"] = f"{self.width}x{self.height}"
         if self.scheduler:
             output["Scheduler"] = self.scheduler
         if self.extra_seed is not None:
@@ -145,7 +143,9 @@ class ComfyMetadata:
             output["ADetailer Model"] = self.adetailer_model
         if self.adetailer_denoise is not None:
             output["ADetailer Denoising"] = self.adetailer_denoise
-
+        if self.width and self.height:
+            output["Size"] = f"{self.width}x{self.height}"
+        
         if output.get("Prompt"):
             for lora in self.loras:
                 clean_name = lora.name.replace(".safetensors", "")
