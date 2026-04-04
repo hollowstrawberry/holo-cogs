@@ -348,8 +348,25 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
 
+    @memoryconfig.command(name="timeout")
+    async def memoryconfig_timeout(self, ctx: commands.Context, value: Optional[int]):
+        """
+        Sets how long a response can take before it's cancelled
+        """
+        if not value:
+            value = await self.config.response_timeout()
+        elif value < 10 or value > 3600:
+            await ctx.reply("Value must be between 10 and 3600", mention_author=False)
+            return
+        else:
+            await self.config.response_timeout.set(value)
+        await ctx.reply(f"`[timeout:]` {value}", mention_author=False)
+    
     @memoryconfig.command(name="slow_timer")
     async def memoryconfig_slow_timer(self, ctx: commands.Context, value: Optional[int]):
+        """
+        Sets how long a response can take before reacting with slow_emoji
+        """
         if not value:
             value = await self.config.slow_timer()
         elif value < 5 or value > 600:
