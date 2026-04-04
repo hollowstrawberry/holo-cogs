@@ -123,9 +123,9 @@ class GptMemory(GptMemoryCommands):
             
         await self.config.channel(ctx.channel).last_response.set(datetime.now(tz=timezone.utc).isoformat())
         
-        await ctx.channel.typing()
         if match := URL_PATTERN.search(message.content):
-            if f"<{match.group(0)}>" not in message.content: # non-embedding links
+            if not message.embeds and f"<{match.group(0)}>" not in message.content:  # non-embedding links
+                await ctx.channel.typing()
                 ctx = await self.wait_for_embed(ctx)
 
         soft_timeout = await self.config.slow_timer()
@@ -189,10 +189,10 @@ class GptMemory(GptMemoryCommands):
     @staticmethod
     async def wait_for_embed(ctx: commands.Context) -> commands.Context:
         for _ in range(2):
-            if ctx.message.embeds:
-                return ctx
             await asyncio.sleep(1)
             ctx.message = await ctx.channel.fetch_message(ctx.message.id)
+            if ctx.message.embeds:
+                break
         return ctx        
 
 
