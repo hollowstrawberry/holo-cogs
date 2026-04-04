@@ -20,6 +20,9 @@ class GptMemoryBase(commands.Cog):
         self.config.register_global(**{
             "extended_logging": True,
             "tool_settings": {},
+            "slow_timer": 15,
+            "slow_emoji": "🤔",
+            "noresponse_emoji": "🤐",
         })
         self.config.register_channel(**{
             "start": DISCORD_EPOCH_DATETIME.isoformat(),
