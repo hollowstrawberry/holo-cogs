@@ -19,7 +19,7 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
 
 GENERATE_IMAGE_PATTERNS = {
     "System action":     re.compile(r"\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE),
-    "Gemini action":     re.compile(r"""{\s*(?:["']action["'][\s\S]+?)?["']prompt["']:\s*["'](.+?)["']\s*}(?:["']\s*})?""", re.IGNORECASE)
+    "Gemini action":     re.compile(r"""{\s*(?:["']action["'][\s\S]+?)?["']prompt["']:\s*["'](.+?)["'][\s\S]*$""", re.IGNORECASE)
 }
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
