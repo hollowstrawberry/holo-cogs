@@ -348,6 +348,43 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
 
+    @memoryconfig.command(name="slow_timer")
+    async def memoryconfig_slow_timer(self, ctx: commands.Context, value: Optional[int]):
+        if not value:
+            value = await self.config.slow_timer()
+        elif value < 5 or value > 600:
+            await ctx.reply("Value must be between 5 and 600", mention_author=False)
+            return
+        else:
+            await self.config.slow_timer.set(value)
+        await ctx.reply(f"`[slow_timer:]` {value}", mention_author=False)
+    
+    @memoryconfig.command(name="slow_emoji")
+    async def memoryconfig_slow_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+        """
+        Sets an emoji to react when the LLM takes too long.
+        """
+        try:
+            await ctx.react_quietly(emoji)
+        except (discord.NotFound, discord.Forbidden):
+            await ctx.reply("I don't have access to that emoji. I must be in the same server to use it.")
+        else:
+            await self.config.slow_emoji.set(str(emoji))
+            await ctx.tick()
+
+    @memoryconfig.command(name="noresponse_emoji")
+    async def memoryconfig_noresponse_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+        """
+        Sets an emoji for when the LLM doesn't respond.
+        """
+        try:
+            await ctx.react_quietly(emoji)
+        except (discord.NotFound, discord.Forbidden):
+            await ctx.reply("I don't have access to that emoji. I must be in the same server to use it.")
+        else:
+            await self.config.noresponse_emoji.set(str(emoji))
+            await ctx.tick()
+
     @memoryconfig.group(name="functions", aliases=["function", "tools", "tool"])
     async def memoryconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
