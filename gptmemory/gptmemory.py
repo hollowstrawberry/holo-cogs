@@ -17,7 +17,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort, is_command
+from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
 from gptmemory.schema import ImageGenParams, MemoryChangeList
 from gptmemory.constants import (URL_PATTERN, RESPONSE_CLEANUP_PATTERNS, INCOMPLETE_EMOTE_PATTERN, GENERATE_IMAGE_PATTERNS,
                                  DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS)
@@ -399,7 +399,15 @@ class GptMemory(GptMemoryCommands):
             "role": "system",
             "content": system_content
         }
-        temp_messages = [m for m in get_text_contents(messages) if not is_command(m["content"], ctx)]
+
+        prefixes = tuple(await self.bot.get_valid_prefixes(ctx.guild))
+        def is_valid(msg: GptMessage) -> bool:
+            if msg["role"] == "user" and msg["content"].startswith(prefixes):  # bot command
+                return False
+            if msg["role"] == "assistant" and msg["content"].startswith("`[Memor"):  # memory command
+                return False
+            return True
+        temp_messages = [m for m in get_text_contents(messages) if is_valid(msg)]
         num_backread = await self.config.guild(ctx.guild).backread_memorizer()
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]
@@ -742,4 +750,4 @@ class GptMemory(GptMemoryCommands):
         params = ImageGenParams(prompt=prompt)
         message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
         task = aimage.generate_image(ctx, params=params, message_content=message_content) # type: ignore
-        _ = asyncio.create_task(task)
+        asyncio.create_task(task)
