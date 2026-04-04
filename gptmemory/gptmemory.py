@@ -279,6 +279,7 @@ class GptMemory(GptMemoryCommands):
         max_tokens = await self.config.guild(ctx.guild).response_tokens()
         max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
+        noresponse_emoji = await self.config.noresponse_emoji()
 
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
@@ -321,7 +322,7 @@ class GptMemory(GptMemoryCommands):
             if not response.choices:  # request may get rejected
                 log.error(f"Empty response from responder: {response}")
                 await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe
-                await ctx.message.add_reaction("🤐")
+                await ctx.message.add_reaction(noresponse_emoji)
                 return {}
 
             if not response.choices[0].message.tool_calls:
@@ -354,7 +355,7 @@ class GptMemory(GptMemoryCommands):
                     "tool_call_id": call.id,
                 })
 
-        completion = response.choices[0].message.content
+        completion = response.choices[0].message.content or ""
         if completion:
             if self.extended_logging:
                 log.info(f"{completion=}")
@@ -371,13 +372,11 @@ class GptMemory(GptMemoryCommands):
             for pattern in RESPONSE_CLEANUP_PATTERNS.values():
                 completion = pattern.sub("", completion)
             completion = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
-        else:
-            completion = ""
 
         if completion:
             await chunk_and_send(ctx, completion, do_reply=not auto)
-        elif ctx.bot_permissions.add_reactions:
-            await ctx.message.add_reaction("🤐")
+        else:
+            await ctx.message.add_reaction(noresponse_emoji)
 
         response_message = {
             "role": "assistant",
