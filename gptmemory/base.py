@@ -20,6 +20,7 @@ class GptMemoryBase(commands.Cog):
         self.config.register_global(**{
             "extended_logging": True,
             "tool_settings": {},
+            "response_timeout": 120,
             "slow_timer": 15,
             "slow_emoji": "🤔",
             "noresponse_emoji": "🤐",
