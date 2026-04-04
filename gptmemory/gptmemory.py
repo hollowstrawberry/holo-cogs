@@ -407,7 +407,7 @@ class GptMemory(GptMemoryCommands):
             if msg["role"] == "assistant" and msg["content"].startswith("`[Memor"):  # memory command
                 return False
             return True
-        temp_messages = [m for m in get_text_contents(messages) if is_valid(msg)]
+        temp_messages = [msg for msg in get_text_contents(messages) if is_valid(msg)]
         num_backread = await self.config.guild(ctx.guild).backread_memorizer()
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]
