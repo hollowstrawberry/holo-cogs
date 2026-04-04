@@ -131,7 +131,7 @@ class GptMemory(GptMemoryCommands):
         soft_timeout = await self.config.slow_timer()
         hard_timeout = await self.config.response_timeout()
         # run the task with soft timeout
-        task = self.run_response(ctx, auto=self.bot.user not in ctx.message.mentions)  
+        task = asyncio.create_task(self.run_response(ctx, auto=self.bot.user not in ctx.message.mentions))
         done, _ = await asyncio.wait([task], timeout=soft_timeout)
         # show the user if task is taking too long
         if task not in done:
