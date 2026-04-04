@@ -129,6 +129,8 @@ class ComfyMetadata:
             output["CFG"] = self.cfg
         if self.sampler and "Sampler" not in output:
             output["Sampler"] = self.sampler
+        if self.width and self.height:
+            output["Size"] = f"{self.width}x{self.height}"
         if self.scheduler:
             output["Scheduler"] = self.scheduler
         if self.extra_seed is not None:
