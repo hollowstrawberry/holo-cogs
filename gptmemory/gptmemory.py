@@ -128,8 +128,23 @@ class GptMemory(GptMemoryCommands):
             if f"<{match.group(0)}>" not in message.content: # non-embedding links
                 ctx = await self.wait_for_embed(ctx)
 
-        await self.run_response(ctx, auto=self.bot.user not in ctx.message.mentions)
-
+        soft_timeout = await self.config.slow_timer()
+        hard_timeout = await self.config.response_timeout()
+        # run the task with soft timeout
+        task = self.run_response(ctx, auto=self.bot.user not in ctx.message.mentions)  
+        done, _ = await asyncio.wait([task], timeout=soft_timeout)
+        # show the user if task is taking too long
+        if task not in done:
+            emoji = await self.config.slow_emoji()
+            asyncio.create_task(ctx.message.add_reaction(emoji))
+        # finish running the task with hard timeout, additionally reraise any previous exceptions, or do nothing if already finished
+        try:
+            await asyncio.wait_for(task, timeout=hard_timeout)
+        except Exception:
+            log.exception("run_response")
+            # show the user if task didn't finish
+            emoji = await self.config.noresponse_emoji()
+            asyncio.create_task(ctx.message.add_reaction(emoji))
     
     @commands.Cog.listener()
     async def on_user_update(self, before: discord.User, after: discord.User):
