@@ -107,6 +107,8 @@ class ComfyMetadata:
     resource_hints: ComfyResourceHints = field(default_factory=ComfyResourceHints)
     error: str | None = None
     raw: str | None = None
+    width: int | None = None
+    height: int | None = None
 
     def as_dict(self) -> OrderedDict[str, Any]:
         output: OrderedDict[str, Any] = OrderedDict()
@@ -487,13 +489,13 @@ class ComfyMetadataReader:
         result = ComfyMetadata()
         try:
             image = Image.open(BytesIO(b))
-            return cls.from_info(image.info)
+            return cls.from_info(image.info, image.width, image.height)
         except Exception as error:
             result.error = f"{type(error).__name__}: {error}"
         return result
 
     @classmethod
-    def from_info(cls, meta: dict[str, Any]) -> ComfyMetadata:
+    def from_info(cls, meta: dict[str, Any], width: int, height: int) -> ComfyMetadata:
         candidates = cls.extract_workflow_candidates(meta)
         if not candidates:
             result = ComfyMetadata(error="Workflow not found")
@@ -532,6 +534,7 @@ class ComfyMetadataReader:
         merged.is_comfy = True
         merged.resource_hints = ComfyResourceHintExtractor.from_sources(merged, meta)
         merged.raw = ", ".join(str(val) for val in meta.values())
+        merged.width, merged.height = width, height
         return merged
 
     @classmethod
