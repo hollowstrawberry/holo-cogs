@@ -400,14 +400,12 @@ class GptMemory(GptMemoryCommands):
             "content": system_content
         }
 
-        prefixes = tuple(await self.bot.get_valid_prefixes(ctx.guild))
-        log.info(f"{prefixes=}")
+        prefixes = await self.bot.get_valid_prefixes(ctx.guild)
         def is_valid(msg: GptMessage) -> bool:
-            if msg["role"] == "user" and msg["content"].startswith(prefixes):  # bot command
+            if msg["role"] == "user" and any(f"[said:] {prefix}" in msg["content"] for prefix in prefixes):  # bot command
                 return False
-            if msg["role"] == "assistant" and msg["content"].startswith("`[Memor"):  # memory command
+            if msg["role"] == "assistant" and "[said:] `[Memor" in msg["content"]:  # memory command
                 return False
-            log.info(msg)
             return True
         temp_messages = [msg for msg in get_text_contents(messages) if is_valid(msg)]
         num_backread = await self.config.guild(ctx.guild).backread_memorizer()
