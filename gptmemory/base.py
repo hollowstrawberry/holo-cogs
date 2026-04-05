@@ -24,6 +24,7 @@ class GptMemoryBase(commands.Cog):
             "slow_timer": 15,
             "slow_emoji": "🤔",
             "noresponse_emoji": "🤐",
+            "blocked_emoji": "❌",
         })
         self.config.register_channel(**{
             "start": DISCORD_EPOCH_DATETIME.isoformat(),
