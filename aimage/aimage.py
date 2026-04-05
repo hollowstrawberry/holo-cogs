@@ -15,7 +15,7 @@ from aimage.comfy import ComfyMetadata, ComfyMetadataReader
 from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
-from aimage.constants import ADETAILER_ARGS, ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_FILE_PATTERN, RESOURCE_HASH_PATTERN
+from aimage.constants import ADETAILER_ARGS, ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_FILE_PATTERN, RESOURCE_HASH_PATTERN, LORA_PATTERN
 from aimage.views.image_actions import ImageActions
 from aimage.arcenciel_api import ArcEnCielAPI
 
@@ -338,10 +338,12 @@ class AImage(AImageCommands):
         vae = params.vae or await self.config.vae()
         loras = []
         for lora in params.loras:
-            loras.append({
-                "name": f"{lora.replace('.safetensors', '')}.safetensors",
-                "weight": 1.0,
-            })
+            if m := LORA_PATTERN.match(lora):
+                name, weight = m.group(1), m.group(2)
+            else:
+                name, weight = lora, 1.0
+            filename = name.replace(".safetensors", "") + ".safetensors"
+            loras.append({ "name": filename, "weight": 1.0 })
 
         payload = {
             "mode": "img2img" if params.image else "txt2img",
