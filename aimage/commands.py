@@ -107,9 +107,9 @@ class AImageCommands(AImageSettings):
         regions = None
 
         loras = []
-        for lora, name, _ in LORA_PATTERN.findall(prompt):
+        for lora, _, _ in LORA_PATTERN.findall(prompt):
             prompt = prompt.replace(lora, "").strip()
-            loras.append(name)
+            loras.append(lora)
 
         if "--" in prompt:
             prompt, negative_prompt = [p.strip() for p in prompt.rsplit("--", 1)]
@@ -185,9 +185,9 @@ class AImageCommands(AImageSettings):
         width, height = tuple(int(x) for x in resolution.split("x"))
 
         loras = [lora] if lora else []
-        for lora, name, _ in LORA_PATTERN.findall(prompt):
+        for lora, _, _ in LORA_PATTERN.findall(prompt):
             prompt = prompt.replace(lora, "").strip()
-            loras.append(name)
+            loras.append(lora)
 
         regions = None
         if "|" in prompt:
