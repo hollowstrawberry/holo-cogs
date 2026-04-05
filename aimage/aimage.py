@@ -343,7 +343,7 @@ class AImage(AImageCommands):
             else:
                 name, weight = lora, 1.0
             filename = name.replace(".safetensors", "") + ".safetensors"
-            loras.append({ "name": filename, "weight": 1.0 })
+            loras.append({ "name": filename, "weight": weight })
 
         payload = {
             "mode": "img2img" if params.image else "txt2img",
