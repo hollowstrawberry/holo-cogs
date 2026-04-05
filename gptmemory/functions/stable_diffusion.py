@@ -78,9 +78,9 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             return "[Error: `imagescanner` cog not installed, please notify the bot owner]"
 
         loras = []
-        for lora, name, _ in LORA_PATTERN.findall(prompt):
+        for lora, _, _ in LORA_PATTERN.findall(prompt):
             prompt = prompt.replace(lora, "").strip()
-            loras.append(name)
+            loras.append(lora)
         
         regions = None
         if "||" in prompt:
