@@ -32,6 +32,7 @@ ADETAILER_ARGS = {
     "maskBlur": 4,
     "maxDetections": 4,
     "detectionOrder": "left-to-right",
+    "maskMode": "segmentation",
     "timing": "post-upscale",
 }
 
