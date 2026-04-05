@@ -279,9 +279,7 @@ class GptMemory(GptMemoryCommands):
         max_tokens = await self.config.guild(ctx.guild).response_tokens()
         max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
-        noresponse_emoji = await self.config.noresponse_emoji()
-        blocked_emoji = await self.config.blocked_emoji()
-                                  
+
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
         system_content = base_system_content.format(
@@ -323,7 +321,8 @@ class GptMemory(GptMemoryCommands):
             if not response.choices:  # request may get rejected
                 log.error(f"Blocked response: {response.error}")
                 await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
-                await ctx.message.add_reaction(blocked_emoji)
+                emoji = await self.config.blocked_emoji()
+                await ctx.message.add_reaction(emoji)
                 return {}
 
             if not response.choices[0].message.tool_calls:
@@ -377,7 +376,8 @@ class GptMemory(GptMemoryCommands):
         if completion:
             await chunk_and_send(ctx, completion, do_reply=not auto)
         else:
-            await ctx.message.add_reaction(noresponse_emoji)
+            emoji = await self.config.noresponse_emoji()
+            await ctx.message.add_reaction(emoji)
 
         response_message = {
             "role": "assistant",
