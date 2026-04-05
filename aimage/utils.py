@@ -83,19 +83,14 @@ def clean_model(name: str) -> str:
     return name
 
 def parse_loras(payload: dict) -> None:
-    for lora in LORA_PATTERN.findall(payload["prompt"]):
-        tag, name, weight = lora
-        name = f"{name.replace('.safetensors', '')}.safetensors"
+    for lora, name, weight in LORA_PATTERN.findall(payload["prompt"]):
+        name = name.replace(".safetensors", "") + ".safetensors"
         payload.setdefault("loras", [])
-        if any(lora["name"] == name for lora in payload["loras"]):
-            continue
-        payload["loras"].append({
-            "name": name,
-            "weight": weight,
-        })
-        payload["prompt"] = payload["prompt"].replace(tag, "")
-        for region in payload.get("attentionCouple", {}).get("regions", []):
-            region["prompt"] = LORA_PATTERN.sub("", region["prompt"]).strip()
+        payload["prompt"] = payload["prompt"].replace(lora, "").replace(", ,", ",").strip()
+        if name not in [other["name"] for other in payload["loras"]]:
+            payload["loras"].append({ "name": name, "weight": weight })
+    for region in payload.get("attentionCouple", {}).get("regions", []):
+        region["prompt"] = LORA_PATTERN.sub("", region["prompt"]).replace(", ,", ",").strip()
 
 def clamp(value: int, min_value: int, max_value: int) -> int:
     return max(min_value, min(max_value, value))
