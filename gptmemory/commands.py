@@ -402,6 +402,19 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.noresponse_emoji.set(str(emoji))
             await ctx.tick()
 
+    @memoryconfig.command(name="blocked_emoji")
+    async def memoryconfig_blocked_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+        """
+        Sets an emoji for when the LLM response gets blocked.
+        """
+        try:
+            await ctx.react_quietly(emoji)
+        except (discord.NotFound, discord.Forbidden):
+            await ctx.reply("I don't have access to that emoji. I must be in the same server to use it.")
+        else:
+            await self.config.blocked_emoji.set(str(emoji))
+            await ctx.tick()
+
     @memoryconfig.group(name="functions", aliases=["function", "tools", "tool"])
     async def memoryconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
