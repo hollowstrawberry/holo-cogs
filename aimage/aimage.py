@@ -339,7 +339,7 @@ class AImage(AImageCommands):
         loras = []
         for lora in params.loras:
             if m := LORA_PATTERN.match(lora):
-                name, weight = m.group(1), m.group(2)
+                name, weight = m.group(2), m.group(3)
             else:
                 name, weight = lora, 1.0
             filename = name.replace(".safetensors", "") + ".safetensors"
