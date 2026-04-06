@@ -92,15 +92,13 @@ class HiresModal(ui.Modal):
             self.payload["adetailer"]["denoise"] = adetailer_denoising
 
         await interaction.response.defer(thinking=True)
-        message_content = f"Upscale requested by {interaction.user.mention}"
-        await self.generate_image(interaction, payload=self.payload, callback=self.edit_callback(), message_content=message_content)
-        
         self.parent_button.disabled = True
         await self.parent_interaction.message.edit(view=self.parent_view)
-
+        message_content = f"Upscale requested by {interaction.user.mention}"
+        await self.generate_image(interaction, payload=self.payload, callback=self.edit_callback(), message_content=message_content)
 
     async def edit_callback(self):
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.1)
         assert self.parent_interaction.message
         self.parent_button.disabled = False
         if not self.parent_view.is_finished():
