@@ -82,7 +82,7 @@ class AImageCommands(AImageSettings):
         re.compile(r"(^|\s*,\s*)(vertical)(?=$|\s*,\s*)", re.IGNORECASE): (832, 1216),
         re.compile(r"(^|\s*,\s*)(horizontal)(?=$|\s*,\s*)", re.IGNORECASE): (1216, 832),
         re.compile(r"(^|\s*,\s*)(square)(?=$|\s*,\s*)", re.IGNORECASE): (1024, 1024),
-        re.compile(r"(^|\s*,\s*)(ultrawide)(?=$|\s*,\s*)", re.IGNORECASE): (1536, 640),
+        re.compile(r"(^|\s*,\s*)(ultrawide|widescreen)(?=$|\s*,\s*)", re.IGNORECASE): (1536, 640),
     }
 
     _resolution_choices = [
