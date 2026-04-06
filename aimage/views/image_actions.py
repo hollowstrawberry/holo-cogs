@@ -32,11 +32,11 @@ class ImageActions(discord.ui.View):
 
         self.button_caption = discord.ui.Button(emoji='🔎')
         self.button_caption.callback = self.get_caption
-        self.button_modify = discord.ui.Button(emoji="🔄")
+        self.button_modify = discord.ui.Button(emoji="📝")
         self.button_modify.callback = self.modify_image
-        self.button_variation = discord.ui.Button(emoji='⏺️')
+        self.button_variation = discord.ui.Button(emoji='🔬')
         self.button_variation.callback = self.variation_image
-        self.button_upscale = discord.ui.Button(emoji='⬆')
+        self.button_upscale = discord.ui.Button(emoji='💎')
         self.button_upscale.callback = self.upscale_image
         self.button_delete = discord.ui.Button(emoji='🗑️')
         self.button_delete.callback = self.delete_image
@@ -74,7 +74,9 @@ class ImageActions(discord.ui.View):
     async def upscale_image(self, interaction: discord.Interaction):
         from aimage.views.hi_res import HiresModal
         if not self.cache.get("upscale"):
-            return await interaction.response.send_message(content=":warning: Upscaling is not available at this time. Please contact the bot owner.", ephemeral=True)
+            return await interaction.response.send_message(
+                content=":warning: Upscaling is not available at this time. Please contact the bot owner.",
+                ephemeral=True)
         modal = HiresModal(self, interaction, self.maxsize)
         await interaction.response.send_modal(modal)
 
@@ -82,7 +84,9 @@ class ImageActions(discord.ui.View):
     async def delete_image(self, interaction: discord.Interaction):
         assert interaction.message
         if not (await self.check_if_can_delete(interaction)):
-            return await interaction.response.send_message(content=":warning: Only the requester and members with `Manage Messages` permission can delete this image!", ephemeral=True)
+            return await interaction.response.send_message(
+                content=":warning: Only the requester and members with `Manage Messages` permission can delete this image!",
+                ephemeral=True)
 
         self.button_delete.disabled = True
         await interaction.message.delete()
@@ -95,7 +99,7 @@ class ImageActions(discord.ui.View):
                 ephemeral=True)
         else:
             await interaction.response.send_message(
-                f'{interaction.user.mention} deleted a image requested by {self.og_user.mention} with prompt: `{prompt}`',
+                f'{interaction.user.mention} deleted an image requested by {self.og_user.mention} with prompt: `{prompt}`',
                 allowed_mentions=discord.AllowedMentions.none(),
                 ephemeral=True)
 
