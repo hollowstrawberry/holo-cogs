@@ -5,6 +5,7 @@ from redbot.core.bot import Red
 from aimage.base import AImageBase
 from aimage.comfy import ComfyMetadata
 from aimage.constants import VIEW_TIMEOUT
+from aimage.views.image_info import ImageInfoView
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
@@ -53,11 +54,10 @@ class ImageActions(discord.ui.View):
     async def get_caption(self, interaction: discord.Interaction):
         await interaction.response.defer(thinking=True, ephemeral=True)
         embed = await self.get_params_embed()
-        if embed:
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        else:
-            await interaction.followup.send(f'Parameters for this image:\n```yaml\n{self.metadata}```', ephemeral=True)
-
+        if not embed:
+            return await interaction.followup.send(f'Parameters for this image:\n```json\n{self.metadata.raw}```', ephemeral=True)
+        view = ImageInfoView(self.metadata.raw or "")
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     async def modify_image(self, interaction: discord.Interaction):
         from aimage.views.modify import ModifyModal
