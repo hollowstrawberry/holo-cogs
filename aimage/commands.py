@@ -122,9 +122,8 @@ class AImageCommands(AImageSettings):
                 width, height = size
                 break
               
-        if "|" in prompt:
-            split = "||" if "||" in prompt else "|"
-            segments = [p.strip() for p in prompt.split(split)]
+        if "||" in prompt:
+            segments = [p.strip() for p in prompt.split("||")]
             if len(segments) != 3:
                 content = f":warning: Your prompt contains regions divided by `{split}`, but it's not in the format `shared {split} left {split} right`"
                 return await ctx.send(content)
@@ -192,9 +191,8 @@ class AImageCommands(AImageSettings):
             loras.append(lora)
 
         regions = None
-        if "|" in prompt:
-            split = "||" if "||" in prompt else "|"
-            segments = [p.strip() for p in prompt.split(split)]
+        if "||" in prompt:
+            segments = [p.strip() for p in prompt.split("||")]
             if len(segments) != 3:
                 content = f":warning: Your prompt contains regions divided by `{split}`, but it's not in the format `shared {split} left {split} right`"
                 return await interaction.followup.send(content=content, ephemeral=True)
