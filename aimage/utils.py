@@ -58,7 +58,7 @@ def normalize_image(b: bytes, max_pixels: int) -> bytes:
         image = image.resize((width, height), Image.Resampling.LANCZOS)
     fp = BytesIO()
     image.save(fp, "PNG")
-    image.seek(0)
+    fp.seek(0)
     return fp.read()
 
 def filter_names(options: dict, current: str, strict: bool = False) -> dict:
