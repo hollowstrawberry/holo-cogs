@@ -113,10 +113,17 @@ class ImageActions(discord.ui.View):
         
         embed = discord.Embed(title="Image Parameters", color=await self.bot.get_embed_color(self.channel))
         for key in params.keys():
-            if len(str(params[key])) > 1000:
+            if key == "Prompt" and len(str(params[key])) > 4000:
+                embed.description = str(params[key])[:3997] + "..."
+            elif len(str(params[key])) > 1000:
                 params[key] = str(params[key])[:997] + "..."
+            elif isinstance(params[key], float):
+                params[key] = f"{params[key]:.4f}".rstrip("0")
         for key, value in params.items():
-            embed.add_field(name=key, value=value, inline="Prompt" not in key)
+            if key == "Prompt":
+                embed.description = value
+            else:
+                embed.add_field(name=key, value=value, inline="Prompt" not in key)
 
         resources = await self.get_resources(self.metadata)
         if resources:
