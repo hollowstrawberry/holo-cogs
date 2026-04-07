@@ -465,7 +465,7 @@ class GptMemoryCommands(GptMemoryBase):
             lines = [f"`{key}`: `{setting_values.get(key, default or '(empty)')}`" for key, default in setting_dict.items()]
             return await ctx.send(">>> " + "\n".join(lines))
         if key not in setting_dict:
-            return await ctx.send("Invalid setting name. Options are: " + ", ".join([f"`{k}`" for k in setting_keys]))
+            return await ctx.send("Invalid setting name. Options are: " + ", ".join([f"`{k}`" for k in setting_dict]))
         value = value.strip(" `\n")
         if "emoji" in key or "emote" in key:
             try:

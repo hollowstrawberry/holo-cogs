@@ -4,7 +4,7 @@ import aiohttp
 from io import BytesIO
 
 from aimage.base import AImageBase
-from aimage.utils import ImageGenError, clean_model, parse_loras
+from aimage.utils import ImageGenError, clean_model, parse_prompts
 
 log = logging.getLogger("red.holo-cogs.aimage")
 
@@ -27,7 +27,7 @@ class ArcEnCielAPI:
             self.cog.autocomplete_cache[key] = {name: name for name in data.get("limits", {}).get(key, [])}
 
     async def request_image(self, payload: dict) -> dict:
-        parse_loras(payload)
+        parse_prompts(payload)
         url = self.endpoint + "/generator/jobs"
         async with self.session.post(url, json=payload) as response:
             if response.status >= 400:

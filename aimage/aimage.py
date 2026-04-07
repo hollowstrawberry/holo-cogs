@@ -10,11 +10,11 @@ from datetime import datetime, timedelta, timezone
 from discord.ext import tasks
 from redbot.core import commands
 
+import aimage.constants as constants
 from aimage.comfy import ComfyMetadata, ComfyMetadataReader
 from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
-from aimage.constants import ADETAILER_ARGS, ENDPOINT, JOB_TIMEOUT, PROGRESS_UPDATE_INTERVAL, RESOURCE_FILE_PATTERN, RESOURCE_HASH_PATTERN, LORA_PATTERN
 from aimage.views.image_actions import ImageActions
 from aimage.arcenciel_api import ArcEnCielAPI
 
@@ -27,7 +27,7 @@ class AImage(AImageCommands):
     async def cog_load_when_ready(self):
         await self.bot.wait_until_red_ready()
         api_key = (await self.bot.get_shared_api_tokens("arcenciel")).get("api_key", "")
-        self.api = ArcEnCielAPI(self, ENDPOINT, api_key)
+        self.api = ArcEnCielAPI(self, constants.ENDPOINT, api_key)
         asyncio.create_task(self.update_autocomplete_cache())
         self.consume_queue.start()
         self.clear_quota.start()
@@ -81,7 +81,7 @@ class AImage(AImageCommands):
         now = datetime.now(timezone.utc)
         created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
 
-        if (now - created).total_seconds() > JOB_TIMEOUT:
+        if (now - created).total_seconds() > constants.JOB_TIMEOUT:
             del self.queued_images[gen.id]
             asyncio.create_task(self.finalize_image_generation(gen, False, "Timed out."))
 
@@ -100,7 +100,7 @@ class AImage(AImageCommands):
             current_percent: int = job["progress"]["percent"]
             current_eta: int = job["progress"]["etaMs"] or job["queueEtaMs"] or 0
             current_position: int = job["position"]
-            if (now - gen.last_updated).total_seconds() < PROGRESS_UPDATE_INTERVAL:
+            if (now - gen.last_updated).total_seconds() < constants.PROGRESS_UPDATE_INTERVAL:
                 return
             if abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent and gen.last_position == current_position:
                 return
@@ -293,14 +293,14 @@ class AImage(AImageCommands):
         assert self.api
         hyperlinks: set[str] = set()
         hints = metadata.resource_hint_strings()
-        files = [str(os.path.basename(filename.strip(' "'))) for filename in RESOURCE_FILE_PATTERN.findall(metadata.raw or "")]
+        files = [str(os.path.basename(filename.strip(' "'))) for filename in constants.RESOURCE_FILE_PATTERN.findall(metadata.raw or "")]
         for hint in set(hints + files):
             if hint not in self.resource_cache and hint in self.resource_not_found_cache:
                 continue
             if hint in self.resource_cache:
                 hyperlinks.add(self.resource_cache[hint])
                 continue
-            is_hash = RESOURCE_HASH_PATTERN.match(hint) is not None
+            is_hash = constants.RESOURCE_HASH_PATTERN.match(hint) is not None
             resources = await self.api.search_resource(hint, hash_only=is_hash)
             log.info(f"Resource matches for {hint} /// " + ", ".join([str(model["id"]) for model in resources]))
             if not resources:
@@ -337,7 +337,7 @@ class AImage(AImageCommands):
         vae = params.vae or await self.config.vae()
         loras = []
         for lora in params.loras:
-            if m := LORA_PATTERN.match(lora):
+            if m := constants.LORA_PATTERN.match(lora):
                 name, weight = m.group(2), m.group(3)
             else:
                 name, weight = lora, 1.0
@@ -383,6 +383,6 @@ class AImage(AImageCommands):
             }
 
         if await self.config.adetailer():
-            payload["adetailer"] = deepcopy(ADETAILER_ARGS)
+            payload["adetailer"] = deepcopy(constants.ADETAILER_ARGS)
         
         return payload

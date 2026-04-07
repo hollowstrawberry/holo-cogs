@@ -16,11 +16,10 @@ from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
+import gptmemory.utils as utils
+import gptmemory.constants as constants
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.utils import get_filename, sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
 from gptmemory.schema import ImageGenParams, MemoryChangeList
-from gptmemory.constants import (URL_PATTERN, RESPONSE_CLEANUP_PATTERNS, INCOMPLETE_EMOTE_PATTERN, GENERATE_IMAGE_PATTERNS,
-                                 DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS)
 from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
@@ -125,7 +124,7 @@ class GptMemory(GptMemoryCommands):
             
         await self.config.channel(ctx.channel).last_response.set(datetime.now(tz=timezone.utc).isoformat())
         
-        if match := URL_PATTERN.search(message.content):
+        if match := constants.URL_PATTERN.search(message.content):
             if not message.embeds and f"<{match.group(0)}>" not in message.content:  # non-embedding links
                 await ctx.channel.typing()
                 ctx = await self.wait_for_embed(ctx)
@@ -228,7 +227,7 @@ class GptMemory(GptMemoryCommands):
         if not memories:
             return {}
 
-        temp_messages = get_text_contents(messages)
+        temp_messages = utils.get_text_contents(messages)
         temp_memories = list(memories)
         memories_to_recall = set()
         for memory in memories:
@@ -245,7 +244,7 @@ class GptMemory(GptMemoryCommands):
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_recaller()
-        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
+        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
         response = await self.get_client(model).beta.chat.completions.create(
             model=model,
             messages=temp_messages,
@@ -277,7 +276,7 @@ class GptMemory(GptMemoryCommands):
         assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
-        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
+        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
         max_tokens = await self.config.guild(ctx.guild).response_tokens()
         max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
@@ -364,19 +363,19 @@ class GptMemory(GptMemoryCommands):
             # special case: the bot tries to generate an image by sending text instead of using the function call
             if "generate_stable_diffusion" not in past_tool_calls:
                 prompt = None
-                for pattern in GENERATE_IMAGE_PATTERNS.values():
+                for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
                     if m := pattern.search(completion):
                         prompt = m.group(1)
                         completion = pattern.sub("", completion)
                 if prompt:
                     await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
-            for pattern in RESPONSE_CLEANUP_PATTERNS.values():
+            for pattern in constants.RESPONSE_CLEANUP_PATTERNS.values():
                 completion = pattern.sub("", completion)
-            completion = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
+            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
 
         if completion:
-            await chunk_and_send(ctx, completion, do_reply=not auto)
+            await utils.chunk_and_send(ctx, completion, do_reply=not auto)
         else:
             emoji = await self.config.noresponse_emoji()
             await ctx.message.add_reaction(emoji)
@@ -424,14 +423,14 @@ class GptMemory(GptMemoryCommands):
             if msg["role"] == "assistant" and "[said:] `[Memor" in msg["content"]:  # memory command
                 return False
             return True
-        temp_messages = [msg for msg in get_text_contents(messages) if is_valid(msg)]
+        temp_messages = [msg for msg in utils.get_text_contents(messages) if is_valid(msg)]
         num_backread = await self.config.guild(ctx.guild).backread_memorizer()
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_memorizer()
-        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
+        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
         response = await self.get_client(model).beta.chat.completions.parse(
             model=model,
             messages=temp_messages,
@@ -583,12 +582,12 @@ class GptMemory(GptMemoryCommands):
                         log.warning(f"Processing image attachments: {type(error).__name__}: {error}")
                         continue
 
-                fp_after = await asyncio.to_thread(process_image, fp_before, max_image_size)
+                fp_after = await asyncio.to_thread(utils.process_image, fp_before, max_image_size)
                 del fp_before
                 if not fp_after:
                     continue
 
-                image_contents.append(make_image_content(fp_after))
+                image_contents.append(utils.make_image_content(fp_after))
                 del fp_after
 
         if image_contents:
@@ -603,9 +602,9 @@ class GptMemory(GptMemoryCommands):
         if message.embeds and message.embeds[0].thumbnail and message.embeds[0].thumbnail.url:
             image_url.append(message.embeds[0].thumbnail.url)
 
-        matches = URL_PATTERN.findall(message.content)
+        matches = constants.URL_PATTERN.findall(message.content)
         for match in matches:
-            if match.endswith(IMAGE_EXTENSIONS):
+            if match.endswith(constants.IMAGE_EXTENSIONS):
                 image_url.append(match)
 
         if not image_url:
@@ -622,11 +621,11 @@ class GptMemory(GptMemoryCommands):
             except aiohttp.ClientError as error:
                 log.warning(f"Processing image {url}: {type(error).__name__}: {error}")
                 continue
-            fp_after = await asyncio.to_thread(process_image, fp_before, max_image_size)
+            fp_after = await asyncio.to_thread(utils.process_image, fp_before, max_image_size)
             del fp_before
             if not fp_after:
                 continue
-            image_contents.append(make_image_content(fp_after))
+            image_contents.append(utils.make_image_content(fp_after))
             del fp_after
 
         if image_contents:
@@ -645,9 +644,9 @@ class GptMemory(GptMemoryCommands):
                                     ) -> str:
         assert message.guild
 
-        content = f"[Username: {sanitize(message.author.name)}]"
+        content = f"[Username: {utils.sanitize(message.author.name)}]"
         if isinstance(message.author, discord.Member) and message.author.nick:
-            content += f" [Alias: {sanitize(message.author.nick)}]"
+            content += f" [Alias: {utils.sanitize(message.author.nick)}]"
         starting_len = len(content)
 
         if message.is_system():
@@ -665,7 +664,8 @@ class GptMemory(GptMemoryCommands):
             if metadata and metadata.get("Prompt", None):
                 is_generated_image = True
                 if message.author == message.guild.me:
-                    content += f" [[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
+                    prompt = utils.parse_prompt(metadata['Prompt'])
+                    content += f" [[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {prompt} ]]"
                 else:
                     content += f" [[ [Image with prompt:] {metadata['Prompt']} ]]"
         
@@ -678,11 +678,11 @@ class GptMemory(GptMemoryCommands):
         
         for embed in message.embeds:
             if embed.title:
-                content += f" [Embed Title: {sanitize(embed.title)}]"
+                content += f" [Embed Title: {utils.sanitize(embed.title)}]"
             if embed.description:
-                content += f" [Embed Content: {sanitize(embed.description)}]"
+                content += f" [Embed Content: {utils.sanitize(embed.description)}]"
             if embed.image and embed.image.url:
-                content += f" [Embed Image: {get_filename(embed.image.url)}]"
+                content += f" [Embed Image: {utils.get_filename(embed.image.url)}]"
 
         text_attachments = [att for att in message.attachments if att.content_type and att.content_type.startswith("text")]
         total_file_length = 0
@@ -721,7 +721,7 @@ class GptMemory(GptMemoryCommands):
             else:
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
 
-        for i, message_link in enumerate(DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
+        for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
             guild_id = int(message_link.group("guild_id"))
             channel_id = int(message_link.group("channel_id"))
             message_id = int(message_link.group("message_id"))

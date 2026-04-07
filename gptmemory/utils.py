@@ -1,8 +1,8 @@
 import os
+import re
 import discord
 import trafilatura
 from io import BytesIO
-from re import Match
 from copy import deepcopy
 from base64 import b64encode
 from urllib.parse import urlparse
@@ -25,7 +25,7 @@ def clean_tag(tag: str) -> str:
     else:
         return tag
 
-def farenheit_to_celsius(match: Match) -> str:
+def farenheit_to_celsius(match: re.Match) -> str:
     f = float(match.group(1))
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
@@ -135,6 +135,10 @@ def adjusted_effort(model: str, effort: str) -> str:
    else:
        return effort
    
+def parse_prompt(prompt: str) -> str:
+    prompt = re.sub(r",?\s*\n[\n\s]*", ", ", prompt)
+    prompt = re.sub(r"\s*\|\|\s*", "\n", prompt)
+    return prompt
 
 def format_arcenciel_model(data: dict) -> str:
     description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"

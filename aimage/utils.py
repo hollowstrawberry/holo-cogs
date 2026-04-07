@@ -1,3 +1,4 @@
+import re
 import logging
 import discord
 from io import BytesIO
@@ -84,7 +85,10 @@ def clean_model(name: str) -> str:
     name = LORA_PREFIX_PATTERN.sub("", name)
     return name
 
-def parse_loras(payload: dict) -> None:
+def parse_prompts(payload: dict) -> None:
+    if "attentionCouple" in payload:
+        payload["prompt"] = re.sub(r",?\s*\n[\n\s]*", ", ", payload["prompt"])
+        payload["prompt"] = re.sub(r"\s*\|\|\s*", "\n", payload["prompt"])
     for lora, name, weight in LORA_PATTERN.findall(payload["prompt"]):
         name = name.replace(".safetensors", "") + ".safetensors"
         payload.setdefault("loras", [])

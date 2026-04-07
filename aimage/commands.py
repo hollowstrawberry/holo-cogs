@@ -3,7 +3,6 @@ import logging
 import asyncio
 import aiohttp
 import discord
-from io import BytesIO
 from copy import copy
 
 from redbot.core import app_commands, checks, commands
@@ -125,7 +124,7 @@ class AImageCommands(AImageSettings):
         if "||" in prompt:
             segments = [p.strip() for p in prompt.split("||")]
             if len(segments) != 3:
-                content = f":warning: Your prompt contains regions divided by `{split}`, but it's not in the format `shared {split} left {split} right`"
+                content = f":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
                 return await ctx.send(content)
             segments = edit_regional_prompts(*segments)
             prompt = segments[0]
@@ -194,7 +193,7 @@ class AImageCommands(AImageSettings):
         if "||" in prompt:
             segments = [p.strip() for p in prompt.split("||")]
             if len(segments) != 3:
-                content = f":warning: Your prompt contains regions divided by `{split}`, but it's not in the format `shared {split} left {split} right`"
+                content = f":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
                 return await interaction.followup.send(content=content, ephemeral=True)
             segments = edit_regional_prompts(*segments)
             prompt = segments[0]
@@ -375,8 +374,8 @@ class AImageCommands(AImageSettings):
         """
         attachments = ctx.message.attachments
         if not attachments:
-            if ctx.message.reference:
-                reference_message = await ctx.channel.fetch_message(reference.message_id)
+            if ctx.message.reference and ctx.message.reference.message_id:
+                reference_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
                 attachments = reference_message.attachments
             if not attachments:
                 return await ctx.reply("You must use this command with an image.")
