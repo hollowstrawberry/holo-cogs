@@ -71,9 +71,8 @@ class ArcEnCielAPI:
             b = await response.read()
         return b
     
-    async def upload_image(self, image: BytesIO, filename: str) -> str:
+    async def upload_image(self, image: bytes, filename: str) -> str:
         url = self.endpoint + "/generator/uploads"
-        image.seek(0)
         data = aiohttp.FormData()
         data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
         data.add_field("kind", "REDBOT")
@@ -99,12 +98,11 @@ class ArcEnCielAPI:
             data = await response.json()
         return data["data"]
     
-    async def interrogate(self, image: BytesIO, filename: str) -> list[str]:
+    async def interrogate(self, image: bytes, filename: str) -> list[str]:
         url = self.endpoint + "/generator/autotag/interrogate"
         data = aiohttp.FormData()
-        image.seek(0)
         data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
-        data.add_field("kind", "tagger")
+        data.add_field("kind", "TAGGER")
         async with self.session.post(url=url, data=data) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))

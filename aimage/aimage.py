@@ -175,13 +175,13 @@ class AImage(AImageCommands):
             if "masterpiece" not in prompt and "best quality" not in prompt:
                 payload["prompt"] = "masterpiece, best quality, " + prompt
             if params and params.image:
-                path = await self.api.upload_image(BytesIO(params.image.data), params.image.filename or "image.png")
+                path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
                 payload["imagePath"] = path
             if params and params.regions and payload.get("attentionCouple"):
                 mask_paths = []
                 masks = build_split_masks(payload["width"], payload["height"], params.regions.split_percent, params.regions.split_type)
                 for filename, data in masks:
-                    mask_paths.append(await self.api.upload_image(BytesIO(data), filename or "image.png"))
+                    mask_paths.append(await self.api.upload_image(data, filename or "image.png"))
                 for i, path in enumerate(mask_paths):
                     payload["attentionCouple"]["regions"][i]["maskPath"] = path
                 

@@ -410,7 +410,7 @@ class AImageCommands(AImageSettings):
         assert self.api
         image_bytes = await asyncio.to_thread(normalize_image, await attachment.read(), MAX_UPLOAD_PIXELS)
         try:
-            tags = await self.api.interrogate(BytesIO(image_bytes), attachment.filename)
+            tags = await self.api.interrogate(image_bytes, attachment.filename)
         except aiohttp.ClientResponseError as error:
             log.exception("Autotagger")
             await ctx.reply(f":warning: Failed to tag the image! `{error.message}`")

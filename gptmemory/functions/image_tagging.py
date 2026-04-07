@@ -66,7 +66,7 @@ class ImageTaggingFunctionCall(FunctionCallBase):
                     image_bytes = await response.read()
             max_image_size = await self.cog.config.guild(self.ctx.guild).max_image_resolution()
             fp = await asyncio.to_thread(process_image, BytesIO(image_bytes), max_image_size)
-            tags = await aimage.api.interrogate(fp, image_source.filename)  # type: ignore
+            tags = await aimage.api.interrogate(fp.read(), image_source.filename)  # type: ignore
             return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
