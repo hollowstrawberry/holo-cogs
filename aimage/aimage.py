@@ -211,7 +211,6 @@ class AImage(AImageCommands):
         else:
             return
         # After exception
-        log.info(f"{callback=}")
         tasks = [callback, send_response(context, content=error_message)]
         await asyncio.gather(*[t for t in tasks if t])
 
