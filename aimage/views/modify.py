@@ -1,7 +1,9 @@
+import re
 import discord
 import discord.ui as ui
 from copy import deepcopy
 
+from aimage.constants import NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN
 from aimage.views.image_actions import ImageActions
 
 
@@ -49,21 +51,26 @@ class ModifyModal(ui.Modal):
         assert isinstance(self.negative_prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.seed_select.component, discord.ui.Select)
         
-        is_prompt_unchanged = self.prompt_edit.component.value == self.params["Prompt"] and self.negative_prompt_edit.component.value == self.params["Negative Prompt"]
         prompt = self.prompt_edit.component.value
+        negative_prompt = self.negative_prompt_edit.component.value
+        is_prompt_unchanged = prompt == self.params["Prompt"] and negative_prompt == self.params["Negative Prompt"]
         reroll = bool(int(self.seed_select.component.values[0]))
-        self.payload["prompt"] = prompt
-        self.payload["negativePrompt"] = self.negative_prompt_edit.component.value
         
         if not is_prompt_unchanged and self.payload.get("attentionCouple"):  # parse regional prompt
+            prompt = PIPE_SEPARATOR_PATTERN.sub("\n", prompt)
+            prompt = NEWLINE_SEPARATOR_PATTERN.sub("\n", prompt)
             regions = self.payload["attentionCouple"]["regions"]
-            region_prompts = [p.strip() for p in prompt.split("||")]
+            region_prompts = [p.strip() for p in prompt.split("\n")]
             if len(region_prompts) != len(regions):
-                content = ":warning: This image has regional prompts separated by `||`, but your edited prompt didn't result in the same number of regions."
+                content = ":warning: This image has regional prompts, but your edited prompt didn't result in the same number of regions."
                 return await interaction.response.send_message(content=content, ephemeral=True)
             for i, region_prompt in enumerate(region_prompts):
                 regions[i]["prompt"] = region_prompt
         
+        if not is_prompt_unchanged:
+            self.payload["prompt"] = prompt
+            self.payload["negativePrompt"] = negative_prompt
+
         if "loras" in self.payload:
             del self.payload["loras"]  # already gets parsed from prompt by generate_image
 

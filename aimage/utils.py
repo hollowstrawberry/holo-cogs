@@ -7,7 +7,7 @@ from rapidfuzz import fuzz
 from redbot.core import commands
 
 from aimage.schema import SplitType
-from aimage.constants import LORA_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
+from aimage.constants import LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -87,8 +87,8 @@ def clean_model(name: str) -> str:
 
 def parse_prompts(payload: dict) -> None:
     if "attentionCouple" in payload:
-        payload["prompt"] = re.sub(r",?\s*\n[\n\s]*", ", ", payload["prompt"])
-        payload["prompt"] = re.sub(r"\s*\|\|\s*", "\n", payload["prompt"])
+        payload["prompt"] = NEWLINE_SEPARATOR_PATTERN.sub(", ", payload["prompt"])
+        payload["prompt"] = PIPE_SEPARATOR_PATTERN.sub("\n", payload["prompt"])
     for lora, name, weight in LORA_PATTERN.findall(payload["prompt"]):
         name = name.replace(".safetensors", "") + ".safetensors"
         payload.setdefault("loras", [])
