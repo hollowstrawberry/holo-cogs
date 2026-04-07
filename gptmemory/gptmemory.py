@@ -320,7 +320,7 @@ class GptMemory(GptMemoryCommands):
 
             if not response.choices:  # request may get rejected
                 log.error(f"Blocked response: {response.error}")
-                await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
+                #await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
                 emoji = await self.config.blocked_emoji()
                 await ctx.message.add_reaction(emoji)
                 return {}
