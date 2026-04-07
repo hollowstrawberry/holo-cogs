@@ -71,8 +71,9 @@ class ArcEnCielAPI:
             b = await response.read()
         return b
     
-    async def upload_image(self, image: bytes, filename: str) -> str:
+    async def upload_image(self, image: BytesIO, filename: str) -> str:
         url = self.endpoint + "/generator/uploads"
+        image.seek(0)
         data = aiohttp.FormData()
         data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
         data.add_field("kind", "REDBOT")
