@@ -4,7 +4,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 
 import discord
-from discord.ext import commands
+from redbot.core import commands
 
 
 class SplitType(Enum):

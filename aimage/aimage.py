@@ -1,6 +1,5 @@
 import os
 import logging
-import hashlib
 import asyncio
 import aiohttp
 import discord

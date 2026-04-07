@@ -71,6 +71,7 @@ def filter_names(options: dict, current: str, strict: bool = False) -> dict:
     return results
 
 def clean_tag(tag: str) -> str:
+    tag = tag.lower().strip()
     if len(tag) > 3:
         return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
     else:
