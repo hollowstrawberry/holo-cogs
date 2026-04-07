@@ -56,14 +56,13 @@ class ScrapeFunctionCall(FunctionCallBase):
 
     async def scrape_generic(self, url: str) -> str:
         try:
-            async with aiohttp.ClientSession(headers=self.headers) as session:
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    content_type = response.headers.get('Content-Type', '').lower()
-                    if 'text' not in content_type:
-                        return f"[Contents of {url} is not text]"
-                    text = await response.text()
-                    content = trafilatura.extract(text) or text
+            async with self.cog.session.get(url, headers=self.headers) as response:
+                response.raise_for_status()
+                content_type = response.headers.get('Content-Type', '').lower()
+                if 'text' not in content_type:
+                    return f"[Contents of {url} is not text]"
+                text = await response.text()
+                content = trafilatura.extract(text) or text
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {type(error).__name__}: {error}")
             return "[Failed to open URL]"
@@ -81,10 +80,9 @@ class ScrapeFunctionCall(FunctionCallBase):
         model_id = match.group("id")
         url = f"https://arcenciel.io/api/models/{model_id}"
         try:
-            async with aiohttp.ClientSession(headers=self.headers) as session:
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    data = await response.json()
+            async with self.cog.session.get(url, headers=self.headers) as response:
+                response.raise_for_status()
+                data = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {type(error).__name__}: {error}")
             return "[Failed to open URL]"

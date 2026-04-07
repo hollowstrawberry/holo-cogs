@@ -17,7 +17,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
+from gptmemory.utils import get_filename, sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
 from gptmemory.schema import ImageGenParams, MemoryChangeList
 from gptmemory.constants import (URL_PATTERN, RESPONSE_CLEANUP_PATTERNS, INCOMPLETE_EMOTE_PATTERN, GENERATE_IMAGE_PATTERNS,
                                  DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS)
@@ -63,6 +63,8 @@ class GptMemory(GptMemoryCommands):
 
 
     async def cog_unload(self):
+        if self.session:
+            await self.session.close()
         if self.openai_client:
             await self.openai_client.close()
         if self.openrouter_client:
@@ -319,7 +321,7 @@ class GptMemory(GptMemoryCommands):
                     result.tokens_after_tools += response.usage.completion_tokens
 
             if not response.choices:  # request may get rejected
-                log.error(f"Blocked response: {response.error}")
+                log.error(f"Blocked response: {getattr(response, 'error', 'No error')}")
                 #await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
                 emoji = await self.config.blocked_emoji()
                 await ctx.message.add_reaction(emoji)
@@ -609,25 +611,23 @@ class GptMemory(GptMemoryCommands):
         if not image_url:
             return image_contents
 
-        async with aiohttp.ClientSession() as session:
-            for url in image_url[:max_images]:
-                if url in processed_sources:
-                    continue
-                processed_sources.append(url)
-                
-                try:
-                    async with session.get(url) as response:
-                        response.raise_for_status()
-                        fp_before = BytesIO(await response.read())
-                except aiohttp.ClientError as error:
-                    log.warning(f"Processing image {url}: {type(error).__name__}: {error}")
-                    continue
-                fp_after = process_image(fp_before, max_image_size)
-                del fp_before
-                if not fp_after:
-                    continue
-                image_contents.append(make_image_content(fp_after))
-                del fp_after
+        for url in image_url[:max_images]:
+            if url in processed_sources:
+                continue
+            processed_sources.append(url)
+            try:
+                async with self.session.get(url) as response:
+                    response.raise_for_status()
+                    fp_before = BytesIO(await response.read())
+            except aiohttp.ClientError as error:
+                log.warning(f"Processing image {url}: {type(error).__name__}: {error}")
+                continue
+            fp_after = await asyncio.to_thread(process_image, fp_before, max_image_size)
+            del fp_before
+            if not fp_after:
+                continue
+            image_contents.append(make_image_content(fp_after))
+            del fp_after
 
         if image_contents:
             self.image_cache[message.id] = [cnt for cnt in image_contents]
@@ -681,6 +681,8 @@ class GptMemory(GptMemoryCommands):
                 content += f" [Embed Title: {sanitize(embed.title)}]"
             if embed.description:
                 content += f" [Embed Content: {sanitize(embed.description)}]"
+            if embed.image and embed.image.url:
+                content += f" [Embed Image: {get_filename(embed.image.url)}]"
 
         text_attachments = [att for att in message.attachments if att.content_type and att.content_type.startswith("text")]
         total_file_length = 0

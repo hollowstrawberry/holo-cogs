@@ -1,6 +1,6 @@
-import io
 import logging
 import discord
+from io import BytesIO
 from PIL import Image, ImageDraw
 from rapidfuzz import fuzz
 from redbot.core import commands
@@ -52,11 +52,11 @@ def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
     return int(width * scale), int(height * scale)
 
 def normalize_image(b: bytes, max_pixels: int) -> bytes:
-    image = Image.open(io.BytesIO(b))
+    image = Image.open(BytesIO(b))
     if image.width*image.height > max_pixels:
         width, height = scale_to_size(image.width, image.height, max_pixels)
         image = image.resize((width, height), Image.Resampling.LANCZOS)
-    fp = io.BytesIO()
+    fp = BytesIO()
     image.save(fp, "PNG")
     return fp.read()
 
@@ -106,7 +106,7 @@ def make_region_mask(width: int, height: int, rect: tuple[int, int, int, int]) -
     y2 = y + max(1, h) - 1
     draw.rectangle((x, y, x2, y2), fill=(0, 0, 0, 0))
 
-    buf = io.BytesIO()
+    buf = BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
 

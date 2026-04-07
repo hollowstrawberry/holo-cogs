@@ -1,9 +1,7 @@
 import json
 import logging
 import aiohttp
-import discord
-from copy import deepcopy
-from redbot.core import commands
+from io import BytesIO
 
 from aimage.base import AImageBase
 from aimage.utils import ImageGenError, clean_model, parse_loras
@@ -100,9 +98,10 @@ class ArcEnCielAPI:
             data = await response.json()
         return data["data"]
     
-    async def interrogate(self, image: bytes, filename: str) -> list[str]:
+    async def interrogate(self, image: BytesIO, filename: str) -> list[str]:
         url = self.endpoint + "/generator/autotag/interrogate"
         data = aiohttp.FormData()
+        image.seek(0)
         data.add_field("image", image, filename=filename, content_type=f"image/{filename.split('.')[-1]}")
         data.add_field("kind", "tagger")
         async with self.session.post(url=url, data=data) as response:

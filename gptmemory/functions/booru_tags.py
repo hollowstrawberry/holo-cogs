@@ -7,6 +7,7 @@ from typing import Any
 from rapidfuzz import process, fuzz
 from redbot.core.data_manager import bundled_data_path
 
+from gptmemory.utils import clean_tag
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
@@ -23,20 +24,13 @@ class BooruTagsFunctionCall(FunctionCallBase):
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "A short term (underscore-separated) to find string matches for individual booru tags or simple tag groups.",
+                        "description": "A short term to find string matches for individual booru tags or simple tag groups.",
                     }},
                 required=["query"],
             )))
 
     tag_groups: dict = {}
     all_tags: list = []
-
-    @classmethod
-    def normalize(cls, tag: str) -> str:
-        tag = tag.lower()
-        if len(tag) > 3:
-            tag = tag.replace("_", " ")
-        return tag
     
     @classmethod
     def build_index(cls, data: dict[str, Any]):
@@ -47,14 +41,14 @@ class BooruTagsFunctionCall(FunctionCallBase):
                     vals = [v if isinstance(v, (list, tuple)) else [v]
                             for v in subgroup_content.values()]
                     merged = list(itertools.chain.from_iterable(vals))
-                    cls.tag_groups[cls.normalize(subgroup_name)] = [cls.normalize(t) for t in merged if t is not None]
+                    cls.tag_groups[clean_tag(subgroup_name)] = [clean_tag(t) for t in merged if t is not None]
                 elif isinstance(subgroup_content, list):
-                    cls.tag_groups[cls.normalize(subgroup_name)] = [cls.normalize(tag) for tag in subgroup_content]
+                    cls.tag_groups[clean_tag(subgroup_name)] = [clean_tag(tag) for tag in subgroup_content]
         cls.all_tags = list(itertools.chain.from_iterable(cls.tag_groups.values()))                
         
     @classmethod
     def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> list[str]:
-        query = cls.normalize(query)
+        query = clean_tag(query)
         matches: set[str] = set()
 
         for group, tags in cls.tag_groups.items():

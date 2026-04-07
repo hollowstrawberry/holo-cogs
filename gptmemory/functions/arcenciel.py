@@ -44,10 +44,9 @@ class ArcencielFunctionCall(FunctionCallBase):
         if user:
             params = {"q": user}
             try:
-                async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                    async with session.get("https://arcenciel.io/api/users/search", params=params) as resp:
-                        resp.raise_for_status()
-                        data = await resp.json()
+                async with self.cog.session.get("https://arcenciel.io/api/users/search", params=params, headers=self.HEADERS) as response:
+                    response.raise_for_status()
+                    data = await response.json()
             except aiohttp.ClientError as error:
                 log.warning(f"Trying to grab user from Arc en Ciel: {type(error).__name__}: {error}")
                 return "[Error trying to grab user from Arc en Ciel]"
@@ -60,10 +59,9 @@ class ArcencielFunctionCall(FunctionCallBase):
         if found_user is not None:
             params["userId"] = found_user
         try:
-            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                async with session.get("https://arcenciel.io/api/models/search", params=params) as resp:
-                    resp.raise_for_status()
-                    data = await resp.json()
+            async with self.cog.session.get("https://arcenciel.io/api/models/search", params=params, headers=self.HEADERS) as response:
+                response.raise_for_status()
+                data = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Trying to grab model from Arc en Ciel: {type(error).__name__}: {error}")
             return "[Error trying to grab model from Arc en Ciel]"

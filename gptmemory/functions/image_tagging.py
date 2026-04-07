@@ -1,9 +1,10 @@
 import logging
 import asyncio
 import discord
-from typing import Any
+from io import BytesIO
 from redbot.core import commands
 
+from gptmemory.utils import get_filename, clean_tag, process_image
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
@@ -25,15 +26,8 @@ class ImageTaggingFunctionCall(FunctionCallBase):
                 },
                 required=["filename"],
             )))
-    
-    @staticmethod
-    def clean_tag(tag: str) -> str:
-        if len(tag) > 3:
-            return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
-        else:
-            return tag
 
-    async def find_attachment(self, filename: str) -> discord.Attachment | None:
+    async def find_image(self, filename: str) -> discord.Attachment | str | None:
         assert self.ctx.guild
         limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
         messages = [message async for message in self.ctx.channel.history(limit=limit)]
@@ -44,25 +38,36 @@ class ImageTaggingFunctionCall(FunctionCallBase):
             for attachment in message.attachments:
                 if attachment.filename == filename:
                     return attachment
+            for embed in message.embeds:
+                if embed.image and embed.image.url and filename == get_filename(embed.image.url):
+                    return embed.image.url
         return None
     
     async def run(self, arguments: dict) -> str:
+        assert self.ctx.guild
         filename: str = arguments.get("filename", "")
         if not filename:
             return "[Error: No filename provided]"
         aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
         if not aimage:
             return "[Error: `aimage` cog not installed, please notify the bot owner]"
-        attachment = await self.find_attachment(filename.strip())
-        if not attachment:
+        image_source = await self.find_image(filename.strip())
+        if not image_source:
             return f"[Error: Can't find image '{filename}' in recent chat logs]"
 
         emoji = await self.get_setting("tagging_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
         try:
-            image_bytes = await attachment.read()
-            tags = await aimage.api.interrogate(image_bytes, attachment.filename)  # type: ignore
-            return f"`{', '.join([self.clean_tag(tag) for tag in tags])}`"
+            if isinstance(image_source, discord.Attachment):
+                image_bytes = await image_source.read()
+            else:
+                async with self.cog.session.get(image_source) as response:
+                    response.raise_for_status()
+                    image_bytes = await response.read()
+            max_image_size = await self.cog.config.guild(self.ctx.guild).max_image_resolution()
+            fp = await asyncio.to_thread(process_image, BytesIO(image_bytes), max_image_size)
+            tags = await aimage.api.interrogate(fp, image_source.filename)  # type: ignore
+            return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
             return f"[Failed to tag image] [[[ {type(error).__name__}: {error} ]]]"

@@ -1,3 +1,4 @@
+import aiohttp
 from openai import AsyncOpenAI
 from redbot.core import commands, Config
 from redbot.core.bot import Red
@@ -14,6 +15,7 @@ class GptMemoryBase(commands.Cog):
         self.extended_logging = True
         self.config = Config.get_conf(self, identifier=19475820)
         
+        self.session = aiohttp.ClientSession()
         self.openai_client: AsyncOpenAI | None = None
         self.openrouter_client: AsyncOpenAI | None = None
         

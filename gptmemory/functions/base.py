@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import asdict
-from discord.ext import commands
+from redbot.core import commands
 
 from gptmemory.schema import ToolCall
 from gptmemory.base import GptMemoryBase

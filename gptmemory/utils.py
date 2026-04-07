@@ -1,11 +1,13 @@
+import os
 import discord
-import discord.ext.commands as commands
 import trafilatura
 from io import BytesIO
 from re import Match
 from copy import deepcopy
 from base64 import b64encode
+from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
+from redbot.core import commands
 
 from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
 
@@ -15,6 +17,13 @@ def sanitize(text: str) -> str:
     for c in special_characters:
         text = text.replace(c, "")
     return text
+
+def clean_tag(tag: str) -> str:
+    tag = tag.lower().strip()
+    if len(tag) > 3:
+        return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
+    else:
+        return tag
 
 def farenheit_to_celsius(match: Match) -> str:
     f = float(match.group(1))
@@ -28,6 +37,9 @@ def make_image_content(fp: BytesIO) -> dict:
             "url": f"data:image/png;base64,{b64encode(fp.read()).decode()}"
         }
     }
+
+def get_filename(url: str) -> str:
+    return os.path.basename(urlparse(url).path)
 
 def process_image(buffer: BytesIO, size: int) -> BytesIO | None:
     try:
