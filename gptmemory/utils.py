@@ -136,8 +136,7 @@ def adjusted_effort(model: str, effort: str) -> str:
        return effort
    
 def parse_prompt(prompt: str) -> str:
-    prompt = re.sub(r",?\s*\n[\n\s]*", ", ", prompt)
-    prompt = re.sub(r"\s*\|\|\s*", "\n", prompt)
+    prompt = re.sub(r",?\s*\n[\n\s]*", " || ", prompt)
     return prompt
 
 def format_arcenciel_model(data: dict) -> str:
