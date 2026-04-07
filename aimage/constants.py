@@ -30,7 +30,7 @@ ADETAILER_ARGS = {
     "iou": 0.5,
     "dilate": 4,
     "maskBlur": 4,
-    "maxDetections": 4,
+    "maxDetections": 2,
     "detectionOrder": "left-to-right",
     "maskMode": "segmentation",
     "timing": "post-upscale",
