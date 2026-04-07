@@ -349,7 +349,8 @@ class AImageCommands(AImageSettings):
                 ephemeral=True)
 
         image_bytes = await asyncio.to_thread(normalize_image, await image.read(), maxsize)
-        img2img_params = ImageToImageParams(image_bytes, image.filename, denoising, scale)
+        image_name = image.filename.rsplit(".", 1)[0] + ".png"
+        img2img_params = ImageToImageParams(image_bytes, image_name, denoising, scale)
 
         params = ImageGenParams(
             prompt=prompt,
@@ -374,10 +375,15 @@ class AImageCommands(AImageSettings):
         """
         Generate booru tags for an image
         """
-        if not ctx.message.attachments:
-            return await ctx.reply("You must use this command with an image.")
+        attachments = ctx.message.attachments
+        if not attachments:
+            if ctx.message.reference:
+                reference_message = await ctx.channel.fetch_message(reference.message_id)
+                attachments = reference_message.attachments
+            if not attachments:
+                return await ctx.reply("You must use this command with an image.")
 
-        image = ctx.message.attachments[0]
+        image = attachments[0]
         assert ctx.guild and image.content_type
         if all(ext not in image.content_type for ext in SUPPORTED_IMAGE_TYPES):
             return await ctx.reply("The file you uploaded is not a valid image.")
@@ -409,8 +415,9 @@ class AImageCommands(AImageSettings):
     async def autotag(self, ctx: commands.Context, attachment: discord.Attachment):
         assert self.api
         image_bytes = await asyncio.to_thread(normalize_image, await attachment.read(), MAX_UPLOAD_PIXELS)
+        image_name = attachment.filename.rsplit(".", 1)[0] + ".png"
         try:
-            tags = await self.api.interrogate(image_bytes, attachment.filename)
+            tags = await self.api.interrogate(image_bytes, image_name)
         except aiohttp.ClientResponseError as error:
             log.exception("Autotagger")
             await ctx.reply(f":warning: Failed to tag the image! `{error.message}`")
