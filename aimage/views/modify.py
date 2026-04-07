@@ -36,8 +36,8 @@ class ModifyModal(ui.Modal):
             text="Seed",
             description="You can make a new image or modify the current image.",
             component=ui.Select(options=[
-                discord.SelectOption(label="Reroll image", value="1", default=True),
-                discord.SelectOption(label="Keep image", value="0"),
+                discord.SelectOption(label="Keep image", value="0", default=True),
+                discord.SelectOption(label="Reroll image", value="1"),
             ])
         )
 
