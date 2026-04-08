@@ -41,7 +41,7 @@ def make_image_content(fp: BytesIO) -> dict:
 def get_filename(url: str) -> str:
     return os.path.basename(urlparse(url).path)
 
-def find_nearest_resulution(current: tuple[int, int], targets: list[tuple[int, int]]) -> tuple[int, int]:
+def find_nearest_resolution(current: tuple[int, int], targets: list[tuple[int, int]]) -> tuple[int, int]:
     ratio = current[0] / current[1]
     best_match = min(targets, key=lambda res: abs((res[0] / res[1]) - ratio))
     return best_match
