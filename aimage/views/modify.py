@@ -70,9 +70,8 @@ class ModifyModal(ui.Modal):
         if not is_prompt_unchanged:
             self.payload["prompt"] = prompt
             self.payload["negativePrompt"] = negative_prompt
-
-        if "loras" in self.payload:
-            del self.payload["loras"]  # already gets parsed from prompt by generate_image
+            if "loras" in self.payload:
+                del self.payload["loras"]  # already gets parsed from prompt
 
         if reroll:
             self.payload["seed"] = -1
