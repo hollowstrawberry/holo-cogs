@@ -59,3 +59,10 @@ EFFORT_VALUES = [
     "medium",
     "high",
 ]
+
+IMAGEGEN_RESOLUTIONS = [
+    (1024, 1024),
+    (832, 1216),
+    (1216, 832),
+    (1536, 640),
+]
