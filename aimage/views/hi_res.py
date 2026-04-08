@@ -32,32 +32,41 @@ class HiresModal(ui.Modal):
                 for name in upscalers[:25]
             ])
         )
-        self.scale_select = ui.Label(
+        self.scale_radio = ui.Label(
             text="Scale",
-            component=ui.Select(options=[
-                discord.SelectOption(label=f"x{num:.2f}", value=f"{num:.2f}", default=num==default_scale)
-                for num in scales
+            component=ui.RadioGroup(options=[
+                discord.RadioGroupOption(
+                    label=f"x{num:.2f}",
+                    value=f"{num:.2f}",
+                    default=num==default_scale,
+                ) for num in scales
             ])
         )
         self.denoising_select = ui.Label(
             text="Denoise",
             description="How much the image will change.",
             component=ui.Select(options=[
-                discord.SelectOption(label=f"{num}%", value=f"{num / 100:.2f}", default=num==DEFAULT_DENOISE)
-                for num in denoise_steps[1:]
+                discord.SelectOption(
+                    label=f"{num}%",
+                    value=f"{num / 100:.2f}",
+                    default=num==DEFAULT_DENOISE,
+                ) for num in denoise_steps[1:]
             ])
         )
         self.adetailer_denoising_select = ui.Label(
             text="ADetailer Denoise",
             description="How much the face will change.",
             component=ui.Select(options=[
-                discord.SelectOption(label=f"{num}%", value=f"{num / 100:.2f}", default=num==DEFAULT_ADETAILER_DENOISE)
-                for num in denoise_steps[:-1]
+                discord.SelectOption(
+                    label="Disabled" if num == 0 else f"{num}%",
+                    value=f"{num / 100:.2f}",
+                    default=num==DEFAULT_ADETAILER_DENOISE,
+                ) for num in denoise_steps[:-1]
             ])
         )
 
         self.add_item(self.upscaler_select)
-        self.add_item(self.scale_select)
+        self.add_item(self.scale_radio)
         self.add_item(self.denoising_select)
         self.add_item(self.adetailer_denoising_select)
 
@@ -65,11 +74,11 @@ class HiresModal(ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         assert self.parent_interaction.message
         assert isinstance(self.upscaler_select.component, discord.ui.Select)
-        assert isinstance(self.scale_select.component, discord.ui.Select)
+        assert isinstance(self.scale_radio.component, discord.ui.RadioGroup)
         assert isinstance(self.denoising_select.component, discord.ui.Select)
         assert isinstance(self.adetailer_denoising_select.component, discord.ui.Select)
 
-        scale = float(self.scale_select.component.values[0])
+        scale = float(self.scale_radio.component.value or "1.0")
         denoise = float(self.denoising_select.component.values[0])
         upscaler = self.upscaler_select.component.values[0]
         adetailer_denoising = float(self.adetailer_denoising_select.component.values[0])

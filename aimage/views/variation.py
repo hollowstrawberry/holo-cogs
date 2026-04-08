@@ -19,13 +19,10 @@ class VariationModal(ui.Modal):
         if previous_strength > 0:
             default_strength_percent = round(previous_strength * 100)
 
-        self.subseed_select = ui.Label(
-            text="Subseed",
+        self.subseed_checkbox = ui.Label(
+            text="Reroll subseed",
             description="Keeping the subseed while changing the strength may offer finer tuning.",
-            component=ui.Select(options=[
-                discord.SelectOption(label=f"Reroll subseed", value="1", default=True),
-                discord.SelectOption(label=f"Keep subseed", value="0")
-            ])
+            component=ui.Checkbox(default=True),
         )
         self.variation_select = ui.Label(
             text="Strength",
@@ -33,19 +30,19 @@ class VariationModal(ui.Modal):
             component=ui.Select(options=[
                 discord.SelectOption(label=f"{num}%", value=str(num), default=num==default_strength_percent)
                 for num in range(1, 26)
-            ])
+            ]),
         )
 
         if previous_strength > 0:
-            self.add_item(self.subseed_select)
+            self.add_item(self.subseed_checkbox)
         self.add_item(self.variation_select)
 
 
     async def on_submit(self, interaction: discord.Interaction):
-        assert isinstance(self.subseed_select.component, discord.ui.Select)
+        assert isinstance(self.subseed_checkbox.component, discord.ui.Checkbox)
         assert isinstance(self.variation_select.component, discord.ui.Select)
 
-        reroll = bool(int(self.subseed_select.component.values[0])) if self.subseed_select.component.values else True
+        reroll = self.subseed_checkbox.component.value
         strength = float(self.variation_select.component.values[0]) / 100
         self.payload["seed"] = int(self.params.get("Seed", -1))
         self.payload["extraSeed"] = -1 if reroll else int(self.params.get("Extra Seed", -1))

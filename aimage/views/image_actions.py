@@ -33,6 +33,8 @@ class ImageActions(discord.ui.View):
 
         self.button_caption = discord.ui.Button(emoji='🔎')
         self.button_caption.callback = self.get_caption
+        self.button_reroll = discord.ui.Button(emoji="🔄")
+        self.button_reroll.callback = self.reroll_image
         self.button_modify = discord.ui.Button(emoji="📝")
         self.button_modify.callback = self.modify_image
         self.button_variation = discord.ui.Button(emoji='🔬')
@@ -50,7 +52,6 @@ class ImageActions(discord.ui.View):
                 self.add_item(self.button_upscale)
         self.add_item(self.button_delete)
 
-
     async def get_caption(self, interaction: discord.Interaction):
         await interaction.response.defer(thinking=True, ephemeral=True)
         embed = await self.get_params_embed()
@@ -59,52 +60,42 @@ class ImageActions(discord.ui.View):
         view = ImageInfoView(self.metadata.raw or "")
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
+    async def reroll_image(self, interaction: discord.Interaction):
+        await interaction.response.defer(thinking=True)
+        message_content = f"Reroll requested by {interaction.user.mention}"
+        await self.generate_image(interaction, payload=self.payload, message_content=message_content)
+
     async def modify_image(self, interaction: discord.Interaction):
         from aimage.views.modify import ModifyModal
         modal = ModifyModal(self)
         await interaction.response.send_modal(modal)
-
 
     async def variation_image(self, interaction: discord.Interaction):
         from aimage.views.variation import VariationModal
         modal = VariationModal(self)
         await interaction.response.send_modal(modal)
 
-
     async def upscale_image(self, interaction: discord.Interaction):
         from aimage.views.hi_res import HiresModal
         if not self.cache.get("upscale"):
             return await interaction.response.send_message(
                 content=":warning: Upscaling is not available at this time. Please contact the bot owner.",
-                ephemeral=True)
+                ephemeral=True,
+            )
         modal = HiresModal(self, interaction, self.maxsize)
         await interaction.response.send_modal(modal)
 
-
     async def delete_image(self, interaction: discord.Interaction):
+        from aimage.views.delete import DeleteModal
         assert interaction.message
         if not (await self.check_if_can_delete(interaction)):
             return await interaction.response.send_message(
-                content=":warning: Only the requester and members with `Manage Messages` permission can delete this image!",
-                ephemeral=True)
-
-        self.button_delete.disabled = True
-        await interaction.message.delete()
-
-        prompt = self.payload["prompt"]
-        if interaction.user.id == self.og_user.id:
-            await interaction.response.send_message(
-                f'{self.og_user.mention} deleted their requested image with prompt: `{prompt}`',
+                content=f":warning: Only {self.og_user.mention} and moderators can delete this image!",
                 allowed_mentions=discord.AllowedMentions.none(),
-                ephemeral=True)
-        else:
-            await interaction.response.send_message(
-                f'{interaction.user.mention} deleted an image requested by {self.og_user.mention} with prompt: `{prompt}`',
-                allowed_mentions=discord.AllowedMentions.none(),
-                ephemeral=True)
-
-        self.stop()
-
+                ephemeral=True,
+            )
+        modal = DeleteModal(self, interaction)
+        await interaction.response.send_modal(modal)
 
     async def get_params_embed(self) -> discord.Embed | None:
         params = self.metadata.as_dict()
@@ -127,19 +118,15 @@ class ImageActions(discord.ui.View):
 
         return embed
 
-
     async def check_if_can_delete(self, interaction: discord.Interaction):
-        is_og_user = interaction.user.id == self.og_user.id
-
         assert interaction.guild and interaction.channel
         member = interaction.guild.get_member(interaction.user.id)
         if not member:
             return False
-        can_delete = await self.bot.is_owner(member) or interaction.channel.permissions_for(member).manage_messages
-
-        return is_og_user or can_delete
+        is_requester = interaction.user.id == self.og_user.id
+        is_privileged = interaction.channel.permissions_for(member).manage_messages or await self.bot.is_owner(member)
+        return is_requester or is_privileged
     
-
     async def on_timeout(self):
         await super().on_timeout()
         if self.message:

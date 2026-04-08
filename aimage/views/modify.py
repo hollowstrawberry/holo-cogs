@@ -21,7 +21,7 @@ class ModifyModal(ui.Modal):
             component=ui.TextInput(
                 style=discord.TextStyle.long,
                 default=self.params.get("Prompt") or self.payload["prompt"],
-                min_length=4
+                min_length=4,
             )
         )
         self.negative_prompt_edit = ui.Label(
@@ -29,19 +29,16 @@ class ModifyModal(ui.Modal):
             component=ui.TextInput(
                 style=discord.TextStyle.long,
                 default=self.params.get("Negative Prompt") or self.payload["negativePrompt"],
-                min_length=0
+                min_length=0,
             )
         )
-        self.seed_select = ui.Label(
-            text="Seed",
+        self.seed_checkbox = ui.Label(
+            text="Reroll",
             description="You can make a new image or modify the current image.",
-            component=ui.Select(options=[
-                discord.SelectOption(label="Keep image", value="0", default=True),
-                discord.SelectOption(label="Reroll image", value="1"),
-            ])
+            component=ui.Checkbox(default=False),
         )
 
-        self.add_item(self.seed_select)
+        self.add_item(self.seed_checkbox)
         self.add_item(self.prompt_edit)
         self.add_item(self.negative_prompt_edit)
         
@@ -49,12 +46,12 @@ class ModifyModal(ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         assert isinstance(self.prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.negative_prompt_edit.component, discord.ui.TextInput)
-        assert isinstance(self.seed_select.component, discord.ui.Select)
+        assert isinstance(self.seed_checkbox.component, discord.ui.Checkbox)
         
         prompt = self.prompt_edit.component.value
         negative_prompt = self.negative_prompt_edit.component.value
         is_prompt_unchanged = prompt == self.params["Prompt"] and negative_prompt == self.params["Negative Prompt"]
-        reroll = bool(int(self.seed_select.component.values[0]))
+        reroll = self.seed_checkbox.component.value
         
         if not is_prompt_unchanged and self.payload.get("attentionCouple"):  # parse regional prompt
             prompt = PIPE_SEPARATOR_PATTERN.sub("\n", prompt)
