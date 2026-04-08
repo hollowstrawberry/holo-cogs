@@ -149,6 +149,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 tags = [tag.strip() for tag in negative_prompt_extra.split(",")]
                 negative_prompt = ", ".join([tag.strip() for tag in tags if tag.strip() not in default_negative_prompt])
 
+            if width is None or height is None:
+                width, height = await self.cog.find_last_generated_image_resolution(self.ctx)
             if regions and (width is None or height is None):
                 width, height = 1216, 832
 

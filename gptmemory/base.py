@@ -66,3 +66,6 @@ class GptMemoryBase(commands.Cog):
             "autoresponder_chance": 0.0,
             "autoresponder_cooldown_minutes": 60,
         })
+
+    async def find_last_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
+        raise NotImplementedError()

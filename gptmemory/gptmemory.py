@@ -205,7 +205,7 @@ class GptMemory(GptMemoryCommands):
 
         result = GptMemoryResult()
         async with ctx.typing():
-            messages = await self.get_message_history(ctx, result)
+            messages = await self.build_message_history(ctx, result)
             recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
             if not auto:
                 asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
@@ -479,18 +479,10 @@ class GptMemory(GptMemoryCommands):
             await ctx.send(f"-# Revised memories: {', '.join(memory_changes)}")
 
 
-    async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> list[GptMessage]:
-        assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        limit = await self.config.guild(ctx.guild).backread_messages()
-        after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
-        backread = [message async for message in ctx.channel.history(
-            limit=limit,
-            before=ctx.message,
-            after=after,
-            oldest_first=False
-        )]
-        backread.insert(0, ctx.message)
+    async def build_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> list[GptMessage]:
+        assert ctx.guild and self.bot.user
 
+        backread = await self.fetch_message_history(ctx)
         messages = []
         processed_image_sources = []
         tokens = 0
@@ -504,7 +496,7 @@ class GptMemory(GptMemoryCommands):
         max_backread_tokens = await self.config.guild(ctx.guild).backread_tokens()
         for n, backmsg in enumerate(backread):
             try:
-                quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id) # type: ignore
+                quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id)  # type: ignore
                 # This would prevent chaining message quotes that are already consecutive
                 # if len(backread) > n+1 and quote == backread[n+1]:
                 #    quote = None
@@ -544,6 +536,20 @@ class GptMemory(GptMemoryCommands):
         result.messages = len(messages)
 
         return list(reversed(messages))
+
+
+    async def fetch_message_history(self, ctx: commands.Context) -> list[discord.Message]:
+        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        limit = await self.config.guild(ctx.guild).backread_messages()
+        after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
+        backread = [message async for message in ctx.channel.history(
+            limit=limit,
+            before=ctx.message,
+            after=after,
+            oldest_first=False
+        )]
+        backread.insert(0, ctx.message)
+        return backread
 
 
     async def extract_images(self,
@@ -643,12 +649,12 @@ class GptMemory(GptMemoryCommands):
                                     max_file_length: int,
                                     ) -> str:
         assert message.guild
-
+        # name
         content = f"[Username: {utils.sanitize(message.author.name)}]"
         if isinstance(message.author, discord.Member) and message.author.nick:
             content += f" [Alias: {utils.sanitize(message.author.nick)}]"
         starting_len = len(content)
-
+        # text content
         if message.is_system():
             if message.type == discord.MessageType.new_member:
                 content += " [Joined the server]"
@@ -656,7 +662,7 @@ class GptMemory(GptMemoryCommands):
                 content += f" {message.system_content}"
         elif message.content:
             content += f" [said:] {message.content}"
-
+        # image metadata
         is_generated_image = False
         if message.attachments and len(message.attachments) == 1:
             imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
@@ -668,14 +674,14 @@ class GptMemory(GptMemoryCommands):
                     content += f" [[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {prompt} ]]"
                 else:
                     content += f" [[ [Image with prompt:] {metadata['Prompt']} ]]"
-        
+        # attachments
         if not is_generated_image:
             for attachment in message.attachments:
                 content += f" [Attachment: {attachment.filename}]"
-        
+        # stickers
         for sticker in message.stickers:
             content += f" [Sticker: {sticker.name}]"
-        
+        # embeds
         for embed in message.embeds:
             if embed.title:
                 content += f" [Embed Title: {utils.sanitize(embed.title)}]"
@@ -683,7 +689,7 @@ class GptMemory(GptMemoryCommands):
                 content += f" [Embed Content: {utils.sanitize(embed.description)}]"
             if embed.image and embed.image.url:
                 content += f" [Embed Image: {utils.get_filename(embed.image.url)}]"
-
+        # text files
         text_attachments = [att for att in message.attachments if att.content_type and att.content_type.startswith("text")]
         total_file_length = 0
         for text_file in text_attachments:
@@ -700,7 +706,7 @@ class GptMemory(GptMemoryCommands):
                 content += f"\n[[[ Content of {text_file.filename}: {file_content} ]]]"
                 if total_file_length > 4000:
                     break
-
+        # quote
         is_generated_image_by_bot = is_generated_image and message.author == message.guild.me
         if quote and recursive and not is_generated_image_by_bot:
             quote_content = await self.parse_discord_message(quote, None, backread, False, max_quote_length, max_file_length)
@@ -708,10 +714,10 @@ class GptMemory(GptMemoryCommands):
             if quote in backread and len(quote_content) > max_quote_length:
                 quote_content = quote_content[:max_quote_length-3] + "..."
             content += f"\n[[[ Replying to: {quote_content} ]]]"            
-
+        # etc
         if len(content) == starting_len:
             content += " [Message empty or not supported]"
-
+        # mentions
         mentions = message.mentions + message.role_mentions + message.channel_mentions
         for mentioned in mentions:
             if mentioned in message.channel_mentions:
@@ -720,7 +726,7 @@ class GptMemory(GptMemoryCommands):
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
             else:
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
-
+        # message links
         for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
             guild_id = int(message_link.group("guild_id"))
             channel_id = int(message_link.group("channel_id"))
@@ -744,12 +750,12 @@ class GptMemory(GptMemoryCommands):
                 if linked in backread and len(linked_content) > max_quote_length:
                     linked_content = linked_content[:max_quote_length-3] + "..."
                 content += f"\n[[[ Linked message: {linked_content} ]]]"  
-
+        # done
         return content.strip()
 
 
     async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
-        assert ctx.guild
+        assert ctx.guild and self.bot.user
 
         channel_mode = await self.config.guild(ctx.guild).generation_channel_mode()
         channels = await self.config.guild(ctx.guild).generation_channels()
@@ -763,8 +769,27 @@ class GptMemory(GptMemoryCommands):
         if not aimage:
             await ctx.message.add_reaction("❌")
             return
-        
-        params = ImageGenParams(prompt=prompt)
+
+        width, height = await self.find_last_generated_image_resolution(ctx)                
+        params = ImageGenParams(
+            prompt=prompt,
+            width=width,
+            height=height,
+        )
         message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
-        task = aimage.generate_image(ctx, params=params, message_content=message_content) # type: ignore
+        task = aimage.generate_image(ctx, params=params, message_content=message_content)  # type: ignore
         asyncio.create_task(task)
+
+
+    async def find_last_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
+        backread = await self.fetch_message_history(ctx)
+        if ctx.message.reference and (ctx.message.reference.cached_message or ctx.message.reference.message_id):
+            quote = ctx.message.reference.cached_message or await ctx.message.channel.fetch_message(ctx.message.reference.message_id)  # type: ignore
+            backread.insert(1, quote)
+        for msg in backread[1:]:
+            if msg.author == self.bot.user and msg.attachments and len(msg.attachments) == 1 and msg.attachments[0].width and msg.attachments[0].height:
+                width, height = msg.attachments[0].width, msg.attachments[0].height
+                if (width, height) not in constants.IMAGEGEN_RESOLUTIONS:
+                    width, height = utils.find_nearest_resolution((width, height), constants.IMAGEGEN_RESOLUTIONS)
+                return width, height
+        return None, None
