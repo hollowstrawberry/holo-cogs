@@ -4,8 +4,9 @@ import discord
 from typing import Any
 from redbot.core import commands
 
+from gptmemory.utils import find_nearest_resolution
 from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
-from gptmemory.constants import LORA_PATTERN
+from gptmemory.constants import LORA_PATTERN, IMAGEGEN_RESOLUTIONS
 from gptmemory.functions.base import FunctionCallBase
 
 log = logging.getLogger("gptmemory.stablediffusion")
@@ -119,7 +120,9 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                         negative_prompt += f", {tag}"
 
             if width is None or height is None:
-                width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]                
+                width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]
+                if (width, height) not in IMAGEGEN_RESOLUTIONS:
+                    width, height = find_nearest_resolution((width, height), IMAGEGEN_RESOLUTIONS)
 
             params = ImageGenParams(
                 prompt=prompt,
