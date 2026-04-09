@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+import aiohttp
 from openai import AsyncOpenAI
 from redbot.core import commands, Config
 from redbot.core.bot import Red
@@ -7,22 +7,30 @@ import gptmemory.defaults as defaults
 from gptmemory.constants import DISCORD_EPOCH_DATETIME
 
 
-class GptMemoryConfig(commands.Cog):
+class GptMemoryBase(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
-        self.memory: Dict[int, Dict[str, str]] = {}
+        self.memory: dict[int, dict[str, str]] = {}  # {guild_id: {memory_name: memory_content}}
         self.extended_logging = True
         self.config = Config.get_conf(self, identifier=19475820)
         
-        self.openai_client: Optional[AsyncOpenAI] = None
-        self.openrouter_client: Optional[AsyncOpenAI] = None
+        self.session = aiohttp.ClientSession()
+        self.openai_client: AsyncOpenAI | None = None
+        self.openrouter_client: AsyncOpenAI | None = None
         
         self.config.register_global(**{
-            "extended_logging": True
+            "extended_logging": True,
+            "tool_settings": {},
+            "response_timeout": 120,
+            "slow_timer": 15,
+            "slow_emoji": "🤔",
+            "noresponse_emoji": "🤐",
+            "blocked_emoji": "❌",
         })
         self.config.register_channel(**{
             "start": DISCORD_EPOCH_DATETIME.isoformat(),
+            "last_response": DISCORD_EPOCH_DATETIME.isoformat(),
         })
         self.config.register_guild(**{
             "channel_mode": "whitelist",
@@ -35,6 +43,7 @@ class GptMemoryConfig(commands.Cog):
             "model_memorizer": defaults.MODEL_MEMORIZER,
             "prompt_recaller": defaults.PROMPT_RECALLER,
             "prompt_responder": defaults.PROMPT_RESPONDER,
+            "prompt_autoresponder": defaults.PROMPT_AUTORESPONDER,
             "prompt_memorizer": defaults.PROMPT_MEMORIZER,
             "effort_recaller": defaults.EFFORT_RECALLER,
             "effort_responder": defaults.EFFORT_RESPONDER,
@@ -54,4 +63,9 @@ class GptMemoryConfig(commands.Cog):
             "max_tool_depth": defaults.TOOL_DEPTH,
             "max_text_file": defaults.TEXT_FILE_LENGTH,
             "max_image_resolution": defaults.IMAGE_SIZE,
+            "autoresponder_chance": 0.0,
+            "autoresponder_cooldown_minutes": 60,
         })
+
+    async def find_last_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
+        raise NotImplementedError()

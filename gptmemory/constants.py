@@ -8,22 +8,24 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Author system texts":          re.compile(r"^(\[[^[:\]]*:[^[:\]]*\]\s?)+", re.MULTILINE),
-    "Single-line system texts":     re.compile(r"\[\[.+\]\]"),
-    "Multiline system texts":       re.compile(r"\[\[\[[\s\S]+\]\]\]"),
+    "Single-line system texts":     re.compile(r"\[\[.+(\]\]|$)"),
+    "Multiline system texts":       re.compile(r"\[\[\[[\s\S]+?(\]\]\]|$)"),
     "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change).+", re.MULTILINE | re.IGNORECASE),
     "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
+    "Embeds":                       re.compile(r"\[\s*Embed[^\]]+\]", re.MULTILINE | re.IGNORECASE),
     "Loading message":              re.compile(r"`\s*[⏳⌛][^`]+`\s*"),
-    "Leftover bracket":             re.compile(r"}\s*$")
+    "Leftover symbol":              re.compile(r"""\n[}'"\s\-]+$""")
 })
 
 GENERATE_IMAGE_PATTERNS = {
     "System action":     re.compile(r"\[\[.+?Generated.+?prompt:\]\s*(.+?)\s*\]\]", re.IGNORECASE),
-    "Gemini action":     re.compile(r"""{\s*(?:["']action["'][\s\S]+?)?["']prompt["']:\s*["'](.+?)["']\s*}(?:["']\s*})?""", re.IGNORECASE)
+    "Gemini action":     re.compile(r"""{\s*(?:["']action["'][\s\S]+?)?["']prompt["']:\s*["']([^"']+)["'][\s\S]*$""", re.IGNORECASE)
 }
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 CODEBLOCK_PATTERN = re.compile(r"^```(\w*)\s*$")
+LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 
 URL_PATTERN = re.compile(r"(https?://\S+)")
 GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")
@@ -56,4 +58,11 @@ EFFORT_VALUES = [
     "low",
     "medium",
     "high",
+]
+
+IMAGEGEN_RESOLUTIONS = [
+    (1024, 1024),
+    (832, 1216),
+    (1216, 832),
+    (1536, 640),
 ]

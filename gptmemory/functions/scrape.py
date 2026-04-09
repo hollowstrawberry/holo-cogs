@@ -1,8 +1,9 @@
 import re
 import logging
+import asyncio
 import aiohttp
 import trafilatura
-from typing import Awaitable, Callable, Dict, OrderedDict
+from typing import Awaitable, Callable, OrderedDict
 
 from gptmemory.utils import format_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
@@ -13,6 +14,7 @@ log = logging.getLogger("gptmemory.scrape")
 
 
 class ScrapeFunctionCall(FunctionCallBase):
+    settings = {"scrape_emoji": "🔗"}
     schema = ToolCall(
         Function(
             name="open_url",
@@ -34,13 +36,19 @@ class ScrapeFunctionCall(FunctionCallBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.custom_scrapers: Dict[re.Pattern, Callable[[re.Match], Awaitable[str]]] = OrderedDict({
+        self.custom_scrapers: dict[re.Pattern, Callable[[re.Match], Awaitable[str]]] = OrderedDict({
             GITHUB_FILE_URL_PATTERN: self.scrape_github_file,
             ARCENCIEL_MODEL_URL_PATTERN: self.scrape_arcenciel_model,
         })
 
     async def run(self, arguments: dict) -> str:
-        url = arguments["url"]
+        url = arguments.get("url")
+        if not url:
+            return "[Error: No URL provided]"
+            
+        emoji = await self.get_setting("scrape_emoji")
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
+        
         for pattern, method in self.custom_scrapers.items():
             if match := pattern.search(url):
                 return await method(match)
@@ -48,14 +56,13 @@ class ScrapeFunctionCall(FunctionCallBase):
 
     async def scrape_generic(self, url: str) -> str:
         try:
-            async with aiohttp.ClientSession(headers=self.headers) as session:
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    content_type = response.headers.get('Content-Type', '').lower()
-                    if 'text' not in content_type:
-                        return f"[Contents of {url} is not text]"
-                    text = await response.text()
-                    content = trafilatura.extract(text) or text
+            async with self.cog.session.get(url, headers=self.headers) as response:
+                response.raise_for_status()
+                content_type = response.headers.get('Content-Type', '').lower()
+                if 'text' not in content_type:
+                    return f"[Contents of {url} is not text]"
+                text = await response.text()
+                content = trafilatura.extract(text) or text
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {type(error).__name__}: {error}")
             return "[Failed to open URL]"
@@ -73,10 +80,9 @@ class ScrapeFunctionCall(FunctionCallBase):
         model_id = match.group("id")
         url = f"https://arcenciel.io/api/models/{model_id}"
         try:
-            async with aiohttp.ClientSession(headers=self.headers) as session:
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    data = await response.json()
+            async with self.cog.session.get(url, headers=self.headers) as response:
+                response.raise_for_status()
+                data = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {type(error).__name__}: {error}")
             return "[Failed to open URL]"

@@ -4,9 +4,10 @@ import asyncio
 import aiohttp
 import discord
 from io import BytesIO
-from datetime import datetime
+from random import random
+from typing import Any
 from difflib import get_close_matches
-from typing import Optional, Union, List, Dict, Any
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
@@ -15,17 +16,16 @@ from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
+import gptmemory.utils as utils
+import gptmemory.constants as constants
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.utils import sanitize, make_image_content, process_image, get_text_contents, chunk_and_send, adjusted_effort
 from gptmemory.schema import ImageGenParams, MemoryChangeList
-from gptmemory.constants import (URL_PATTERN, RESPONSE_CLEANUP_PATTERNS, INCOMPLETE_EMOTE_PATTERN, GENERATE_IMAGE_PATTERNS,
-                                 DISCORD_MESSAGE_LINK_PATTERN, IMAGE_EXTENSIONS)
 from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
 
-GptImageContent = List[Dict[str, str]]
-GptMessage = Dict[str, Union[str, GptImageContent]]
+GptImageContent = list[dict[str, str]]
+GptMessage = dict[str, (str | GptImageContent)]
 
 
 @dataclass
@@ -36,6 +36,7 @@ class GptMemoryResult:
     tokens_recaller: int = 0
     tokens_system: int = 0
     tokens_responder: int = 0
+    tokens_tools: int = 0
     tokens_after_tools: int = 0
     tokens_memorizer: int = 0
 
@@ -45,7 +46,7 @@ class GptMemory(GptMemoryCommands):
 
     def __init__(self, bot: Red):
         super().__init__(bot)
-        self.image_cache: Dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
+        self.image_cache: dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
         self.available_function_calls = set(get_all_function_calls())
         all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
         log.info(f"{all_function_names=}")
@@ -61,6 +62,8 @@ class GptMemory(GptMemoryCommands):
 
 
     async def cog_unload(self):
+        if self.session:
+            await self.session.close()
         if self.openai_client:
             await self.openai_client.close()
         if self.openrouter_client:
@@ -109,14 +112,40 @@ class GptMemory(GptMemoryCommands):
         ctx: commands.Context = await self.bot.get_context(message) 
         if not await self.is_valid_trigger(ctx):
             return
+
+        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+
+        if self.bot.user not in ctx.message.mentions:
+            autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
+            cooldown_minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
+            last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
+            if random() > autoresponder_chance or (datetime.now(tz=timezone.utc) - last_response).total_seconds() < cooldown_minutes * 60:
+                return False
+            
+        await self.config.channel(ctx.channel).last_response.set(datetime.now(tz=timezone.utc).isoformat())
         
-        await ctx.channel.typing()
-        if match := URL_PATTERN.search(message.content):
-            if f"<{match.group(0)}>" not in message.content: # non-embedding links
+        if match := constants.URL_PATTERN.search(message.content):
+            if not message.embeds and f"<{match.group(0)}>" not in message.content:  # non-embedding links
+                await ctx.channel.typing()
                 ctx = await self.wait_for_embed(ctx)
 
-        await self.run_response(ctx)
-
+        soft_timeout = await self.config.slow_timer()
+        hard_timeout = await self.config.response_timeout()
+        # run the task with soft timeout
+        task = asyncio.create_task(self.run_response(ctx, auto=self.bot.user not in ctx.message.mentions))
+        done, _ = await asyncio.wait([task], timeout=soft_timeout)
+        # show the user if task is taking too long
+        if task not in done:
+            emoji = await self.config.slow_emoji()
+            asyncio.create_task(ctx.message.add_reaction(emoji))
+        # finish running the task with hard timeout, additionally reraise any previous exceptions, or do nothing if already finished
+        try:
+            await asyncio.wait_for(task, timeout=hard_timeout)
+        except Exception:
+            log.exception("run_response")
+            # show the user if task didn't finish
+            emoji = await self.config.noresponse_emoji()
+            asyncio.create_task(ctx.message.add_reaction(emoji))
     
     @commands.Cog.listener()
     async def on_user_update(self, before: discord.User, after: discord.User):
@@ -134,8 +163,6 @@ class GptMemory(GptMemoryCommands):
 
 
     async def is_valid_trigger(self, ctx: commands.Context) -> bool:
-        if self.bot.user not in ctx.message.mentions:
-            return False
         if ctx.author.bot:
             return False
         if not ctx.guild:
@@ -163,32 +190,37 @@ class GptMemory(GptMemoryCommands):
     @staticmethod
     async def wait_for_embed(ctx: commands.Context) -> commands.Context:
         for _ in range(2):
-            if ctx.message.embeds:
-                return ctx
             await asyncio.sleep(1)
             ctx.message = await ctx.channel.fetch_message(ctx.message.id)
+            if ctx.message.embeds:
+                break
         return ctx        
 
 
-    async def run_response(self, ctx: commands.Context):
+    async def run_response(self, ctx: commands.Context, auto: bool = False):
         assert ctx.guild
-        if ctx.guild.id not in self.memory:
-            self.memory[ctx.guild.id] = {}
+        self.memory.setdefault(ctx.guild.id, {})
         memories = list(self.memory[ctx.guild.id].keys())
 
         result = GptMemoryResult()
-        messages = await self.get_message_history(ctx, result)
-        recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
-        await self.execute_responder_and_memorizer(ctx, messages, memories, recalled_memories, result)
+        mem_task = None
+        async with ctx.typing():
+            messages = await self.build_message_history(ctx, result)
+            recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
+            if not auto:
+                mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
+            await self.execute_responder(ctx, messages, recalled_memories, result, auto)
+        if mem_task:
+            await mem_task
         log.info(result)
 
 
     async def execute_recaller(self,
                                ctx: commands.Context,
-                               messages: List[GptMessage],
-                               memories: List[str],
+                               messages: list[GptMessage],
+                               memories: list[str],
                                result: GptMemoryResult
-                               ) -> Dict[str, str]:
+                               ) -> dict[str, str]:
         """
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a dictionary of memories and their contents as chosen by the LLM.
@@ -197,7 +229,7 @@ class GptMemory(GptMemoryCommands):
         if not memories:
             return {}
 
-        temp_messages = get_text_contents(messages)
+        temp_messages = utils.get_text_contents(messages)
         temp_memories = list(memories)
         memories_to_recall = set()
         for memory in memories:
@@ -214,7 +246,7 @@ class GptMemory(GptMemoryCommands):
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_recaller()
-        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
+        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
         response = await self.get_client(model).beta.chat.completions.create(
             model=model,
             messages=temp_messages,
@@ -230,30 +262,14 @@ class GptMemory(GptMemoryCommands):
 
         recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
         return recalled_memories or {}
-
-
-    async def execute_responder_and_memorizer(self,
-                                              ctx: commands.Context,
-                                              messages: List[GptMessage],
-                                              memories: List[str],
-                                              recalled_memories: Dict[str, str],
-                                              result: GptMemoryResult
-                                              ) -> None:
-        task_results = await asyncio.gather(
-            self.execute_responder(ctx, messages, recalled_memories, result),
-            self.execute_memorizer(ctx, messages, memories, recalled_memories, result),
-            return_exceptions=True
-        )
-        for idx, res in enumerate(task_results):
-            if isinstance(res, BaseException) or "Error" in type(res).__name__:  # Strange behavior where openai error is not an exception
-                log.error(f"Error in {'memorizer' if idx else 'responder'}: {type(res).__name__}", exc_info=res)  # type: ignore
-
+  
 
     async def execute_responder(self,
                                 ctx: commands.Context,
-                                messages: List[GptMessage],
-                                recalled_memories: Dict[str, str],
-                                result: GptMemoryResult
+                                messages: list[GptMessage],
+                                recalled_memories: dict[str, str],
+                                result: GptMemoryResult,
+                                auto: bool = False,
                                 ) -> GptMessage:
         """
         Runs an openai completion with the chat history and the contents of memories
@@ -262,13 +278,14 @@ class GptMemory(GptMemoryCommands):
         assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
-        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
+        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
         max_tokens = await self.config.guild(ctx.guild).response_tokens()
         max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
 
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
-        system_content = (await self.config.guild(ctx.guild).prompt_responder()).format(
+        base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
+        system_content = base_system_content.format(
             botname=self.bot.user.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,
@@ -290,73 +307,86 @@ class GptMemory(GptMemoryCommands):
             if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
         past_tool_calls = []
-        async with ctx.channel.typing():
-            for depth in range(max_tool_depth):
-                response = await self.get_client(model).chat.completions.create(
-                    model=model,
-                    messages=temp_messages, # type: ignore
-                    max_tokens=NotGiven() if "gpt-5" in model else max_tokens,
-                    max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,
-                    tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools], # type: ignore
-                    reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
-                )
-                if response.usage:
-                    result.tokens_responder += response.usage.completion_tokens
-                    if depth > 0:
-                        result.tokens_after_tools += response.usage.completion_tokens
+        for depth in range(max_tool_depth):
+            response = await self.get_client(model).chat.completions.create(
+                model=model,
+                messages=temp_messages,  # type: ignore
+                max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
+                max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
+                tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools],  # type: ignore
+                reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
+            )
+            
+            if response.usage:
+                result.tokens_responder += response.usage.completion_tokens
+                if depth > 0:
+                    result.tokens_after_tools += response.usage.completion_tokens
 
-                if not response.choices[0].message.tool_calls:
-                    break
+            if not response.choices:  # request may get rejected
+                error = str(getattr(response, "error", "No error"))
+                log.error(f"Missing response: {error}")
+                if "403" in error or "PROHIBITED" in error:
+                    #await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
+                    emoji = await self.config.blocked_emoji()
                 else:
-                    temp_messages.append(response.choices[0].message) # type: ignore
-                    for call in response.choices[0].message.tool_calls:
-                        assert isinstance(call, ChatCompletionMessageFunctionToolCall)
-                        try:
-                            cls = next(t for t in tools if t.schema.function.name == call.function.name)
-                            args = json.loads(call.function.arguments)
-                            tool_result = await cls(ctx, self).run(args)
-                        except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
-                            tool_result = "[Error]"
-                            log.exception(f"Calling tool {call.function.name}")
+                    emoji = await self.config.noresponse_emoji()
+                await ctx.message.add_reaction(emoji)
+                return {}
 
-                        past_tool_calls.append(call.function.name)
-                        tool_result = tool_result.strip()
-                        if len(tool_result) > max_tool_length:
-                            tool_result = tool_result[:max_tool_length-3] + "..."
-                        if self.extended_logging:
-                            log.info(f"{call.function.arguments=}")
-                            log.info(f"{tool_result=}")
+            if not response.choices[0].message.tool_calls:
+                break
+                  
+            temp_messages.append(response.choices[0].message) # type: ignore
+            for call in response.choices[0].message.tool_calls:
+                assert isinstance(call, ChatCompletionMessageFunctionToolCall)
+                try:
+                    cls = next(t for t in tools if t.schema.function.name == call.function.name)
+                    args = json.loads(call.function.arguments)
+                    tool_result = await cls(ctx, self).run(args)
+                except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
+                    tool_result = "[Error]"
+                    log.exception(f"Calling tool {call.function.name}")
 
-                        temp_messages.append({
-                            "role": "tool",
-                            "content": tool_result,
-                            "tool_call_id": call.id,
-                        })
+                past_tool_calls.append(call.function.name)
+                tool_result = tool_result.strip()
+                if len(tool_result) > max_tool_length:
+                    tool_result = tool_result[:max_tool_length-3] + "..."
+                result.tokens_tools += len(encoding.encode(tool_result))
 
-            completion = response.choices[0].message.content
-            if completion:
+                log.info(f"{call.function.name=} {call.function.arguments=}")
                 if self.extended_logging:
-                    log.info(f"{completion=}")
-                # special case: the bot tries to generate an image by sending text instead of using the function call
-                if "generate_stable_diffusion" not in past_tool_calls:
-                    prompt = None
-                    for pattern in GENERATE_IMAGE_PATTERNS.values():
-                        if m := pattern.search(completion):
-                            prompt = m.group(1)
-                            completion = pattern.sub("", completion)
-                    if prompt:
-                        await self.generate_stable_diffusion(ctx, prompt)
-                # cleanup
-                for pattern in RESPONSE_CLEANUP_PATTERNS.values():
-                    completion = pattern.sub("", completion)
-                completion = INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
-            else:
-                completion = ""
+                    log.info(f"{tool_result=}")
+              
+                temp_messages.append({
+                    "role": "tool",
+                    "content": tool_result,
+                    "tool_call_id": call.id,
+                })
 
-            if completion:
-                await chunk_and_send(ctx, completion)
-            elif ctx.bot_permissions.add_reactions:
-                await ctx.message.add_reaction("🤐")
+        completion = response.choices[0].message.content or ""
+        if completion:
+            if self.extended_logging:
+                log.info(f"{completion=}")
+            # special case: the bot tries to generate an image by sending text instead of using the function call
+            if "generate_stable_diffusion" not in past_tool_calls:
+                prompt = None
+                for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
+                    if m := pattern.search(completion):
+                        prompt = m.group(1)
+                        completion = pattern.sub("", completion)
+                        break
+                if prompt:
+                    await self.generate_stable_diffusion(ctx, prompt)
+            # cleanup
+            for pattern in constants.RESPONSE_CLEANUP_PATTERNS.values():
+                completion = pattern.sub("", completion)
+            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
+
+        if completion:
+            await utils.chunk_and_send(ctx, completion, do_reply=not auto)
+        else:
+            emoji = await self.config.noresponse_emoji()
+            await ctx.message.add_reaction(emoji)
 
         response_message = {
             "role": "assistant",
@@ -367,9 +397,9 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_memorizer(self,
                                 ctx: commands.Context,
-                                messages: List[GptMessage],
-                                memories: List[str],
-                                recalled_memories: Dict[str, str],
+                                messages: list[GptMessage],
+                                memories: list[str],
+                                recalled_memories: dict[str, str],
                                 result: GptMemoryResult
                                 ) -> None:
         """
@@ -393,14 +423,22 @@ class GptMemory(GptMemoryCommands):
             "role": "system",
             "content": system_content
         }
-        temp_messages = get_text_contents(messages)
+
+        prefixes = await self.bot.get_valid_prefixes(ctx.guild)
+        def is_valid(msg: GptMessage) -> bool:
+            if msg["role"] == "user" and any(f"[said:] {prefix}" in msg["content"] for prefix in prefixes):  # bot command
+                return False
+            if msg["role"] == "assistant" and "[said:] `[Memor" in msg["content"]:  # memory command
+                return False
+            return True
+        temp_messages = [msg for msg in utils.get_text_contents(messages) if is_valid(msg)]
         num_backread = await self.config.guild(ctx.guild).backread_memorizer()
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_memorizer()
-        effort = adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
+        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
         response = await self.get_client(model).beta.chat.completions.parse(
             model=model,
             messages=temp_messages,
@@ -449,18 +487,10 @@ class GptMemory(GptMemoryCommands):
             await ctx.send(f"-# Revised memories: {', '.join(memory_changes)}")
 
 
-    async def get_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> List[GptMessage]:
-        assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        limit = await self.config.guild(ctx.guild).backread_messages()
-        after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
-        backread = [message async for message in ctx.channel.history(
-            limit=limit,
-            before=ctx.message,
-            after=after,
-            oldest_first=False
-        )]
-        backread.insert(0, ctx.message)
+    async def build_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> list[GptMessage]:
+        assert ctx.guild and self.bot.user
 
+        backread = await self.fetch_message_history(ctx)
         messages = []
         processed_image_sources = []
         tokens = 0
@@ -474,7 +504,7 @@ class GptMemory(GptMemoryCommands):
         max_backread_tokens = await self.config.guild(ctx.guild).backread_tokens()
         for n, backmsg in enumerate(backread):
             try:
-                quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id) # type: ignore
+                quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id)  # type: ignore
                 # This would prevent chaining message quotes that are already consecutive
                 # if len(backread) > n+1 and quote == backread[n+1]:
                 #    quote = None
@@ -516,10 +546,24 @@ class GptMemory(GptMemoryCommands):
         return list(reversed(messages))
 
 
+    async def fetch_message_history(self, ctx: commands.Context) -> list[discord.Message]:
+        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        limit = await self.config.guild(ctx.guild).backread_messages()
+        after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
+        backread = [message async for message in ctx.channel.history(
+            limit=limit,
+            before=ctx.message,
+            after=after,
+            oldest_first=False
+        )]
+        backread.insert(0, ctx.message)
+        return backread
+
+
     async def extract_images(self,
                              message: discord.Message,
-                             quote: Optional[discord.Message],
-                             processed_sources: List[Union[str, discord.Attachment]],
+                             quote: discord.Message | None,
+                             processed_sources: list[str | discord.Attachment],
                              max_images: int,
                              max_image_size: int,
                             ) -> GptImageContent:
@@ -540,7 +584,7 @@ class GptMemory(GptMemoryCommands):
                 processed_sources.append(image)
                 
                 fp_before = BytesIO()
-                imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
+                imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
                 if imagescanner and message.id in imagescanner.image_cache: # type: ignore
                     _, image_bytes = self.image_cache.get(message.id, ({}, {}))
                     if i in image_bytes:
@@ -552,12 +596,12 @@ class GptMemory(GptMemoryCommands):
                         log.warning(f"Processing image attachments: {type(error).__name__}: {error}")
                         continue
 
-                fp_after = process_image(fp_before, max_image_size)
+                fp_after = await asyncio.to_thread(utils.process_image, fp_before, max_image_size)
                 del fp_before
                 if not fp_after:
                     continue
 
-                image_contents.append(make_image_content(fp_after))
+                image_contents.append(utils.make_image_content(fp_after))
                 del fp_after
 
         if image_contents:
@@ -572,33 +616,31 @@ class GptMemory(GptMemoryCommands):
         if message.embeds and message.embeds[0].thumbnail and message.embeds[0].thumbnail.url:
             image_url.append(message.embeds[0].thumbnail.url)
 
-        matches = URL_PATTERN.findall(message.content)
+        matches = constants.URL_PATTERN.findall(message.content)
         for match in matches:
-            if match.endswith(IMAGE_EXTENSIONS):
+            if match.endswith(constants.IMAGE_EXTENSIONS):
                 image_url.append(match)
 
         if not image_url:
             return image_contents
 
-        async with aiohttp.ClientSession() as session:
-            for url in image_url[:max_images]:
-                if url in processed_sources:
-                    continue
-                processed_sources.append(url)
-                
-                try:
-                    async with session.get(url) as response:
-                        response.raise_for_status()
-                        fp_before = BytesIO(await response.read())
-                except aiohttp.ClientError as error:
-                    log.warning(f"Processing image {url}: {type(error).__name__}: {error}")
-                    continue
-                fp_after = process_image(fp_before, max_image_size)
-                del fp_before
-                if not fp_after:
-                    continue
-                image_contents.append(make_image_content(fp_after))
-                del fp_after
+        for url in image_url[:max_images]:
+            if url in processed_sources:
+                continue
+            processed_sources.append(url)
+            try:
+                async with self.session.get(url) as response:
+                    response.raise_for_status()
+                    fp_before = BytesIO(await response.read())
+            except aiohttp.ClientError as error:
+                log.warning(f"Processing image {url}: {type(error).__name__}: {error}")
+                continue
+            fp_after = await asyncio.to_thread(utils.process_image, fp_before, max_image_size)
+            del fp_before
+            if not fp_after:
+                continue
+            image_contents.append(utils.make_image_content(fp_after))
+            del fp_after
 
         if image_contents:
             self.image_cache[message.id] = [cnt for cnt in image_contents]
@@ -608,19 +650,19 @@ class GptMemory(GptMemoryCommands):
 
     async def parse_discord_message(self,
                                     message: discord.Message,
-                                    quote: Optional[discord.Message],
-                                    backread: List[discord.Message],
+                                    quote:  discord.Message | None,
+                                    backread: list[discord.Message],
                                     recursive: bool,
                                     max_quote_length: int,
                                     max_file_length: int,
                                     ) -> str:
         assert message.guild
-
-        content = f"[Username: {sanitize(message.author.name)}]"
+        # name
+        content = f"[Username: {utils.sanitize(message.author.name)}]"
         if isinstance(message.author, discord.Member) and message.author.nick:
-            content += f" [Alias: {sanitize(message.author.nick)}]"
+            content += f" [Alias: {utils.sanitize(message.author.nick)}]"
         starting_len = len(content)
-
+        # text content
         if message.is_system():
             if message.type == discord.MessageType.new_member:
                 content += " [Joined the server]"
@@ -628,31 +670,34 @@ class GptMemory(GptMemoryCommands):
                 content += f" {message.system_content}"
         elif message.content:
             content += f" [said:] {message.content}"
-
+        # image metadata
         is_generated_image = False
         if message.attachments and len(message.attachments) == 1:
-            imagescanner: Optional[commands.Cog] = self.bot.get_cog("ImageScanner")
+            imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
             metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
             if metadata and metadata.get("Prompt", None):
                 is_generated_image = True
                 if message.author == message.guild.me:
-                    content += f" [[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {metadata['Prompt']} ]]"
+                    prompt = utils.parse_prompt(metadata['Prompt'])
+                    content += f" [[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {prompt} ]]"
                 else:
                     content += f" [[ [Image with prompt:] {metadata['Prompt']} ]]"
-        
+        # attachments
         if not is_generated_image:
             for attachment in message.attachments:
                 content += f" [Attachment: {attachment.filename}]"
-        
+        # stickers
         for sticker in message.stickers:
             content += f" [Sticker: {sticker.name}]"
-        
+        # embeds
         for embed in message.embeds:
             if embed.title:
-                content += f" [Embed Title: {sanitize(embed.title)}]"
+                content += f" [Embed Title: {utils.sanitize(embed.title)}]"
             if embed.description:
-                content += f" [Embed Content: {sanitize(embed.description)}]"
-
+                content += f" [Embed Content: {utils.sanitize(embed.description)}]"
+            if embed.image and embed.image.url:
+                content += f" [Embed Image: {utils.get_filename(embed.image.url)}]"
+        # text files
         text_attachments = [att for att in message.attachments if att.content_type and att.content_type.startswith("text")]
         total_file_length = 0
         for text_file in text_attachments:
@@ -669,7 +714,7 @@ class GptMemory(GptMemoryCommands):
                 content += f"\n[[[ Content of {text_file.filename}: {file_content} ]]]"
                 if total_file_length > 4000:
                     break
-
+        # quote
         is_generated_image_by_bot = is_generated_image and message.author == message.guild.me
         if quote and recursive and not is_generated_image_by_bot:
             quote_content = await self.parse_discord_message(quote, None, backread, False, max_quote_length, max_file_length)
@@ -677,10 +722,10 @@ class GptMemory(GptMemoryCommands):
             if quote in backread and len(quote_content) > max_quote_length:
                 quote_content = quote_content[:max_quote_length-3] + "..."
             content += f"\n[[[ Replying to: {quote_content} ]]]"            
-
+        # etc
         if len(content) == starting_len:
             content += " [Message empty or not supported]"
-
+        # mentions
         mentions = message.mentions + message.role_mentions + message.channel_mentions
         for mentioned in mentions:
             if mentioned in message.channel_mentions:
@@ -689,8 +734,8 @@ class GptMemory(GptMemoryCommands):
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
             else:
                 content = content.replace(mentioned.mention, f'@{mentioned.name}')
-
-        for i, message_link in enumerate(DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
+        # message links
+        for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
             guild_id = int(message_link.group("guild_id"))
             channel_id = int(message_link.group("channel_id"))
             message_id = int(message_link.group("message_id"))
@@ -713,12 +758,12 @@ class GptMemory(GptMemoryCommands):
                 if linked in backread and len(linked_content) > max_quote_length:
                     linked_content = linked_content[:max_quote_length-3] + "..."
                 content += f"\n[[[ Linked message: {linked_content} ]]]"  
-
+        # done
         return content.strip()
 
 
     async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
-        assert ctx.guild
+        assert ctx.guild and self.bot.user
 
         channel_mode = await self.config.guild(ctx.guild).generation_channel_mode()
         channels = await self.config.guild(ctx.guild).generation_channels()
@@ -728,12 +773,31 @@ class GptMemory(GptMemoryCommands):
                 await ctx.message.add_reaction("❌")
             return
         
-        aimage: Optional[commands.Cog] = ctx.bot.get_cog("AImage")
+        aimage: commands.Cog | None = ctx.bot.get_cog("AImage")
         if not aimage:
             await ctx.message.add_reaction("❌")
             return
-        
-        params = ImageGenParams(prompt=prompt)
+
+        width, height = await self.find_last_generated_image_resolution(ctx)                
+        params = ImageGenParams(
+            prompt=prompt,
+            width=width,
+            height=height,
+        )
         message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
-        task = aimage.generate_image(ctx, params=params, message_content=message_content) # type: ignore
-        _ = asyncio.create_task(task)
+        task = aimage.generate_image(ctx, params=params, message_content=message_content)  # type: ignore
+        asyncio.create_task(task)
+
+
+    async def find_last_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
+        backread = await self.fetch_message_history(ctx)
+        if ctx.message.reference and (ctx.message.reference.cached_message or ctx.message.reference.message_id):
+            quote = ctx.message.reference.cached_message or await ctx.message.channel.fetch_message(ctx.message.reference.message_id)  # type: ignore
+            backread.insert(1, quote)
+        for msg in backread[1:]:
+            if msg.author == self.bot.user and msg.attachments and len(msg.attachments) == 1 and msg.attachments[0].width and msg.attachments[0].height:
+                width, height = msg.attachments[0].width, msg.attachments[0].height
+                if (width, height) not in constants.IMAGEGEN_RESOLUTIONS:
+                    width, height = utils.find_nearest_resolution((width, height), constants.IMAGEGEN_RESOLUTIONS)
+                return width, height
+        return None, None

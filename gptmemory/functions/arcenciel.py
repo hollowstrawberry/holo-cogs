@@ -1,6 +1,6 @@
 import logging
+import asyncio
 import aiohttp
-from typing import Optional
 
 from gptmemory.utils import format_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
@@ -10,6 +10,7 @@ log = logging.getLogger("gptmemory.arcenciel")
 
 
 class ArcencielFunctionCall(FunctionCallBase):
+    settings = {"arcenciel_emoji": "📁"}
     schema = ToolCall(
         Function(
             name="search_models_arcenciel",
@@ -35,15 +36,17 @@ class ArcencielFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> str:
         query = arguments.get("query", "")
         user = arguments.get("user", None)
-        found_user: Optional[int] = None
+        found_user: int | None = None
+
+        emoji = await self.get_setting("arcenciel_emoji")
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if user:
-            url = f"https://arcenciel.io/api/users/search?q={user}"
+            params = {"q": user}
             try:
-                async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                    async with session.get(url) as resp:
-                        resp.raise_for_status()
-                        data = await resp.json()
+                async with self.cog.session.get("https://arcenciel.io/api/users/search", params=params, headers=self.HEADERS) as response:
+                    response.raise_for_status()
+                    data = await response.json()
             except aiohttp.ClientError as error:
                 log.warning(f"Trying to grab user from Arc en Ciel: {type(error).__name__}: {error}")
                 return "[Error trying to grab user from Arc en Ciel]"
@@ -52,14 +55,13 @@ class ArcencielFunctionCall(FunctionCallBase):
             else:
                 return "[User not found]"
 
-        url = f"https://arcenciel.io/api/models/search?search={query}"
+        params = {"search": query}
         if found_user is not None:
-            url += f"&userId={found_user}"
+            params["userId"] = found_user
         try:
-            async with aiohttp.ClientSession(headers=self.HEADERS) as session:
-                async with session.get(url) as resp:
-                    resp.raise_for_status()
-                    data = await resp.json()
+            async with self.cog.session.get("https://arcenciel.io/api/models/search", params=params, headers=self.HEADERS) as response:
+                response.raise_for_status()
+                data = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Trying to grab model from Arc en Ciel: {type(error).__name__}: {error}")
             return "[Error trying to grab model from Arc en Ciel]"

@@ -33,10 +33,9 @@ class SearchFunctionCall(FunctionCallBase):
         payload = json.dumps({"q": query})
         headers = {'X-API-KEY': api_key, 'Content-Type': 'application/json'}
         try:
-            async with aiohttp.ClientSession(headers=headers) as session:
-                async with session.post(url, data=payload) as response:
-                    response.raise_for_status()
-                    data = await response.json()
+            async with self.cog.session.post(url, data=payload, headers=headers) as response:
+                response.raise_for_status()
+                data = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Failed request to serper.io: {type(error).__name__}: {error}")
             return "An error occured while searching Google."

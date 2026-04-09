@@ -9,10 +9,11 @@ log = logging.getLogger("gptmemory.searchweb")
 
 
 class AgenticSearchFunctionCall(FunctionCallBase):
+    settings = {"search_emoji": "🌐"}
     schema = ToolCall(
         Function(
             name="search_web",
-            description="Search the internet for up-to-date information, such as news, prices, or recent events.",
+            description="Search the internet for up-to-date information, such as news, prices, or recent events. Doesn't work for images.",
             parameters=Parameters(
                 properties={
                     "query": {
@@ -25,33 +26,49 @@ class AgenticSearchFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> str:
         assert self.ctx.guild and self.cog.openai_client and self.cog.openrouter_client
         if self.ctx.bot_permissions.add_reactions:
-            _ = asyncio.create_task(self.ctx.message.add_reaction("🌐"))
+            emoji = await self.get_setting("search_emoji")
+            asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
         if "/" in model:  # openrouter
-            response = await self.cog.openrouter_client.responses.create(
+            response = await self.cog.openrouter_client.chat.completions.create(
                 model=model,
-                input=arguments["query"],
+                reasoning_effort="low",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Perform a web search based on the user's query and summarize the results. Don't search too deep.",
+                    },
+                    {
+                        "role": "user",
+                        "content": arguments["query"],
+                    }
+                ],
                 extra_body={
                     "plugins": [
                         {
                             "id": "web",
-                            "max_results": 2
+                            "max_results": 2,
                         }
                     ],
-                    "web_search_options": {
-                        "search_context_size": "low"
-                    },
                 },
+                web_search_options={"search_context_size": "low"}
             )
+            assert response.usage
+            output_text = response.choices[0].message.content or ""
+            input_tokens = response.usage.prompt_tokens
+            output_tokens = response.usage.completion_tokens
         else:
             response = await self.cog.openai_client.responses.create(
                 model=model,
-                reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},
+                reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},  # type: ignore
                 tools=[{"type": "web_search"}],  # type: ignore
-                input=arguments["query"]
+                input=arguments["query"],
             )
-            
-        assert response.usage and response.output_text
-        log.info(f"WebSearchResult(input_tokens={response.usage.input_tokens}, output_tokens={response.usage.output_tokens})")
-        return response.output_text
+            assert response.usage
+            output_text = response.output_text
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+
+        log.info(f"WebSearchResult(input_tokens={input_tokens}, output_tokens={output_tokens})")
+        return output_text

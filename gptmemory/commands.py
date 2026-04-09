@@ -1,14 +1,16 @@
 import discord
 from typing import Literal, Optional
 from difflib import get_close_matches
+from functools import reduce
 from redbot.core import commands
 
-from gptmemory.config import GptMemoryConfig
+from gptmemory.base import GptMemoryBase
+from gptmemory.utils import chunk_and_send
 from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.functions.base import get_all_function_calls
 
 
-class GptMemoryCommands(GptMemoryConfig):
+class GptMemoryCommands(GptMemoryBase):
 
     @commands.command(name="forget")
     async def command_forget(self, ctx: commands.Context):
@@ -179,6 +181,7 @@ class GptMemoryCommands(GptMemoryConfig):
         pass
 
     PromptTypes = Literal["recaller", "responder", "memorizer"]
+    AllPromptTypes = PromptTypes | Literal["autoresponder"]
 
     @memoryconfig.command("model")
     @commands.is_owner()
@@ -230,10 +233,11 @@ class GptMemoryCommands(GptMemoryConfig):
             await ctx.tick(message="Reasoning effort changed")
 
     @memoryconfig_prompt.command(name="show", aliases=["view"])
-    async def memoryconfig_prompt_show(self, ctx: commands.Context, module: PromptTypes):
+    async def memoryconfig_prompt_show(self, ctx: commands.Context, module: AllPromptTypes):
         """
         The recaller grabs relevant memories.
         The responder sends the chat message.
+        The autoresponder sends random chat messages.
         The memorizer edits memories.
         """
         assert ctx.guild
@@ -244,15 +248,18 @@ class GptMemoryCommands(GptMemoryConfig):
             prompt = await self.config.guild(ctx.guild).prompt_responder()
         elif module == "memorizer":
             prompt = await self.config.guild(ctx.guild).prompt_memorizer()
+        elif module == "autoresponder":
+            prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
         
-        await ctx.reply(f"`[{module} prompt]`\n>>> {prompt or '*None*'}", mention_author=False)
+        await chunk_and_send(ctx, f"`[{module} prompt]`\n```\n{prompt or '*None*'}\n```", False)
 
     @memoryconfig_prompt.command(name="set", aliases=["edit"])
-    async def memoryconfig_prompt_set(self, ctx: commands.Context, module: PromptTypes, *, prompt):
+    async def memoryconfig_prompt_set(self, ctx: commands.Context, module: AllPromptTypes, *, prompt):
         """
         Examples in the default values. Each prompt will require some variables between curly brackets.
         The recaller grabs relevant memories.
         The responder sends the chat message.
+        The autoresponder sends random chat messages.
         The memorizer edits memories.
         """
         assert ctx.guild
@@ -267,10 +274,12 @@ class GptMemoryCommands(GptMemoryConfig):
             await self.config.guild(ctx.guild).prompt_responder.set(prompt)
         elif module == "memorizer":
             await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
+        elif module == "autoresponder":
+            await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
 
-        await ctx.reply(f"`[New {module} prompt]`\n>>> {prompt}", mention_author=False)
+        await ctx.tick()
 
-    @memoryconfig.command(name="allow_memorizer")
+    @memoryconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
     async def memoryconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
         """Whether the memorizer will run at all, editing memories."""
         assert ctx.guild
@@ -300,6 +309,34 @@ class GptMemoryCommands(GptMemoryConfig):
             await self.config.guild(ctx.guild).memorizer_alerts.set(value)
         await ctx.reply(f"`[memorizer_alerts:]` {value}", mention_author=False)
 
+    @memoryconfig.command(name="autoresponder_chance")
+    async def memoryconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
+        """The chance that the autoresponder will trigger, from 0.0 to 100.0"""
+        assert ctx.guild
+        if percent is None:
+            percent = await self.config.guild(ctx.guild).autoresponder_chance()
+        elif percent < 0 or percent > 100:
+            await ctx.reply("Value must range from 0.0 to 100.0", mention_author=False)
+            return
+        else:
+            percent /= 100
+            await self.config.guild(ctx.guild).autoresponder_chance.set(percent)
+        assert percent
+        await ctx.reply(f"`[autoresponder_chance:]` {percent*100:.2f}%", mention_author=False)
+
+    @memoryconfig.command(name="autoresponder_cooldown")
+    async def memoryconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
+        """The minimum time between 2 autoresponder triggers in a single channel."""
+        assert ctx.guild
+        if minutes is None:
+            minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
+        elif minutes < 0:
+            await ctx.reply("Value must not be negative.", mention_author=False)
+        else:
+            await self.config.guild(ctx.guild).autoresponder_cooldown_minutes.set(minutes)
+        assert minutes
+        await ctx.reply(f"`[autoresponder_cooldown:]` {minutes} minutes", mention_author=False)
+
     @memoryconfig_prompt.command(name="emotes")
     async def memoryconfig_emotes(self, ctx: commands.Context, *, emotes: Optional[str]):
         """Shows or sets a list of emotes to show the responder."""
@@ -311,7 +348,74 @@ class GptMemoryCommands(GptMemoryConfig):
             await self.config.guild(ctx.guild).emotes.set(emotes)
         await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
 
-    @memoryconfig.group(name="functions")
+    @memoryconfig.command(name="timeout")
+    async def memoryconfig_timeout(self, ctx: commands.Context, value: Optional[int]):
+        """
+        Sets how long a response can take before it's cancelled
+        """
+        if not value:
+            value = await self.config.response_timeout()
+        elif value < 10 or value > 3600:
+            await ctx.reply("Value must be between 10 and 3600", mention_author=False)
+            return
+        else:
+            await self.config.response_timeout.set(value)
+        await ctx.reply(f"`[timeout:]` {value}", mention_author=False)
+    
+    @memoryconfig.command(name="slow_timer")
+    async def memoryconfig_slow_timer(self, ctx: commands.Context, value: Optional[int]):
+        """
+        Sets how long a response can take before reacting with slow_emoji
+        """
+        if not value:
+            value = await self.config.slow_timer()
+        elif value < 5 or value > 600:
+            await ctx.reply("Value must be between 5 and 600", mention_author=False)
+            return
+        else:
+            await self.config.slow_timer.set(value)
+        await ctx.reply(f"`[slow_timer:]` {value}", mention_author=False)
+    
+    @memoryconfig.command(name="slow_emoji")
+    async def memoryconfig_slow_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+        """
+        Sets an emoji to react when the LLM takes too long.
+        """
+        try:
+            await ctx.react_quietly(emoji)
+        except (discord.NotFound, discord.Forbidden):
+            await ctx.reply("I don't have access to that emoji. I must be in the same server to use it.")
+        else:
+            await self.config.slow_emoji.set(str(emoji))
+            await ctx.tick()
+
+    @memoryconfig.command(name="noresponse_emoji")
+    async def memoryconfig_noresponse_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+        """
+        Sets an emoji for when the LLM doesn't respond.
+        """
+        try:
+            await ctx.react_quietly(emoji)
+        except (discord.NotFound, discord.Forbidden):
+            await ctx.reply("I don't have access to that emoji. I must be in the same server to use it.")
+        else:
+            await self.config.noresponse_emoji.set(str(emoji))
+            await ctx.tick()
+
+    @memoryconfig.command(name="blocked_emoji")
+    async def memoryconfig_blocked_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+        """
+        Sets an emoji for when the LLM response gets blocked.
+        """
+        try:
+            await ctx.react_quietly(emoji)
+        except (discord.NotFound, discord.Forbidden):
+            await ctx.reply("I don't have access to that emoji. I must be in the same server to use it.")
+        else:
+            await self.config.blocked_emoji.set(str(emoji))
+            await ctx.tick()
+
+    @memoryconfig.group(name="functions", aliases=["function", "tools", "tool"])
     async def memoryconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
         pass
@@ -349,6 +453,28 @@ class GptMemoryCommands(GptMemoryConfig):
         await self.config.guild(ctx.guild).disabled_functions.set(disabled_functions)
         enabled = not enabled
         await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")
+
+    @memoryconfig_functions.command(name="setting", aliases=["settings"])
+    async def memoryconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
+        """
+        Sets a tool-specific key-value setting.
+        """
+        setting_dict = reduce(lambda a, b: a | b, [func.settings for func in get_all_function_calls()])
+        setting_values = await self.config.tool_settings()
+        if not key:
+            lines = [f"`{key}`: `{setting_values.get(key, default or '(empty)')}`" for key, default in setting_dict.items()]
+            return await ctx.send(">>> " + "\n".join(lines))
+        if key not in setting_dict:
+            return await ctx.send("Invalid setting name. Options are: " + ", ".join([f"`{k}`" for k in setting_dict]))
+        value = value.strip(" `\n")
+        if "emoji" in key or "emote" in key:
+            try:
+                await ctx.react_quietly(value)
+            except (discord.NotFound, discord.Forbidden):
+                return await ctx.reply("Invalid emoji. Note that I must be in the same server as the emoji to use it.")
+        async with self.config.tool_settings() as settings:
+            settings[key] = value
+        await ctx.tick()
 
     @memoryconfig.group(name="limits")
     async def memoryconfig_limits(self, _: commands.Context):
@@ -433,7 +559,7 @@ class GptMemoryCommands(GptMemoryConfig):
             await self.config.guild(ctx.guild).max_tool.set(value)
         await ctx.reply(f"`[max_tool:]` {value}", mention_author=False)
 
-    @memoryconfig_limits.command(name="max_tool_depth")
+    @memoryconfig_limits.command(name="max_depth", aliases=["max_tool_depth"])
     async def memoryconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
         """How many tools the AI can use one after the other."""
         assert ctx.guild

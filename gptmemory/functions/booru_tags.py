@@ -1,11 +1,13 @@
 import json
 import logging
 import itertools
+import asyncio
 import aiofiles
-from typing import Any, Dict, List, Set
+from typing import Any
 from rapidfuzz import process, fuzz
 from redbot.core.data_manager import bundled_data_path
 
+from gptmemory.utils import clean_tag
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
@@ -13,6 +15,7 @@ log = logging.getLogger("gptmemory.boorutags")
 
 
 class BooruTagsFunctionCall(FunctionCallBase):
+    settings = {"boorutag_emoji": "🗒️"}
     schema = ToolCall(
         Function(
             name="search_booru_tags",
@@ -21,23 +24,16 @@ class BooruTagsFunctionCall(FunctionCallBase):
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "A short term to find matches for booru tags or tag groups.",
+                        "description": "A short term to find string matches for individual booru tags or simple tag groups.",
                     }},
                 required=["query"],
             )))
 
     tag_groups: dict = {}
     all_tags: list = []
-
-    @classmethod
-    def normalize(cls, tag: str) -> str:
-        tag = tag.lower()
-        if len(tag) > 3:
-            tag = tag.replace("_", " ")
-        return tag
     
     @classmethod
-    def build_index(cls, data: Dict[str, Any]):
+    def build_index(cls, data: dict[str, Any]):
         cls.tag_groups = {}
         for _, group_content in data.items():
             for subgroup_name, subgroup_content in group_content.items():
@@ -45,16 +41,15 @@ class BooruTagsFunctionCall(FunctionCallBase):
                     vals = [v if isinstance(v, (list, tuple)) else [v]
                             for v in subgroup_content.values()]
                     merged = list(itertools.chain.from_iterable(vals))
-                    cls.tag_groups[cls.normalize(subgroup_name)] = [cls.normalize(t) for t in merged if t is not None]
+                    cls.tag_groups[clean_tag(subgroup_name)] = [clean_tag(t) for t in merged if t is not None]
                 elif isinstance(subgroup_content, list):
-                    cls.tag_groups[cls.normalize(subgroup_name)] = [cls.normalize(tag) for tag in subgroup_content]
+                    cls.tag_groups[clean_tag(subgroup_name)] = [clean_tag(tag) for tag in subgroup_content]
         cls.all_tags = list(itertools.chain.from_iterable(cls.tag_groups.values()))                
         
     @classmethod
-    def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> List[str]:
-        query = cls.normalize(query)
-
-        matches: Set[str] = set()
+    def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> list[str]:
+        query = clean_tag(query)
+        matches: set[str] = set()
 
         for group, tags in cls.tag_groups.items():
             if query in group:
@@ -67,7 +62,12 @@ class BooruTagsFunctionCall(FunctionCallBase):
         return sorted(matches)
 
     async def run(self, arguments: dict) -> str:
-        query = arguments["query"]
+        query = arguments.get("query", "")
+        if len(query) < 3:
+            return "[Error: Query must be at least 3 characters long]"
+        
+        emoji = await self.get_setting("boorutag_emoji")
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if not self.tag_groups:
             async with aiofiles.open(bundled_data_path(self.cog).absolute() / "tag_groups.json", "r") as fp:
@@ -76,6 +76,6 @@ class BooruTagsFunctionCall(FunctionCallBase):
 
         results = self.search_booru_tags(query)
         if results:
-            return ", ".join(results)
+            return f"`{', '.join(results)}`"
         else:
             return "(No results)"

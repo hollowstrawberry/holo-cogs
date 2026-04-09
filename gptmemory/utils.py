@@ -1,13 +1,13 @@
+import os
 import re
 import discord
-import discord.ext.commands as commands
 import trafilatura
 from io import BytesIO
-from re import Match
 from copy import deepcopy
 from base64 import b64encode
-from typing import Optional, List
+from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
+from redbot.core import commands
 
 from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
 
@@ -18,7 +18,14 @@ def sanitize(text: str) -> str:
         text = text.replace(c, "")
     return text
 
-def farenheit_to_celsius(match: Match) -> str:
+def clean_tag(tag: str) -> str:
+    tag = tag.lower().strip()
+    if len(tag) > 3:
+        return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
+    else:
+        return tag
+
+def farenheit_to_celsius(match: re.Match) -> str:
     f = float(match.group(1))
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
@@ -31,7 +38,15 @@ def make_image_content(fp: BytesIO) -> dict:
         }
     }
 
-def process_image(buffer: BytesIO, size: int) -> Optional[BytesIO]:
+def get_filename(url: str) -> str:
+    return os.path.basename(urlparse(url).path)
+
+def find_nearest_resolution(current: tuple[int, int], targets: list[tuple[int, int]]) -> tuple[int, int]:
+    ratio = current[0] / current[1]
+    best_match = min(targets, key=lambda res: abs((res[0] / res[1]) - ratio))
+    return best_match
+
+def process_image(buffer: BytesIO, size: int) -> BytesIO | None:
     try:
         image = Image.open(buffer)
     except UnidentifiedImageError:
@@ -47,7 +62,7 @@ def process_image(buffer: BytesIO, size: int) -> Optional[BytesIO]:
     fp.seek(0)
     return fp
 
-def get_text_contents(messages: List[dict]):
+def get_text_contents(messages: list[dict]):
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.
@@ -69,7 +84,7 @@ def get_text_contents(messages: List[dict]):
                 break
     return temp_messages
 
-async def chunk_and_send(ctx: commands.Context, full_text: str):
+async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
     base_lines = full_text.splitlines(keepends=True)
     lines = []
     for base_line in base_lines:
@@ -112,7 +127,7 @@ async def chunk_and_send(ctx: commands.Context, full_text: str):
 
     first_reply = True
     for chunk in chunks:
-        if first_reply:
+        if first_reply and do_reply:
             await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
             first_reply = False
         else:
@@ -125,6 +140,9 @@ def adjusted_effort(model: str, effort: str) -> str:
    else:
        return effort
    
+def parse_prompt(prompt: str) -> str:
+    prompt = re.sub(r",?\s*\n[\n\s]*", " || ", prompt)
+    return prompt
 
 def format_arcenciel_model(data: dict) -> str:
     description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"
@@ -133,10 +151,9 @@ def format_arcenciel_model(data: dict) -> str:
     versions_info = ""
     for i, version in enumerate(versions):
         versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
-        if i == 0 and data['type'] == "LORA":
+        if i <= 1 and data['type'] == "LORA":
             versions_info += " [Activation tags:]"
-            filename = version.get('originalName') or version.get('fileName')
-            filename = re.sub(r"[^a-zA-Z0-9. _-]", "_", filename).replace(".safetensors", "") # sanitize
+            filename = version['filePath'].split("/")[-1].replace(".safetensors", "")
             lora = f"<lora:{filename}:1>" if filename else ""
             if version.get('activationTags', []):
                 for tags in version['activationTags']:
@@ -147,6 +164,8 @@ def format_arcenciel_model(data: dict) -> str:
                     versions_info += f" [{lora} {tags}]"
             else:
                 versions_info += f" {lora}"
+        else:
+            versions_info += " [Incomplete data]"
         versions_info += " ]]"
     content = f"{model_info} [Model description:] {description}\n{versions_info}"
     return content

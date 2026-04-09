@@ -1,4 +1,5 @@
-from typing import Literal, List, Optional
+from typing import Literal
+from discord import Enum
 from pydantic import BaseModel
 from dataclasses import dataclass, field
 
@@ -11,7 +12,7 @@ class MemoryChange(BaseModel):
     memory_content: str
 
 class MemoryChangeList(BaseModel):
-    memory_changes: List[MemoryChange]
+    memory_changes: list[MemoryChange]
 
 
 # Function calling
@@ -33,24 +34,35 @@ class ToolCall:
     function: Function
     type: str = "function"
 
+class SplitType(Enum):
+    HORIZONTAL = "split-horizontal-2"
+    VERTICAL = "split-vertical-2"
+
+@dataclass
+class ImageRegionalParams:
+    prompt1: str
+    prompt2: str
+    split_type: str
+    split_percent: int
+
 @dataclass
 class ImageGenParams:
     prompt: str
-    negative_prompt: Optional[str] = None
-    style: Optional[str] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
-    cfg: Optional[float] = None
-    sampler: Optional[str] = None
-    scheduler: Optional[str] = None
-    steps: Optional[int] = None
-    seed: int = -1
-    variation: int = 0
-    variation_seed: int = -1
-    checkpoint: Optional[str] = None
-    vae: Optional[str] = None
-    lora: str = ""
-    subseed: int = -1
-    subseed_strength: float = 0.0
-    init_image: bytes = field(default_factory=bytes)
-    denoising: Optional[float] = None
+    negative_prompt: str | None = None
+    style: str | None           = None
+    width: int | None           = None
+    height: int | None          = None
+    cfg: float | None           = None
+    sampler: str | None         = None
+    scheduler: str | None       = None
+    steps: int | None           = None
+    seed: int                   = -1
+    variation: int              = 0
+    variation_seed: int         = -1
+    checkpoint: str | None      = None
+    vae: str | None             = None
+    loras: list[str]            = field(default_factory=list)
+    subseed: int                = -1
+    subseed_strength: float     = 0.0
+    image: None                 = None
+    regions: ImageRegionalParams | None = None
