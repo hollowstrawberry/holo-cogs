@@ -17,7 +17,7 @@ UUID_PREFIX_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 NUMERIC_PREFIX_PATTERN = re.compile(r"^(?:\d{3,}[_-]){2,}")
 LORA_PREFIX_PATTERN = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_',re.IGNORECASE)
 
-NEWLINE_SEPARATOR_PATTERN = re.compile(r",?\s*\n[\n\s]*")
+NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
 PIPE_SEPARATOR_PATTERN = re.compile(r"\s*\|\|\s*")
 
 DEFAULT_UPSCALER = "2x-AnimeSharpV4_RCAN.safetensors"

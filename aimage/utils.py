@@ -86,6 +86,7 @@ def clean_model(name: str) -> str:
     return name
 
 def parse_prompts(payload: dict) -> None:
+    payload["prompt"] = payload.get("prompt", "").strip()
     if "attentionCouple" in payload and "||" in payload["prompt"]:
         payload["prompt"] = NEWLINE_SEPARATOR_PATTERN.sub(", ", payload["prompt"])
         payload["prompt"] = PIPE_SEPARATOR_PATTERN.sub("\n", payload["prompt"])
