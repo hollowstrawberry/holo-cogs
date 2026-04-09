@@ -37,7 +37,7 @@ REASONING_MODELS = [
     "gpt-oss-120b",
     "gpt-oss-20b",
 ]
-DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_MODEL = "gpt-5.4-mini"
 DEFAULT_PROMPT = """
 You are in a Discord server and are tasked with welcoming new users.
 When welcoming a user, give them a personalized message, mentioning something unique about the contents of their avatar or about their username.

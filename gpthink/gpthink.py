@@ -10,7 +10,19 @@ from openai import AsyncOpenAI, APIError, APIStatusError
 
 log = logging.getLogger("red.crab-cogs.gpthink")
 
-MODELS = ["o3", "o4-mini", "gpt-5", "gpt-5-mini", "gpt-5-nano"]
+REASONING_MODELS = [
+    "gpt-5.4",
+    "gpt-5.4-pro",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
+    "o3",
+    "o3-mini",
+    "o4-mini",
+    "o1",
+    "o1-mini",
+    "gpt-oss-120b",
+    "gpt-oss-20b",
+]
 EMPTY = "ᅠ"
 CODE_REGEX = re.compile(r"^```(\w*)\s*$")
 MAX_MESSAGE_LENGTH = 1950
@@ -142,7 +154,7 @@ class GptThink(commands.Cog):
         defaults_global = {
             "vip": [],
             "cooldown": 0,
-            "model": "gpt-5-mini",
+            "model": "gpt-5.4-mini",
         }
         self.config.register_global(**defaults_global)
 
@@ -202,8 +214,8 @@ class GptThink(commands.Cog):
             model = await self.config.model()
         else:
             model = model.lower().strip()
-            if model not in MODELS:
-                await ctx.reply("Model must be one of: " + ",".join([f'`{m}`' for m in MODELS]))
+            if model not in REASONING_MODELS:
+                await ctx.reply("Model must be one of: " + ",".join([f'`{m}`' for m in REASONING_MODELS]))
                 return
             await self.config.model.set(model)
         await ctx.reply(f"The /think command will use the {model} model.")
