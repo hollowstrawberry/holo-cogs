@@ -21,7 +21,7 @@ class HiresModal(ui.Modal):
         upscalers = sorted(set(parent_view.cache["upscale"]))
         default_upscaler = DEFAULT_UPSCALER if DEFAULT_UPSCALER in upscalers else upscalers[-1]
         maxscale = ((maxsize*maxsize) / (self.payload["width"]*self.payload["height"]))**0.5
-        scales = [s for s in [1.0, 1.1, 1.25, 1.5, 1.75, 2.0] if s <= maxscale]
+        scales = [s for s in [1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0] if s <= maxscale]
         default_scale = scales[-1]
         denoise_steps = list(range(0, 7)) + list(range(8, 21, 2)) + list(range(25, 81, 5))
 
@@ -65,8 +65,8 @@ class HiresModal(ui.Modal):
             ])
         )
 
-        self.add_item(self.upscaler_select)
         self.add_item(self.scale_radio)
+        self.add_item(self.upscaler_select)
         self.add_item(self.denoising_select)
         self.add_item(self.adetailer_denoising_select)
 

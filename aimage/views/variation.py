@@ -33,9 +33,9 @@ class VariationModal(ui.Modal):
             ]),
         )
 
+        self.add_item(self.variation_select)
         if previous_strength > 0:
             self.add_item(self.subseed_checkbox)
-        self.add_item(self.variation_select)
 
 
     async def on_submit(self, interaction: discord.Interaction):
