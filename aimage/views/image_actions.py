@@ -33,11 +33,11 @@ class ImageActions(discord.ui.View):
 
         self.button_caption = discord.ui.Button(emoji='🔎')
         self.button_caption.callback = self.get_caption
-        self.button_reroll = discord.ui.Button(emoji="🔄")
+        self.button_reroll = discord.ui.Button(emoji="🎲")
         self.button_reroll.callback = self.reroll_image
         self.button_modify = discord.ui.Button(emoji="📝")
         self.button_modify.callback = self.modify_image
-        self.button_variation = discord.ui.Button(emoji='🔬')
+        self.button_variation = discord.ui.Button(emoji='♻️')
         self.button_variation.callback = self.variation_image
         self.button_upscale = discord.ui.Button(emoji='💎')
         self.button_upscale.callback = self.upscale_image
