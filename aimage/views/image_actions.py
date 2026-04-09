@@ -1,5 +1,6 @@
 import logging
 import discord
+from copy import deepcopy
 from redbot.core.bot import Red
 
 from aimage.base import AImageBase
@@ -37,7 +38,7 @@ class ImageActions(discord.ui.View):
         self.button_reroll.callback = self.reroll_image
         self.button_modify = discord.ui.Button(emoji="📝")
         self.button_modify.callback = self.modify_image
-        self.button_variation = discord.ui.Button(emoji='🧬')
+        self.button_variation = discord.ui.Button(emoji='♻️')
         self.button_variation.callback = self.variation_image
         self.button_upscale = discord.ui.Button(emoji='💎')
         self.button_upscale.callback = self.upscale_image
@@ -63,8 +64,12 @@ class ImageActions(discord.ui.View):
 
     async def reroll_image(self, interaction: discord.Interaction):
         await interaction.response.defer(thinking=True)
+        payload = deepcopy(self.payload)
+        payload["seed"] = -1
+        payload["extraSeed"] = -1
+        payload["extraSeedStrength"] = 0
         message_content = f"Reroll requested by {interaction.user.mention}"
-        await self.generate_image(interaction, payload=self.payload, message_content=message_content)
+        await self.generate_image(interaction, payload=payload, message_content=message_content)
 
     async def modify_image(self, interaction: discord.Interaction):
         from aimage.views.modify import ModifyModal
