@@ -224,7 +224,7 @@ class AImage(AImageCommands):
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
         assert self.api and isinstance(gen.context, (commands.Context, discord.Interaction))
 
-        if not self.api.closed:
+        if not self.api.session.closed:
             asyncio.create_task(self.api.close_request(gen.id))
         
         if error_message:
