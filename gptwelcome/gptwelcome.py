@@ -6,19 +6,36 @@ from typing import Optional
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
-from openai import AsyncOpenAI, NotGiven
+from openai import AsyncOpenAI, NotGiven, Omit
 
 log = logging.getLogger("red.holo-cogs.gptwelcome")
 
 VISION_MODELS = [
-    "gpt-4o",
-    "gpt-4o-mini",
+    "gpt-5.4",
+    "gpt-5.4-pro",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
     "gpt-4.1",
     "gpt-4.1-mini",
     "gpt-4.1-nano",
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
+    "o3",
+    "o4-mini",
+    "o1",
+    "gpt-4o",
+    "gpt-4o-mini",
+]
+REASONING_MODELS = [
+    "gpt-5.4",
+    "gpt-5.4-pro",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
+    "o3",
+    "o3-mini",
+    "o4-mini",
+    "o1",
+    "o1-mini",
+    "gpt-oss-120b",
+    "gpt-oss-20b",
 ]
 DEFAULT_MODEL = "gpt-4.1-mini"
 DEFAULT_PROMPT = """
@@ -130,7 +147,7 @@ class GptWelcome(commands.Cog):
         response = await client.beta.chat.completions.parse(
             model=model,
             messages=messages, # type: ignore
-            reasoning_effort="low",
+            reasoning_effort="low" if model in REASONING_MODELS else Omit(),
         )
         completion = response.choices[0].message.content
         try:
