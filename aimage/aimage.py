@@ -147,9 +147,7 @@ class AImage(AImageCommands):
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
         assert payload or params
-        log.info(f"PARAMS {params}")
         payload = payload or await self.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
-        log.info(f"BEFORE {payload}")
 
         enabled = await self.config.guild(context.guild).enabled()
         if not enabled:
@@ -188,7 +186,6 @@ class AImage(AImageCommands):
                     payload["attentionCouple"]["regions"][i]["maskPath"] = path
                 
             job = await self.api.request_image(payload)
-            log.info(f"AFTER {payload}")
             self.queued_images[job["id"]] = QueuedImageGen(
                 job["id"],
                 payload,
