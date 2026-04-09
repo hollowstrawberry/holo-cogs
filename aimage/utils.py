@@ -87,8 +87,8 @@ def clean_model(name: str) -> str:
 
 def parse_prompts(payload: dict) -> None:
     if "attentionCouple" in payload and "||" in payload["prompt"]:
-        payload["prompt"] = PIPE_SEPARATOR_PATTERN.sub(" || ", payload["prompt"])
         payload["prompt"] = NEWLINE_SEPARATOR_PATTERN.sub(", ", payload["prompt"])
+        payload["prompt"] = PIPE_SEPARATOR_PATTERN.sub("\n", payload["prompt"])
     for lora, name, weight in LORA_PATTERN.findall(payload["prompt"]):
         name = name.replace(".safetensors", "") + ".safetensors"
         payload.setdefault("loras", [])
