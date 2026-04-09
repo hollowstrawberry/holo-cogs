@@ -22,7 +22,7 @@ log = logging.getLogger("red.holo-cogs.aimage")
 
 
 class AImage(AImageCommands):
-    """ Generate AI images using a A1111 endpoint """
+    """Generate AI images with arcenciel.io"""
 
     async def cog_load_when_ready(self):
         await self.bot.wait_until_red_ready()
@@ -122,8 +122,8 @@ class AImage(AImageCommands):
                 embed.add_field(name="Position in queue", value=f"`{current_position}`")
             elif current_phase == "upscaling":
                 embed.description += "Upscaling image..."
-                if current_percent >= 90:  # upscaling only goes from 90->100
-                    current_percent = max(current_percent, 91) % 10 * 10
+            elif current_phase == "refining":
+                embed.description += "Refining image..."
             elif current_phase == "finalizing":
                 embed.description += "Finishing image..."
             else:
