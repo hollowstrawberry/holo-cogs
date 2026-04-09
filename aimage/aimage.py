@@ -59,7 +59,12 @@ class AImage(AImageCommands):
     @tasks.loop(seconds=1, reconnect=True)
     async def consume_queue(self):
         assert self.api
-        if not self.queued_images:
+        if not self.queued_images or not self.api.session:
+            return
+        if self.api.session.closed:
+            error_message = f":warning: The generator restarted, please try again."
+            for gen in self.queued_images.values():
+                asyncio.create_task(self.finalize_image_generation(gen, False, error_message))
             return
         jobs = await self.api.fetch_queue()
         for job in jobs:
@@ -218,7 +223,8 @@ class AImage(AImageCommands):
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
         assert self.api and isinstance(gen.context, (commands.Context, discord.Interaction))
 
-        asyncio.create_task(self.api.close_request(gen.id))
+        if not self.api.closed:
+            asyncio.create_task(self.api.close_request(gen.id))
         
         if error_message:
             content = f":warning: Failed to generate image. {error_message}"
