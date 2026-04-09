@@ -1,0 +1,13 @@
+{
+    "author": ["hollowstrawberry"],
+    "min_bot_version": "3.5.0",
+    "min_python_version": [3,10,0],
+    "description": "Generates an image with the Arc en Ciel API. Not really meant for public use but here it is.",
+    "hidden": false,
+    "install_msg": "📎 __**AImage**__ ```Cog installed. Instructions:\n1. Load it with [p]load aimage\n2. I'm not sure why you're using this, good luck!```",
+    "required_cogs": {},
+    "requirements": ["expiringdict"],
+    "short": "Generates an image with the Arc en Ciel API. Not really meant for public use but here it is.",
+    "end_user_data_statement": "This cog does not store user data.",
+    "tags": ["ai", "image", "arcenciel", "stable diffusion"]
+}
