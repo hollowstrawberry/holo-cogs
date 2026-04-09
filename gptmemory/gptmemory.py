@@ -199,17 +199,19 @@ class GptMemory(GptMemoryCommands):
 
     async def run_response(self, ctx: commands.Context, auto: bool = False):
         assert ctx.guild
-        if ctx.guild.id not in self.memory:
-            self.memory[ctx.guild.id] = {}
+        self.memory.setdefault(ctx.guild.id, {})
         memories = list(self.memory[ctx.guild.id].keys())
 
         result = GptMemoryResult()
+        mem_task = None
         async with ctx.typing():
             messages = await self.build_message_history(ctx, result)
             recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
             if not auto:
-                asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
+                mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
             await self.execute_responder(ctx, messages, recalled_memories, result, auto)
+        if mem_task:
+            await mem_task
         log.info(result)
 
 
@@ -314,6 +316,7 @@ class GptMemory(GptMemoryCommands):
                 tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools],  # type: ignore
                 reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
             )
+            
             if response.usage:
                 result.tokens_responder += response.usage.completion_tokens
                 if depth > 0:
@@ -371,6 +374,7 @@ class GptMemory(GptMemoryCommands):
                     if m := pattern.search(completion):
                         prompt = m.group(1)
                         completion = pattern.sub("", completion)
+                        break
                 if prompt:
                     await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
