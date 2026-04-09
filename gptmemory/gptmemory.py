@@ -320,9 +320,13 @@ class GptMemory(GptMemoryCommands):
                     result.tokens_after_tools += response.usage.completion_tokens
 
             if not response.choices:  # request may get rejected
-                log.error(f"Blocked response: {getattr(response, 'error', 'No error')}")
-                #await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
-                emoji = await self.config.blocked_emoji()
+                error = str(getattr(response, "error", "No error"))
+                log.error(f"Missing response: {error}")
+                if "403" in error or "PROHIBITED" in error:
+                    #await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
+                    emoji = await self.config.blocked_emoji()
+                else:
+                    emoji = await self.config.noresponse_emoji()
                 await ctx.message.add_reaction(emoji)
                 return {}
 
