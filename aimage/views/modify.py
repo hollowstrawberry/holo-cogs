@@ -3,7 +3,6 @@ import discord
 import discord.ui as ui
 from copy import deepcopy
 
-from aimage.constants import NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN
 from aimage.views.image_actions import ImageActions
 
 
@@ -54,10 +53,8 @@ class ModifyModal(ui.Modal):
         reroll = self.seed_checkbox.component.value
         
         if not is_prompt_unchanged and self.payload.get("attentionCouple"):  # parse regional prompt
-            prompt = PIPE_SEPARATOR_PATTERN.sub("\n", prompt)
-            prompt = NEWLINE_SEPARATOR_PATTERN.sub("\n", prompt)
             regions = self.payload["attentionCouple"]["regions"]
-            region_prompts = [p.strip() for p in prompt.split("\n")]
+            region_prompts = [p.strip() for p in prompt.split("||")]
             if len(region_prompts) != len(regions):
                 content = ":warning: This image has regional prompts, but your edited prompt didn't result in the same number of regions."
                 return await interaction.response.send_message(content=content, ephemeral=True)

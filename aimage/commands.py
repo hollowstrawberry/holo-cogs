@@ -121,10 +121,13 @@ class AImageCommands(AImageSettings):
                 width, height = size
                 break
               
-        if "||" in prompt:
-            segments = [p.strip() for p in prompt.split("||")]
+        if "|" in prompt:
+            sep = "||" if "||" in prompt else "|"
+            segments = [p.strip() for p in prompt.split(sep)]
             if len(segments) != 3:
-                content = f":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
+                content = f":warning: Your prompt contains regions divided by `{sep}`, but it's not in the format `shared {sep} left {sep} right`"
+                if sep == "|":
+                    content += "\nIf you need to use `|` in your prompt, use the /txt2img slash command instead."
                 return await ctx.send(content)
             segments = edit_regional_prompts(*segments)
             prompt = segments[0]
