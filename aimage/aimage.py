@@ -63,7 +63,8 @@ class AImage(AImageCommands):
             return
         if self.api.session.closed:
             error_message = f":warning: The generator restarted, please try again."
-            for gen in self.queued_images.values():
+            for gen_id, gen in list(self.queued_images.items()):
+                del self.queued_images[gen_id]
                 asyncio.create_task(self.finalize_image_generation(gen, False, error_message))
             return
         jobs = await self.api.fetch_queue()
