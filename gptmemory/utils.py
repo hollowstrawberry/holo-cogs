@@ -4,6 +4,7 @@ import discord
 import trafilatura
 from io import BytesIO
 from copy import deepcopy
+from random import randint
 from base64 import b64encode
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
@@ -91,6 +92,7 @@ def make_dummy_message(ctx: commands.Context) -> GptMessage:
     if isinstance(ctx.author, discord.Member) and ctx.author.nick:
         content += f" [Alias: {sanitize(ctx.author.nick)}]"
     content += f" [said:] @{ctx.guild.me.name} try again please"
+    content += ("", ".", "?", "???", "...")[randint(0, 4)]
     return { "role": "user", "content": content }
 
 async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
