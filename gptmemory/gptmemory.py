@@ -519,8 +519,8 @@ class GptMemory(GptMemoryCommands):
             try:
                 quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id)  # type: ignore
                 # This would prevent chaining message quotes that are already consecutive
-                # if len(backread) > n+1 and quote == backread[n+1]:
-                #    quote = None
+                if len(backread) > n+1 and quote == backread[n+1]:
+                    quote = None
             except (AttributeError, discord.DiscordException):
                 quote = None
 
