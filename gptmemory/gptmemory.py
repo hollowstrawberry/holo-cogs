@@ -216,8 +216,8 @@ class GptMemory(GptMemoryCommands):
                         log.error(f"Response got censored {constants.CENSORED_RETRIES} times, aborting.")
                         await ctx.message.add_reaction(await self.config.blocked_emoji())
                     else:
-                        log.warning(f"Response got censored, retrying...")
-                        messages.append(utils.make_dummy_message(ctx))
+                        log.warning(f"Response got censored, trying...")
+                        messages = messages[1:] + [utils.make_dummy_message(ctx)]
                         await asyncio.sleep(2)
                 except Exception:
                     raise
