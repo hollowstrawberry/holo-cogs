@@ -209,7 +209,6 @@ class GptMemory(GptMemoryCommands):
                 mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
             for i in range(constants.CENSORED_RETRIES):
                 try:
-                    log.info(f"{len(messages)=}")
                     await self.execute_responder(ctx, messages, recalled_memories, result, auto)
                     break
                 except CensoredError:
