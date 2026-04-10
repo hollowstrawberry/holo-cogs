@@ -298,13 +298,14 @@ class GptMemory(GptMemoryCommands):
 
         recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
         base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
+        prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
         system_content = base_system_content.format(
             botname=self.bot.user.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,
-            emotes=(await self.config.guild(ctx.guild).emotes()) or "[None]",
             currentdatetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z"),
             memories=recalled_memories_str,
+            **prompt_keys
         )
         encoding = encoding_for_model("gpt-4o")
         result.tokens_system = len(encoding.encode(system_content))
