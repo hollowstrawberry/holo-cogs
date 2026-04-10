@@ -279,6 +279,29 @@ class GptMemoryCommands(GptMemoryBase):
 
         await ctx.tick()
 
+    @memoryconfig_prompt.command(name="key", aliases=["keys"])
+    async def memoryconfig_keys(self, ctx: commands.Context, key: Optional[str], *, value: Optional[str]):
+        """Shows or sets a {key} to act as a shorthand in the responder prompt."""
+        assert ctx.guild
+        all_keys = await self.config.guild(ctx.guild).prompt_keys()
+        if not key:
+            content = f"`[prompt_keys:]` ```\n" + "\n".join([f"\{{key}\}" for key in all_keys.keys()]) + "\n```"
+        elif not value:
+            if key in all_keys:
+                content = f"`[{key}:]` ```\n{all_keys[key].replace('```', '`')}```"
+            else:
+                content = "Key not found. You can use this same command to set a value for it or clear it."
+        elif value.lower() in ("delete", "clear", "none", "empty", "erase"):
+            if key in all_keys:
+                del all_keys[key]
+                await self.config.guild(ctx.guild).prompt_keys.set(all_keys)
+            return await ctx.tick()
+        else:
+            all_keys[key] = value
+            await self.config.guild(ctx.guild).prompt_keys.set(all_keys)
+            return await ctx.tick()
+        await ctx.reply(content, mention_author=False)
+
     @memoryconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
     async def memoryconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
         """Whether the memorizer will run at all, editing memories."""
@@ -336,17 +359,6 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).autoresponder_cooldown_minutes.set(minutes)
         assert minutes
         await ctx.reply(f"`[autoresponder_cooldown:]` {minutes} minutes", mention_author=False)
-
-    @memoryconfig_prompt.command(name="emotes")
-    async def memoryconfig_emotes(self, ctx: commands.Context, *, emotes: Optional[str]):
-        """Shows or sets a list of emotes to show the responder."""
-        assert ctx.guild
-        if not emotes:
-            emotes = await self.config.guild(ctx.guild).emotes()
-        else:
-            emotes = emotes.strip()
-            await self.config.guild(ctx.guild).emotes.set(emotes)
-        await ctx.reply(f"`[emotes]`\n>>> {emotes}", mention_author=False)
 
     @memoryconfig.command(name="timeout")
     async def memoryconfig_timeout(self, ctx: commands.Context, value: Optional[int]):
