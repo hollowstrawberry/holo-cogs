@@ -209,6 +209,7 @@ class GptMemory(GptMemoryCommands):
                 mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
             for i in range(constants.CENSORED_RETRIES):
                 try:
+                    log.info(f"{len(messages)=}")
                     await self.execute_responder(ctx, messages, recalled_memories, result, auto)
                     break
                 except CensoredError:
@@ -335,12 +336,12 @@ class GptMemory(GptMemoryCommands):
 
             if not response.choices:  # request may get rejected
                 error = str(getattr(response, "error", "No error"))
-                log.error(f"Missing response: {error}")
                 if "403" in error or "PROHIBITED" in error:
                     if "generate_stable_diffusion" not in past_tool_calls:
                         raise CensoredError()
                     emoji = await self.config.blocked_emoji()
                 else:
+                    log.error(f"Missing response: {error}")
                     emoji = await self.config.noresponse_emoji()
                 await ctx.message.add_reaction(emoji)
                 return {}
