@@ -218,7 +218,7 @@ class GptMemory(GptMemoryCommands):
                     else:
                         log.warning(f"Response got censored, retrying...")
                         messages.append(utils.make_dummy_message(ctx))
-                        await asyncio.sleep(0.5)
+                        await asyncio.sleep(2)
                 except Exception:
                     raise
         if mem_task:
