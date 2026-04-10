@@ -4,6 +4,16 @@ from pydantic import BaseModel
 from dataclasses import dataclass, field
 
 
+GptImageContent = list[dict[str, str]]
+GptMessage = dict[str, (str | GptImageContent)]
+
+
+# Exceptions
+
+class CensoredError(Exception):
+    pass
+
+
 # Structured Outputs
 
 class MemoryChange(BaseModel):
