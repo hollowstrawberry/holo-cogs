@@ -45,6 +45,7 @@ class GptMemoryBase(commands.Cog):
             "prompt_responder": defaults.PROMPT_RESPONDER,
             "prompt_autoresponder": defaults.PROMPT_AUTORESPONDER,
             "prompt_memorizer": defaults.PROMPT_MEMORIZER,
+            "prompt_keys": {},
             "effort_recaller": defaults.EFFORT_RECALLER,
             "effort_responder": defaults.EFFORT_RESPONDER,
             "effort_memorizer": defaults.EFFORT_MEMORIZER,
