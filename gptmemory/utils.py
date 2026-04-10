@@ -90,7 +90,7 @@ def make_dummy_message(ctx: commands.Context) -> GptMessage:
     content = f"[Username: {sanitize(ctx.author.name)}]"
     if isinstance(ctx.author, discord.Member) and ctx.author.nick:
         content += f" [Alias: {sanitize(ctx.author.nick)}]"
-    content += f" [said:] @{ctx.guild.me.name}"
+    content += f" [said:] @{ctx.guild.me.name} try again please"
     return { "role": "user", "content": content }
 
 async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
