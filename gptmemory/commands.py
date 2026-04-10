@@ -285,7 +285,7 @@ class GptMemoryCommands(GptMemoryBase):
         assert ctx.guild
         all_keys = await self.config.guild(ctx.guild).prompt_keys()
         if not key:
-            content = f"`[prompt_keys:]` ```\n" + "\n".join([f"\{{key}\}" for key in all_keys.keys()]) + "\n```"
+            content = f"`[prompt_keys:]` ```\n" + "\n".join([f"{{{key}}}" for key in all_keys.keys()]) + "\n```"
         elif not value:
             if key in all_keys:
                 content = f"`[{key}:]` ```\n{all_keys[key].replace('```', '`')}```"
