@@ -124,6 +124,8 @@ class AImage(AImageCommands):
                 embed.description += "Upscaling image..."
             elif current_phase == "refining":
                 embed.description += "Refining image..."
+            elif current_phase == "warmup":
+                embed.description += "Preparing generator..."
             elif current_phase == "finalizing":
                 embed.description += "Finishing image..."
             else:
