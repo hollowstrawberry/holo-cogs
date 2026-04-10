@@ -10,7 +10,7 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Author system texts":          re.compile(r"^(\[[^[:\]]*:[^[:\]]*\]\s?)+", re.MULTILINE),
     "Single-line system texts":     re.compile(r"\[\[.+(\]\]|$)"),
     "Multiline system texts":       re.compile(r"\[\[\[[\s\S]+?(\]\]\]|$)"),
-    "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change).+", re.MULTILINE | re.IGNORECASE),
+    "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE),
     "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
     "Embeds":                       re.compile(r"\[\s*Embed[^\]]+\]", re.MULTILINE | re.IGNORECASE),
     "Loading message":              re.compile(r"`\s*[⏳⌛][^`]+`\s*"),
