@@ -4,6 +4,7 @@ from typing import Optional
 from redbot.core import checks, commands
 
 from aimage.base import AImageBase
+from aimage.utils import make_batches, chunk_and_send
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -25,7 +26,10 @@ class AImageSettings(AImageBase):
         
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
         if checkpoint not in ckpt_names.keys():
-            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:\n`{', '.join(list(ckpt_names.keys()))}"[:1999]+"`")
+            names = [f"`{name}`" for name in ckpt_names.keys()]
+            batches = make_batches(names, 10)
+            content = f":warning: Checkpoint must be one of:\n" + "\n".join([", ".join(batch) for batch in batches])
+            return await chunk_and_send(ctx, content)
 
         await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
@@ -132,7 +136,7 @@ class AImageSettings(AImageBase):
         await ctx.tick(message="✅ Default sampling steps updated.")
 
     @aimage.command(name="sampler")
-    async def sampler_cmd(self, ctx: commands.Context, *, sampler: str):
+    async def sampler_cmd(self, ctx: commands.Context, *, sampler: Optional[str]):
         """
         Set the default sampler
         """
@@ -140,13 +144,14 @@ class AImageSettings(AImageBase):
 
         sampler_names = self.autocomplete_cache.get("samplers") or {}
         if sampler not in sampler_names.keys():
-            return await ctx.send(f":warning: Sampler must be one of: `{', '.join(list(sampler_names.keys()))}`"[:2000])
+            names = [f"`{name}`" for name in sampler_names.keys()]
+            return await ctx.send(f":warning: Sampler must be one of: " + ", ".join(names))
 
         await self.config.sampler.set(sampler_names[sampler])
         await ctx.tick(message="✅ Default sampler updated.")
 
     @aimage.command(name="scheduler")
-    async def scheduler_cmd(self, ctx: commands.Context, *, scheduler: str):
+    async def scheduler_cmd(self, ctx: commands.Context, *, scheduler: Optional[str]):
         """
         Set the default scheduler
         """
@@ -154,7 +159,8 @@ class AImageSettings(AImageBase):
 
         sch_names = self.autocomplete_cache.get("schedulers") or {}
         if scheduler not in sch_names.keys():
-            return await ctx.send(f":warning: scheduler must be one of: `{', '.join(list(sch_names.keys()))}`"[:2000])
+            names = [f"`{name}`" for name in sch_names.keys()]
+            return await ctx.send(f":warning: Scheduler must be one of: " + ", ".join(names))
 
         await self.config.scheduler.set(sch_names[scheduler])
         await ctx.tick(message="✅ Default scheduler updated.")
@@ -194,7 +200,7 @@ class AImageSettings(AImageBase):
         await ctx.tick(message="✅ Maximum img2img size updated.")
 
     @aimage.command(name="checkpoint", aliases=["model"])
-    async def checkpoint_cmd(self, ctx: commands.Context, *, checkpoint: str):
+    async def checkpoint_cmd(self, ctx: commands.Context, *, checkpoint: Optional[str]):
         """
         Set the default checkpoint / model used for generating images.
         """
@@ -202,13 +208,16 @@ class AImageSettings(AImageBase):
         
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
         if checkpoint not in ckpt_names.keys():
-            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:\n`{', '.join(list(ckpt_names.keys()))}"[:1999]+",")
+            names = [f"`{name}`" for name in vae_names.keys()]
+            batches = make_batches(names, 10)
+            content = f":warning: Checkpoint must be one of:\n" + "\n".join([", ".join(batch) for batch in batches])
+            return await chunk_and_send(ctx, content)
 
         await self.config.checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
 
     @aimage.command(name="vae")
-    async def vae_cmd(self, ctx: commands.Context, *, vae: str):
+    async def vae_cmd(self, ctx: commands.Context, *, vae: Optional[str]):
         """
         Set the default vae used for generating images.
         """
@@ -216,7 +225,8 @@ class AImageSettings(AImageBase):
 
         vae_names = self.autocomplete_cache.get("vaes") or {}
         if vae not in vae_names.keys():
-            return await ctx.send(f":warning: Invalid vae. Pick one of these:\n`{', '.join(list(vae_names.keys()))}`"[:2000])
+            names = [f"`{name}`" for name in vae_names.keys()]
+            return await ctx.send(f":warning: Vae must be one of: " + ", ".join(names))
 
         await self.config.vae.set(vae_names[vae])
         await ctx.tick(message="✅ Default VAE updated.")
