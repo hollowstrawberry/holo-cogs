@@ -19,7 +19,6 @@ LORA_PREFIX_PATTERN = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 
 NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
 PIPE_SEPARATOR_PATTERN = re.compile(r"\s*\|\|\s*")
-INCOMPLETE_CODEBLOCK_PATTERN = re.compile(r"^```(\w*)\s*$")
 
 DEFAULT_UPSCALER = "2x-AnimeSharpV4_RCAN.safetensors"
 DEFAULT_DENOISE = 20
