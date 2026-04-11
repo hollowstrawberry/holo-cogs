@@ -7,7 +7,7 @@ from rapidfuzz import fuzz
 from redbot.core import commands
 
 from aimage.schema import SplitType
-from aimage.constants import LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
+from aimage.constants import MAX_MESSAGE_LENGTH, LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -188,7 +188,7 @@ async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
                 code_lang = m.group(1)
             else:
                 in_code = not in_code
-        if len(current) + len(line) > 2000:
+        if len(current) + len(line) > MAX_MESSAGE_LENGTH:
             flush_chunk()
         current += line
 
