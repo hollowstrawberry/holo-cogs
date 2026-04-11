@@ -48,6 +48,10 @@ def is_nsfw(channel: discord.abc.Messageable) -> bool:
 def round_to_nearest(x, base) -> int:
     return int(base * round(x/base))
 
+def make_batches(sequence, n):
+    my_list = list(sequence)
+    return [my_list[i:i + n] for i in range(0, len(my_list), n)]
+    
 def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
     scale = (pixels / (width * height)) ** 0.5
     return int(width * scale), int(height * scale)
