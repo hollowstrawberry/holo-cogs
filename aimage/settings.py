@@ -25,7 +25,7 @@ class AImageSettings(AImageBase):
         
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
         if checkpoint not in ckpt_names.keys():
-            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:\n`{', '.join(list(ckpt_names.keys()))}`"[:2000])
+            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:\n`{', '.join(list(ckpt_names.keys()))}"[:1999]+"`")
 
         await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
@@ -202,7 +202,7 @@ class AImageSettings(AImageBase):
         
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
         if checkpoint not in ckpt_names.keys():
-            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:\n`{', '.join(list(ckpt_names.keys()))}`"[:2000])
+            return await ctx.send(f":warning: Invalid checkpoint. Pick one of these:\n`{', '.join(list(ckpt_names.keys()))}"[:1999]+",")
 
         await self.config.checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
