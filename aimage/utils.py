@@ -7,7 +7,7 @@ from rapidfuzz import fuzz
 from redbot.core import commands
 
 from aimage.schema import SplitType
-from aimage.constants import LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
+from aimage.constants import LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN, CODEBLOCK_PATTERN
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -147,3 +147,53 @@ def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
         edited_prompts[i] = prompt
     final_prompt = " || ".join(edited_prompts)
     return [final_prompt, *edited_prompts]
+
+
+async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
+    base_lines = full_text.splitlines(keepends=True)
+    lines = []
+    for base_line in base_lines:
+        if len(base_line) > MAX_MESSAGE_LENGTH:
+            while len(base_line) > MAX_MESSAGE_LENGTH:
+                lines.append(base_line)
+                base_line = base_line[:MAX_MESSAGE_LENGTH]
+        else:
+            lines.append(base_line)
+
+    chunks = []
+    current = ""
+    in_code = False
+    code_lang = ""
+
+    def flush_chunk():
+        nonlocal current, in_code, code_lang
+        if in_code:
+            current += "```\n"  # close open fence
+        if current:
+            chunks.append(current)
+        # start new
+        current = ""
+        if in_code:
+            # re-open fence with language
+            current += f"```{code_lang}\n"
+    
+    for line in lines:
+        if m := CODEBLOCK_PATTERN.match(line):
+            if m.group(1):
+                in_code = True
+                code_lang = m.group(1)
+            else:
+                in_code = not in_code
+        if len(current) + len(line) > 2000:
+            flush_chunk()
+        current += line
+
+    flush_chunk()
+
+    first_reply = True
+    for chunk in chunks:
+        if first_reply and do_reply:
+            await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
+            first_reply = False
+        else:
+            await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
