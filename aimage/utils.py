@@ -7,7 +7,7 @@ from rapidfuzz import fuzz
 from redbot.core import commands
 
 from aimage.schema import SplitType
-from aimage.constants import LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN, CODEBLOCK_PATTERN
+from aimage.constants import LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
@@ -178,7 +178,7 @@ async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
             current += f"```{code_lang}\n"
     
     for line in lines:
-        if m := CODEBLOCK_PATTERN.match(line):
+        if m := re.match(r"^```(\w*)\s*$", line):
             if m.group(1):
                 in_code = True
                 code_lang = m.group(1)
