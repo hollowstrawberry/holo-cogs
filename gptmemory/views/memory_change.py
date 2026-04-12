@@ -1,0 +1,36 @@
+import discord
+from discord.ui import View
+
+from gptmemory.schema import MemoryChangeResult
+from gptmemory.constants import VIEW_TIMEOUT, EMPTY, MAX_EMBED_DESCRIPTION, MAX_EMBED_FIELD, MAX_EMBED_NAME
+
+
+class MemoryChangeView(View):
+    def __init__(self, memory_changes: list[MemoryChangeResult]):
+        super().__init__(timeout=VIEW_TIMEOUT)
+        self.message: discord.Message | None = None
+        for change in memory_changes:
+            button = discord.ui.Button(emoji="📝", label=change.name, style=discord.ButtonStyle.gray)
+            button.callback = self.memory_change_selector(change)
+            self.add_item(button)
+
+    def memory_change_selector(self, change: MemoryChangeResult):
+        async def memory_change_wrapper(interaction: discord.Interaction):
+            return self.show_memory_change(interaction, change)
+        return memory_change_wrapper
+
+    async def show_memory_change(self, interaction: discord.Interaction, change: MemoryChangeResult):
+        before = f"```\n{EMPTY}" if not change.before else f"```\n{change.before}"
+        after = f"```\n{EMPTY}" if not change.after else f"```\n{change.after}"
+        embed = discord.Embed()
+        embed.description = f"🚮 `{change.name}` {before}"[:MAX_EMBED_DESCRIPTION // 2 - 3] + "```"
+        embed.description += f"\n🆕 `{change.name}` {after}"[:MAX_EMBED_DESCRIPTION // 2 - 3] + "```"
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    async def on_timeout(self) -> None:
+        await super().on_timeout()
+        if self.message:
+            try:
+                await self.message.delete()
+            except discord.NotFound:
+                pass
