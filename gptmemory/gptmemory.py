@@ -16,6 +16,7 @@ from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
+from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
 import gptmemory.utils as utils
 import gptmemory.constants as constants
 from gptmemory.commands import GptMemoryCommands
@@ -208,9 +209,9 @@ class GptMemory(GptMemoryCommands):
         async with ctx.typing():
             messages = await self.build_message_history(ctx, result)
             recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
-            if not auto:
+            if not auto and await self.config.guild(ctx.guild).allow_memorizer():
                 mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
-            await self.execute_responder(ctx, messages, recalled_memories, result, auto)
+            await self.execute_responder(ctx, messages, memories, recalled_memories, result, auto)
         if mem_task:
             await mem_task
         log.info(result)
@@ -268,6 +269,7 @@ class GptMemory(GptMemoryCommands):
     async def execute_responder(self,
                                 ctx: commands.Context,
                                 messages: list[GptMessage],
+                                memories: list[str],
                                 recalled_memories: dict[str, str],
                                 result: GptMemoryResult,
                                 auto: bool = False,
@@ -345,7 +347,11 @@ class GptMemory(GptMemoryCommands):
                 assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                 try:
                     cls = next(t for t in tools if t.schema.function.name == call.function.name)
-                    args = json.loads(call.function.arguments)
+                    if cls is UpdateMemoryFunctionCall:
+                        changes = await self.execute_memorizer(ctx, messages, memories, recalled_memories, result)
+                        args = {"changes": changes}
+                    else:
+                        args = json.loads(call.function.arguments)
                     tool_result = await cls(ctx, self).run(args)
                 except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                     tool_result = "[Error]"
@@ -405,14 +411,12 @@ class GptMemory(GptMemoryCommands):
                                 memories: list[str],
                                 recalled_memories: dict[str, str],
                                 result: GptMemoryResult
-                                ) -> None:
+                                ) -> list[MemoryChangeResult]:
         """
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
         """
         assert ctx.guild and isinstance(ctx.me, discord.Member)
-        if not await self.config.guild(ctx.guild).allow_memorizer():
-            return
 
         if await self.config.guild(ctx.guild).memorizer_user_only():
             memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
@@ -455,9 +459,9 @@ class GptMemory(GptMemoryCommands):
             result.tokens_memorizer = response.usage.completion_tokens
         if completion.refusal:
             log.warning(completion.refusal)
-            return
+            return []
         if not completion.parsed or not completion.parsed.memory_changes:
-            return
+            return []
 
         memory_changes: list[MemoryChangeResult] = []
         async with self.config.guild(ctx.guild).memory() as memory:
@@ -496,6 +500,7 @@ class GptMemory(GptMemoryCommands):
         if memory_changes and await self.config.guild(ctx.guild).memorizer_alerts():
             view = MemoryChangeView(memory_changes)
             view.message = await ctx.send(view=view)
+        return memory_changes
 
 
     async def build_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> list[GptMessage]:

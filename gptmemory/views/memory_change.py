@@ -10,7 +10,7 @@ class MemoryChangeView(View):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.message: discord.Message | None = None
         for change in memory_changes:
-            button = discord.ui.Button(emoji="📝", label=change.name, style=discord.ButtonStyle.gray)
+            button = discord.ui.Button(emoji="💭", label=change.name, style=discord.ButtonStyle.gray)
             button.callback = self.memory_change_selector(change)
             self.add_item(button)
 

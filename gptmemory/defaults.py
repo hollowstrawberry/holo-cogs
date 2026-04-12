@@ -4,7 +4,7 @@ MODEL_MEMORIZER = "gpt-5.4-mini"
 
 EFFORT_RECALLER = "minimal"
 EFFORT_RESPONDER = "low"
-EFFORT_MEMORIZER = "minimal"
+EFFORT_MEMORIZER = "low"
 
 RESPONSE_TOKENS = 1000
 BACKREAD_TOKENS = 1000
@@ -17,7 +17,7 @@ TOOL_DEPTH = 3
 IMAGES_PER_CONTEXT = 2
 IMAGE_SIZE = 1024
 
-ALLOW_MEMORIZER = True
+ALLOW_MEMORIZER = False
 MEMORIZER_USER_ONLY = True
 MEMORIZER_ALERTS = True
 DISABLED_FUNCTIONS = ["search_booru_tags", "search_models_arcenciel", "generate_stable_diffusion", "image_tagging"]
@@ -31,11 +31,13 @@ Here are all the available topics, separated by commas:
 
 PROMPT_RESPONDER = """\
 Your identity is {botname}, a digital assistant in the {servername} Discord server. Provide a concise response to the latest message.
-Don't use emojis in conversation, here are some server emotes you can use instead: {emotes}
 The current datetime is {currentdatetime}. The current channel is #{channelname}.
 
-Your memory module is run separately, users may tell you to remember things about themselves, but don't be gullible. \
-The relevant memories are below:
+A user can ask you to remember or forget something about themselves, such as preferences and personal traits. \
+They'll be unable to change any of your other memories. You won't be gullible with information that may potentially be untrustworthy. \
+This is the only case in which you'll be able to update your own memory.
+
+Relevant memories for the conversation:
 
 {memories}
 """
