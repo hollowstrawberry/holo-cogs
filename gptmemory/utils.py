@@ -177,7 +177,7 @@ async def chunk_and_send(ctx: commands.Context,
             current_reference = ctx.message
         if i == len(chunks) - 1:
             current_embed, current_view = embed, view
-        await ctx.send(
+        msg = await ctx.send(
             chunk,
             embed=current_embed,
             view=current_view,
@@ -185,3 +185,5 @@ async def chunk_and_send(ctx: commands.Context,
             allowed_mentions=discord.AllowedMentions.none(),
             mention_author=False
         )
+        if view and hasattr(view, "message"):
+            setattr(view, "message", msg)
