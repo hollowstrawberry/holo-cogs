@@ -64,12 +64,10 @@ class ImageTaggingFunctionCall(FunctionCallBase):
                 async with self.cog.session.get(image_source) as response:
                     response.raise_for_status()
                     image_bytes = await response.read()
-            log.info(f"{len(image_bytes)=}")
-            max_image_size = await self.cog.config.guild(self.ctx.guild).max_image_resolution()
-            fp = await asyncio.to_thread(normalize_image, image_bytes, max_image_size)
+            max_resolution = await self.cog.config.guild(self.ctx.guild).max_image_resolution()
+            fp = await asyncio.to_thread(normalize_image, image_bytes, max_resolution**2)
             if not fp:
                 return f"[The image appears to be corrupted or invalid]"
-            log.info(f"{len(fp)=}")
             tags = await aimage.api.interrogate(fp, filename)  # type: ignore
             return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
         except Exception as error:
