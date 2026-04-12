@@ -5,8 +5,6 @@ from discord.utils import DISCORD_EPOCH
 
 MAX_MESSAGE_LENGTH = 1950
 MAX_EMBED_DESCRIPTION = 4096
-MAX_EMBED_FIELD = 1024
-MAX_EMBED_NAME = 256
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 VIEW_TIMEOUT = 15 * 60
 EMPTY = "ᅠ"
@@ -30,6 +28,7 @@ GENERATE_IMAGE_PATTERNS = {
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
+BACKTICK_PATTERN = re.compile(r"```+")
 
 URL_PATTERN = re.compile(r"(https?://\S+)")
 GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")
