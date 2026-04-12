@@ -328,6 +328,7 @@ class GptMemory(GptMemoryCommands):
             if not response.choices:  # request may get rejected
                 error = str(getattr(response, "error", "No error"))
                 if "403" in error or "PROHIBITED" in error:
+                    log.warning(f"Missing response: {error}")
                     #await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
                     emoji = await self.config.blocked_emoji()
                 else:
