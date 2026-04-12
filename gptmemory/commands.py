@@ -8,6 +8,7 @@ from gptmemory.base import GptMemoryBase
 from gptmemory.utils import chunk_and_send
 from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.functions.base import get_all_function_calls
+from gptmemory.views.memory_info import MemoryInfoView
 
 
 class GptMemoryCommands(GptMemoryBase):
@@ -69,7 +70,10 @@ class GptMemoryCommands(GptMemoryBase):
                 if matches:
                     name = matches[0]
             if name in self.memory[ctx.guild.id]:
-                return await ctx.send(f"`[Memory of {name}]` ```\n{self.memory[ctx.guild.id][name][:1900]}```")
+                view = MemoryInfoView(name, self.memory[ctx.guild.id][name])
+                view.message = await ctx.send(view=view)
+                if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+                    await ctx.message.delete()
         await ctx.send(f"No memory of `{name}`")
 
     @commands.command(name="deletememory", aliases=["delmemory"]) # type: ignore

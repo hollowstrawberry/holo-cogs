@@ -21,7 +21,7 @@ import gptmemory.constants as constants
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.schema import ImageGenParams, MemoryChangeList, MemoryChangeResult
 from gptmemory.functions.base import get_all_function_calls
-from gptmemory.views.memory_view import MemoryView
+from gptmemory.views.memory_changes import MemoryChangeView
 
 log = logging.getLogger("gptmemory")
 
@@ -493,7 +493,7 @@ class GptMemory(GptMemoryCommands):
                     memory_changes.append(MemoryChangeResult(name, before, after))
 
         if memory_changes and await self.config.guild(ctx.guild).memorizer_alerts():
-            view = MemoryView(memory_changes)
+            view = MemoryChangeView(memory_changes)
             names = [mem.name for mem in memory_changes]
             view.message = await ctx.send(f"-# Revised memories: {', '.join(names)}", view=view)
 

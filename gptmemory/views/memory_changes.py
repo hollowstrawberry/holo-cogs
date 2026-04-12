@@ -5,7 +5,7 @@ from gptmemory.schema import MemoryChangeResult
 from gptmemory.constants import VIEW_TIMEOUT, EMPTY, MAX_EMBED_DESCRIPTION, MAX_EMBED_FIELD, MAX_EMBED_NAME
 
 
-class MemoryView(View):
+class MemoryChangeView(View):
     def __init__(self, memory_changes: list[MemoryChangeResult]):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.memory_changes = memory_changes
