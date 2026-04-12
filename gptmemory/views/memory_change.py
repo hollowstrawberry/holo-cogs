@@ -6,8 +6,9 @@ from gptmemory.constants import VIEW_TIMEOUT, EMPTY, MAX_EMBED_DESCRIPTION, MAX_
 
 
 class MemoryChangeView(View):
-    def __init__(self, memory_changes: list[MemoryChangeResult]):
+    def __init__(self, memory_changes: list[MemoryChangeResult], standalone: bool):
         super().__init__(timeout=VIEW_TIMEOUT)
+        self.standalone = standalone
         self.message: discord.Message | None = None
         for change in memory_changes:
             button = discord.ui.Button(emoji="💭", label=change.name, style=discord.ButtonStyle.gray)
@@ -31,6 +32,9 @@ class MemoryChangeView(View):
         await super().on_timeout()
         if self.message:
             try:
-                await self.message.delete()
+                if self.standalone:
+                    await self.message.delete()
+                else:
+                    await self.message.edit(view=None)
             except (discord.NotFound, discord.Forbidden):
                 pass

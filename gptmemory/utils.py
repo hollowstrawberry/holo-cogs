@@ -125,7 +125,12 @@ def format_arcenciel_model(data: dict) -> str:
     return content
 
 
-async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
+async def chunk_and_send(ctx: commands.Context,
+                         full_text: str,
+                         embed: discord.Embed = None,
+                         view: discord.ui.View = None,
+                         do_reply: bool = False
+                        ):
     base_lines = full_text.splitlines(keepends=True)
     lines = []
     for base_line in base_lines:
@@ -166,9 +171,17 @@ async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
 
     flush_chunk()
 
-    for chunk in chunks:
-        if do_reply:
-            await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
-            do_reply = False
-        else:
-            await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
+    for i, chunk in enumerate(chunks):
+        current_reference, current_embed, current_view = None, None, None
+        if do_reply and i == 0:
+            current_reference = ctx.message
+        if i == len(chunks) - 1:
+            current_embed, current_view = embed, view
+        await ctx.send(
+            chunk,
+            embed=current_embed,
+            view=current_view,
+            reference=current_reference,
+            allowed_mentions=discord.AllowedMentions.none(),
+            mention_author=False
+        )

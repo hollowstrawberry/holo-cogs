@@ -269,7 +269,7 @@ class GptMemoryCommands(GptMemoryBase):
         elif module == "autoresponder":
             prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
         
-        await chunk_and_send(ctx, f"`[{module} prompt]`\n```\n{prompt or '*None*'}\n```", False)
+        await chunk_and_send(ctx, f"`[{module} prompt]`\n```\n{prompt or '*None*'}\n```")
 
     @memoryconfig_prompt.command(name="set", aliases=["edit"])
     async def memoryconfig_prompt_set(self, ctx: commands.Context, module: AllPromptTypes, *, prompt):

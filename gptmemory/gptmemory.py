@@ -210,7 +210,7 @@ class GptMemory(GptMemoryCommands):
             messages = await self.build_message_history(ctx, result)
             recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
             if not auto and await self.config.guild(ctx.guild).allow_memorizer():
-                mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
+                mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result, standalone=True))
             await self.execute_responder(ctx, messages, memories, recalled_memories, result, auto)
         if mem_task:
             await mem_task
@@ -311,7 +311,8 @@ class GptMemory(GptMemoryCommands):
         tools = [t for t in self.available_function_calls
             if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
 
-        past_tool_calls = []
+        past_memory_changes: list[MemoryChangeResult] = []
+        past_tool_calls: list[str] = []
         for depth in range(max_tool_depth):
             response = await self.get_client(model).chat.completions.create(
                 model=model,
@@ -348,7 +349,11 @@ class GptMemory(GptMemoryCommands):
                 try:
                     cls = next(t for t in tools if t.schema.function.name == call.function.name)
                     if cls is UpdateMemoryFunctionCall:
-                        changes = await self.execute_memorizer(ctx, messages, memories, recalled_memories, result)
+                        if past_memory_changes:  # only allow one memory update per response
+                            changes = []
+                        else:
+                            changes = await self.execute_memorizer(ctx, messages, memories, recalled_memories, result, standalone=False)
+                            past_memory_changes += changes
                         args = {"changes": changes}
                     else:
                         args = json.loads(call.function.arguments)
@@ -392,8 +397,9 @@ class GptMemory(GptMemoryCommands):
                 completion = pattern.sub("", completion)
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
 
-        if completion:
-            await utils.chunk_and_send(ctx, completion, do_reply=not auto)
+        view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
+        if completion or view:
+            await utils.chunk_and_send(ctx, completion, embed=None, view=view, do_reply=not auto)
         else:
             emoji = await self.config.noresponse_emoji()
             await ctx.message.add_reaction(emoji)
@@ -410,7 +416,8 @@ class GptMemory(GptMemoryCommands):
                                 messages: list[GptMessage],
                                 memories: list[str],
                                 recalled_memories: dict[str, str],
-                                result: GptMemoryResult
+                                result: GptMemoryResult,
+                                standalone: bool
                                 ) -> list[MemoryChangeResult]:
         """
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
@@ -497,8 +504,8 @@ class GptMemory(GptMemoryCommands):
                 if before != after:
                     memory_changes.append(MemoryChangeResult(name, before, after))
 
-        if memory_changes and await self.config.guild(ctx.guild).memorizer_alerts():
-            view = MemoryChangeView(memory_changes)
+        if standalone and memory_changes and await self.config.guild(ctx.guild).memorizer_alerts():
+            view = MemoryChangeView(memory_changes, standalone)
             view.message = await ctx.send(view=view)
         return memory_changes
 
