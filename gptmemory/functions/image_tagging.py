@@ -64,6 +64,7 @@ class ImageTaggingFunctionCall(FunctionCallBase):
                 async with self.cog.session.get(image_source) as response:
                     response.raise_for_status()
                     image_bytes = await response.read()
+            log.info(f"{len(image_bytes)=}")
             max_image_size = await self.cog.config.guild(self.ctx.guild).max_image_resolution()
             fp = await asyncio.to_thread(normalize_image, image_bytes, max_image_size)
             if not fp:
