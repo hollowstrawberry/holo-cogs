@@ -658,7 +658,7 @@ class GptMemory(GptMemoryCommands):
             except aiohttp.ClientError as error:
                 log.warning(f"Processing image {url}: {type(error).__name__}: {error}")
                 continue
-            fp_after = await asyncio.to_thread(utils.normalize_image, fp_before, max_image_size)
+            fp_after = await asyncio.to_thread(utils.normalize_image, fp_before, max_image_size**2)
             del fp_before
             if not fp_after:
                 continue
