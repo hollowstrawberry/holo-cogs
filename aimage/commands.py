@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import discord
 from copy import copy
+from PIL.Image import UnidentifiedImageError
 
 from redbot.core import app_commands, checks, commands
 
@@ -348,10 +349,22 @@ class AImageCommands(AImageSettings):
                 f"Your image {'after resizing would be' if scale != 0 else 'is'} {int(size**0.5)}² pixels, which is too big.",
                 ephemeral=True)
 
-        image_bytes = await asyncio.to_thread(normalize_image, await image.read(), maxsize)
-        image_name = image.filename.rsplit(".", 1)[0] + ".png"
-        img2img_params = ImageToImageParams(image_bytes, image_name, denoising, scale)
+        try:
+            image_name = image.filename.rsplit(".", 1)[0] + ".png"
+            image_bytes = await asyncio.to_thread(normalize_image, await image.read(), maxsize)
+        except UnidentifiedImageError:
+            log.warning(f"Invalid image {image_name}")
+            return await interaction.followup.send("The file you uploaded is corrupted or invalid.", ephemeral=True)
+        except Exception as error:
+            log.exception("img2img")
+            await ctx.reply(f":warning: There was a problem with the image. `{type(error).__name__}: {error}`")
 
+        img2img_params = ImageToImageParams(
+            image_bytes,
+            image_name,
+            denoising,
+            scale
+        )
         params = ImageGenParams(
             prompt=prompt,
             negative_prompt=negative_prompt,
@@ -414,10 +427,13 @@ class AImageCommands(AImageSettings):
 
     async def autotag(self, ctx: commands.Context, attachment: discord.Attachment):
         assert self.api
-        image_bytes = await asyncio.to_thread(normalize_image, await attachment.read(), MAX_UPLOAD_PIXELS)
-        image_name = attachment.filename.rsplit(".", 1)[0] + ".png"
         try:
+            image_name = attachment.filename.rsplit(".", 1)[0] + ".png"
+            image_bytes = await asyncio.to_thread(normalize_image, await attachment.read(), MAX_UPLOAD_PIXELS)
             tags = await self.api.interrogate(image_bytes, image_name)
+        except UnidentifiedImageError:
+            log.warning(f"Invalid image {image_name}")
+            await ctx.reply(f":warning: The image you uploaded is corrupted or invalid.")
         except aiohttp.ClientResponseError as error:
             log.exception("Autotagger")
             await ctx.reply(f":warning: Failed to tag the image! `{error.message}`")

@@ -4,13 +4,12 @@ import discord
 import trafilatura
 from io import BytesIO
 from copy import deepcopy
-from random import randint
 from base64 import b64encode
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 
-from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
+from gptmemory.constants import MAX_MESSAGE_LENGTH
 
 
 def sanitize(text: str) -> str:
@@ -31,11 +30,12 @@ def farenheit_to_celsius(match: re.Match) -> str:
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
 
-def make_image_content(fp: BytesIO) -> dict:
+def make_image_content(b: bytes | BytesIO) -> dict:
+    b = b.read() if isinstance(b, BytesIO) else b
     return {
         "type": "image_url",
         "image_url": {
-            "url": f"data:image/png;base64,{b64encode(fp.read()).decode()}"
+            "url": f"data:image/png;base64,{b64encode(b).decode()}"
         }
     }
 
@@ -47,21 +47,24 @@ def find_nearest_resolution(current: tuple[int, int], targets: list[tuple[int, i
     best_match = min(targets, key=lambda res: abs((res[0] / res[1]) - ratio))
     return best_match
 
-def process_image(buffer: BytesIO, size: int) -> BytesIO | None:
+def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
+    scale = (pixels / (width * height)) ** 0.5
+    return int(width * scale), int(height * scale)
+
+def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes | None:
+    b = b if isinstance(b, BytesIO) else BytesIO(b)
+    b.seek(0)
     try:
-        image = Image.open(buffer)
+        image = Image.open(b)
     except UnidentifiedImageError:
         return None
-    width, height = image.size
-    image_resolution = width * height
-    target_resolution = size*size
-    if image_resolution > target_resolution:
-        scale_factor = (target_resolution / image_resolution) ** 0.5
-        image = image.resize((int(width * scale_factor), int(height * scale_factor)), Image.Resampling.LANCZOS)
+    if image.width*image.height > max_pixels:
+        width, height = scale_to_size(image.width, image.height, max_pixels)
+        image = image.resize((width, height), Image.Resampling.LANCZOS)
     fp = BytesIO()
     image.save(fp, "PNG")
     fp.seek(0)
-    return fp
+    return fp.read()
 
 def get_text_contents(messages: list[dict]):
     """
@@ -84,56 +87,6 @@ def get_text_contents(messages: list[dict]):
                     })
                 break
     return temp_messages
-
-async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
-    base_lines = full_text.splitlines(keepends=True)
-    lines = []
-    for base_line in base_lines:
-        if len(base_line) > MAX_MESSAGE_LENGTH:
-            while len(base_line) > MAX_MESSAGE_LENGTH:
-                lines.append(base_line)
-                base_line = base_line[:MAX_MESSAGE_LENGTH]
-        else:
-            lines.append(base_line)
-
-    chunks = []
-    current = ""
-    in_code = False
-    code_lang = ""
-
-    def flush_chunk():
-        nonlocal current, in_code, code_lang
-        if in_code:
-            current += "```\n"  # close open fence
-        if current:
-            chunks.append(current)
-        # start new
-        current = ""
-        if in_code:
-            # re-open fence with language
-            current += f"```{code_lang}\n"
-    
-    for line in lines:
-        if m := CODEBLOCK_PATTERN.match(line):
-            if m.group(1):
-                in_code = True
-                code_lang = m.group(1)
-            else:
-                in_code = not in_code
-        if len(current) + len(line) > MAX_MESSAGE_LENGTH:
-            flush_chunk()
-        current += line
-
-    flush_chunk()
-
-    first_reply = True
-    for chunk in chunks:
-        if first_reply and do_reply:
-            await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
-            first_reply = False
-        else:
-            await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
-
 
 def adjusted_effort(model: str, effort: str) -> str:
    if effort == "minimal" and "/" not in model and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
@@ -170,3 +123,52 @@ def format_arcenciel_model(data: dict) -> str:
         versions_info += " ]]"
     content = f"{model_info} [Model description:] {description}\n{versions_info}"
     return content
+
+
+async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
+    base_lines = full_text.splitlines(keepends=True)
+    lines = []
+    for base_line in base_lines:
+        if len(base_line) > MAX_MESSAGE_LENGTH:
+            while len(base_line) > MAX_MESSAGE_LENGTH:
+                lines.append(base_line)
+                base_line = base_line[:MAX_MESSAGE_LENGTH]
+        else:
+            lines.append(base_line)
+
+    chunks = []
+    current = ""
+    in_code = False
+    code_lang = ""
+
+    def flush_chunk():
+        nonlocal current, in_code, code_lang
+        if in_code:
+            current += "```\n"  # close open fence
+        if current:
+            chunks.append(current)
+        # start new
+        current = ""
+        if in_code:
+            # re-open fence with language
+            current += f"```{code_lang}\n"
+    
+    for line in lines:
+        if m := re.match(r"^```(\w*)\s*$", line):
+            if m.group(1):
+                in_code = True
+                code_lang = m.group(1)
+            else:
+                in_code = not in_code
+        if len(current) + len(line) > MAX_MESSAGE_LENGTH:
+            flush_chunk()
+        current += line
+
+    flush_chunk()
+
+    for chunk in chunks:
+        if do_reply:
+            await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
+            do_reply = False
+        else:
+            await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())

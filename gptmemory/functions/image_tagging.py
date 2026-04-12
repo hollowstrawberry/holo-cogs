@@ -4,7 +4,7 @@ import discord
 from io import BytesIO
 from redbot.core import commands
 
-from gptmemory.utils import get_filename, clean_tag, process_image
+from gptmemory.utils import get_filename, clean_tag, normalize_image
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
@@ -65,8 +65,10 @@ class ImageTaggingFunctionCall(FunctionCallBase):
                     response.raise_for_status()
                     image_bytes = await response.read()
             max_image_size = await self.cog.config.guild(self.ctx.guild).max_image_resolution()
-            fp = await asyncio.to_thread(process_image, BytesIO(image_bytes), max_image_size)
-            tags = await aimage.api.interrogate(fp.read(), image_source.filename)  # type: ignore
+            fp = await asyncio.to_thread(normalize_image, image_bytes, max_image_size)
+            if not fp:
+                return f"[The image appears to be corrupted or invalid]"
+            tags = await aimage.api.interrogate(fp, filename)  # type: ignore
             return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")

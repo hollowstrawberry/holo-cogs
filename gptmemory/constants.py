@@ -24,7 +24,6 @@ GENERATE_IMAGE_PATTERNS = {
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
-CODEBLOCK_PATTERN = re.compile(r"^```(\w*)\s*$")
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 
 URL_PATTERN = re.compile(r"(https?://\S+)")

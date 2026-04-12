@@ -28,7 +28,7 @@ class AImageSettings(AImageBase):
         if checkpoint not in ckpt_names.keys():
             names = [f"`{name}`" for name in ckpt_names.keys()]
             batches = make_batches(names, 10)
-            content = f":warning: Checkpoint must be one of:\n" + "\n".join([", ".join(batch) for batch in batches])
+            content = f":warning: Checkpoint must be one of:\n" + ",\n".join([", ".join(batch) for batch in batches])
             return await chunk_and_send(ctx, content, do_reply=True)
 
         await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
@@ -143,7 +143,7 @@ class AImageSettings(AImageBase):
         assert ctx.guild
 
         sampler_names = self.autocomplete_cache.get("samplers") or {}
-        if sampler not in sampler_names.keys():
+        if not sampler or sampler not in sampler_names.keys():
             names = [f"`{name}`" for name in sampler_names.keys()]
             return await ctx.send(f":warning: Sampler must be one of: " + ", ".join(names))
 
@@ -158,7 +158,7 @@ class AImageSettings(AImageBase):
         assert ctx.guild
 
         sch_names = self.autocomplete_cache.get("schedulers") or {}
-        if scheduler not in sch_names.keys():
+        if not scheduler or scheduler not in sch_names.keys():
             names = [f"`{name}`" for name in sch_names.keys()]
             return await ctx.send(f":warning: Scheduler must be one of: " + ", ".join(names))
 
@@ -207,10 +207,10 @@ class AImageSettings(AImageBase):
         assert ctx.guild
         
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
-        if checkpoint not in ckpt_names.keys():
+        if not checkpoint or checkpoint not in ckpt_names.keys():
             names = [f"`{name}`" for name in ckpt_names.keys()]
             batches = make_batches(names, 10)
-            content = f":warning: Checkpoint must be one of:\n" + "\n".join([", ".join(batch) for batch in batches])
+            content = f":warning: Checkpoint must be one of:\n" + ",\n".join([", ".join(batch) for batch in batches])
             return await chunk_and_send(ctx, content, do_reply=True)
 
         await self.config.checkpoint.set(ckpt_names[checkpoint])
@@ -224,7 +224,7 @@ class AImageSettings(AImageBase):
         assert ctx.guild
 
         vae_names = self.autocomplete_cache.get("vae") or {}
-        if vae not in vae_names.keys():
+        if not vae or vae not in vae_names.keys():
             names = [f"`{name}`" for name in vae_names.keys()]
             return await ctx.send(f":warning: Vae must be one of: " + ", ".join(names))
 
