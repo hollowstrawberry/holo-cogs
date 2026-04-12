@@ -68,7 +68,7 @@ class ImageTaggingFunctionCall(FunctionCallBase):
             fp = await asyncio.to_thread(normalize_image, image_bytes, max_resolution**2)
             if not fp:
                 return f"[The image appears to be corrupted or invalid]"
-            tags = await aimage.api.interrogate(fp, filename)  # type: ignore
+            tags = await aimage.api.interrogate(fp, filename.rsplit(".", 1)[0] + ".png")  # type: ignore
             return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
