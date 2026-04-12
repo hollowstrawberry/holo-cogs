@@ -17,13 +17,15 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 import gptmemory.utils as utils
-from gptmemory.schema import GptImageContent, GptMessage
 import gptmemory.constants as constants
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.schema import CensoredError, ImageGenParams, MemoryChangeList
+from gptmemory.schema import ImageGenParams, MemoryChangeList
 from gptmemory.functions.base import get_all_function_calls
 
 log = logging.getLogger("gptmemory")
+
+GptImageContent = list[dict[str, str]]
+GptMessage = dict[str, (str | GptImageContent)]
 
 
 @dataclass
@@ -207,22 +209,7 @@ class GptMemory(GptMemoryCommands):
             recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
             if not auto:
                 mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result))
-            for i in range(constants.CENSORED_RETRIES):
-                try:
-                    await self.execute_responder(ctx, messages, recalled_memories, result, auto)
-                    break
-                except CensoredError:
-                    if i == constants.CENSORED_RETRIES - 1:
-                        log.error(f"Response got censored {constants.CENSORED_RETRIES} times, aborting.")
-                        await ctx.message.add_reaction(await self.config.blocked_emoji())
-                    else:
-                        log.warning(f"Response got censored, retrying...")
-                        messages.append(utils.make_dummy_message(ctx))
-                        if len(messages) - i > 2:
-                            messages = messages[1:]
-                        await asyncio.sleep(2)
-                except Exception:
-                    raise
+            await self.execute_responder(ctx, messages, recalled_memories, result, auto)
         if mem_task:
             await mem_task
         log.info(result)
@@ -339,8 +326,7 @@ class GptMemory(GptMemoryCommands):
             if not response.choices:  # request may get rejected
                 error = str(getattr(response, "error", "No error"))
                 if "403" in error or "PROHIBITED" in error:
-                    if "generate_stable_diffusion" not in past_tool_calls:
-                        raise CensoredError()
+                    #await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
                     emoji = await self.config.blocked_emoji()
                 else:
                     log.error(f"Missing response: {error}")
@@ -400,7 +386,8 @@ class GptMemory(GptMemoryCommands):
         if completion:
             await utils.chunk_and_send(ctx, completion, do_reply=not auto)
         else:
-            await ctx.message.add_reaction(await self.config.noresponse_emoji())
+            emoji = await self.config.noresponse_emoji()
+            await ctx.message.add_reaction(emoji)
 
         response_message = {
             "role": "assistant",
@@ -774,7 +761,7 @@ class GptMemory(GptMemoryCommands):
                 content += f"\n[[[ Linked message: {linked_content} ]]]"  
         # done
         return content.strip()
-    
+
 
     async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
         assert ctx.guild and self.bot.user

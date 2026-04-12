@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 
-from gptmemory.schema import GptMessage
 from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
 
 
@@ -64,7 +63,7 @@ def process_image(buffer: BytesIO, size: int) -> BytesIO | None:
     fp.seek(0)
     return fp
 
-def get_text_contents(messages: list[GptMessage]):
+def get_text_contents(messages: list[dict]):
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.
@@ -85,15 +84,6 @@ def get_text_contents(messages: list[GptMessage]):
                     })
                 break
     return temp_messages
-
-def make_dummy_message(ctx: commands.Context) -> GptMessage:
-    assert ctx.guild
-    content = f"[Username: {sanitize(ctx.author.name)}]"
-    if isinstance(ctx.author, discord.Member) and ctx.author.nick:
-        content += f" [Alias: {sanitize(ctx.author.nick)}]"
-    content += f" [said:] @{ctx.guild.me.name} try again please"
-    content += ("", ".", "?", "???", "...")[randint(0, 4)]
-    return { "role": "user", "content": content }
 
 async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
     base_lines = full_text.splitlines(keepends=True)
