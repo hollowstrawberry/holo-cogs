@@ -45,7 +45,7 @@ class GptMemoryCommands(GptMemoryBase):
     @commands.guild_only()
     async def command_mymemory(self, ctx: commands.Context):
         """View your personal memory in the bot LLM"""
-        await self.command_memory(ctx, ctx.author.name)
+        await self.command_memory(ctx, name=ctx.author.name)
 
     @commands.command(name="memory", aliases=["memories"], invoke_without_subcommand=True)
     @commands.guild_only()
