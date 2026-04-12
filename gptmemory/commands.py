@@ -74,6 +74,7 @@ class GptMemoryCommands(GptMemoryBase):
                 view.message = await ctx.send(view=view)
                 if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
                     await ctx.message.delete()
+                return
         await ctx.send(f"No memory of `{name}`")
 
     @commands.command(name="deletememory", aliases=["delmemory"]) # type: ignore
