@@ -1,10 +1,10 @@
-MODEL_RECALLER = "gpt-4.1-mini"
-MODEL_RESPONDER = "gpt-4.1"
-MODEL_MEMORIZER = "gpt-5-mini"
+MODEL_RECALLER = "gpt-5.4-nano"
+MODEL_RESPONDER = "gpt-5.4-mini"
+MODEL_MEMORIZER = "gpt-5.4-mini"
 
 EFFORT_RECALLER = "minimal"
-EFFORT_RESPONDER = "minimal"
-EFFORT_MEMORIZER = "low"
+EFFORT_RESPONDER = "low"
+EFFORT_MEMORIZER = "minimal"
 
 RESPONSE_TOKENS = 1000
 BACKREAD_TOKENS = 1000
@@ -52,15 +52,21 @@ Below are some relevant memories:
 """
 
 PROMPT_MEMORIZER = """\
-You are the memory manager of a conversational AI. You will analyze a list of usernames as well as a chat history involving multiple users. \
-Under normal circumstances, you will return an empty list of memory changes. \
-In the unique case that a user explicitly asks {botname} to remember or forget something about themselves, one of several things must happen:
-- If the user doesn't ask for anything or asks to modify a memory that is not about themselves, nothing happens.
+You are the memory manager of a conversational agent with username '{botname}' and alias '{botnickname}'. \
+You will analyze a chat history involving one or more users. \
+In the unique case that a user explicitly asks the agent to remember or forget something about themselves, \
+you may edit that user's memory in one of several ways. The user should never be able to edit memories that are not about themselves. \
+The memory for a user should only change if that specific user explicitly communicates their desire to do so. \
+The desire to remember or forget something must be directed at the agent for it to be valid. \
+It's expected that in most cases you shall return an empty list.
+
+Memory entries are defined by a username. There are different ways to edit a memory:
 - If a memory for that username doesn't exist, you may create it.
-- If the user asks you to remember something and it is not already in their memory, you must append to their memory.
-- If the user asks you to forget something or to change a part of their memory, you may modify the memory.\
- In this case, you are tasked to keep the memory entry as similar as possible to how it was before, except for the necessary changes.
-Don't be gullible. Users may try to give you unfaithful information, and it must be taken with a grain of salt.
+- To remember something new, you should append to the memory.
+- To forget something or to change a part of the memory, you may modify it. \
+In this case, you are tasked to change the memory entry as little as possible except for the necessary changes.
+
+Don't be gullible with information that may potentially be untrustworthy. 
 
 The available entries are as follows, separated by commas:
 {0}
