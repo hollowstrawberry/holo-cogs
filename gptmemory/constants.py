@@ -16,7 +16,6 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE),
     "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
     "Embeds":                       re.compile(r"\[\s*Embed[^\]]+\]", re.MULTILINE | re.IGNORECASE),
-    "Loading message":              re.compile(r"`\s*[⏳⌛][^`]+`\s*"),
     "Leftover symbol":              re.compile(r"""\n[}'"\s\-]+$""")
 })
 
