@@ -69,12 +69,7 @@ class AImageSettings(AImageBase):
         config = await self.config.all()
 
         embed = discord.Embed(title="AImage Config", color=await ctx.embed_color())
-
-        negative_prompt = config["negative_prompt"]
-        if len(negative_prompt) > 1000:
-            negative_prompt = negative_prompt[:1000] + "..."
-        embed.add_field(name="Default Negative Prompt", value=f"`{negative_prompt}`", inline=False)
-        
+        embed.add_field(name="Default Negative Prompt", value=f"`{config['negative_prompt'][1000]}`", inline=False)
         embed.add_field(name="Default Checkpoint", value=f"`{config['checkpoint']}`")
         embed.add_field(name="Default VAE", value=f"`{config['vae']}`")
         embed.add_field(name="Default Sampler", value=f"`{config['sampler']}`")
@@ -84,8 +79,8 @@ class AImageSettings(AImageBase):
         embed.add_field(name="Default Size", value=f"`{config['width']}x{config['height']}`")
         embed.add_field(name="NSFW allowed", value=f"`{config['nsfw']}`")
         embed.add_field(name="Use ADetailer", value=f"`{config['adetailer']}`")
-        embed.add_field(name="Max img2img size", value=f"`{config['max_img2img']}`²")
-        embed.add_field(name="Blacklist regex", value=f"`{config['blacklist_regex']}`", inline=False)
+        embed.add_field(name="Max img2img size", value=f"`{config['max_img2img']}`")
+        embed.add_field(name="Blacklist regex", value=f"`{config['blacklist_regex'][1000]}`", inline=False)
 
         return await ctx.send(embed=embed)
 
@@ -241,7 +236,7 @@ class AImageSettings(AImageBase):
         await self.config.adetailer.set(new)
         await ctx.send(f"ADetailer is now {'`disabled`' if not new else '`enabled`'} for basic gens")
 
-    @aimage.command(name="blacklist")
+    @aimage.command(name="blacklist", aliases=["blocklist"])
     @commands.is_owner()
     async def blacklist_cmd(self, ctx: commands.Context, *, regex: Optional[str]):
         """

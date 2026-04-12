@@ -19,8 +19,9 @@ from redbot.core.bot import Red
 import gptmemory.utils as utils
 import gptmemory.constants as constants
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.schema import ImageGenParams, MemoryChangeList
+from gptmemory.schema import ImageGenParams, MemoryChangeList, MemoryChangeResult
 from gptmemory.functions.base import get_all_function_calls
+from gptmemory.views.memory_view import MemoryView
 
 log = logging.getLogger("gptmemory")
 
@@ -275,7 +276,7 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
         """
-        assert ctx.guild and self.bot.user and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        assert ctx.guild and isinstance(ctx.me, discord.Member) and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
         effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
@@ -287,7 +288,8 @@ class GptMemory(GptMemoryCommands):
         base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
         prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
         system_content = base_system_content.format(
-            botname=self.bot.user.name,
+            botname=ctx.me.name,
+            botnickname=ctx.me.nick or ctx.me.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,
             currentdatetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z"),
@@ -407,7 +409,7 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
         """
-        assert ctx.guild
+        assert ctx.guild and isinstance(ctx.me, discord.Member)
         if not await self.config.guild(ctx.guild).allow_memorizer():
             return
 
@@ -418,7 +420,8 @@ class GptMemory(GptMemoryCommands):
         system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
             memories_str,
             recalled_memories_str,
-            botname=ctx.me.name
+            botname=ctx.me.name,
+            botnickname=ctx.me.nick or ctx.me.name
         )
         system_prompt = {
             "role": "system",
@@ -455,8 +458,9 @@ class GptMemory(GptMemoryCommands):
         if not completion.parsed or not completion.parsed.memory_changes:
             return
 
-        memory_changes = []
+        memory_changes: list[MemoryChangeResult] = []
         async with self.config.guild(ctx.guild).memory() as memory:
+            memory: dict[str, str]
             for change in completion.parsed.memory_changes:
                 action, name, content = change.action_type, change.memory_name, change.memory_content
 
@@ -466,6 +470,8 @@ class GptMemory(GptMemoryCommands):
                         continue
                     name = matches[0]
 
+                content = content.strip()
+                before = memory.get(name)
                 if action == "delete":
                     del memory[name]
                     del self.memory[ctx.guild.id][name]
@@ -482,10 +488,14 @@ class GptMemory(GptMemoryCommands):
                 if self.extended_logging:
                     log.info(f"{action} memory / {name=} / {content=}")
 
-                memory_changes.append(name)
+                after = memory.get(name)
+                if before != after:
+                    memory_changes.append(MemoryChangeResult(name, before, after))
 
         if memory_changes and await self.config.guild(ctx.guild).memorizer_alerts():
-            await ctx.send(f"-# Revised memories: {', '.join(memory_changes)}")
+            view = MemoryView(memory_changes)
+            names = [mem.name for mem in memory_changes]
+            view.message = await ctx.send(f"-# Revised memories: {', '.join(names)}", view=view)
 
 
     async def build_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> list[GptMessage]:

@@ -4,7 +4,12 @@ from datetime import datetime, timezone
 from discord.utils import DISCORD_EPOCH
 
 MAX_MESSAGE_LENGTH = 1950
+MAX_EMBED_DESCRIPTION = 4096
+MAX_EMBED_FIELD = 1024
+MAX_EMBED_NAME = 256
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
+VIEW_TIMEOUT = 15 * 60
+EMPTY = "ᅠ"
 
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Author system texts":          re.compile(r"^(\[[^[:\]]*:[^[:\]]*\]\s?)+", re.MULTILINE),

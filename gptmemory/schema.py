@@ -4,6 +4,18 @@ from pydantic import BaseModel
 from dataclasses import dataclass, field
 
 
+class SplitType(Enum):
+    HORIZONTAL = "split-horizontal-2"
+    VERTICAL = "split-vertical-2"
+
+
+@dataclass
+class MemoryChangeResult:
+    name: str
+    before: str | None
+    after: str | None
+
+
 # Structured Outputs
 
 class MemoryChange(BaseModel):
@@ -33,10 +45,6 @@ class Function:
 class ToolCall:
     function: Function
     type: str = "function"
-
-class SplitType(Enum):
-    HORIZONTAL = "split-horizontal-2"
-    VERTICAL = "split-vertical-2"
 
 @dataclass
 class ImageRegionalParams:

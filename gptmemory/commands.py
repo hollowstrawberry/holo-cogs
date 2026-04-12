@@ -40,10 +40,16 @@ class GptMemoryCommands(GptMemoryBase):
             except discord.DiscordException:
                 pass
 
+    @commands.command(name="mymemory")
+    @commands.guild_only()
+    async def command_mymemory(self, ctx: commands.Context):
+        """View your personal memory in the bot LLM"""
+        await self.command_memory(ctx, ctx.author.name)
+
     @commands.command(name="memory", aliases=["memories"], invoke_without_subcommand=True)
     @commands.guild_only()
-    async def command_memory(self, ctx: commands.Context, *, name: Optional[str]):
-        """View all memories or a specific memory, of the GPT bot."""
+    async def command_memory(self, ctx: commands.Context, *, name: discord.Member | str | None):
+        """View all memories or a specific memory, for the bot LLM"""
         assert ctx.guild
         if not name:
             if ctx.guild.id in self.memory and self.memory[ctx.guild.id]:
@@ -52,23 +58,25 @@ class GptMemoryCommands(GptMemoryBase):
                 memories = [memory for memory in memories if memory not in user_memories]
                 reply = "`[Memories:]`\n> " + ", ".join(f"`{mem}`" for mem in memories) \
                     + "\n\n`[User memories:]`\n> " + ", ".join(f"`{mem}`" for mem in user_memories)
-                return await ctx.send(reply)
+                return await ctx.send(reply[:2000])
             else:
                 return await ctx.send("No memories...")
+        if isinstance(name, discord.Member):
+            name = name.name
         if ctx.guild.id in self.memory:
             if name not in self.memory[ctx.guild.id]:
                 matches = get_close_matches(name, self.memory[ctx.guild.id])
                 if matches:
                     name = matches[0]
             if name in self.memory[ctx.guild.id]:
-                return await ctx.send(f"`[Memory of {name}]`\n>>> {self.memory[ctx.guild.id][name]}")
-        await ctx.send(f"No memory of {name}")
+                return await ctx.send(f"`[Memory of {name}]` ```\n{self.memory[ctx.guild.id][name][:1900]}```")
+        await ctx.send(f"No memory of `{name}`")
 
     @commands.command(name="deletememory", aliases=["delmemory"]) # type: ignore
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
     async def command_deletememory(self, ctx: commands.Context, *, name: str):
-        """Delete a memory, for GPT"""
+        """Delete an LLM memory"""
         assert ctx.guild
         if ctx.guild.id in self.memory and name in self.memory[ctx.guild.id]:
             async with self.config.guild(ctx.guild).memory() as memory:
@@ -82,8 +90,13 @@ class GptMemoryCommands(GptMemoryBase):
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
     async def command_setmemory(self, ctx: commands.Context, name: str, *, content: str):
-        """Overwrite a memory, for GPT"""
+        """Overwrite an LLM memory"""
         assert ctx.guild
+        name = name.replace("`", "")
+        if not name:
+            return await ctx.send("Invalid name")
+        if len(name) > 1000:
+            return await ctx.send("Name too long")
         async with self.config.guild(ctx.guild).memory() as memory:
             memory[name] = content
         if ctx.guild.id not in self.memory:
@@ -93,10 +106,10 @@ class GptMemoryCommands(GptMemoryBase):
 
     # Config
 
-    @commands.group(name="gpt", aliases=["gptmemory", "memoryconfig"]) # type: ignore
+    @commands.group(name="llm", aliases=["gpt", "gptmemory", "memoryconfig"]) # type: ignore
     @commands.is_owner()
     @commands.guild_only()
-    async def memoryconfig(self, ctx: commands.Context):
+    async def memoryconfig(self, _: commands.Context):
         """Base command for configuring the GPT Memory cog."""
         pass
 
@@ -133,7 +146,7 @@ class GptMemoryCommands(GptMemoryBase):
         response += f"\n`[response_tokens:]` {settings['response_tokens']} `[backread_tokens:]` {settings['backread_tokens']}"
         response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_memorizer:]` {settings['backread_memorizer']}"
         response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
-        response += f"\n`[max_tool:]` {settings['max_tool']} [max_tool_depth:] {settings['max_tool_depth']}"
+        response += f"\n`[max_tool:]` {settings['max_tool']} `[max_tool_depth:]` {settings['max_tool_depth']}"
         response += f"\n`[max_quote:]` {settings['max_quote']} `[max_text_file:]` {settings['max_text_file']}"
 
         await ctx.send(response)
