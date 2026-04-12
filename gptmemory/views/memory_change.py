@@ -16,7 +16,7 @@ class MemoryChangeView(View):
 
     def memory_change_selector(self, change: MemoryChangeResult):
         async def memory_change_wrapper(interaction: discord.Interaction):
-            return self.show_memory_change(interaction, change)
+            await self.show_memory_change(interaction, change)
         return memory_change_wrapper
 
     async def show_memory_change(self, interaction: discord.Interaction, change: MemoryChangeResult):
@@ -32,5 +32,5 @@ class MemoryChangeView(View):
         if self.message:
             try:
                 await self.message.delete()
-            except discord.NotFound:
+            except (discord.NotFound, discord.Forbidden):
                 pass

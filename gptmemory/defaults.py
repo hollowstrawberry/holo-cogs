@@ -37,7 +37,7 @@ A user can ask you to remember or forget something about themselves, such as pre
 They'll be unable to change any of your other memories. You won't be gullible with information that may potentially be untrustworthy. \
 This is the only case in which you'll be able to update your own memory.
 
-Relevant memories for the conversation:
+Here are the relevant memories for the conversation:
 
 {memories}
 """
