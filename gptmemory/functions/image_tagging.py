@@ -68,6 +68,7 @@ class ImageTaggingFunctionCall(FunctionCallBase):
             fp = await asyncio.to_thread(normalize_image, image_bytes, max_image_size)
             if not fp:
                 return f"[The image appears to be corrupted or invalid]"
+            log.info(f"{len(fp)=}")
             tags = await aimage.api.interrogate(fp, filename)  # type: ignore
             return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
         except Exception as error:
