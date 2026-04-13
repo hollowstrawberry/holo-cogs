@@ -86,6 +86,8 @@ class AImage(AImageCommands):
         assert isinstance(gen.context.channel, discord.abc.Messageable)
         now = datetime.now(timezone.utc)
         created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
+        user = gen.context.author if isinstance(gen.context, commands.Context) else gen.context.user
+        assert isinstance(user, discord.Member)
 
         if (now - created).total_seconds() > constants.JOB_TIMEOUT:
             del self.queued_images[gen.id]
@@ -117,6 +119,8 @@ class AImage(AImageCommands):
             
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
             embed.description = f"{await self.config.loading_emoji()} "
+            embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
+            
             if current_phase == "queued":
                 embed.description += "Image request received..."
                 embed.add_field(name="Position in queue", value=f"`{current_position}`")
@@ -172,6 +176,7 @@ class AImage(AImageCommands):
         loading = await self.config.loading_emoji()
         embed = discord.Embed(description=f"{loading} Image request sent...")
         embed.color = await self.bot.get_embed_color(channel)
+        embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
             progress_message = await context.reply(embed=embed, mention_author=False)
             if not callback:
