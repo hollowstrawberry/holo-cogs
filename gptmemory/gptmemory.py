@@ -208,8 +208,10 @@ class GptMemory(GptMemoryCommands):
         result = GptMemoryResult()
         mem_task = None
         async with ctx.typing():
-            messages = await self.build_message_history(ctx, result)
-            recalled_memories = await self.execute_recaller(ctx, messages, memories, result)
+            backread = await self.fetch_message_history(ctx)
+            messages = await self.build_message_history_context(ctx, backread, result)
+            participants = list(set([msg.author for msg in backread]))
+            recalled_memories = await self.execute_recaller(ctx, participants, messages, memories, result)
             if not auto and await self.config.guild(ctx.guild).allow_memorizer():
                 mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result, standalone=True))
             await self.execute_responder(ctx, messages, memories, recalled_memories, result, auto)
@@ -220,6 +222,7 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_recaller(self,
                                ctx: commands.Context,
+                               participants: list[discord.Member | discord.User],
                                messages: list[GptMessage],
                                memories: list[str],
                                result: GptMemoryResult
@@ -235,8 +238,9 @@ class GptMemory(GptMemoryCommands):
         temp_messages = utils.get_text_contents(messages)
         temp_memories = list(memories)
         memories_to_recall = set()
+        participant_names = [p.name for p in participants]
         for memory in memories:
-            if any(f"[Username: {memory}]" in msg["content"] for msg in temp_messages):
+            if memory in participant_names:
                 temp_memories.remove(memory)
                 memories_to_recall.add(memory)
 
@@ -287,7 +291,7 @@ class GptMemory(GptMemoryCommands):
         max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
 
-        recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items())
+        _, recalled_memories_str = self.build_memory_strings(memories, recalled_memories)
         base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
         prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
         system_content = base_system_content.format(
@@ -360,7 +364,7 @@ class GptMemory(GptMemoryCommands):
                         args = json.loads(call.function.arguments)
                     tool_result = await cls(ctx, self).run(args)
                 except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
-                    tool_result = "[Error]"
+                    tool_result = "<error>Unhandled error, please contact the developer</error>"
                     log.exception(f"Calling tool {call.function.name}")
 
                 past_tool_calls.append(call.function.name)
@@ -426,8 +430,7 @@ class GptMemory(GptMemoryCommands):
 
         if await self.config.guild(ctx.guild).memorizer_user_only():
             memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
-        memories_str = ", ".join(memories)
-        recalled_memories_str = "\n".join(f"[Memory of {k}:] {v}" for k, v in recalled_memories.items() if k in memories)
+        memories_str, recalled_memories_str = self.build_memory_strings(memories, recalled_memories)
         system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
             memories_str,
             recalled_memories_str,
@@ -441,9 +444,7 @@ class GptMemory(GptMemoryCommands):
 
         prefixes = await self.bot.get_valid_prefixes(ctx.guild)
         def is_valid(msg: GptMessage) -> bool:
-            if msg["role"] == "user" and any(f"[said:] {prefix}" in msg["content"] for prefix in prefixes):  # bot command
-                return False
-            if msg["role"] == "assistant" and "[said:] `[Memor" in msg["content"]:  # memory command
+            if msg["role"] == "user" and any(f"<content>{prefix}" in msg["content"] for prefix in prefixes):  # bot command
                 return False
             return True
         temp_messages = [msg for msg in utils.get_text_contents(messages) if is_valid(msg)]
@@ -509,10 +510,8 @@ class GptMemory(GptMemoryCommands):
         return memory_changes
 
 
-    async def build_message_history(self, ctx: commands.Context, result: GptMemoryResult) -> list[GptMessage]:
+    async def build_message_history_context(self, ctx: commands.Context, backread: list[discord.Message], result: GptMemoryResult) -> list[GptMessage]:
         assert ctx.guild and self.bot.user
-
-        backread = await self.fetch_message_history(ctx)
         messages = []
         processed_image_sources = []
         tokens = 0
@@ -795,6 +794,28 @@ class GptMemory(GptMemoryCommands):
             obj["error"] = "Message empty or not supported"
         # done
         return ({"chat_message": obj}, inline_objs)
+    
+
+    def build_memory_strings(self, memories: list[str], recalled_memories: dict[str, str]) -> tuple[str, str]:
+        memories_obj = {
+            "memory_names": {
+                "#text": ", ".join(memories),
+            }
+        }
+        recalled_memories_obj = {
+            "memories": {
+                "memory": []
+            }
+        }
+        for name, content in recalled_memories.items():
+            if name in memories:
+                recalled_memories_obj["memories"]["memory"].append({
+                    "@name": name,
+                    "#text": content,
+                })
+        memories_str = xmltodict.unparse(memories_obj, full_document=False)
+        recalled_memories_str = xmltodict.unparse(recalled_memories_obj, full_document=False)
+        return memories_str, recalled_memories_str
     
 
     async def read_text_file(self, attachment: discord.Attachment, max_file_length: int) -> str | None:
