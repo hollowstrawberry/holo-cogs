@@ -24,7 +24,7 @@ class FunctionCallBase(ABC):
         return asdict(cls.schema)
 
     @abstractmethod
-    async def run(self, arguments: dict) -> str:
+    async def run(self, arguments: dict) -> dict | str:
         raise NotImplementedError
     
 

@@ -47,13 +47,13 @@ class ImageTaggingFunctionCall(FunctionCallBase):
         assert self.ctx.guild
         filename: str = arguments.get("filename", "")
         if not filename:
-            return "[Error: No filename provided]"
+            return "<error>No filename provided</error>"
         aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
         if not aimage:
-            return "[Error: `aimage` cog not installed, please notify the bot owner]"
+            return "<error>`aimage` cog not installed, please notify the bot owner</error>"
         image_source = await self.find_image(filename.strip())
         if not image_source:
-            return f"[Error: Can't find image '{filename}' in recent chat logs]"
+            return f"<error>Can't find image '{filename}' in recent chat logs</error>"
 
         emoji = await self.get_setting("tagging_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
@@ -67,9 +67,9 @@ class ImageTaggingFunctionCall(FunctionCallBase):
             max_resolution = await self.cog.config.guild(self.ctx.guild).max_image_resolution()
             fp = await asyncio.to_thread(normalize_image, image_bytes, max_resolution**2)
             if not fp:
-                return f"[The image appears to be corrupted or invalid]"
+                return f"<error>The image appears to be corrupted or invalid</error>"
             tags = await aimage.api.interrogate(fp, filename.rsplit(".", 1)[0] + ".png")  # type: ignore
             return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
-            return f"[Failed to tag image] [[[ {type(error).__name__}: {error} ]]]"
+            return f"<error>{type(error).__name__}: {error}</error>"

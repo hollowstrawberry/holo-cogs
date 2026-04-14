@@ -368,18 +368,25 @@ class GptMemory(GptMemoryCommands):
                     log.exception(f"Calling tool {call.function.name}")
 
                 past_tool_calls.append(call.function.name)
-                tool_result = tool_result.strip()
-                if len(tool_result) > max_tool_length:
-                    tool_result = tool_result[:max_tool_length-3] + "..."
-                result.tokens_tools += len(encoding.encode(tool_result))
+                if isinstance(tool_result, dict):
+                    if len(tool_result) == 0:
+                        tool_result = {"result": "None"}
+                    elif len(tool_result) > 1:
+                        tool_result = {"result": tool_result}
+                    tool_text = xmltodict.unparse(tool_result, full_document=False)
+                else:
+                    tool_text = tool_result.strip()
 
+                if len(tool_text) > max_tool_length:
+                    tool_text = tool_text[:max_tool_length-3] + "..."
+                result.tokens_tools += len(encoding.encode(tool_text))
                 log.info(f"{call.function.name=} {call.function.arguments=}")
                 if self.extended_logging:
-                    log.info(f"{tool_result=}")
+                    log.info(f"{tool_text=}")
               
                 temp_messages.append({
                     "role": "tool",
-                    "content": tool_result,
+                    "content": tool_text,
                     "tool_call_id": call.id,
                 })
 

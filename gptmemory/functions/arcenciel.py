@@ -2,7 +2,7 @@ import logging
 import asyncio
 import aiohttp
 
-from gptmemory.utils import format_arcenciel_model
+from gptmemory.utils import parse_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
@@ -33,7 +33,7 @@ class ArcencielFunctionCall(FunctionCallBase):
         "User-Agent": "holo-cogs/v1 (https://github.com/hollowstrawberry/holo-cogs);"
     }
 
-    async def run(self, arguments: dict) -> str:
+    async def run(self, arguments: dict) -> dict | str:
         query = arguments.get("query", "")
         user = arguments.get("user", None)
         found_user: int | None = None
@@ -49,11 +49,11 @@ class ArcencielFunctionCall(FunctionCallBase):
                     data = await response.json()
             except aiohttp.ClientError as error:
                 log.warning(f"Trying to grab user from Arc en Ciel: {type(error).__name__}: {error}")
-                return "[Error trying to grab user from Arc en Ciel]"
+                return "<error>Failed to grab user from Arc en Cie</error>"
             if data:
                 found_user = data[0]['id']
             else:
-                return "[User not found]"
+                return "<error>User not found</error>"
 
         params = {"search": query}
         if found_user is not None:
@@ -64,14 +64,18 @@ class ArcencielFunctionCall(FunctionCallBase):
                 data = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Trying to grab model from Arc en Ciel: {type(error).__name__}: {error}")
-            return "[Error trying to grab model from Arc en Ciel]"
+            return "<error>Failed to grab model from Arc en Ciel</error>"
         
         if not data["data"]:
-            return "[No results]"
+            return "No results"
 
         results = []
         for result in data["data"]:
-            if not result.get('versions', None):
+            if not result.get("versions", None):
                 continue
-            results.append(f"[[[ {format_arcenciel_model(result)} ]]]")
-        return '\n\n'.join(results)
+            results.append(parse_arcenciel_model(result))
+        return {
+            "results": {
+                "model": results
+            }
+        }

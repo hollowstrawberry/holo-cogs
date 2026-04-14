@@ -1,6 +1,7 @@
 import json
 import logging
 import aiohttp
+from gptmemory.utils import add_xml_group
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.functions.base import FunctionCallBase
 
@@ -22,11 +23,11 @@ class SearchFunctionCall(FunctionCallBase):
                 required=["query"],
             )))
 
-    async def run(self, arguments: dict) -> str:
+    async def run(self, arguments: dict) -> dict | str:
         api_key = (await self.ctx.bot.get_shared_api_tokens("serper")).get("api_key")
         if not api_key:
             log.error("Tried to do a google search but serper api_key not found")
-            return "An error occured while searching Google."
+            return "<error>An error occured while searching Google.</error>"
 
         url = "https://google.serper.dev/search"
         query = arguments["query"]
@@ -38,34 +39,40 @@ class SearchFunctionCall(FunctionCallBase):
                 data = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Failed request to serper.io: {type(error).__name__}: {error}")
-            return "An error occured while searching Google."
+            return "<error>An error occured while searching Google.</error>"
 
-        content = "[Google Search result] "
-
+        obj = {}
         if answer_box := data.get("answerBox", {}):
             if "title" in answer_box and "answer" in answer_box:
-                content += f"[Title: {answer_box['title']}] [Answer: {answer_box['answer']}] "
+                obj["question"] = answer_box["title"]
+                obj["answer"] = answer_box["answer"]
             if "source" in answer_box:
-                content += f"[Source: {answer_box['source']}] "
+                obj["source"] = answer_box["source"]
             if "snippet" in answer_box:
-                content += f"[snippet:] {answer_box['snippet']} "
+                obj["snippet"] = answer_box["snippet"]
 
         if graph := data.get("knowledgeGraph", {}):
             if "title" in graph:
-                content += f"[Title: {graph['title']}] "
+                obj["title"] = graph["title"]
             if "type" in graph:
-                content += f"[Type: {graph['type']}] "
+                obj["type"] = graph["type"]
             if "description" in graph:
-                content += f"[Description: {graph['description']}] "
+                obj["description"] = graph["description"]
             if "website" in graph:
-                content += f"[Website: {graph['website']}] "
+                obj["website"] = graph["website"]
+            attributes = []
             for attribute, value in graph.get("attributes", {}).items():
-                content += f"[{attribute}: {value}] "
+                attributes.append({
+                    "@name": attribute,
+                    "#text": value,
+                })
+            add_xml_group(obj, attributes, "attributes")
 
         if organic_results := data.get("organic", []):
-            content += f"[First result URL: {organic_results[0]['link']}] [First result snippet:] {organic_results[0]['snippet']}"
+            obj["first_result_url"] = organic_results[0]["link"]
+            obj["first_result_snippet"] = organic_results[0]["snippet"]
 
-        if len(content) < 25:
-            content += "Nothing relevant."
+        if len(obj) == 0:
+            obj["#text"] = "Nothing relevant."
 
-        return content
+        return {"result": obj}

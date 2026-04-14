@@ -25,11 +25,11 @@ class WolframAlphaFunctionCall(FunctionCallBase):
                 required=["query"],
             )))
 
-    async def run(self, arguments: dict) -> str:
+    async def run(self, arguments: dict) -> dict | str:
         api_key = (await self.ctx.bot.get_shared_api_tokens("wolframalpha")).get("appid")
         if not api_key:
             log.error("No appid set for wolframalpha")
-            return "An error occured while asking Wolfram Alpha."
+            return "<error>An error occured while asking Wolfram Alpha.</error>"
 
         url = "http://api.wolframalpha.com/v2/query?"
         query = arguments["query"]
@@ -42,7 +42,7 @@ class WolframAlphaFunctionCall(FunctionCallBase):
                 result = await response.text()
         except aiohttp.ClientError as error:
             log.warning(f"Asking Wolfram Alpha: {type(error).__name__}: {error}")
-            return "An error occured while asking Wolfram Alpha."
+            return "<error>An error occured while asking Wolfram Alpha.</error>"
 
         root = ElementTree.fromstring(result)
         plaintext = []
@@ -50,10 +50,15 @@ class WolframAlphaFunctionCall(FunctionCallBase):
             if pt.text:
                 plaintext.append(pt.text.capitalize())
         if not plaintext:
-            return "Wolfram Alpha is unable to answer the question. Try to answer with your own knowledge."
+            return "<error>Wolfram Alpha is unable to answer the question. Find a different way to answer.</error>"
         content = "\n".join(plaintext[:3])  # lines after the 3rd are often irrelevant in answers such as currency conversion
 
         if FARENHEIT_PATTERN.search(content):
             content = FARENHEIT_PATTERN.sub(farenheit_to_celsius, content)
 
-        return f"[Wolfram Alpha] [Question: {query}] [Answer:] {content}"
+        return {
+            "wolfram_alpha": {
+                "question": query,
+                "answer": content,
+            }
+        }

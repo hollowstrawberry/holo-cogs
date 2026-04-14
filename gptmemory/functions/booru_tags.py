@@ -64,7 +64,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> str:
         query = arguments.get("query", "")
         if len(query) < 3:
-            return "[Error: Query must be at least 3 characters long]"
+            return "<error>Query must be at least 3 characters long</error>"
         
         emoji = await self.get_setting("boorutag_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
@@ -78,4 +78,4 @@ class BooruTagsFunctionCall(FunctionCallBase):
         if results:
             return f"`{', '.join(results)}`"
         else:
-            return "(No results)"
+            return "No results"

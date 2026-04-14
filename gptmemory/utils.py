@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Any
 import discord
 import trafilatura
 from io import BytesIO
@@ -18,7 +19,7 @@ def add_xml_group(obj: dict, group: list, group_name: str):
     if len(group) == 1:
         obj[single_name] = group[0]
     elif len(group) > 1:
-        obj[group_name][single_name] = group
+        obj[group_name] = {single_name: group}
 
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()
@@ -100,31 +101,42 @@ def parse_prompt(prompt: str) -> str:
     prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)
     return prompt
 
-def format_arcenciel_model(data: dict) -> str:
-    description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"
+def parse_arcenciel_model(data: dict) -> dict[str, Any]:
+    obj = {
+        "@title": data["title"],
+        "@type": data["type"],
+        "url": f"https://arcenciel.io/models/{data['id']}",
+        "uploader": data["uploader"]["username"],
+        "description": trafilatura.extract(data["description"]) or data["description"] or "(Empty)",
+    }
+    versions_obj = []
     versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
-    model_info = f"[[ Model name: {data['title']} ]] [Model URL: https://arcenciel.io/models/{data['id']}] [Type: {data['type']}] [Uploader: {data['uploader']['username']}] [Versions: {len(versions)}]"
-    versions_info = ""
     for i, version in enumerate(versions):
-        versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
-        if i <= 1 and data['type'] == "LORA":
-            versions_info += " [Activation tags:]"
+        ver_obj = {
+            "@name": version["versionName"],
+            "@base_model": version["baseModel"],
+            "@published": version["publishedAt"]
+        }
+        if i <= 1 and data["type"] == "LORA":
             filename = version['filePath'].split("/")[-1].replace(".safetensors", "")
             lora = f"<lora:{filename}:1>" if filename else ""
-            if version.get('activationTags', []):
-                for tags in version['activationTags']:
-                    if tags.count('|') == 1:
-                        tags = tags.split('|')[1].strip()
-                    if tags in description:
-                        description = description.replace(tags, "[tags]")
-                    versions_info += f" [{lora} {tags}]"
+            if version.get("activationTags", []):
+                tags_obj = []
+                for tags in version["activationTags"]:
+                    t_obj = {}
+                    if tags.count("|") == 1:
+                        name, tags = [t.strip() for t in tags.split("|")]
+                        t_obj["@name"] = name
+                    if tags in obj["description"]:
+                        obj["description"] = obj["description"].replace(tags, "<tags>")
+                    t_obj["#text"] = f"{lora} {tags}"
+                    tags_obj.append(t_obj)
+                ver_obj["activation_tags"] = {"prompt": tags_obj}
             else:
-                versions_info += f" {lora}"
-        else:
-            versions_info += " [Incomplete data]"
-        versions_info += " ]]"
-    content = f"{model_info} [Model description:] {description}\n{versions_info}"
-    return content
+                ver_obj["lora"] = lora
+        versions_obj.append(ver_obj)
+    obj["versions"] = {"version": versions_obj}
+    return obj
 
 
 async def chunk_and_send(ctx: commands.Context,
