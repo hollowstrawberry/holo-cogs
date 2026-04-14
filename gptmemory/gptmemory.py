@@ -324,7 +324,8 @@ class GptMemory(GptMemoryCommands):
                 messages=temp_messages,  # type: ignore
                 max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
                 max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
-                tools=NotGiven() if depth >= max_tool_depth - 1 else [t.asdict() for t in tools],  # type: ignore
+                tools=[t.asdict() for t in tools],  # type: ignore
+                tool_choice="none" if depth >= max_tool_depth - 1 else "auto",
                 reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
             )
             
