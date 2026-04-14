@@ -717,6 +717,7 @@ class GptMemory(GptMemoryCommands):
                     "prompt": utils.parse_prompt(metadata["Prompt"]),
                 }
         # text content
+        linked_message_for_later = None
         if message.is_system():
             obj["action"] = "Joined the server" if message.type == discord.MessageType.new_member else message.system_content
         elif message.content:
@@ -741,7 +742,7 @@ class GptMemory(GptMemoryCommands):
                     except (AttributeError, discord.NotFound):
                         continue
                     linked_message_obj, linked_message_inlines = await self.parse_discord_message(linked, None, backread, max_quote_length, max_file_length, exhaustive=False)
-                    obj["linked_message"] = {**link_obj, **linked_message_obj}
+                    linked_message_for_later = {**link_obj, **linked_message_obj}
                     inline_objs.update(linked_message_inlines)
             if not exhaustive and len(content) > max_quote_length:
                 content = content[:max_quote_length - 3] + "..."
@@ -780,6 +781,11 @@ class GptMemory(GptMemoryCommands):
             if len(fields) > 0 and exhaustive:
                 embed_obj["fields"] = fields
         utils.add_xml_group(obj, embeds, "embeds")
+        buttons = []
+        for component in message.components:
+            if "generated_image" and isinstance(component, discord.Button):
+                buttons
+        utils.add_xml_group(obj, buttons, "buttons")
         # poll
         if message.poll:
             poll = {"question": message.poll.question}
@@ -797,6 +803,8 @@ class GptMemory(GptMemoryCommands):
             quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(quote, None, backread, max_quote_length, max_file_length, exhaustive=False)
             obj["quote"] = quoted_message_obj
             inline_objs.update(quoted_message_inlines)
+        if linked_message_for_later:
+            obj["linked_message"] = linked_message_for_later
         # etc
         if len(obj) == starting_len:
             obj["error"] = "Message empty or not supported"
