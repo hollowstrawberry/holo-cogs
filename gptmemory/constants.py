@@ -10,7 +10,7 @@ VIEW_TIMEOUT = 15 * 60
 EMPTY = "ᅠ"
 DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
 
-RESPONSE_CONTENT_PATTERN = re.compile(r"<content>([\s\S]*)</content>")
+RESPONSE_CONTENT_PATTERN = re.compile(r"<content>([\s\S]*?)</content>")
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE),
     "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
@@ -18,7 +18,7 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
 })
 
 GENERATE_IMAGE_PATTERNS = {
-    "XML":               re.compile(r"<generated_image[\s\S]+<prompt>([\s\S]*)</prompt>"),
+    "XML":               re.compile(r"<generated_image[\s\S]+?<prompt>([\s\S]*?)</prompt>"),
     "Gemini action":     re.compile(r"""{\s*(?:["']action["'][\s\S]+?)?["']prompt["']:\s*["']([^"']+)["'][\s\S]*$""", re.IGNORECASE)
 }
 
