@@ -11,8 +11,7 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 
-from aimage.constants import NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING
-from gptmemory.constants import MAX_MESSAGE_LENGTH
+from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING
 
 
 def add_xml_group(obj: dict, group: list, group_name: str) -> None:
