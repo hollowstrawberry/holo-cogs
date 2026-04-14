@@ -56,17 +56,19 @@ class ScrapeFunctionCall(FunctionCallBase):
 
     async def scrape_generic(self, url: str) -> str:
         try:
-            async with self.cog.session.get(url, headers=self.headers) as response:
+            async with self.cog.session.get(url, headers=self.headers, timeout=aiohttp.ClientTimeout(total=5)) as response:
                 response.raise_for_status()
                 content_type = response.headers.get("Content-Type", "").lower()
                 if "text" not in content_type:
                     return f"<error>Contents of {url} is not text</error>"
                 text = await response.text()
                 content = trafilatura.extract(text) or text
+        except asyncio.TimeoutError:
+            return "<error>Timed out.</error>"
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {type(error).__name__}: {error}")
-            return "<error>Failed to open URL</error>"
-        return content or "<error>The page is empty</error>"
+            return f"<error>Failed to open URL ({type(error).__name__})</error>"
+        return content or "<error>The page is empty.</error>"
     
     async def scrape_github_file(self, match: re.Match) -> str:
         user = match.group("user")
