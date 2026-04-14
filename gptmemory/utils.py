@@ -9,14 +9,16 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 
+from aimage.constants import NEWLINE_SEPARATOR_PATTERN
 from gptmemory.constants import MAX_MESSAGE_LENGTH
 
 
-def sanitize(text: str) -> str:
-    special_characters = "[]"
-    for c in special_characters:
-        text = text.replace(c, "")
-    return text
+def add_xml_group(obj: dict, group: list, group_name: str):
+    single_name = group_name[:-1]
+    if len(group) == 1:
+        obj[single_name] = group[0]
+    elif len(group) > 1:
+        obj[group_name][single_name] = group
 
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()
@@ -95,7 +97,7 @@ def adjusted_effort(model: str, effort: str) -> str:
        return effort
    
 def parse_prompt(prompt: str) -> str:
-    prompt = re.sub(r",?\s*\n[\n\s]*", " || ", prompt)
+    prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)
     return prompt
 
 def format_arcenciel_model(data: dict) -> str:

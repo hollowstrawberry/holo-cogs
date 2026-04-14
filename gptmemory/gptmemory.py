@@ -3,6 +3,7 @@ import logging
 import asyncio
 import aiohttp
 import discord
+import xmltodict
 from io import BytesIO
 from random import random
 from typing import Any
@@ -16,12 +17,12 @@ from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
-from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
 import gptmemory.utils as utils
 import gptmemory.constants as constants
-from gptmemory.commands import GptMemoryCommands
 from gptmemory.schema import ImageGenParams, MemoryChangeList, MemoryChangeResult
+from gptmemory.commands import GptMemoryCommands
 from gptmemory.functions.base import get_all_function_calls
+from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
 from gptmemory.views.memory_change import MemoryChangeView
 
 log = logging.getLogger("gptmemory")
@@ -294,7 +295,7 @@ class GptMemory(GptMemoryCommands):
             botnickname=ctx.me.nick or ctx.me.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,
-            currentdatetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z"),
+            currentdatetime=datetime.now().strftime(constants.DATETIME_FORMATTING),
             memories=recalled_memories_str,
             **prompt_keys
         )
@@ -384,15 +385,13 @@ class GptMemory(GptMemoryCommands):
                 log.info(f"{completion=}")
             # special case: the bot tries to generate an image by sending text instead of using the function call
             if "generate_stable_diffusion" not in past_tool_calls:
-                prompt = None
                 for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
                     if m := pattern.search(completion):
-                        prompt = m.group(1)
-                        completion = pattern.sub("", completion)
-                        break
-                if prompt:
-                    await self.generate_stable_diffusion(ctx, prompt)
+                        await self.generate_stable_diffusion(ctx, m.group(1))
+                        break                    
             # cleanup
+            if m := constants.RESPONSE_CONTENT_PATTERN.search(completion):
+                completion = m.group(1)
             for pattern in constants.RESPONSE_CLEANUP_PATTERNS.values():
                 completion = pattern.sub("", completion)
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
@@ -540,9 +539,17 @@ class GptMemory(GptMemoryCommands):
                 total_images += len(image_contents)
             else:
                 image_contents = []
-            text_content = await self.parse_discord_message(backmsg, quote, backread, True, max_quote_length, max_file_length)
+            message_obj, message_inline_objs = await self.parse_discord_message(backmsg, quote, backread, max_quote_length, max_file_length, exhaustive=True)
+            text_content = xmltodict.unparse(message_obj, full_document=False)
+            for before, after_obj in message_inline_objs.items():
+                text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
+            if self.extended_logging:
+                log.info(text_content)
             if image_contents:
-                image_contents.insert(0, {"type": "text", "text": text_content})
+                image_contents.insert(0, {
+                    "type": "text",
+                    "text": text_content
+                })
                 messages.append({
                     "role": "user", # assistant can't have image contents
                     "content": image_contents
@@ -675,114 +682,132 @@ class GptMemory(GptMemoryCommands):
                                     message: discord.Message,
                                     quote:  discord.Message | None,
                                     backread: list[discord.Message],
-                                    recursive: bool,
                                     max_quote_length: int,
                                     max_file_length: int,
-                                    ) -> str:
+                                    exhaustive: bool,
+                                    ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+        """
+        Converts a message into a dictionary of structured information that may then be unparsed into xml.
+        Also returns a dictionary of inline objects to be injected back into the final string.
+        """
         assert message.guild
-        # name
-        content = f"[Username: {utils.sanitize(message.author.name)}]"
+        inline_objs: dict[str, dict[str, Any]] = {}
+        obj: dict[str, Any] = {
+            "@time": message.created_at.astimezone().strftime(constants.DATETIME_FORMATTING),
+            "@username": message.author.name,
+        }
         if isinstance(message.author, discord.Member) and message.author.nick:
-            content += f" [Alias: {utils.sanitize(message.author.nick)}]"
-        starting_len = len(content)
+            obj["@nickname"] = message.author.nick
+        starting_len = len(obj)
+        # generated image
+        if message.attachments and len(message.attachments) == 1 and message.author == message.guild.me:
+            imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
+            metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message)  # type: ignore
+            if metadata and metadata.get("Prompt"):
+                obj["generated_image"] = {
+                    "@filename": message.attachments[0].filename,
+                    "@dimensions": metadata.get("Size", "unknown"),
+                    "prompt": utils.parse_prompt(metadata["Prompt"]),
+                }
         # text content
         if message.is_system():
-            if message.type == discord.MessageType.new_member:
-                content += " [Joined the server]"
-            else:
-                content += f" {message.system_content}"
+            obj["action"] = "Joined the server" if message.type == discord.MessageType.new_member else message.system_content
         elif message.content:
-            content += f" [said:] {message.content}"
-        # image metadata
-        is_generated_image = False
-        if message.attachments and len(message.attachments) == 1:
-            imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
-            metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
-            if metadata and metadata.get("Prompt", None):
-                is_generated_image = True
-                if message.author == message.guild.me:
-                    prompt = utils.parse_prompt(metadata['Prompt'])
-                    content += f" [[ [Generated image filename: {message.attachments[0].filename}] [Generated image prompt:] {prompt} ]]"
-                else:
-                    content += f" [[ [Image with prompt:] {metadata['Prompt']} ]]"
+            content = message.content
+            for mentioned in message.mentions + message.role_mentions:
+                content = content.replace(mentioned.mention, f"@{mentioned.name}")
+            for mentioned_ch in message.channel_mentions:
+                content = content.replace(mentioned_ch.mention, f"#{mentioned_ch.name}")
+            for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
+                guild_id, channel_id, message_id = [int(num) for num in message_link.groups()]
+                link_obj = {}
+                if message.guild.id != guild_id:
+                    link_obj["@source"] = "Outside this server"
+                elif message.channel.id != channel_id:
+                    channel = message.guild.get_channel_or_thread(channel_id)
+                    link_obj["@channel"] = f"#{channel.name}" if channel else "unknown"
+                inline_objs[message_link.group(0)] = {"message_link": {"#text": "...", **link_obj}}
+                # Add quote for linked message if it is the first
+                if i == 0 and exhaustive and "generated_image" not in obj:
+                    try:
+                        linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
+                    except (AttributeError, discord.NotFound):
+                        continue
+                    linked_message_obj, linked_message_inlines = await self.parse_discord_message(linked, None, backread, max_quote_length, max_file_length, exhaustive=False)
+                    obj["linked_message"] = {**link_obj, **linked_message_obj}
+                    inline_objs.update(linked_message_inlines)
+            if not exhaustive and len(content) > max_quote_length:
+                content = content[:max_quote_length - 3] + "..."
+            obj["content"] = content
         # attachments
-        if not is_generated_image:
+        if "generated_image" not in obj:
+            attachments = []
+            total_file_length = 0
             for attachment in message.attachments:
-                content += f" [Attachment: {attachment.filename}]"
+                att_obj = {"@filename": attachment.filename}
+                if exhaustive and attachment.content_type and attachment.content_type.startswith("text") and total_file_length < max_file_length:
+                    if file_content := await self.read_text_file(attachment, max_file_length):
+                        att_obj["content"] = file_content
+                attachments.append(att_obj)
+            utils.add_xml_group(obj, attachments, "attachments")
         # stickers
+        stickers = []
         for sticker in message.stickers:
-            content += f" [Sticker: {sticker.name}]"
+            stickers.append({"@name": sticker.name})
+        utils.add_xml_group(obj, stickers, "stickers")
         # embeds
+        embeds = []
         for embed in message.embeds:
+            embed_obj = {}
             if embed.title:
-                content += f" [Embed Title: {utils.sanitize(embed.title)}]"
+                embed_obj["title"] = embed.title
             if embed.description:
-                content += f" [Embed Content: {utils.sanitize(embed.description)}]"
+                embed_obj["description"] = embed.description if exhaustive else "..."
             if embed.image and embed.image.url:
-                content += f" [Embed Image: {utils.get_filename(embed.image.url)}]"
-        # text files
-        text_attachments = [att for att in message.attachments if att.content_type and att.content_type.startswith("text")]
-        total_file_length = 0
-        for text_file in text_attachments:
-            fp = BytesIO()
-            try:
-                await text_file.save(fp, seek_begin=True)
-                file_content = fp.getvalue().decode('utf-8')
-            except (discord.DiscordException, UnicodeDecodeError) as error:
-                log.warning(f"Processing text attachments: {type(error).__name__}: {error}")
-            else:
-                if len(file_content) > max_file_length + 10:
-                    file_content = f"{file_content[:max_file_length//2]}\n(...)\n{file_content[-max_file_length//2:]}"
-                total_file_length += len(file_content)
-                content += f"\n[[[ Content of {text_file.filename}: {file_content} ]]]"
-                if total_file_length > 4000:
-                    break
+                embed_obj["image"] = embed.image.url
+            if embed.thumbnail and embed.thumbnail.url:
+                embed_obj["thumbnail"] = embed.thumbnail.url
+            fields = {}
+            for field in embed.fields:
+                fields[field.name] = field.value
+            if len(fields) > 0 and exhaustive:
+                embed_obj["fields"] = fields
+        utils.add_xml_group(obj, embeds, "embeds")
+        # poll
+        if message.poll:
+            poll = {"question": message.poll.question}
+            if exhaustive:
+                answers = []
+                for answer in message.poll.answers:
+                    answers.append({
+                        "@votes": answer.vote_count,
+                        "#text": answer.text
+                    })
+                utils.add_xml_group(poll, answers, "answers")
+            obj["poll"] = poll
         # quote
-        is_generated_image_by_bot = is_generated_image and message.author == message.guild.me
-        if quote and recursive and not is_generated_image_by_bot:
-            quote_content = await self.parse_discord_message(quote, None, backread, False, max_quote_length, max_file_length)
-            quote_content = quote_content.replace("\n", " ")
-            if quote in backread and len(quote_content) > max_quote_length:
-                quote_content = quote_content[:max_quote_length-3] + "..."
-            content += f"\n[[[ Replying to: {quote_content} ]]]"            
+        if quote and exhaustive and "generated_image" not in obj:
+            quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(quote, None, backread, max_quote_length, max_file_length, exhaustive=False)
+            obj["quote"] = quoted_message_obj
+            inline_objs.update(quoted_message_inlines)
         # etc
-        if len(content) == starting_len:
-            content += " [Message empty or not supported]"
-        # mentions
-        mentions = message.mentions + message.role_mentions + message.channel_mentions
-        for mentioned in mentions:
-            if mentioned in message.channel_mentions:
-                content = content.replace(mentioned.mention, f'#{mentioned.name}')
-            elif mentioned in message.role_mentions:
-                content = content.replace(mentioned.mention, f'@{mentioned.name}')
-            else:
-                content = content.replace(mentioned.mention, f'@{mentioned.name}')
-        # message links
-        for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
-            guild_id = int(message_link.group("guild_id"))
-            channel_id = int(message_link.group("channel_id"))
-            message_id = int(message_link.group("message_id"))
-            if message.guild.id != guild_id:
-                replacement = "[Link to message outside server]"
-            elif message.channel.id != channel_id:
-                channel = message.guild.get_channel_or_thread(channel_id)
-                replacement = f"[Link to message in #{channel.name}]" if channel else "[Link to message]"
-            else:
-                replacement = "[Link to message]"
-            content = content.replace(message_link.group(0), replacement)
-            # Add quote for linked message if it is the first
-            if i == 0 and recursive and not is_generated_image_by_bot:
-                try:
-                    linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
-                except (AttributeError, discord.NotFound):
-                    continue
-                linked_content = await self.parse_discord_message(linked, None, backread, False, max_quote_length, max_file_length)
-                linked_content = linked_content.replace("\n", " ")
-                if linked in backread and len(linked_content) > max_quote_length:
-                    linked_content = linked_content[:max_quote_length-3] + "..."
-                content += f"\n[[[ Linked message: {linked_content} ]]]"  
+        if len(obj) == starting_len:
+            obj["error"] = "Message empty or not supported"
         # done
-        return content.strip()
+        return ({"chat_message": obj}, inline_objs)
+    
+
+    async def read_text_file(self, attachment: discord.Attachment, max_file_length: int) -> str | None:
+        fp = BytesIO()
+        try:
+            await attachment.save(fp, seek_begin=True)
+            file_content = fp.getvalue().decode('utf-8')
+        except (discord.DiscordException, UnicodeDecodeError) as error:
+            log.warning(f"Processing text attachment {attachment.filename}: {type(error).__name__}: {error}")
+            return None
+        if len(file_content) > max_file_length + 10:
+            file_content = f"{file_content[:max_file_length//2]}\n(...)\n{file_content[-max_file_length//2:]}"
+        return file_content
 
 
     async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
