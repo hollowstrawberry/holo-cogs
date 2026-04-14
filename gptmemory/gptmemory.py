@@ -394,7 +394,7 @@ class GptMemory(GptMemoryCommands):
         completion = response.choices[0].message.content or ""
         if completion:
             if self.extended_logging:
-                log.info(f"{completion=}")
+                log.info(f"{past_tool_calls=} {completion=}")
             # special case: the bot tries to generate an image by sending text instead of using the function call
             if "generate_stable_diffusion" not in past_tool_calls:
                 for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
