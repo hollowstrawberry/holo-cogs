@@ -4,7 +4,7 @@ import discord
 from typing import Any
 from redbot.core import commands
 
-from gptmemory.utils import add_xml_group, find_nearest_resolution
+from gptmemory.utils import add_xml_group, undo_xml, find_nearest_resolution
 from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
 from gptmemory.constants import LORA_PATTERN, IMAGEGEN_RESOLUTIONS
 from gptmemory.functions.base import FunctionCallBase
@@ -65,8 +65,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
                 return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
 
         existing: str = arguments.get("existing", "")
-        prompt: str = arguments.get("prompt", "")
-        negative_prompt_extra: str = arguments.get("negative_prompt", "")
+        prompt: str = undo_xml(arguments.get("prompt", ""))
+        negative_prompt_extra: str = undo_xml(arguments.get("negative_prompt", ""))
         aspect_ratio: str = arguments.get("resolution", "")
 
         if not prompt:
