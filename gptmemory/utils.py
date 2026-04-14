@@ -1,16 +1,17 @@
 import os
 import re
-from typing import Any
 import discord
 import trafilatura
 from io import BytesIO
 from copy import deepcopy
 from base64 import b64encode
+from typing import Any
+from datetime import datetime
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 
-from aimage.constants import NEWLINE_SEPARATOR_PATTERN
+from aimage.constants import NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING
 from gptmemory.constants import MAX_MESSAGE_LENGTH
 
 
@@ -72,7 +73,7 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes | None:
     fp.seek(0)
     return fp.read()
 
-def get_text_contents(messages: list[dict]):
+def get_text_contents(messages: list[dict]) -> list[dict]:
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.
@@ -118,11 +119,14 @@ def parse_arcenciel_model(data: dict) -> dict[str, Any]:
         ver_obj = {
             "@name": version["versionName"],
             "@base_model": version["baseModel"],
-            "@published": version["publishedAt"]
+            "@published": datetime.fromisoformat(version["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING)
         }
         if i <= 1 and data["type"] == "LORA":
-            filename = version['filePath'].split("/")[-1].replace(".safetensors", "")
-            lora = f"<lora:{filename}:1>" if filename else ""
+            filename = version.get("filePath", "").split("/")[-1].replace(".safetensors", "").strip()
+            if filename:
+                ver_obj["lora"] = f"<lora:{filename}:1.0>"
+            if version.get("aboutThisVersion"):
+                ver_obj["description"] = version["aboutThisVersion"]
             if version.get("activationTags", []):
                 tags_obj = []
                 for tags in version["activationTags"]:
@@ -135,8 +139,8 @@ def parse_arcenciel_model(data: dict) -> dict[str, Any]:
                     t_obj["#text"] = f"{lora} {tags}"
                     tags_obj.append(t_obj)
                 ver_obj["activation_tags"] = {"prompt": tags_obj}
-            else:
-                ver_obj["lora"] = lora
+        else:
+            ver_obj["#text"] = "Incomplete data"
         versions_obj.append(ver_obj)
     obj["versions"] = {"version": versions_obj}
     return obj
