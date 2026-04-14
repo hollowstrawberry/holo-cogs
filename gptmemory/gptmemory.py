@@ -550,8 +550,7 @@ class GptMemory(GptMemoryCommands):
             text_content = xmltodict.unparse(message_obj, full_document=False)
             for before, after_obj in message_inline_objs.items():
                 text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
-            if self.extended_logging:
-                log.info(text_content)
+
             if image_contents:
                 image_contents.insert(0, {
                     "type": "text",
@@ -783,8 +782,8 @@ class GptMemory(GptMemoryCommands):
         utils.add_xml_group(obj, embeds, "embeds")
         buttons = []
         for component in message.components:
-            if "generated_image" and isinstance(component, discord.Button):
-                buttons
+            if "generated_image" not in obj and isinstance(component, discord.Button):
+                buttons.append({"#text": " ".join([str(s) for s in (component.emoji, component.label) if s])})
         utils.add_xml_group(obj, buttons, "buttons")
         # poll
         if message.poll:
