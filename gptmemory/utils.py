@@ -134,9 +134,9 @@ def parse_arcenciel_model(data: dict) -> dict[str, Any]:
                     if tags.count("|") == 1:
                         name, tags = [t.strip() for t in tags.split("|")]
                         t_obj["@name"] = name
-                    if tags in obj["description"]:
+                    if len(tags) > 10 and tags in obj["description"]:
                         obj["description"] = obj["description"].replace(tags, "<tags>")
-                    t_obj["#text"] = f"{lora} {tags}"
+                    t_obj["#text"] = tags
                     tags_obj.append(t_obj)
                 ver_obj["activation_tags"] = {"prompt": tags_obj}
         else:
