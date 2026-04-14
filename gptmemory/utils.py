@@ -14,12 +14,15 @@ from aimage.constants import NEWLINE_SEPARATOR_PATTERN
 from gptmemory.constants import MAX_MESSAGE_LENGTH
 
 
-def add_xml_group(obj: dict, group: list, group_name: str):
+def add_xml_group(obj: dict, group: list, group_name: str) -> None:
     single_name = group_name[:-1]
     if len(group) == 1:
         obj[single_name] = group[0]
     elif len(group) > 1:
         obj[group_name] = {single_name: group}
+
+def undo_xml(s: str) -> str:
+    return s.replace("&lt;", "<").replace("&gt;", ">").replace("&apos;", "'").replace("&quot;", '"').replace("&amp;", "&")
 
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()

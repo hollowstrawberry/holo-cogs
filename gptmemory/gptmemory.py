@@ -403,6 +403,7 @@ class GptMemory(GptMemoryCommands):
             # cleanup
             if m := constants.RESPONSE_CONTENT_PATTERN.search(completion):
                 completion = m.group(1)
+            completion = utils.undo_xml(completion)
             for pattern in constants.RESPONSE_CLEANUP_PATTERNS.values():
                 completion = pattern.sub("", completion)
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
