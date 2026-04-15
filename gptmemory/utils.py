@@ -12,7 +12,7 @@ from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 
 from gptmemory.schema import GptMessage
-from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING
+from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN
 
 
 def add_xml_group(obj: dict, group: list, group_name: str) -> None:
@@ -24,6 +24,22 @@ def add_xml_group(obj: dict, group: list, group_name: str) -> None:
 
 def undo_xml(s: str) -> str:
     return s.replace("&lt;", "<").replace("&gt;", ">").replace("&apos;", "'").replace("&quot;", '"').replace("&amp;", "&")
+
+def fix_truncated_xml(text: str) -> str:
+    text = UNCLOSED_XML_TAG_PATTERN.sub("", text)
+    stack = []
+    for match in XML_TAG_PATTERN.finditer(text):
+        is_closing, tag_name, is_self_closing = match.groups()
+        if is_self_closing:
+            continue
+        elif is_closing:
+            if stack and stack[-1] == tag_name:
+                stack.pop()
+        else:
+            stack.append(tag_name)
+    for tag in reversed(stack):
+        text += f"</{tag}>"
+    return text
 
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()
