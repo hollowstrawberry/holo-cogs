@@ -29,7 +29,7 @@ LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 BACKTICK_PATTERN = re.compile(r"```+")
 NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
 UNCLOSED_XML_TAG_PATTERN = re.compile(r"<[^>]*$")
-XML_TAG_PATTERN = re.compile(r"<(/)?([a-zA-Z0-9]+)[^>]*?(/)?>")
+XML_TAG_PATTERN = re.compile(r"<(/)?([a-zA-Z0-9_]+)[^>]*?(/)?>")
 
 URL_PATTERN = re.compile(r"(https?://\S+)")
 GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")
