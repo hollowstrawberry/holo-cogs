@@ -247,7 +247,7 @@ class GptMemory(GptMemoryCommands):
         if completion:
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         if response.usage:
-            result.tokens_recaller = response.usage.completion_tokens
+            result.tokens.recaller = (response.usage.prompt_tokens, response.usage.completion_tokens)
         if self.extended_logging:
             log.info(f"{memories_to_recall=}")
 
@@ -287,7 +287,7 @@ class GptMemory(GptMemoryCommands):
             memories=recalled_memories_str,
             **prompt_keys
         )
-        result.tokens_system = len(self.encoding.encode(system_content))
+        result.tokens.system = len(self.encoding.encode(system_content))
         
         system_prompt = {
             "role": "developer" if "gpt-5" in model else "system",
@@ -313,10 +313,12 @@ class GptMemory(GptMemoryCommands):
             )
             
             if response.usage:
-                log.info(f"{response.usage}=)")
-                result.tokens_responder += response.usage.completion_tokens
-                if depth > 0:
-                    result.tokens_after_tools += response.usage.completion_tokens
+                result.input_tokens += response.usage.prompt_tokens
+                result.output_tokens += response.usage.completion_tokens
+                if response.usage.prompt_tokens_details:
+                    result.tokens.cached += response.usage.prompt_tokens_details.cached_tokens or 0
+                if response.usage.completion_tokens_details:
+                    result.tokens.thinking += response.usage.completion_tokens_details.reasoning_tokens or 0
 
             if not response.choices:  # request may get rejected
                 error = str(getattr(response, "error", ""))
@@ -364,7 +366,7 @@ class GptMemory(GptMemoryCommands):
 
                 if len(tool_text) > max_tool_length:
                     tool_text = tool_text[:max_tool_length-3] + "..."
-                result.tokens_tools += len(self.encoding.encode(tool_text))
+                result.tokens.tools += len(self.encoding.encode(tool_text))
                 log.info(f"{call.function.name=} {call.function.arguments=}")
                 if self.extended_logging:
                     log.info(f"{tool_text=}")
@@ -457,7 +459,7 @@ class GptMemory(GptMemoryCommands):
         )
         completion = response.choices[0].message
         if response.usage:
-            result.tokens_memorizer = response.usage.completion_tokens
+            result.tokens.memorizer = (response.usage.prompt_tokens, response.usage.completion_tokens)
         if completion.refusal:
             log.warning(completion.refusal)
             return []
@@ -560,7 +562,7 @@ class GptMemory(GptMemoryCommands):
         image_sources = [att.url if isinstance(att, discord.Attachment) else att for att in processed_image_sources]
         if self.extended_logging:
             log.info(f"{image_sources=}")
-        result.tokens_backread = tokens
+        result.tokens.backread = tokens
         result.images = total_images
         result.messages = len(messages)
 

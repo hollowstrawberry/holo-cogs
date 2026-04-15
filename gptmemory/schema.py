@@ -14,16 +14,23 @@ class SplitType(Enum):
 
 
 @dataclass
+class TokensDetailsResult:
+    system: int = 0
+    backread: int = 0
+    cached: int = 0
+    thinking: int = 0
+    tools: int = 0
+    recaller: tuple[int, int] | int = 0
+    memorizer: tuple[int, int] | int = 0
+
+
+@dataclass
 class GptMemoryResult:
     messages: int = 0
     images: int = 0
-    tokens_system: int = 0
-    tokens_backread: int = 0
-    tokens_recaller: int = 0
-    tokens_responder: int = 0
-    tokens_tools: int = 0
-    tokens_after_tools: int = 0
-    tokens_memorizer: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    tokens: TokensDetailsResult = field(default_factory=TokensDetailsResult)
 
 
 @dataclass
