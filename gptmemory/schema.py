@@ -15,12 +15,12 @@ class SplitType(Enum):
 
 @dataclass
 class TokensDetailsResult:
+    recaller: tuple[int, int] | int = 0
     system: int = 0
     backread: int = 0
     cached: int = 0
     thinking: int = 0
     tools: int = 0
-    recaller: tuple[int, int] | int = 0
     memorizer: tuple[int, int] | int = 0
 
 
@@ -30,6 +30,7 @@ class GptMemoryResult:
     images: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    cost: float | str = "unknown"
     tokens: TokensDetailsResult = field(default_factory=TokensDetailsResult)
 
 

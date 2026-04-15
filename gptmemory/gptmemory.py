@@ -315,6 +315,10 @@ class GptMemory(GptMemoryCommands):
             if response.usage:
                 result.input_tokens += response.usage.prompt_tokens
                 result.output_tokens += response.usage.completion_tokens
+                if cost := getattr(response.usage, "cost", 0.0):
+                    if isinstance(result.cost, str):
+                        result.cost = 0.0
+                    result.cost += cost
                 if response.usage.prompt_tokens_details:
                     result.tokens.cached += response.usage.prompt_tokens_details.cached_tokens or 0
                 if response.usage.completion_tokens_details:
