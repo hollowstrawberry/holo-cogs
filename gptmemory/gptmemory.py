@@ -285,9 +285,10 @@ class GptMemory(GptMemoryCommands):
             channelname=ctx.channel.name,
             currentdatetime=datetime.now().strftime(constants.DATETIME_FORMATTING),
             memories=recalled_memories_str,
-            **prompt_keys
+            **prompt_keys,
         )
-        result.tokens.system = len(self.encoding.encode(system_content))
+        result.tokens.memories = len(self.encoding.encode(recalled_memories_str))
+        result.tokens.system = len(self.encoding.encode(system_content)) - result.tokens.memories
         
         system_prompt = {
             "role": "developer" if "gpt-5" in model else "system",
@@ -296,8 +297,10 @@ class GptMemory(GptMemoryCommands):
         temp_messages = [msg for msg in messages]
         temp_messages.insert(0, system_prompt)
 
-        tools = [t for t in self.available_function_calls
-            if t.schema.function.name not in await self.config.guild(ctx.guild).disabled_functions()]
+        disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
+        tools = [t for t in self.available_function_calls if t.schema.function.name not in disabled_functions]
+        tools_schema = [t.asdict() for t in tools]
+        result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 
         past_memory_changes: list[MemoryChangeResult] = []
         past_tool_calls: list[str] = []
@@ -307,7 +310,7 @@ class GptMemory(GptMemoryCommands):
                 messages=temp_messages,  # type: ignore
                 max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
                 max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
-                tools=[t.asdict() for t in tools],  # type: ignore
+                tools=tools_schema,  # type: ignore
                 tool_choice="none" if depth >= max_tool_depth - 1 else "auto",
                 reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
             )

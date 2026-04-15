@@ -13,10 +13,14 @@ class SplitType(Enum):
     VERTICAL = "split-vertical-2"
 
 
+# Results
+
 @dataclass
 class TokensDetailsResult:
     recaller: tuple[int, int] | int = 0
     system: int = 0
+    schema: int = 0
+    memories: int = 0
     backread: int = 0
     cached: int = 0
     thinking: int = 0
@@ -70,6 +74,9 @@ class Function:
 class ToolCall:
     function: Function
     type: str = "function"
+
+
+# Image generation
 
 @dataclass
 class ImageRegionalParams:
