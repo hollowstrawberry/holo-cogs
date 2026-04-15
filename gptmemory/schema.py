@@ -4,9 +4,26 @@ from pydantic import BaseModel
 from dataclasses import dataclass, field
 
 
+GptImageContent = list[dict[str, str]]
+GptMessage = dict[str, (str | GptImageContent)]
+
+
 class SplitType(Enum):
     HORIZONTAL = "split-horizontal-2"
     VERTICAL = "split-vertical-2"
+
+
+@dataclass
+class GptMemoryResult:
+    messages: int = 0
+    images: int = 0
+    tokens_system: int = 0
+    tokens_backread: int = 0
+    tokens_recaller: int = 0
+    tokens_responder: int = 0
+    tokens_tools: int = 0
+    tokens_after_tools: int = 0
+    tokens_memorizer: int = 0
 
 
 @dataclass

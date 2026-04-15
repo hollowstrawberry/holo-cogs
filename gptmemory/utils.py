@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 
+from gptmemory.schema import GptMessage
 from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING
 
 
@@ -72,7 +73,7 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes | None:
     fp.seek(0)
     return fp.read()
 
-def get_text_contents(messages: list[dict]) -> list[dict]:
+def get_text_contents(messages: list[GptMessage]) -> list[GptMessage]:
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.

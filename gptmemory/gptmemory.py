@@ -3,45 +3,28 @@ import logging
 import asyncio
 import aiohttp
 import discord
+import tiktoken
 import xmltodict
 from io import BytesIO
 from random import random
 from typing import Any
 from difflib import get_close_matches
 from datetime import datetime, timezone
-from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
 from openai.types.chat import ChatCompletionMessageFunctionToolCall
-from tiktoken import encoding_for_model
 from redbot.core import commands
 from redbot.core.bot import Red
 
 import gptmemory.utils as utils
 import gptmemory.constants as constants
-from gptmemory.schema import ImageGenParams, MemoryChangeList, MemoryChangeResult
+from gptmemory.schema import GptMemoryResult, GptMessage, GptImageContent, ImageGenParams, MemoryChangeList, MemoryChangeResult
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.functions.base import get_all_function_calls
 from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
 from gptmemory.views.memory_change import MemoryChangeView
 
 log = logging.getLogger("gptmemory")
-
-GptImageContent = list[dict[str, str]]
-GptMessage = dict[str, (str | GptImageContent)]
-
-
-@dataclass
-class GptMemoryResult:
-    messages: int = 0
-    images: int = 0
-    tokens_backread: int = 0
-    tokens_recaller: int = 0
-    tokens_system: int = 0
-    tokens_responder: int = 0
-    tokens_tools: int = 0
-    tokens_after_tools: int = 0
-    tokens_memorizer: int = 0
 
 
 class GptMemory(GptMemoryCommands):
@@ -51,6 +34,7 @@ class GptMemory(GptMemoryCommands):
         super().__init__(bot)
         self.image_cache: dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
         self.available_function_calls = set(get_all_function_calls())
+        self.encoding = tiktoken.get_encoding(constants.TOKEN_ENCODING)
         all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
         log.info(f"{all_function_names=}")
 
@@ -256,7 +240,7 @@ class GptMemory(GptMemoryCommands):
         effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
         response = await self.get_client(model).beta.chat.completions.create(
             model=model,
-            messages=temp_messages,
+            messages=temp_messages,  # type: ignore
             reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
         )
         completion = response.choices[0].message.content
@@ -303,8 +287,7 @@ class GptMemory(GptMemoryCommands):
             memories=recalled_memories_str,
             **prompt_keys
         )
-        encoding = encoding_for_model("gpt-4o")
-        result.tokens_system = len(encoding.encode(system_content))
+        result.tokens_system = len(self.encoding.encode(system_content))
         
         system_prompt = {
             "role": "developer" if "gpt-5" in model else "system",
@@ -330,12 +313,13 @@ class GptMemory(GptMemoryCommands):
             )
             
             if response.usage:
+                log.info(f"{response.usage}=)")
                 result.tokens_responder += response.usage.completion_tokens
                 if depth > 0:
                     result.tokens_after_tools += response.usage.completion_tokens
 
             if not response.choices:  # request may get rejected
-                error = str(getattr(response, "error", "No error"))
+                error = str(getattr(response, "error", ""))
                 if "403" in error or "PROHIBITED" in error:
                     log.warning(f"Missing response: {error}")
                     #await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())  # failsafe so it doesn't keep getting blocked by the same stuff
@@ -349,7 +333,7 @@ class GptMemory(GptMemoryCommands):
             if not response.choices[0].message.tool_calls:
                 break
                   
-            temp_messages.append(response.choices[0].message) # type: ignore
+            temp_messages.append(response.choices[0].message)  # type: ignore
             for call in response.choices[0].message.tool_calls:
                 assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                 try:
@@ -380,7 +364,7 @@ class GptMemory(GptMemoryCommands):
 
                 if len(tool_text) > max_tool_length:
                     tool_text = tool_text[:max_tool_length-3] + "..."
-                result.tokens_tools += len(encoding.encode(tool_text))
+                result.tokens_tools += len(self.encoding.encode(tool_text))
                 log.info(f"{call.function.name=} {call.function.arguments=}")
                 if self.extended_logging:
                     log.info(f"{tool_text=}")
@@ -394,7 +378,7 @@ class GptMemory(GptMemoryCommands):
         completion = response.choices[0].message.content or ""
         if completion:
             if self.extended_logging:
-                log.info(f"{past_tool_calls=} {completion=}")
+                log.info(f"{completion=}")
             # special case: the bot tries to generate an image by sending text instead of using the function call
             if "generate_stable_diffusion" not in past_tool_calls:
                 for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
@@ -467,7 +451,7 @@ class GptMemory(GptMemoryCommands):
         effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
         response = await self.get_client(model).beta.chat.completions.parse(
             model=model,
-            messages=temp_messages,
+            messages=temp_messages,  # type: ignore
             response_format=MemoryChangeList,
             reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
         )
@@ -526,7 +510,6 @@ class GptMemory(GptMemoryCommands):
         processed_image_sources = []
         tokens = 0
         total_images = 0
-        encoding = encoding_for_model("gpt-4o")  # same for gpt-4.1 and their variants
 
         max_image_size = await self.config.guild(ctx.guild).max_image_resolution()
         max_images = await self.config.guild(ctx.guild).max_images()
@@ -568,7 +551,7 @@ class GptMemory(GptMemoryCommands):
                     "content": text_content
                 })
 
-            text_tokens = len(encoding.encode(text_content))
+            text_tokens = len(self.encoding.encode(text_content))
             image_tokens = 425 * max(0, len(image_contents) - 1)
             tokens += text_tokens + image_tokens
             if n > 0 and tokens > max_backread_tokens:

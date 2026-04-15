@@ -9,6 +9,7 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 VIEW_TIMEOUT = 15 * 60
 EMPTY = "ᅠ"
 DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
+TOKEN_ENCODING = "o200k_base"
 
 RESPONSE_CONTENT_PATTERN = re.compile(r"<content>([\s\S]*?)</content>")
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
