@@ -372,7 +372,7 @@ class GptMemory(GptMemoryCommands):
                     tool_text = tool_result.strip()
 
                 if len(tool_text) > max_tool_length:
-                    tool_text = tool_text[:max_tool_length-3] + "..."
+                    tool_text = utils.fix_truncated_xml(tool_text[:max_tool_length]) + "..."
                 result.tokens.tools += len(self.encoding.encode(tool_text))
                 log.info(f"{call.function.name=} {call.function.arguments=}")
                 if self.extended_logging:
