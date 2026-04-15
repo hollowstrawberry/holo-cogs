@@ -540,7 +540,7 @@ class GptMemory(GptMemoryCommands):
                 total_images += len(image_contents)
             else:
                 image_contents = []
-            message_obj, message_inline_objs = await self.parse_discord_message(backmsg, quote, backread, max_quote_length, max_file_length, exhaustive=True)
+            message_obj, message_inline_objs = await self.parse_discord_message(backmsg, quote, backread, max_quote_length, max_file_length, exhaustive=True, recursive=True)
             text_content = xmltodict.unparse(message_obj, full_document=False)
             for before, after_obj in message_inline_objs.items():
                 text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
@@ -685,6 +685,7 @@ class GptMemory(GptMemoryCommands):
                                     max_quote_length: int,
                                     max_file_length: int,
                                     exhaustive: bool,
+                                    recursive: bool,
                                     ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
         """
         Converts a message into a dictionary of structured information that may then be unparsed into xml.
@@ -729,12 +730,12 @@ class GptMemory(GptMemoryCommands):
                     link_obj["@channel"] = f"#{channel.name}" if channel else "unknown"
                 inline_objs[message_link.group(0)] = {"message_link": {"#text": "...", **link_obj}}
                 # Add quote for linked message if it is the first
-                if i == 0 and exhaustive and "generated_image" not in obj:
+                if i == 0 and exhaustive and recursive and "generated_image" not in obj:
                     try:
                         linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
                     except (AttributeError, discord.NotFound):
                         continue
-                    linked_message_obj, linked_message_inlines = await self.parse_discord_message(linked, None, backread, max_quote_length, max_file_length, exhaustive=False)
+                    linked_message_obj, linked_message_inlines = await self.parse_discord_message(linked, None, backread, max_quote_length, max_file_length, exhaustive=linked not in backread, recursive=False)
                     linked_message_for_later = {**link_obj, **linked_message_obj}
                     inline_objs.update(linked_message_inlines)
             if not exhaustive and len(content) > max_quote_length:
@@ -792,8 +793,8 @@ class GptMemory(GptMemoryCommands):
                 utils.add_xml_group(poll, answers, "answers")
             obj["poll"] = poll
         # quote
-        if quote and exhaustive and "generated_image" not in obj:
-            quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(quote, None, backread, max_quote_length, max_file_length, exhaustive=False)
+        if quote and exhaustive and recursive and "generated_image" not in obj:
+            quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(quote, None, backread, max_quote_length, max_file_length, exhaustive=quote not in backread, recursive=False)
             obj["quote"] = quoted_message_obj
             inline_objs.update(quoted_message_inlines)
         if linked_message_for_later:
