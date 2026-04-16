@@ -34,7 +34,7 @@ class GptMemoryCommands(GptMemoryBase):
         view = await self.prompt_cmd_show(ctx, module) if module else await self.prompt_cmd_edit(ctx)
         if view:
             embed = discord.Embed(color=await ctx.embed_color())
-            embed.set_author(name=f"{ctx.guild.me.name} Prompt Panel", url=ctx.guild.me.display_avatar.url)
+            embed.set_author(name=f"{ctx.guild.me.name} Prompt Panel", icon_url=ctx.guild.me.display_avatar.url)
             view.message = await ctx.send(embed=embed, view=view)
         if ctx.bot_permissions.manage_messages:
             await ctx.message.delete()
