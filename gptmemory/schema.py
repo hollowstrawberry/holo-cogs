@@ -17,7 +17,6 @@ class SplitType(Enum):
 
 @dataclass
 class TokensDetailsResult:
-    recaller: tuple[int, int] | int = 0
     system: int = 0
     schema: int = 0
     memories: int = 0
@@ -25,6 +24,7 @@ class TokensDetailsResult:
     cached: int = 0
     thinking: int = 0
     tools: int = 0
+    recaller: tuple[int, int] | int = 0
     memorizer: tuple[int, int] | int = 0
 
 
@@ -63,7 +63,7 @@ class MemoryChangeList(BaseModel):
 class Parameters:
     properties: dict
     required: list = field(default_factory=list)
-    type: str = "object"
+    type: str = field(default="object", init=False)
 
 @dataclass(frozen=True)
 class Function:
@@ -74,7 +74,7 @@ class Function:
 @dataclass(frozen=True)
 class ToolCall:
     function: Function
-    type: str = "function"
+    type: str = field(default="function", init=False)
 
 
 # Image generation
