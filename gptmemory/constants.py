@@ -14,6 +14,7 @@ PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
 
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "XML content":        (re.compile(r"^.*<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
+    "XML objects":        (re.compile(r"<(quote|linked_message|message_link|embeds?|attachments?|images?|stickers?|buttons?|reactions?|poll)( [^>]+)?>.*?</\1>", re.DOTALL | re.IGNORECASE), ""),
     "Automated actions":  (re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE), ""),
     "Image objects":      (re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE), ""),
     "Leftover symbol":    (re.compile(r"""\n[}'"\s\-]+$"""), ""),
@@ -22,7 +23,7 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
 })
 
 GENERATE_IMAGE_PATTERNS = {
-    "XML object":         re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>", re.DOTALL | re.IGNORECASE),
+    "XML object":         re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>.*?</generated_image>", re.DOTALL | re.IGNORECASE),
     "JSON object":        re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
 }
 
