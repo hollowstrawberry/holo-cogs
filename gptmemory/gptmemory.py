@@ -425,7 +425,6 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_memorizer(self,
                                 ctx: commands.Context,
-                                participants: list[discord.Member | discord.User],
                                 messages: list[GptMessage],
                                 memories_str: str,
                                 recalled_memories_str: str,
