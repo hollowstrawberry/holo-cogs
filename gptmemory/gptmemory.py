@@ -872,7 +872,7 @@ class GptMemory(GptMemoryCommands):
                     memories_obj[member.name]["@role"] = "moderator"
         for mem_obj in memories_obj.values():
             if len(mem_obj) > 1:
-                recalled_memories_obj.append(mem_obj)
+                recalled_memories_obj["memories"]["memory"].append(mem_obj)
         memories_str = xmltodict.unparse(memory_names_obj, full_document=False)
         recalled_memories_str = xmltodict.unparse(recalled_memories_obj, full_document=False)
         log.info(f"{recalled_memories_str=}")
