@@ -6,9 +6,12 @@ from redbot.core import commands
 
 from gptmemory.base import GptMemoryBase
 from gptmemory.utils import chunk_and_send
+from gptmemory.schema import MemoryChangeResult
 from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.functions.base import get_all_function_calls
 from gptmemory.views.memory_info import MemoryInfoView
+from gptmemory.views.memory_list import MemoryListView
+from gptmemory.views.memory_change import MemoryChangeView
 
 
 class GptMemoryCommands(GptMemoryBase):
@@ -45,26 +48,24 @@ class GptMemoryCommands(GptMemoryBase):
     @commands.guild_only()
     async def command_mymemory(self, ctx: commands.Context):
         """View your personal memory in the bot LLM"""
-        await self.command_memory(ctx, name=ctx.author.name)
+        await self.command_memory(ctx, name=ctx.author)
 
     @commands.command(name="memory", aliases=["memories"], invoke_without_subcommand=True)
     @commands.guild_only()
     async def command_memory(self, ctx: commands.Context, *, name: discord.Member | str | None):
         """View all memories or a specific memory, for the bot LLM"""
         assert ctx.guild
-        if not name:
-            if ctx.guild.id in self.memory and self.memory[ctx.guild.id]:
-                memories = self.memory[ctx.guild.id].keys()
-                user_memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
-                memories = [memory for memory in memories if memory not in user_memories]
-                reply = "`[Memories:]`\n> " + ", ".join(f"`{mem}`" for mem in memories) \
-                    + "\n\n`[User memories:]`\n> " + ", ".join(f"`{mem}`" for mem in user_memories)
-                return await ctx.send(reply[:2000])
-            else:
-                return await ctx.send("No memories...")
         if isinstance(name, discord.Member):
             name = name.name
-        if ctx.guild.id in self.memory:
+        if not name:
+            if ctx.guild.id in self.memory and self.memory[ctx.guild.id]:
+                view = MemoryListView(list(self.memory[ctx.guild.id].keys()))
+                view.message = await ctx.send(view=view)
+                if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+                    await ctx.message.delete()
+            else:
+                await ctx.send("No memories...", delete_after=60)
+        elif ctx.guild.id in self.memory:
             if name not in self.memory[ctx.guild.id]:
                 matches = get_close_matches(name, self.memory[ctx.guild.id])
                 if matches:
@@ -72,10 +73,10 @@ class GptMemoryCommands(GptMemoryBase):
             if name in self.memory[ctx.guild.id]:
                 view = MemoryInfoView(name, self.memory[ctx.guild.id][name])
                 view.message = await ctx.send(view=view)
-                if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-                    await ctx.message.delete()
-                return
-        await ctx.send(f"No memory of `{name}`")
+        else:
+            await ctx.send(f"No memory of `{name}`", delete_after=60)
+        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+            await ctx.message.delete()
 
     @commands.command(name="deletememory", aliases=["delmemory"]) # type: ignore
     @commands.has_permissions(manage_guild=True)
@@ -85,12 +86,16 @@ class GptMemoryCommands(GptMemoryBase):
         assert ctx.guild
         if ctx.guild.id in self.memory and name in self.memory[ctx.guild.id]:
             async with self.config.guild(ctx.guild).memory() as memory:
+                before = memory[name]
                 del memory[name]
             del self.memory[ctx.guild.id][name]
-            await ctx.tick(message="Memory deleted")
+            view = MemoryChangeView([MemoryChangeResult(name, before, None)], standalone=True)
+            view.message = await ctx.send(view=view)
         else:
-            await ctx.send("A memory by that name doesn't exist.")
-        
+            await ctx.send(f"No memory of `{name}`", delete_after=60)
+        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+            await ctx.message.delete()
+
     @commands.command(name="setmemory") # type: ignore
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
@@ -103,11 +108,13 @@ class GptMemoryCommands(GptMemoryBase):
         if len(name) > 1000:
             return await ctx.send("Name too long")
         async with self.config.guild(ctx.guild).memory() as memory:
+            before = memory.get(name)
             memory[name] = content
         if ctx.guild.id not in self.memory:
             self.memory[ctx.guild.id] = {}
         self.memory[ctx.guild.id][name] = content
-        await ctx.tick(message="Memory set")
+        view = MemoryChangeView([MemoryChangeResult(name, before, content)], standalone=True)
+        view.message = await ctx.send(view=view)
 
     # Config
 
