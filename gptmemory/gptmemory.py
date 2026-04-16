@@ -854,7 +854,7 @@ class GptMemory(GptMemoryCommands):
             if name in memory_names:
                 memories_obj.setdefault(name, {})
                 if content:
-                    memories_obj[name].append({"#text": content})
+                    memories_obj[name]["#text"] = content}
                 if name in member_names:
                     memories_obj[name]["@user"] = name
                 else:
