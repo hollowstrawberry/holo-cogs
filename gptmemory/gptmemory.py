@@ -291,13 +291,20 @@ class GptMemory(GptMemoryCommands):
         )
         result.tokens.memories = len(self.encoding.encode(recalled_memories_str))
         result.tokens.system = len(self.encoding.encode(system_content)) - result.tokens.memories
-        
-        system_prompt = {
-            "role": "developer" if "gpt-5" in model else "system",
-            "content": system_content
-        }
+
         temp_messages = [msg for msg in messages]
+        system_role = "developer" if "gpt-5" in model else "system"
+        system_prompt = {
+            "role": system_role,
+            "content": system_content,
+        }
         temp_messages.insert(0, system_prompt)
+        if prompt_keys.get("end", "").strip():
+            end_prompt = {
+                "role": "system",
+                "content": prompt_keys["end"],
+            }
+            temp_messages.append(end_prompt)
 
         disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
         tools = [t for t in self.available_function_calls if t.schema.function.name not in disabled_functions]
