@@ -61,8 +61,6 @@ class GptMemoryCommands(GptMemoryBase):
             if ctx.guild.id in self.memory and self.memory[ctx.guild.id]:
                 view = MemoryListView(list(self.memory[ctx.guild.id].keys()))
                 view.message = await ctx.send(view=view)
-                if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-                    await ctx.message.delete()
             else:
                 await ctx.send("No memories...", delete_after=60)
         elif ctx.guild.id in self.memory:
@@ -115,6 +113,8 @@ class GptMemoryCommands(GptMemoryBase):
         self.memory[ctx.guild.id][name] = content
         view = MemoryChangeView([MemoryChangeResult(name, before, content)], standalone=True)
         view.message = await ctx.send(view=view)
+        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+            await ctx.message.delete()
 
     # Config
 
