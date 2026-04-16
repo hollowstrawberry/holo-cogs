@@ -299,7 +299,7 @@ class AImage(AImageCommands):
                 embed.description = ":warning: You are not authorized to use the generator at this time. You may be interested in [our web generator](<https://arcenciel.io/generate>)."
             else:
                 embed.description = "🕒 You have met your hourly quota. You can wait for it to refresh, or try [our web generator](<https://arcenciel.io/generate>)."
-                embed.add_field(name="Time remaining", value=f"{int(60 - (elapsed_last_refresh // 60))} minutes."
+                embed.add_field(name="Time remaining", value=f"{int(60 - (elapsed_last_refresh // 60))} minutes.")
             await send_response(context, embed=embed, ephemeral=True)
             return True
         return False
