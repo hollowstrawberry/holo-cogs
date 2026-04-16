@@ -188,7 +188,7 @@ class GptMemory(GptMemoryCommands):
     async def run_response(self, ctx: commands.Context, auto: bool = False):
         assert ctx.guild
         self.memory.setdefault(ctx.guild.id, {})
-        memories = list(self.memory[ctx.guild.id].keys())
+        memory_names = list(self.memory[ctx.guild.id].keys())
 
         result = GptMemoryResult()
         mem_task = None
@@ -196,11 +196,11 @@ class GptMemory(GptMemoryCommands):
             backread = await self.fetch_message_history(ctx)
             messages = await self.build_message_history_context(ctx, backread, result)
             participants = list(set([msg.author for msg in backread]))
-            recalled_memories = await self.execute_recaller(ctx, participants, messages, memories, result)
-            memories_str, recalled_memories_str = self.build_memory_strings(memories, recalled_memories, ctx, participants)
+            recalled_memories = await self.execute_recaller(ctx, participants, messages, memory_names, result)
+            recalled_memories_str = self.build_memory_string(memory_names, recalled_memories, ctx, participants)
             if not auto and await self.config.guild(ctx.guild).allow_memorizer():
-                mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories_str, recalled_memories_str, result, standalone=True))
-            await self.execute_responder(ctx, messages, memories_str, recalled_memories_str, result, auto)
+                mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=True))
+            await self.execute_responder(ctx, messages, memory_names, recalled_memories_str, result, auto)
         if mem_task:
             await mem_task
         log.info(result)
@@ -260,7 +260,7 @@ class GptMemory(GptMemoryCommands):
     async def execute_responder(self,
                                 ctx: commands.Context,
                                 messages: list[GptMessage],
-                                memories_str: str,
+                                memory_names: list[str],
                                 recalled_memories_str: str,
                                 result: GptMemoryResult,
                                 auto: bool = False,
@@ -360,7 +360,7 @@ class GptMemory(GptMemoryCommands):
                         if past_memory_changes:  # only allow one memory update per response
                             changes = []
                         else:
-                            changes = await self.execute_memorizer(ctx, messages, memories_str, recalled_memories_str, result, standalone=False)
+                            changes = await self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=False)
                             past_memory_changes += changes
                         args = {"changes": changes}
                     else:
@@ -426,7 +426,7 @@ class GptMemory(GptMemoryCommands):
     async def execute_memorizer(self,
                                 ctx: commands.Context,
                                 messages: list[GptMessage],
-                                memories_str: str,
+                                memory_names: list[str],
                                 recalled_memories_str: str,
                                 result: GptMemoryResult,
                                 standalone: bool
@@ -438,9 +438,14 @@ class GptMemory(GptMemoryCommands):
         assert ctx.guild and ctx.guild.me
 
         if await self.config.guild(ctx.guild).memorizer_user_only():
-            memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
+            memory_names = [memory for memory in memory_names if any(member.name == memory for member in ctx.guild.members)]
+        memory_names_obj = {
+            "memory_names": {
+                "#text": ", ".join(memory_names),
+            }
+        }
         system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
-            memories_str,
+            xmltodict.unparse(memory_names_obj, full_document=False),
             recalled_memories_str,
             botname=ctx.me.name,
             botnickname=ctx.me.nick or ctx.me.name
@@ -837,13 +842,8 @@ class GptMemory(GptMemoryCommands):
         return ({"chat_message": obj}, inline_objs)
     
 
-    def build_memory_strings(self, memory_names: list[str], recalled_memories: dict[str, str], ctx: commands.Context, participants: list[discord.Member | discord.User]) -> tuple[str, str]:
+    def build_memory_string(self, memory_names: list[str], recalled_memories: dict[str, str], ctx: commands.Context, participants: list[discord.Member | discord.User]) -> str, str:
         assert ctx.guild
-        memory_names_obj = {
-            "memory_names": {
-                "#text": ", ".join(memory_names),
-            }
-        }
         recalled_memories_obj = {
             "memories": {
                 "memory": []
@@ -878,9 +878,7 @@ class GptMemory(GptMemoryCommands):
         for mem_obj in temp.values():
             if len(mem_obj) > 1:
                 recalled_memories_obj["memories"]["memory"].append(mem_obj)
-        memories_str = xmltodict.unparse(memory_names_obj, full_document=False)
-        recalled_memories_str = xmltodict.unparse(recalled_memories_obj, full_document=False)
-        return memories_str, recalled_memories_str
+        return xmltodict.unparse(recalled_memories_obj, full_document=False)
     
 
     async def read_text_file(self, attachment: discord.Attachment, max_file_length: int) -> str | None:
