@@ -90,7 +90,8 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes | None:
     return fp.read()
 
 def button_label(button: discord.Button):
-    return " ".join([str(s) for s in (button.emoji, button.label) if s])
+    emoji_name = button.emoji if isinstance(button.emoji, str) else button.emoji.name
+    return " ".join([s for s in (emoji_name, button.label) if s])
 
 def get_text_contents(messages: list[GptMessage]) -> list[GptMessage]:
     """
