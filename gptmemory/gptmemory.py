@@ -197,9 +197,10 @@ class GptMemory(GptMemoryCommands):
             messages = await self.build_message_history_context(ctx, backread, result)
             participants = list(set([msg.author for msg in backread]))
             recalled_memories = await self.execute_recaller(ctx, participants, messages, memories, result)
+            memories_str, recalled_memories_str = self.build_memory_strings(memories, recalled_memories, ctx, participants)
             if not auto and await self.config.guild(ctx.guild).allow_memorizer():
-                mem_task = asyncio.create_task(self.execute_memorizer(ctx, participants, messages, memories, recalled_memories, result, standalone=True))
-            await self.execute_responder(ctx, participants, messages, memories, recalled_memories, result, auto)
+                mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories_str, recalled_memories_str, result, standalone=True))
+            await self.execute_responder(ctx, messages, memories_str, recalled_memories_str, result, auto)
         if mem_task:
             await mem_task
         log.info(result)
@@ -258,10 +259,9 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_responder(self,
                                 ctx: commands.Context,
-                                participants: list[discord.Member | discord.User],
                                 messages: list[GptMessage],
-                                memories: list[str],
-                                recalled_memories: dict[str, str],
+                                memories_str: str,
+                                recalled_memories_str: str,
                                 result: GptMemoryResult,
                                 auto: bool = False,
                                 ) -> GptMessage:
@@ -277,7 +277,6 @@ class GptMemory(GptMemoryCommands):
         max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
 
-        _, recalled_memories_str = self.build_memory_strings(memories, recalled_memories, ctx, participants)
         base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
         prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
         system_content = base_system_content.format(
@@ -361,7 +360,7 @@ class GptMemory(GptMemoryCommands):
                         if past_memory_changes:  # only allow one memory update per response
                             changes = []
                         else:
-                            changes = await self.execute_memorizer(ctx, participants, messages, memories, recalled_memories, result, standalone=False)
+                            changes = await self.execute_memorizer(ctx, messages, memories_str, recalled_memories_str, result, standalone=False)
                             past_memory_changes += changes
                         args = {"changes": changes}
                     else:
@@ -428,8 +427,8 @@ class GptMemory(GptMemoryCommands):
                                 ctx: commands.Context,
                                 participants: list[discord.Member | discord.User],
                                 messages: list[GptMessage],
-                                memories: list[str],
-                                recalled_memories: dict[str, str],
+                                memories_str: str,
+                                recalled_memories_str: str,
                                 result: GptMemoryResult,
                                 standalone: bool
                                 ) -> list[MemoryChangeResult]:
@@ -437,11 +436,10 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
         """
-        assert ctx.guild and isinstance(ctx.me, discord.Member)
+        assert ctx.guild and ctx.guild.me
 
         if await self.config.guild(ctx.guild).memorizer_user_only():
             memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
-        memories_str, recalled_memories_str = self.build_memory_strings(memories, recalled_memories, ctx, participants)
         system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
             memories_str,
             recalled_memories_str,
