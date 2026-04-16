@@ -853,28 +853,32 @@ class GptMemory(GptMemoryCommands):
             }
         }
         member_names = [member.name for member in ctx.guild.members]
-        memories_obj: dict[str, dict[str, str]] = {}
+        temp: dict[str, dict[str, str]] = {}
         for name, content in recalled_memories.items():
-            if name in memory_names:
-                memories_obj.setdefault(name, {})
-                if content:
-                    memories_obj[name]["#text"] = content
-                if name in member_names:
-                    memories_obj[name]["@user"] = name
-                else:
-                    memories_obj[name]["@topic"] = name
-        for member in ctx.guild.members:
-            if member in participants and member != ctx.guild.me:
-                memories_obj.setdefault(member.name, {})
-                memories_obj[member.name]["@user"] = member.name
-                perms = ctx.channel.permissions_for(member)
-                if member == ctx.guild.owner:
-                    memories_obj[member.name]["@role"] = "server owner"
-                elif perms.administrator:
-                    memories_obj[member.name]["@role"] = "administrator"
-                elif perms.manage_messages:
-                    memories_obj[member.name]["@role"] = "moderator"
-        for mem_obj in memories_obj.values():
+            if name not in memory_names:
+                continue
+            name = name.strip()
+            temp.setdefault(name, {})
+            if content and content.strip():
+                temp[name]["#text"] = content.strip()
+            if name in member_names:
+                temp[name]["@user"] = name
+            else:
+                temp[name]["@topic"] = name
+        for member in participants:
+            if member == ctx.guild.me:
+                continue
+            assert isinstance(member, discord.Member)
+            temp.setdefault(member.name, {})
+            temp[member.name]["@user"] = member.name
+            perms = ctx.channel.permissions_for(member)
+            if member == ctx.guild.owner:
+                temp[member.name]["@role"] = "server owner"
+            elif perms.administrator:
+                temp[member.name]["@role"] = "administrator"
+            elif perms.manage_messages:
+                temp[member.name]["@role"] = "moderator"
+        for mem_obj in temp.values():
             if len(mem_obj) > 1:
                 recalled_memories_obj["memories"]["memory"].append(mem_obj)
         memories_str = xmltodict.unparse(memory_names_obj, full_document=False)
