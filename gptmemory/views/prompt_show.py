@@ -45,8 +45,10 @@ class PromptView(View):
         await interaction.response.send_modal(modal)
 
     async def delete(self, interaction: discord.Interaction):
+        assert interaction.message
         if not interaction.permissions.manage_messages and not await self.check_owner_callback(interaction.user):
             return await interaction.response.send_message("You don't have permission to delete this.", ephemeral=True)
+        await interaction.message.delete()
 
     async def on_timeout(self) -> None:
         await super().on_timeout()

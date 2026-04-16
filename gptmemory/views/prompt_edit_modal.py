@@ -18,7 +18,6 @@ class PromptEditodal(ui.Modal):
             component=ui.TextInput(
                 style=discord.TextStyle.long,
                 default=prompt,
-                min_length=10,
             )
         )
         self.prompt_name_edit = ui.Label(
@@ -41,8 +40,11 @@ class PromptEditodal(ui.Modal):
             await self.edit_callback(prompt)
         else:
             assert self.create_callback
-            name = self.prompt_name_edit.component.value
-            await self.create_callback(name, prompt)
+            name = self.prompt_name_edit.component.value.replace("`", "").strip()
+            if not name:
+                return await interaction.response.send_message("Invalid key name.", ephemeral=True)
+            else:
+                await self.create_callback(name, prompt)
         tokens = tiktoken.get_encoding(constants.TOKEN_ENCODING).encode(prompt)
         embed = discord.Embed()
         embed.description = f"{self.name} has been edited."

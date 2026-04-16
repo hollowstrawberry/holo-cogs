@@ -2,7 +2,7 @@ import discord
 from discord.ui import View
 from typing import Awaitable, Callable
 
-from gptmemory.constants import VIEW_TIMEOUT
+from gptmemory.constants import VIEW_TIMEOUT, PROMPT_TYPES
 from gptmemory.views.prompt_edit_modal import PromptEditodal
 
 class PromptsEditView(View):
@@ -16,8 +16,10 @@ class PromptsEditView(View):
         self.edit_callback = edit_callback
         self.check_owner_callback = check_owner_callback
         self.message: discord.Message | None = None
+        self.prompt_buttons: dict[str, discord.ui.Button] = {}
         for name in prompts.keys():
-            self.add_button(name)
+            if name in PROMPT_TYPES or prompts[name].strip():
+                self.add_button(name)
         self.create_button = discord.ui.Button(emoji="➕", style=discord.ButtonStyle.green)
         self.create_button.callback = self.create_prompt
         self.add_item(self.create_button)
@@ -26,10 +28,11 @@ class PromptsEditView(View):
         self.add_item(self.delete_button)
 
     def add_button(self, name: str):
-        style = discord.ButtonStyle.blurple if name in ("responder", "recaller", "memorizer", "autoresponder") else discord.ButtonStyle.gray
+        style = discord.ButtonStyle.blurple if name in PROMPT_TYPES else discord.ButtonStyle.gray
         button = discord.ui.Button(emoji="📝", label=name, style=style)
         button.callback = self.prompt_edit_selector(name)
         self.add_item(button)
+        self.prompt_buttons[name] = button
 
     def prompt_edit_selector(self, name: str):
         async def prompt_edit_wrapper(interaction: discord.Interaction):
@@ -40,6 +43,8 @@ class PromptsEditView(View):
         async def prompt_edit_callback_wrapper(prompt: str):
             self.prompts[name] = prompt
             await self.edit_callback(name, prompt)
+            if not prompt.strip() and name in self.prompt_buttons and name not in PROMPT_TYPES:
+                self.remove_item(self.prompt_buttons[name])
         return prompt_edit_callback_wrapper
     
     async def prompt_create_callback(self, name: str, prompt: str):
@@ -65,8 +70,10 @@ class PromptsEditView(View):
         await interaction.response.send_modal(modal)
 
     async def delete(self, interaction: discord.Interaction):
+        assert interaction.message
         if not interaction.permissions.manage_messages and not await self.check_owner_callback(interaction.user):
             return await interaction.response.send_message("You don't have permission to delete this.", ephemeral=True)
+        await interaction.message.delete()
 
     async def on_timeout(self) -> None:
         await super().on_timeout()
