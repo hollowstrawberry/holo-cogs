@@ -12,19 +12,20 @@ DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
 TOKEN_ENCODING = "o200k_base"
 PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
 
-RESPONSE_CONTENT_PATTERN = re.compile(r".*<content>(.*?)</content>", re.DOTALL | re.IGNORECASE)
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
-    "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE),
-    "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
-    "Leftover symbol":              re.compile(r"""\n[}'"\s\-]+$""")
+    "XML content":        (re.compile(r"^.*<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), "\1"),
+    "Automated actions":  (re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE), ""),
+    "Image objects":      (re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE), ""),
+    "Leftover symbol":    (re.compile(r"""\n[}'"\s\-]+$"""), ""),
+    "Incomplete emote":   (re.compile(r"(?:<|&lt;)?(a?:\w{2,}:\d{17,19})(?:>|&gt;)?"), r"<\1>"),
+    "Em dash":            (re.compile(r"(?<=\w)—(?=\w)"), ", "),
 })
 
 GENERATE_IMAGE_PATTERNS = {
-    "XML":               re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>", re.DOTALL | re.IGNORECASE),
-    "Gemini action":     re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE)
+    "XML object":         re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>", re.DOTALL | re.IGNORECASE),
+    "JSON object":        re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
 }
 
-INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 BACKTICK_PATTERN = re.compile(r"```+")
