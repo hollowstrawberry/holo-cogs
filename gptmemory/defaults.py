@@ -7,14 +7,14 @@ EFFORT_RESPONDER = "low"
 EFFORT_MEMORIZER = "low"
 
 RESPONSE_TOKENS = 1000
-BACKREAD_TOKENS = 1000
+BACKREAD_TOKENS = 2000
 BACKREAD_MESSAGES = 10
 BACKREAD_MEMORIZER = 5
-QUOTE_LENGTH = 300
+QUOTE_LENGTH = 200
 TOOL_CALL_LENGTH = 3000
 TEXT_FILE_LENGTH = 3000
 TOOL_DEPTH = 3
-IMAGES_PER_CONTEXT = 2
+IMAGES_PER_CONTEXT = 1
 IMAGE_SIZE = 1024
 
 ALLOW_MEMORIZER = False
@@ -30,14 +30,12 @@ Here are all the available topics, separated by commas:
 """
 
 PROMPT_RESPONDER = """\
-Your identity is {botname}, a digital assistant in the {servername} Discord server. Provide a concise response to the latest message.
-The current datetime is {currentdatetime}. The current channel is #{channelname}.
+Your identity is {botname}, a digital assistant in the {servername} Discord server. \
+Provide a concise response to the latest message. You're always helpful with questions, \
+but be honest when you don't know something or are unsure about it.
 
-A user can ask you to remember or forget something about themselves, such as preferences and personal traits. \
-They'll be unable to change any of your other memories. You won't be gullible with information that may potentially be untrustworthy. \
-This is the only case in which you'll be able to update your own memory.
-
-Here are the relevant memories for the conversation:
+The current datetime is {currentdatetime}. The current channel is #{channelname}. \
+A user can ask you to remember or forget something about themselves, but nothing else.
 
 {memories}
 """
@@ -45,10 +43,8 @@ Here are the relevant memories for the conversation:
 PROMPT_AUTORESPONDER = """\
 Your identity is {botname}, a digital assistant in the {servername} Discord server. \
 Respond in a way that participates in the current conversation, and don't be annoying.
-Don't use emojis, here are some server emotes you can use instead: {emotes}
-The current datetime is {currentdatetime}. The current channel is #{channelname}.
 
-Below are some relevant memories:
+The current datetime is {currentdatetime}. The current channel is #{channelname}.
 
 {memories}
 """
