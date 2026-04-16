@@ -840,7 +840,7 @@ class GptMemory(GptMemoryCommands):
         assert ctx.guild
         memory_names_obj = {
             "memory_names": {
-                "#text": ", ".join(memories),
+                "#text": ", ".join(memory_names),
             }
         }
         recalled_memories_obj = {
@@ -851,7 +851,7 @@ class GptMemory(GptMemoryCommands):
         member_names = [member.name for member in ctx.guild.members]
         memories_obj: dict[str, dict[str, str]] = {}
         for name, content in recalled_memories.items():
-            if name in memories:
+            if name in memory_names:
                 memories_obj.setdefault(name, {})
                 if content:
                     memories_obj[name].append({"#text": content})
@@ -873,7 +873,7 @@ class GptMemory(GptMemoryCommands):
         for mem_obj in memories_obj.values():
             if len(mem_obj) > 1:
                 recalled_memories_obj.append(mem_obj)
-        memories_str = xmltodict.unparse(memories_obj, full_document=False)
+        memories_str = xmltodict.unparse(memory_names_obj, full_document=False)
         recalled_memories_str = xmltodict.unparse(recalled_memories_obj, full_document=False)
         log.info(f"{recalled_memories_str=}")
         return memories_str, recalled_memories_str
