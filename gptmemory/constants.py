@@ -13,7 +13,7 @@ TOKEN_ENCODING = "o200k_base"
 PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
 
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
-    "XML content":        (re.compile(r"^.*<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), "\1"),
+    "XML content":        (re.compile(r"^.*<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
     "Automated actions":  (re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE), ""),
     "Image objects":      (re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE), ""),
     "Leftover symbol":    (re.compile(r"""\n[}'"\s\-]+$"""), ""),
