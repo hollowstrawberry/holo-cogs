@@ -89,6 +89,9 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes | None:
     fp.seek(0)
     return fp.read()
 
+def button_label(button: discord.Button):
+    return " ".join([str(s) for s in (button.emoji, button.label) if s])
+
 def get_text_contents(messages: list[GptMessage]) -> list[GptMessage]:
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,

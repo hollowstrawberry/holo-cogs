@@ -10,6 +10,7 @@ from random import random
 from typing import Any
 from difflib import get_close_matches
 from datetime import datetime, timezone
+from itertools import chain
 from expiringdict import ExpiringDict
 from openai import AsyncOpenAI, NotGiven
 from openai.types.chat import ChatCompletionMessageFunctionToolCall
@@ -788,14 +789,16 @@ class GptMemory(GptMemoryCommands):
             if len(fields) > 0 and exhaustive:
                 utils.add_xml_group(embed_obj, fields, "fields")
         utils.add_xml_group(obj, embeds, "embeds")
-        buttons = []
-        for component in message.components:
-            if "generated_image" not in obj and isinstance(component, discord.Button):
-                log.info(f"is button {component.emoji} {component.label}")
-                buttons.append({"#text": " ".join([str(s) for s in (component.emoji, component.label) if s])})
-            else:
-                log.info(f"not button {type(component).__name__}")
-        utils.add_xml_group(obj, buttons, "buttons")
+        if "generated_image" not in obj:
+            buttons = []
+            for component in message.components:
+                if isinstance(component, discord.ActionRow):
+                    for subcomponent in component.children:
+                        if isinstance(subcomponent, discord.Button):
+                            buttons.append({"#text": utils.button_label(subcomponent)})
+                elif isinstance(component, discord.Button):
+                    buttons.append({"#text": utils.button_label(component)})
+            utils.add_xml_group(obj, buttons, "buttons")
         # poll
         if message.poll:
             poll = {"question": message.poll.question}
@@ -803,7 +806,7 @@ class GptMemory(GptMemoryCommands):
                 answers = []
                 for answer in message.poll.answers:
                     answers.append({
-                        "@votes": answer.vote_count,
+                        "@votes": str(answer.vote_count),
                         "#text": answer.text,
                     })
                 utils.add_xml_group(poll, answers, "answers")
@@ -811,6 +814,16 @@ class GptMemory(GptMemoryCommands):
         # etc
         if len(obj) == starting_len:
             obj["error"] = "Message empty or not supported"
+        # reactions
+        reactions = []
+        for reaction in message.reactions[:5]:
+            reaction_obj = {
+                "@count": str(reaction.count),
+                "#text": reaction.emoji if isinstance(reaction.emoji, str) else reaction.emoji.name
+            }
+            if reaction.me:
+                reaction_obj["self_reacted"] = "true"
+        utils.add_xml_group(obj, reactions, "reactions")
         # done
         return ({"chat_message": obj}, inline_objs)
     
