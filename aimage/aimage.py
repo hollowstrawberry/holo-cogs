@@ -288,17 +288,19 @@ class AImage(AImageCommands):
 
         if is_vip:
             return False
+        embed = discord.Embed(color=await ctx.embed_color())
+        embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if has_ongoing_gen:
-            content = "🕒 You must wait for your current image to finish generating before you can request a new one."
-            await send_response(context, content=content, ephemeral=True)
+            embed.description = "🕒 You must wait for your current image to finish generating before you can request a new one."
+            await send_response(context, embed=embed, ephemeral=True)
             return True
         if self.gen_count[user.id] >= quota:
             if quota == 0:
-                content = ":warning: You are not authorized to use the generator at this time. You may be interested in [<https://arcenciel.io>](our web generator)."
+                embed.description = ":warning: You are not authorized to use the generator at this time. You may be interested in [our web generator](<https://arcenciel.io/generate>)."
             else:
-                content = "🕒 You have met your generation quota. You can wait for it to refresh, or try [<https://arcenciel.io>](our web generator)." \
-                        + f"\n\nTime remaining: {int(60 - (elapsed_last_refresh // 60))} minutes."
-            await send_response(context, content=content, ephemeral=True)
+                embed.description = "🕒 You have met your hourly quota. You can wait for it to refresh, or try [our web generator](<https://arcenciel.io/generate>)."
+                embed.add_field(name="Time remaining", value=f"{int(60 - (elapsed_last_refresh // 60))} minutes."
+            await send_response(context, embed=embed, ephemeral=True)
             return True
         return False
 
