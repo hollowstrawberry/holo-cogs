@@ -12,9 +12,94 @@ from gptmemory.functions.base import get_all_function_calls
 from gptmemory.views.memory_info import MemoryInfoView
 from gptmemory.views.memory_list import MemoryListView
 from gptmemory.views.memory_change import MemoryChangeView
+from gptmemory.views.prompt_show import PromptView
+from gptmemory.views.prompts_edit import PromptsEditView
 
 
 class GptMemoryCommands(GptMemoryBase):
+
+    PromptTypes = Literal["recaller", "responder", "memorizer"]
+    AllPromptTypes = PromptTypes | Literal["autoresponder"]
+
+    @commands.group(name="prompt")
+    async def prompt_cmd(self, ctx: commands.Context):
+        """View or edit the LLM prompts"""
+        pass
+
+    @prompt_cmd.command(name="show", aliases=["view"])
+    async def prompt_cmd_show(self, ctx: commands.Context, module: str):
+        """
+        The recaller grabs relevant memories.
+        The responder sends the chat message.
+        The autoresponder sends random chat messages.
+        The memorizer edits memories.
+        """
+        assert ctx.guild
+        prompt = ""
+        if module == "recaller":
+            prompt = await self.config.guild(ctx.guild).prompt_recaller()
+            edit = self.config.guild(ctx.guild).prompt_recaller.set
+        elif module == "responder":
+            prompt = await self.config.guild(ctx.guild).prompt_responder()
+            edit = self.config.guild(ctx.guild).prompt_responder.set
+        elif module == "memorizer":
+            prompt = await self.config.guild(ctx.guild).prompt_memorizer()
+            edit = self.config.guild(ctx.guild).prompt_memorizer.set
+        elif module == "autoresponder":
+            prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
+            edit = self.config.guild(ctx.guild).prompt_autoresponder.set
+        else:
+            keys = await self.config.guild(ctx.guild).prompt_keys()
+            if module not in keys:
+                await ctx.send(f"Prompt `{module}` not found.", delete_after=60)
+                if ctx.bot_permissions.manage_messages:
+                    await ctx.message.delete()
+                return
+            async def edit_callback(p: str):
+                assert ctx.guild
+                async with self.config.guild(ctx.guild).prompt_keys() as prompt_keys:
+                    prompt_keys[module] = p
+            edit = edit_callback
+            prompt = keys[module]
+
+        view = PromptView(module.title(), prompt, edit, self.bot.is_owner)
+        view.message = await ctx.send(f"Prompt: `{module.title()}`", view=view)
+        if ctx.bot_permissions.manage_messages:
+            await ctx.message.delete()
+
+    @prompt_cmd.command(name="set", aliases=["edit"])
+    async def prompt_cmd_edit(self, ctx: commands.Context):
+        """
+        The recaller grabs relevant memories.
+        The responder sends the chat message.
+        The autoresponder sends random chat messages.
+        The memorizer edits memories.
+        """
+        assert ctx.guild
+        async def edit_callback(name: str, prompt: str):
+            assert ctx.guild
+            if name == "recaller":
+                await self.config.guild(ctx.guild).prompt_recaller.set(prompt)
+            elif name == "responder":
+                await self.config.guild(ctx.guild).prompt_responder.set(prompt)
+            elif name == "memorizer":
+                await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
+            elif name == "autoresponder":
+                prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
+            else:
+                async with self.config.guild(ctx.guild).prompt_keys() as prompt_keys:
+                    prompt_keys[name] = prompt
+        prompts = {
+            "responder": await self.config.guild(ctx.guild).prompt_responder(),
+            "autoresponder": await self.config.guild(ctx.guild).prompt_autoresponder(),
+            "recaller": await self.config.guild(ctx.guild).prompt_recaller(),
+            "memorizer": await self.config.guild(ctx.guild).prompt_memorizer(),
+            **await self.config.guild(ctx.guild).prompt_keys()
+        }
+        view = PromptsEditView(prompts, edit_callback, self.bot.is_owner)
+        view.message = await ctx.send(f"```Prompt Editing```", view=view)
+        if ctx.bot_permissions.manage_messages:
+            await ctx.message.delete()
 
     @commands.command(name="forget")
     async def command_forget(self, ctx: commands.Context):
@@ -200,14 +285,6 @@ class GptMemoryCommands(GptMemoryBase):
         
         await ctx.reply(f"`[generation_channel_mode:]` {mode}\n`[generation_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
-    @memoryconfig.group(name="prompt")
-    async def memoryconfig_prompt(self, ctx: commands.Context):
-        """View or edit the prompts"""
-        pass
-
-    PromptTypes = Literal["recaller", "responder", "memorizer"]
-    AllPromptTypes = PromptTypes | Literal["autoresponder"]
-
     @memoryconfig.command("model")
     @commands.is_owner()
     async def memoryconfig_model(self, ctx: commands.Context, module: PromptTypes, model: Optional[str]):
@@ -256,6 +333,12 @@ class GptMemoryCommands(GptMemoryBase):
         else:
             await effort_setter.set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
+
+
+    @memoryconfig.group(name="prompt")
+    async def memoryconfig_prompt(self, ctx: commands.Context):
+        """View or edit the prompts"""
+        pass
 
     @memoryconfig_prompt.command(name="show", aliases=["view"])
     async def memoryconfig_prompt_show(self, ctx: commands.Context, module: AllPromptTypes):
