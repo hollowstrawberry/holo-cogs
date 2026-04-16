@@ -791,7 +791,10 @@ class GptMemory(GptMemoryCommands):
         buttons = []
         for component in message.components:
             if "generated_image" not in obj and isinstance(component, discord.Button):
+                log.info(f"is button {component.emoji} {component.label}")
                 buttons.append({"#text": " ".join([str(s) for s in (component.emoji, component.label) if s])})
+            else:
+                log.info(f"not button {type(component).__name__}")
         utils.add_xml_group(obj, buttons, "buttons")
         # poll
         if message.poll:
