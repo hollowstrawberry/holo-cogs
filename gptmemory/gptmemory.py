@@ -399,12 +399,9 @@ class GptMemory(GptMemoryCommands):
                         await self.generate_stable_diffusion(ctx, prompt)
                         break                    
             # cleanup
-            if m := constants.RESPONSE_CONTENT_PATTERN.search(completion):
-                completion = m.group(1)
+            for pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS.values():
+                completion = pattern.sub(repl, completion)
             completion = utils.undo_xml(completion)
-            for pattern in constants.RESPONSE_CLEANUP_PATTERNS.values():
-                completion = pattern.sub("", completion)
-            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(r"<\1>", completion)
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
         if completion or view:
