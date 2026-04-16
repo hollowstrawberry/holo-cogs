@@ -32,6 +32,7 @@ class TokensDetailsResult:
 class GptMemoryResult:
     messages: int = 0
     images: int = 0
+    tool_calls: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
     cost: float | str = "unknown"
