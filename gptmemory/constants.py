@@ -12,7 +12,7 @@ DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
 TOKEN_ENCODING = "o200k_base"
 PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
 
-RESPONSE_CONTENT_PATTERN = re.compile(r"<content>([\s\S]*?)</content>")
+RESPONSE_CONTENT_PATTERN = re.compile(r".*<content>(.*?)</content>", re.DOTALL | re.IGNORECASE)
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Automated actions":            re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE),
     "Image objects":                re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE),
@@ -20,8 +20,8 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
 })
 
 GENERATE_IMAGE_PATTERNS = {
-    "XML":               re.compile(r"<generated_image[\s\S]+?<prompt>([\s\S]*?)</prompt>"),
-    "Gemini action":     re.compile(r"""{\s*(?:["']action["'][\s\S]+?)?["']prompt["']:\s*["']([^"']+)["'][\s\S]*$""", re.IGNORECASE)
+    "XML":               re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>", re.DOTALL | re.IGNORECASE),
+    "Gemini action":     re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE)
 }
 
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"<?(a?:\w{2,}:\d{17,19})>?")
@@ -30,7 +30,7 @@ LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 BACKTICK_PATTERN = re.compile(r"```+")
 NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
 UNCLOSED_XML_TAG_PATTERN = re.compile(r"<[^>]*$")
-XML_TAG_PATTERN = re.compile(r"<(/)?([a-zA-Z0-9_]+)[^>]*?(/)?>")
+XML_TAG_PATTERN = re.compile(r"<(/)?(\w+)[^>]*?(/)?>")
 
 URL_PATTERN = re.compile(r"(https?://\S+)")
 GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")
