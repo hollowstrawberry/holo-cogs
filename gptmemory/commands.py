@@ -31,6 +31,17 @@ class GptMemoryCommands(GptMemoryBase):
         The memorizer edits memories.
         """
         assert ctx.guild
+        if module and module.lower().strip() in ("full", "whole", "file", "all"):
+            prompt = await self.config.guild(ctx.guild).prompt_responder()
+            prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
+            for key, value in prompt_keys.items():
+                prompt = prompt.replace(f"{{{key}}}", value)
+            with io.StringIO() as fp:
+                fp.write(prompt)
+                fp.seek(0)
+                file = discord.File(fp, f"prompt_{ctx.message.id}.txt")  # type: ignore
+            await ctx.send(file=file)
+            return
         view = await self.prompt_cmd_show(ctx, module) if module else await self.prompt_cmd_edit(ctx)
         if view:
             embed = discord.Embed(color=await ctx.embed_color())
