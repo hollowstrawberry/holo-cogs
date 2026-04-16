@@ -767,7 +767,7 @@ class GptMemory(GptMemoryCommands):
         # stickers
         stickers = []
         for sticker in message.stickers:
-            stickers.append({"@name": sticker.name})
+            stickers.append({"#text": sticker.name})
         utils.add_xml_group(obj, stickers, "stickers")
         # embeds
         embeds = []
