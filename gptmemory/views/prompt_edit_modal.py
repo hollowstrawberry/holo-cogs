@@ -7,10 +7,16 @@ from gptmemory import constants
 
 
 class PromptEditodal(ui.Modal):
-    def __init__(self, name: str | None, prompt: str, edit_callback: Callable[[str], Awaitable] | None = None, create_callback: Callable[[str, str], Awaitable] | None = None):
+    def __init__(self, name: str | None,
+                 prompt: str,
+                 check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
+                 edit_callback: Callable[[str], Awaitable] | None = None,
+                 create_callback: Callable[[str, str], Awaitable] | None = None,
+                ):
         super().__init__(title="Prompt editing")
         self.name = name
         self.prompt = prompt
+        self.check_owner = check_owner
         self.edit_callback = edit_callback
         self.create_callback = create_callback
         self.prompt_edit = ui.Label(
@@ -18,6 +24,7 @@ class PromptEditodal(ui.Modal):
             component=ui.TextInput(
                 style=discord.TextStyle.long,
                 default=prompt,
+                required=False,
             )
         )
         self.prompt_name_edit = ui.Label(
@@ -32,6 +39,8 @@ class PromptEditodal(ui.Modal):
         self.add_item(self.prompt_edit)
         
     async def on_submit(self, interaction: discord.Interaction):
+        if not await self.check_owner(interaction.user):
+            return await interaction.response.send_message("You can view the prompt, but only the bot owner can edit it.", ephemeral=True)
         assert isinstance(self.prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.prompt_name_edit.component, discord.ui.TextInput)
         prompt = self.prompt_edit.component.value

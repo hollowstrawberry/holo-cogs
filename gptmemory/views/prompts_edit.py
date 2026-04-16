@@ -9,12 +9,12 @@ class PromptsEditView(View):
     def __init__(self,
                  prompts: dict[str, str],
                  edit_callback: Callable[[str, str], Awaitable],
-                 check_owner_callback: Callable[[discord.User | discord.Member], Awaitable[bool]],
+                 check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
                 ):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.prompts = prompts
         self.edit_callback = edit_callback
-        self.check_owner_callback = check_owner_callback
+        self.check_owner = check_owner
         self.message: discord.Message | None = None
         self.prompt_buttons: dict[str, discord.ui.Button] = {}
         for name in prompts.keys():
@@ -43,8 +43,9 @@ class PromptsEditView(View):
         async def prompt_edit_callback_wrapper(prompt: str):
             self.prompts[name] = prompt
             await self.edit_callback(name, prompt)
-            if not prompt.strip() and name in self.prompt_buttons and name not in PROMPT_TYPES:
+            if self.message and not prompt.strip() and name in self.prompt_buttons and name not in PROMPT_TYPES:
                 self.remove_item(self.prompt_buttons[name])
+                await self.message.edit(view=self)
         return prompt_edit_callback_wrapper
     
     async def prompt_create_callback(self, name: str, prompt: str):
@@ -58,20 +59,21 @@ class PromptsEditView(View):
             await self.message.edit(view=self)
 
     async def edit_prompt(self, interaction: discord.Interaction, name: str, prompt: str):
-        if not await self.check_owner_callback(interaction.user):
-            return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
-        modal = PromptEditodal(name, prompt, edit_callback=self.prompt_edit_callback_selector(name))
+        # checked in the modal instead
+        #if not await self.check_owner(interaction.user):
+        #    return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
+        modal = PromptEditodal(name, prompt, self.check_owner, edit_callback=self.prompt_edit_callback_selector(name))
         await interaction.response.send_modal(modal)
 
     async def create_prompt(self, interaction: discord.Interaction):
-        if not await self.check_owner_callback(interaction.user):
+        if not await self.check_owner(interaction.user):
             return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
-        modal = PromptEditodal(None, "", create_callback=self.prompt_create_callback)
+        modal = PromptEditodal(None, "", self.check_owner, create_callback=self.prompt_create_callback)
         await interaction.response.send_modal(modal)
 
     async def delete(self, interaction: discord.Interaction):
         assert interaction.message
-        if not interaction.permissions.manage_messages and not await self.check_owner_callback(interaction.user):
+        if not interaction.permissions.manage_messages and not await self.check_owner(interaction.user):
             return await interaction.response.send_message("You don't have permission to delete this.", ephemeral=True)
         await interaction.message.delete()
 
