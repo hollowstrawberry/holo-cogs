@@ -288,7 +288,7 @@ class AImage(AImageCommands):
 
         if is_vip:
             return False
-        embed = discord.Embed(color=await ctx.embed_color())
+        embed = discord.Embed(color=await context.embed_color())
         embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if has_ongoing_gen:
             embed.description = "🕒 You must wait for your current image to finish generating before you can request a new one."
