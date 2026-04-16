@@ -1,3 +1,4 @@
+import io
 import discord
 from typing import Literal, Optional
 from difflib import get_close_matches
