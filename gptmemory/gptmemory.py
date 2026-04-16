@@ -710,6 +710,11 @@ class GptMemory(GptMemoryCommands):
                     "@dimensions": metadata.get("Size", "unknown"),
                     "prompt": utils.parse_prompt(metadata["Prompt"]),
                 }
+        # quote
+        if quote and exhaustive and recursive and "generated_image" not in obj:
+            quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(quote, None, backread, max_quote_length, max_file_length, exhaustive=quote not in backread, recursive=False)
+            obj["quote"] = quoted_message_obj
+            inline_objs.update(quoted_message_inlines)
         # text content
         linked_message_for_later = None
         if message.is_system():
@@ -728,7 +733,11 @@ class GptMemory(GptMemoryCommands):
                 elif message.channel.id != channel_id:
                     channel = message.guild.get_channel_or_thread(channel_id)
                     link_obj["@channel"] = f"#{channel.name}" if channel else "unknown"
-                inline_objs[message_link.group(0)] = {"message_link": {"#text": "...", **link_obj}}
+                inline_objs[message_link.group(0)] = {
+                    "message_link": {
+                        "#text": "...",
+                        **link_obj,
+                    }}
                 # Add quote for linked message if it is the first
                 if i == 0 and exhaustive and recursive and "generated_image" not in obj:
                     try:
@@ -736,10 +745,11 @@ class GptMemory(GptMemoryCommands):
                     except (AttributeError, discord.NotFound):
                         continue
                     linked_message_obj, linked_message_inlines = await self.parse_discord_message(linked, None, backread, max_quote_length, max_file_length, exhaustive=linked not in backread, recursive=False)
-                    linked_message_for_later = {**link_obj, **linked_message_obj}
+                    obj["linked_message"] = {**link_obj, **linked_message_obj}
                     inline_objs.update(linked_message_inlines)
             if not exhaustive and len(content) > max_quote_length:
                 content = content[:max_quote_length - 3] + "..."
+                obj["@truncated"] = "true"
             obj["content"] = content
         # attachments
         if "generated_image" not in obj:
@@ -769,11 +779,14 @@ class GptMemory(GptMemoryCommands):
                 embed_obj["image"] = embed.image.url
             if embed.thumbnail and embed.thumbnail.url:
                 embed_obj["thumbnail"] = embed.thumbnail.url
-            fields = {}
+            fields = []
             for field in embed.fields:
-                fields[field.name] = field.value
+                fields.append({
+                    "@name": field.name,
+                    "#text": field.value,
+                })
             if len(fields) > 0 and exhaustive:
-                embed_obj["fields"] = fields
+                utils.add_xml_group(embed_obj, fields, "fields")
         utils.add_xml_group(obj, embeds, "embeds")
         buttons = []
         for component in message.components:
@@ -788,17 +801,10 @@ class GptMemory(GptMemoryCommands):
                 for answer in message.poll.answers:
                     answers.append({
                         "@votes": answer.vote_count,
-                        "#text": answer.text
+                        "#text": answer.text,
                     })
                 utils.add_xml_group(poll, answers, "answers")
             obj["poll"] = poll
-        # quote
-        if quote and exhaustive and recursive and "generated_image" not in obj:
-            quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(quote, None, backread, max_quote_length, max_file_length, exhaustive=quote not in backread, recursive=False)
-            obj["quote"] = quoted_message_obj
-            inline_objs.update(quoted_message_inlines)
-        if linked_message_for_later:
-            obj["linked_message"] = linked_message_for_later
         # etc
         if len(obj) == starting_len:
             obj["error"] = "Message empty or not supported"
