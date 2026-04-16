@@ -849,7 +849,7 @@ class GptMemory(GptMemoryCommands):
             }
         }
         member_names = [member.name for member in ctx.guild.members]
-        memories_obj: dict[str, dict[str, str] = {}
+        memories_obj: dict[str, dict[str, str]] = {}
         for name, content in recalled_memories.items():
             if name in memories:
                 memories_obj.setdefault(name, {})
