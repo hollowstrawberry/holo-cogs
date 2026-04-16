@@ -18,7 +18,7 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Automated actions":  (re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE), ""),
     "Image objects":      (re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE), ""),
     "Leftover symbol":    (re.compile(r"""\n[}'"\s\-]+$"""), ""),
-    "Incomplete emote":   (re.compile(r"(?:<|&lt;)?(a?:\w{2,}:\d{17,19})(?:>|&gt;)?"), r"<\1>"),
+    "Server emote":       (re.compile(r"`?(?:<|&lt;)?(a?:\w+:\d{17,19})(?:>|&gt;)?`?"), r"<\1>"),
     "Em dash":            (re.compile(r"(?<=\w)—(?=\w)"), ", "),
 })
 
