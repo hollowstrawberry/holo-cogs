@@ -18,14 +18,14 @@ RESPONSE_CLEANUP_PATTERNS = OrderedDict({
     "Automated actions":  (re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE), ""),
     "Image objects":      (re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE), ""),
     "Leftover symbol":    (re.compile(r"""\n[}'"\s\-]+$"""), ""),
-    "Server emote":       (re.compile(r"`?(?:<|&lt;)?(a?:\w+:\d{17,19})(?:>|&gt;)?`?"), r"<\1>"),
+    "Server emote":       (re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
     "Em dash":            (re.compile(r"(?<=\w)—(?=\w)"), ", "),
 })
-
 GENERATE_IMAGE_PATTERNS = {
     "XML object":         re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>.*?</generated_image>", re.DOTALL | re.IGNORECASE),
     "JSON object":        re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
 }
+INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?(?:&lt;|<)?a?:(\w+):\d{0,16}(?:&gt;|>)?`?")
 
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
