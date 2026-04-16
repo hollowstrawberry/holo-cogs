@@ -836,7 +836,7 @@ class GptMemory(GptMemoryCommands):
         return ({"chat_message": obj}, inline_objs)
     
 
-    def build_memory_strings(self, memory_names: list[str], recalled_memories: dict[str, str], ctx: discord.Content, participants: list[discord.Member | discord.User]) -> tuple[str, str]:
+    def build_memory_strings(self, memory_names: list[str], recalled_memories: dict[str, str], ctx: discord.Context, participants: list[discord.Member | discord.User]) -> tuple[str, str]:
         assert ctx.guild
         memory_names_obj = {
             "memory_names": {
