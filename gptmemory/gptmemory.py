@@ -860,7 +860,7 @@ class GptMemory(GptMemoryCommands):
                 else:
                     memories_obj[name]["@topic"] = name
         for member in ctx.guild.members:
-            if member in participants:
+            if member in participants and member != ctx.guild.me:
                 memories_obj.setdefault(member.name, {})
                 memories_obj[member.name]["@user"] = member.name
                 perms = ctx.channel.permissions_for(member)
