@@ -408,6 +408,9 @@ class GptMemory(GptMemoryCommands):
             # cleanup
             for pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS.values():
                 completion = pattern.sub(repl, completion)
+            for m in constants.INCOMPLETE_EMOTE_PATTERN.finditer(completion):
+                if emote := discord.utils.get(ctx.bot.emojis, name=m.group(1)):
+                    completion = completion.replace(m.group(0), str(emote))
             completion = utils.undo_xml(completion).strip()
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
