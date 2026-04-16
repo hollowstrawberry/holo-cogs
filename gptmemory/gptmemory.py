@@ -875,7 +875,6 @@ class GptMemory(GptMemoryCommands):
                 recalled_memories_obj["memories"]["memory"].append(mem_obj)
         memories_str = xmltodict.unparse(memory_names_obj, full_document=False)
         recalled_memories_str = xmltodict.unparse(recalled_memories_obj, full_document=False)
-        log.info(f"{recalled_memories_str=}")
         return memories_str, recalled_memories_str
     
 
