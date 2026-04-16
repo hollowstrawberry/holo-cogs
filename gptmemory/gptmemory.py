@@ -788,8 +788,11 @@ class GptMemory(GptMemoryCommands):
                 })
             if len(fields) > 0 and exhaustive:
                 utils.add_xml_group(embed_obj, fields, "fields")
+            if embed_obj:
+                embeds.append(embed_obj)
         utils.add_xml_group(obj, embeds, "embeds")
-        if "generated_image" not in obj:
+        # buttons
+        if exhaustive and "generated_image" not in obj:
             buttons = []
             for component in message.components:
                 if isinstance(component, discord.ActionRow):
@@ -815,15 +818,17 @@ class GptMemory(GptMemoryCommands):
         if len(obj) == starting_len:
             obj["error"] = "Message empty or not supported"
         # reactions
-        reactions = []
-        for reaction in message.reactions[:5]:
-            reaction_obj = {
-                "@count": str(reaction.count),
-                "#text": reaction.emoji if isinstance(reaction.emoji, str) else reaction.emoji.name
-            }
-            if reaction.me:
-                reaction_obj["self_reacted"] = "true"
-        utils.add_xml_group(obj, reactions, "reactions")
+        if exhaustive and "generated_image" not in obj:
+            reactions = []
+            for reaction in message.reactions[:5]:
+                reaction_obj = {
+                    "@count": str(reaction.count),
+                    "#text": reaction.emoji if isinstance(reaction.emoji, str) else reaction.emoji.name
+                }
+                if reaction.me:
+                    reaction_obj["self_reacted"] = "true"
+                reactions.append(reaction_obj)
+            utils.add_xml_group(obj, reactions, "reactions")
         # done
         return ({"chat_message": obj}, inline_objs)
     
