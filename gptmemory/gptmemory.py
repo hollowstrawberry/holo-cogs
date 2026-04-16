@@ -346,6 +346,7 @@ class GptMemory(GptMemoryCommands):
             temp_messages.append(response.choices[0].message)  # type: ignore
             for call in response.choices[0].message.tool_calls:
                 assert isinstance(call, ChatCompletionMessageFunctionToolCall)
+                result.tool_calls += 1
                 try:
                     cls = next(t for t in tools if t.schema.function.name == call.function.name)
                     if cls is UpdateMemoryFunctionCall:
