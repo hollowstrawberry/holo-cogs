@@ -198,8 +198,8 @@ class GptMemory(GptMemoryCommands):
             participants = list(set([msg.author for msg in backread]))
             recalled_memories = await self.execute_recaller(ctx, participants, messages, memories, result)
             if not auto and await self.config.guild(ctx.guild).allow_memorizer():
-                mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memories, recalled_memories, result, standalone=True))
-            await self.execute_responder(ctx, messages, memories, recalled_memories, result, auto)
+                mem_task = asyncio.create_task(self.execute_memorizer(ctx, participants, messages, memories, recalled_memories, result, standalone=True))
+            await self.execute_responder(ctx, participants, messages, memories, recalled_memories, result, auto)
         if mem_task:
             await mem_task
         log.info(result)
@@ -258,6 +258,7 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_responder(self,
                                 ctx: commands.Context,
+                                participants: list[discord.Member | discord.User],
                                 messages: list[GptMessage],
                                 memories: list[str],
                                 recalled_memories: dict[str, str],
@@ -276,7 +277,7 @@ class GptMemory(GptMemoryCommands):
         max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
 
-        _, recalled_memories_str = self.build_memory_strings(memories, recalled_memories)
+        _, recalled_memories_str = self.build_memory_strings(memories, recalled_memories, ctx, participants)
         base_system_content = await self.config.guild(ctx.guild).prompt_autoresponder() if auto else await self.config.guild(ctx.guild).prompt_responder()
         prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
         system_content = base_system_content.format(
@@ -353,7 +354,7 @@ class GptMemory(GptMemoryCommands):
                         if past_memory_changes:  # only allow one memory update per response
                             changes = []
                         else:
-                            changes = await self.execute_memorizer(ctx, messages, memories, recalled_memories, result, standalone=False)
+                            changes = await self.execute_memorizer(ctx, participants, messages, memories, recalled_memories, result, standalone=False)
                             past_memory_changes += changes
                         args = {"changes": changes}
                     else:
@@ -421,6 +422,7 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_memorizer(self,
                                 ctx: commands.Context,
+                                participants: list[discord.Member | discord.User],
                                 messages: list[GptMessage],
                                 memories: list[str],
                                 recalled_memories: dict[str, str],
@@ -435,7 +437,7 @@ class GptMemory(GptMemoryCommands):
 
         if await self.config.guild(ctx.guild).memorizer_user_only():
             memories = [memory for memory in memories if any(member.name == memory for member in ctx.guild.members)]
-        memories_str, recalled_memories_str = self.build_memory_strings(memories, recalled_memories)
+        memories_str, recalled_memories_str = self.build_memory_strings(memories, recalled_memories, ctx, participants)
         system_content = (await self.config.guild(ctx.guild).prompt_memorizer()).format(
             memories_str,
             recalled_memories_str,
@@ -834,8 +836,9 @@ class GptMemory(GptMemoryCommands):
         return ({"chat_message": obj}, inline_objs)
     
 
-    def build_memory_strings(self, memories: list[str], recalled_memories: dict[str, str]) -> tuple[str, str]:
-        memories_obj = {
+    def build_memory_strings(self, memory_names: list[str], recalled_memories: dict[str, str], ctx: discord.Content, participants: list[discord.Member | discord.User]) -> tuple[str, str]:
+        assert ctx.guild
+        memory_names_obj = {
             "memory_names": {
                 "#text": ", ".join(memories),
             }
@@ -845,14 +848,34 @@ class GptMemory(GptMemoryCommands):
                 "memory": []
             }
         }
+        member_names = [member.name for member in ctx.guild.members]
+        memories_obj: dict[str, dict[str, str] = {}
         for name, content in recalled_memories.items():
             if name in memories:
-                recalled_memories_obj["memories"]["memory"].append({
-                    "@name": name,
-                    "#text": content,
-                })
+                memories_obj.setdefault(name, {})
+                if content:
+                    memories_obj[name].append({"#text": content})
+                if name in member_names:
+                    memories_obj[name]["@user"] = name
+                else:
+                    memories_obj[name]["@topic"] = name
+        for member in ctx.guild.members:
+            if member in participants:
+                memories_obj.setdefault(member.name, {})
+                memories_obj[member.name]["@user"] = member.name
+                perms = ctx.channel.permissions_for(member)
+                if member == ctx.guild.owner:
+                    memories_obj[member.name]["@role"] = "server owner"
+                elif perms.administrator:
+                    memories_obj[member.name]["@role"] = "administrator"
+                elif perms.manage_messages:
+                    memories_obj[member.name]["@role"] = "moderator"
+        for mem_obj in memories_obj.values():
+            if len(mem_obj) > 1:
+                recalled_memories_obj.append(mem_obj)
         memories_str = xmltodict.unparse(memories_obj, full_document=False)
         recalled_memories_str = xmltodict.unparse(recalled_memories_obj, full_document=False)
+        log.info(f"{recalled_memories_str=}")
         return memories_str, recalled_memories_str
     
 
