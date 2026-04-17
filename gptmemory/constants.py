@@ -13,7 +13,8 @@ TOKEN_ENCODING = "o200k_base"
 PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
 
 RESPONSE_CLEANUP_PATTERNS = OrderedDict({
-    "trailing message":   (re.compile(r"(.{10,}?)\s*<chat_message.*</chat_message>", re.DOTALL | re.IGNORECASE), r"\1"),
+    "multiple messages":  (re.compile(r"(<chat_message.*?</chat_message>)\s*<chat_message.*</chat_message>", re.DOTALL | re.IGNORECASE), r"\1"),
+    "trailing message":   (re.compile(r"(.{10,}?[^>])\s*<chat_message.*</chat_message>", re.DOTALL | re.IGNORECASE), r"\1"),
     "quote":              (re.compile(r"<quote>.*?</quote>", re.DOTALL | re.IGNORECASE), r""),
     "message content":    (re.compile(r"^.*?<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
     "XML objects":        (re.compile(r"<(quote|linked_message|message_link|embeds?|attachments?|images?|stickers?|buttons?|reactions?|poll)( [^>]+)?>.*?</\1>", re.DOTALL | re.IGNORECASE), ""),
