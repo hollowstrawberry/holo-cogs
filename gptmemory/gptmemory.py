@@ -6,6 +6,7 @@ import discord
 import tiktoken
 import xmltodict
 from io import BytesIO
+from re import Match
 from random import random
 from typing import Any
 from difflib import get_close_matches
@@ -415,7 +416,7 @@ class GptMemory(GptMemoryCommands):
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
-            def fix_emote(match: re.Match):
+            def fix_emote(match: Match) -> str:
                 emote = discord.utils.get(ctx.bot.emojis, name=match.group(1))
                 return str(emote) if emote else match.group(0)
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(fix_emote, completion)
