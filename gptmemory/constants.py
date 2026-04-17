@@ -13,7 +13,7 @@ TOKEN_ENCODING = "o200k_base"
 PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
 
 RESPONSE_CLEANUP_PATTERNS = [
-    ("Opening XML"),      re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),
+    ("Opening XML",      re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),
     ("multiple messages", re.compile(r"^\s*<chat_message(?: [^>]+)?>(.*?)</chat_message>\s*<chat_message.+</chat_message>\s*$", re.DOTALL | re.IGNORECASE), r"\1"),
     ("trailing message",  re.compile(r"^(.{10,}?)\s*<chat_message.+</chat_message>\s*$", re.DOTALL | re.IGNORECASE), r"\1"),
     ("quote",             re.compile(r"\s*<quote>.*?</quote>\s*", re.DOTALL | re.IGNORECASE), r""),
