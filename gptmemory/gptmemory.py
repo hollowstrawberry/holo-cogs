@@ -196,7 +196,7 @@ class GptMemory(GptMemoryCommands):
         async with ctx.typing():
             backread = await self.fetch_message_history(ctx)
             messages = await self.build_message_history_context(ctx, backread, result)
-            participants = list(set([msg.author for msg in backread]))
+            participants = list(set([ctx.guild.get_member(msg.author.id) for msg in backread]))
             recalled_memories = await self.execute_recaller(ctx, participants, messages, memory_names, result)
             recalled_memories_str = self.build_memory_string(memory_names, recalled_memories, ctx, participants)
             if not auto and await self.config.guild(ctx.guild).allow_memorizer():
@@ -209,7 +209,7 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_recaller(self,
                                ctx: commands.Context,
-                               participants: list[discord.Member | discord.User],
+                               participants: list[discord.Member],
                                messages: list[GptMessage],
                                memories: list[str],
                                result: GptMemoryResult
@@ -854,7 +854,7 @@ class GptMemory(GptMemoryCommands):
         return ({"chat_message": obj}, inline_objs)
     
 
-    def build_memory_string(self, memory_names: list[str], recalled_memories: dict[str, str], ctx: commands.Context, participants: list[discord.Member | discord.User]) -> str:
+    def build_memory_string(self, memory_names: list[str], recalled_memories: dict[str, str], ctx: commands.Context, participants: list[discord.Member]) -> str:
         assert ctx.guild
         recalled_memories_obj = {
             "memories": {
@@ -877,7 +877,6 @@ class GptMemory(GptMemoryCommands):
         for member in participants:
             if member == ctx.guild.me:
                 continue
-            assert isinstance(member, discord.Member)
             temp.setdefault(member.name, {})
             temp[member.name]["@user"] = member.name
             perms = ctx.channel.permissions_for(member)
