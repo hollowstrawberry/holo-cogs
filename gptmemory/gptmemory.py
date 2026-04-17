@@ -98,6 +98,16 @@ class GptMemory(GptMemoryCommands):
 
     @commands.Cog.listener()
     async def on_message_without_command(self, message: discord.Message):
+        if message.id in currently_responding:
+            return
+        self.currently_responding.add(message.id)
+        try:
+            await self.handle_message(message)
+        finally:
+            self.currently_responding.discard(message.id)
+
+    
+    async def handle_message(self, message:discord.Message):
         ctx: commands.Context = await self.bot.get_context(message) 
         if not await self.is_valid_trigger(ctx):
             return
@@ -549,14 +559,12 @@ class GptMemory(GptMemoryCommands):
         max_file_length = await self.config.guild(ctx.guild).max_text_file()
         max_backread_tokens = await self.config.guild(ctx.guild).backread_tokens()
         for n, backmsg in enumerate(backread):
-            try:
-                quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id)  # type: ignore
-                # This would prevent chaining message quotes that are already consecutive
-                if len(backread) > n+1 and quote == backread[n+1]:
-                    quote = None
-            except (AttributeError, discord.DiscordException):
-                quote = None
-
+            quote = None
+            if backmsg.reference and not (len(backread) > n+1 and backmsg.reference.message_id == backread[n+1].id):  # don't chain consecutive quotes
+                try:
+                    quote = backmsg.reference.cached_message or await backmsg.channel.fetch_message(backmsg.reference.message_id)  # type: ignore
+                except discord.DiscordException:
+                    pass
             images_left = max_images - total_images
             if images_left > 0:
                 image_contents = await self.extract_images(backmsg, quote, processed_image_sources, images_left, max_image_size)
@@ -723,6 +731,9 @@ class GptMemory(GptMemoryCommands):
         if isinstance(message.author, discord.Member) and message.author.nick:
             obj["@nickname"] = message.author.nick
         starting_len = len(obj)
+        if message.id in self.currently_responding or message.id in self.currently_generating:
+            obj["error"] = "This message is currently being processed"
+            return ({"chat_message": obj}, inline_objs)
         # generated image
         if message.attachments and len(message.attachments) == 1 and message.author == message.guild.me:
             imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
@@ -928,7 +939,11 @@ class GptMemory(GptMemoryCommands):
             height=height,
         )
         message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
-        task = aimage.generate_image(ctx, params=params, message_content=message_content)  # type: ignore
+        async def callback():
+            await asyncio.sleep(0)
+            self.currently_generating.discard(ctx.message.id)
+        self.currently_generating.add(ctx.message.id)
+        task = aimage.generate_image(ctx, params=params, message_content=message_content, callback=callback())  # type: ignore
         asyncio.create_task(task)
 
 
