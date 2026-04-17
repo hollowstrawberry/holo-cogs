@@ -12,21 +12,21 @@ DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
 TOKEN_ENCODING = "o200k_base"
 PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
 
-RESPONSE_CLEANUP_PATTERNS = OrderedDict({
-    "multiple messages":  (re.compile(r"(<chat_message.*?</chat_message>)\s*<chat_message.*</chat_message>", re.DOTALL | re.IGNORECASE), r"\1"),
-    "trailing message":   (re.compile(r"(.{10,}?[^>])\s*<chat_message.*</chat_message>", re.DOTALL | re.IGNORECASE), r"\1"),
-    "quote":              (re.compile(r"<quote>.*?</quote>", re.DOTALL | re.IGNORECASE), r""),
-    "message content":    (re.compile(r"^.*?<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
-    "XML objects":        (re.compile(r"<(quote|linked_message|message_link|embeds?|attachments?|images?|stickers?|buttons?|reactions?|poll)( [^>]+)?>.*?</\1>", re.DOTALL | re.IGNORECASE), ""),
-    "Automated actions":  (re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE), ""),
-    "JSON objects":       (re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE), ""),
-    "Leftover symbol":    (re.compile(r"""\n[}'"\s\-]+$"""), ""),
-    "Server emote":       (re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
-    "Em dash":            (re.compile(r"(?<=\w)—(?=\w)"), ", "),
-})
+RESPONSE_CLEANUP_PATTERNS = [
+    ("multiple messages", re.compile(r"(<chat_message.+?</chat_message>)\s*<chat_message.+</chat_message>", re.DOTALL | re.IGNORECASE), r"\1"),
+    ("trailing message",  re.compile(r"(.{10,}?[^>])\s*<chat_message.+</chat_message>", re.DOTALL | re.IGNORECASE), r"\1"),
+    ("quote",             re.compile(r"<quote>.*?</quote>", re.DOTALL | re.IGNORECASE), r""),
+    ("message content",   re.compile(r"^.*?<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
+    ("XML objects",       re.compile(r"<(linked_message|message_link|embeds?|attachments?|images?|stickers?|buttons?|reactions?|poll)(?: [^>]+)?>.*?</\1>", re.DOTALL | re.IGNORECASE), ""),
+    ("Automated actions", re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE), ""),
+    ("JSON objects",      re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*```)", re.IGNORECASE), ""),
+    ("Leftover symbol",   re.compile(r"""\n[}'"\s\-]+$"""), ""),
+    ("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
+    ("Em dash",           re.compile(r"(?<=\w)—(?=\w)"), ", "),
+]
 GENERATE_IMAGE_PATTERNS = {
-    "XML object":         re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>.*?</generated_image>", re.DOTALL | re.IGNORECASE),
-    "JSON object":        re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
+    "XML object":        re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>.*?</generated_image>", re.DOTALL | re.IGNORECASE),
+    "JSON object":       re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
 }
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?(?:&lt;|<)?a?:(\w+):\d{0,16}(?:&gt;|>)?`?")
 
