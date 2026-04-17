@@ -164,7 +164,11 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             )
 
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
-        asyncio.create_task(aimage.generate_image(self.ctx, params=params, message_content=message_content))  # type: ignore
+        async def callback():
+            await asyncio.sleep(0)
+            self.cog.currently_generating.discard(self.ctx.message.id)
+        self.cog.currently_generating.add(self.ctx.message.id)
+        asyncio.create_task(aimage.generate_image(self.ctx, params=params, message_content=message_content, callback=callback()))  # type: ignore
 
         obj = {"message": "Image generation started successfully, the user will have to wait for it to finish."}
         warnings = []
