@@ -413,8 +413,9 @@ class GptMemory(GptMemoryCommands):
 
         completion = response.choices[0].message.content or ""
         if completion:
+            raw_completion = completion
             if self.extended_logging:
-                log.info(f"raw_{completion=}")
+                log.info(f"{raw_completion=}")
             # special case: the bot tries to generate an image by sending text instead of using the function call
             prompt = None
             for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
@@ -426,11 +427,16 @@ class GptMemory(GptMemoryCommands):
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
-            log.info(f"cleaned_{completion=}")
+            cleaned_completion = completion
+            if raw_completion != cleaned_completion:
+                log.info(f"{cleaned_completion=}")
             def fix_emote(match: Match) -> str:
+                log.info(f"emote={match.group(1)}")
                 emote = discord.utils.get(ctx.bot.emojis, name=match.group(1))
                 return str(emote) if emote else match.group(0)
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(fix_emote, completion)
+            if cleaned_completion != completion:
+                log.info(f"emote_cleaned_{completion=}")
             completion = utils.undo_xml(completion).strip()
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
