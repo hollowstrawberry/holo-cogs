@@ -401,7 +401,7 @@ class GptMemory(GptMemoryCommands):
             prompt = None
             for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
                 if m := pattern.search(completion):
-                    prompt = utils.undo_xml(m.group(1))
+                    prompt = utils.undo_xml(m.groups()[-1])
                     completion = pattern.sub("", completion)
             if prompt and "generate_stable_diffusion" not in past_tool_calls:
                 await self.generate_stable_diffusion(ctx, prompt)
