@@ -304,6 +304,12 @@ class GptMemory(GptMemoryCommands):
                 "content": prompt_keys["end"],
             }
             temp_messages.append(end_prompt)
+        if prompt_keys.get("prefill", "").strip():
+            prefill_prompt = {
+                "role": "assistant",
+                "content": prompt_keys["prefill"],
+            }
+            temp_messaged.append(prefill_prompt)
 
         disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
         tools = [t for t in self.available_function_calls if t.schema.function.name not in disabled_functions]
