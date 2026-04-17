@@ -98,7 +98,7 @@ class GptMemory(GptMemoryCommands):
 
     @commands.Cog.listener()
     async def on_message_without_command(self, message: discord.Message):
-        if message.id in currently_responding:
+        if message.id in self.currently_responding:
             return
         self.currently_responding.add(message.id)
         try:
