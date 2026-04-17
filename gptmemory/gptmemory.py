@@ -406,7 +406,7 @@ class GptMemory(GptMemoryCommands):
             if prompt and "generate_stable_diffusion" not in past_tool_calls:
                 await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
-            for pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS.values():
+            for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
             for m in constants.INCOMPLETE_EMOTE_PATTERN.finditer(completion):
                 if emote := discord.utils.get(ctx.bot.emojis, name=m.group(1)):
