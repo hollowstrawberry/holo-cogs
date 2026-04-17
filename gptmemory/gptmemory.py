@@ -322,6 +322,7 @@ class GptMemory(GptMemoryCommands):
             response = await self.get_client(model).chat.completions.create(
                 model=model,
                 messages=temp_messages,  # type: ignore
+                stop=["</content>", "</chat_message>"],
                 max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
                 max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
                 tools=tools_schema,  # type: ignore
