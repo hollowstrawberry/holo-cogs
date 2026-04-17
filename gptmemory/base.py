@@ -18,6 +18,9 @@ class GptMemoryBase(commands.Cog):
         self.session = aiohttp.ClientSession()
         self.openai_client: AsyncOpenAI | None = None
         self.openrouter_client: AsyncOpenAI | None = None
+
+        self.currently_responding: set[int] = set()
+        self.currently_generating: set[int] = set()
         
         self.config.register_global(**{
             "extended_logging": True,
