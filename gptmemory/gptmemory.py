@@ -731,7 +731,7 @@ class GptMemory(GptMemoryCommands):
         if isinstance(message.author, discord.Member) and message.author.nick:
             obj["@nickname"] = message.author.nick
         starting_len = len(obj)
-        if message.id in self.currently_responding or message.id in self.currently_generating:
+        if message != backread[0] and (message.id in self.currently_responding or message.id in self.currently_generating):
             obj["error"] = "This message is currently being processed"
             return ({"chat_message": obj}, inline_objs)
         # generated image
