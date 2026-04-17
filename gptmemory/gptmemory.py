@@ -731,7 +731,6 @@ class GptMemory(GptMemoryCommands):
             obj["quote"] = quoted_message_obj
             inline_objs.update(quoted_message_inlines)
         # text content
-        linked_message_for_later = None
         if message.is_system():
             obj["action"] = "Joined the server" if message.type == discord.MessageType.new_member else message.system_content
         elif message.content:
