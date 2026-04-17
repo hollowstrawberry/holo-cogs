@@ -28,7 +28,7 @@ GENERATE_IMAGE_PATTERNS = {
     "XML object":        re.compile(r"<generated_image.+?<prompt>(.*?)</prompt>.*?</generated_image>", re.DOTALL | re.IGNORECASE),
     "JSON object":       re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
 }
-INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?(?:&lt;|<)?a?:(\w{3,}):(?:\d{1,16}(?!\d))?(?:&gt;|>)?`?")
+INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?(?:&lt;|<)?a?:(\w{3,}):\d{0,16}(?!\d)(?:&gt;|>)?`?")
 
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
