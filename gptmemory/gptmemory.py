@@ -428,7 +428,7 @@ class GptMemory(GptMemoryCommands):
             cleaned_completion = completion
             if raw_completion != cleaned_completion:
                 log.info(f"{cleaned_completion=}")
-            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot.emojis), completion)
+            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
             if cleaned_completion != completion:
                 log.info(f"emote_cleaned_{completion=}")
             completion = utils.undo_xml(completion).strip()
