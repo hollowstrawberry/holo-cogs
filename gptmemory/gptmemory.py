@@ -429,11 +429,7 @@ class GptMemory(GptMemoryCommands):
             cleaned_completion = completion
             if raw_completion != cleaned_completion:
                 log.info(f"{cleaned_completion=}")
-            def fix_emote(match: Match) -> str:
-                log.info(f"emote={match.group(1)}")
-                emote = discord.utils.get(ctx.bot.emojis, name=match.group(1))
-                return str(emote) if emote else match.group(0)
-            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(fix_emote, completion)
+            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot.emojis), completion)
             if cleaned_completion != completion:
                 log.info(f"emote_cleaned_{completion=}")
             completion = utils.undo_xml(completion).strip()
