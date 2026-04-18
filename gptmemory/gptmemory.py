@@ -6,7 +6,6 @@ import discord
 import tiktoken
 import xmltodict
 from io import BytesIO
-from re import Match
 from random import random
 from typing import Any
 from difflib import get_close_matches
