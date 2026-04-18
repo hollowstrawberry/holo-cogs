@@ -10,6 +10,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
+from redbot.core.bot import Red
 
 from gptmemory.schema import GptMessage
 from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN
@@ -41,14 +42,14 @@ def fix_truncated_xml(text: str) -> str:
         text += f"</{tag}>"
     return text
 
-def fix_emote(all_emotes: list[discord.Emoji]) -> Callable[[re.Match], str]:
+def fix_emote(bot: Red) -> Callable[[re.Match], str]:
     def repl(match: re.Match) -> str:
         _, name, eid = match.groups()
         emote = None
         if eid:
-            emote = discord.utils.get(all_emotes, id=eid)
+            emote = bot.get_emoji(eid)
         if not emote:
-            emote = discord.utils.get(all_emotes, name=name)
+            emote = discord.utils.get(bot.emojis, name=name)
         if emote:
             return str(emote)
         if "<" in match.group(0) and ">" in match.group(0):
