@@ -47,7 +47,7 @@ def fix_emote(bot: Red) -> Callable[[re.Match], str]:
         _, name, eid = match.groups()
         emote = None
         if eid:
-            emote = bot.get_emoji(eid)
+            emote = bot.get_emoji(int(eid))
         if not emote:
             emote = discord.utils.get(bot.emojis, name=name)
         if emote:
