@@ -41,6 +41,21 @@ def fix_truncated_xml(text: str) -> str:
         text += f"</{tag}>"
     return text
 
+def fix_emote(all_emotes: list[discord.Emoji]) -> Callable[[re.Match], str]:
+    def repl(match: re.Match) -> str:
+        _, name, eid = match.groups()
+        emote = None
+        if eid:
+            emote = discord.utils.get(all_emotes, id=eid)
+        if not emote:
+            emote = discord.utils.get(all_emotes, name=name)
+        if emote:
+            return str(emote)
+        if "<" in match.group(0) and ">" in match.group(0):
+            return ""
+        return match.group(0)
+    return repl
+
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()
     if len(tag) > 3:
