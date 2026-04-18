@@ -179,8 +179,7 @@ class AImage(AImageCommands):
         embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
             progress_message = await context.reply(embed=embed, mention_author=False)
-            if not callback:
-                callback = progress_message.delete()
+            callback = utils.gather_then_raise([callback, progress_message.delete()])
         else:
             await context.edit_original_response(embed=embed)
             
@@ -224,8 +223,7 @@ class AImage(AImageCommands):
         else:
             return
         # After exception
-        tasks = [callback, send_response(context, content=error_message)]
-        await asyncio.gather(*[t for t in tasks if t])
+        await utils.gather_then_raise([callback, send_response(context, content=error_message)])
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
@@ -272,7 +270,7 @@ class AImage(AImageCommands):
         if gen.callback:
             final_tasks.append(gen.callback)
             
-        await asyncio.gather(*final_tasks)
+        await utils.gather_then_raise(final_tasks)
 
 
     async def reject_non_vip(self, context: commands.Context | discord.Interaction) -> bool:
