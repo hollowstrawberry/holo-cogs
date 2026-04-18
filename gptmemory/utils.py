@@ -5,7 +5,7 @@ import trafilatura
 from io import BytesIO
 from copy import deepcopy
 from base64 import b64encode
-from typing import Any
+from typing import Any, Callable
 from datetime import datetime
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
