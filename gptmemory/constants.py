@@ -14,9 +14,9 @@ PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
 
 RESPONSE_CLEANUP_PATTERNS = [
     #("Opening XML",       re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),
+    ("Quote",             re.compile(r"\s*<quote>.*?</quote>\s*", re.DOTALL | re.IGNORECASE), r""),
     ("Multiple messages", re.compile(r"^\s*<chat_message(?: [^>]+)?>(.*?)</chat_message>\s*<chat_message.+</chat_message>\s*$", re.DOTALL | re.IGNORECASE), r"\1"),
     ("Trailing message",  re.compile(r"^(.{10,}?)\s*<chat_message.+$", re.DOTALL | re.IGNORECASE), r"\1"),
-    ("Quote",             re.compile(r"\s*<quote>.*?</quote>\s*", re.DOTALL | re.IGNORECASE), r""),
     ("Message content",   re.compile(r"^.*?<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
     #("Closing content",   re.compile(r"^(.+?)\s*</content>\s*</chat_message>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
     ("XML objects",       re.compile(r"\s*<(linked_message|message_link|embeds?|attachments?|images?|stickers?|buttons?|reactions?|poll)(?: [^>]+)?>.*?</\1>\s*", re.DOTALL | re.IGNORECASE), ""),
