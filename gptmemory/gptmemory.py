@@ -34,7 +34,7 @@ class GptMemory(GptMemoryCommands):
 
     def __init__(self, bot: Red):
         super().__init__(bot)
-        self.image_cache: dict[int, GptImageContent] = ExpiringDict(max_len=50, max_age_seconds=24*60*60)
+        self.image_cache: dict[int, GptImageContent] = ExpiringDict(max_len=10, max_age_seconds=24*60*60)
         self.available_function_calls = set(get_all_function_calls())
         self.encoding = tiktoken.get_encoding(constants.TOKEN_ENCODING)
         all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
