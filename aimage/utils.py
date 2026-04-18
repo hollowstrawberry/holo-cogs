@@ -1,8 +1,10 @@
 import re
 import logging
+import asyncio
 import discord
 from io import BytesIO
 from PIL import Image, ImageDraw
+from typing import Coroutine
 from rapidfuzz import fuzz
 from redbot.core import commands
 
@@ -36,7 +38,13 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
     else:
         msg = await context.send(**kwargs)
         return msg
-    
+
+async def gather_then_raise(coroutines: list[Coroutine]):
+    results = await asyncio.gather(*coroutines, return_exceptions=True)
+    for res in results:
+        if isinstance(res, Exception):
+            raise res
+
 def is_nsfw(channel: discord.abc.Messageable) -> bool:
     if isinstance(channel, discord.TextChannel):
         return channel.nsfw
