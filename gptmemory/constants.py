@@ -24,14 +24,15 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("JSON objects",      re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*`{3,})", re.IGNORECASE), ""),
     ("Closing XML",       re.compile(r"(\s*</\w+>)+\s*$"), ""),
     ("Leftover symbol",   re.compile(r"""\n[}'"\s\-]+$"""), ""),
-    ("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
+    #("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
     ("Em dash",           re.compile(r"(?<=\w)—(?=\w)"), ", "),
 ]
 GENERATE_IMAGE_PATTERNS = {
     "XML object":        re.compile(r"<(\w+)(?: [^>]+)?>.*?<prompt>(.*?)<\/prompt>.*?<\/\1>", re.DOTALL | re.IGNORECASE),
     "JSON object":       re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
 }
-INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?(?:&lt;|<)?a?:(\w{3,}):\d{0,16}(?!\d)(?:&gt;|>)?`?")
+#INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?(?:&lt;|<)?a?:(\w{3,}):\d{0,16}(?!\d)(?:&gt;|>)?`?")
+INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?(?:&lt;|<)?(a?):(\w{3,}):(\d*)(?:&gt;|>)?`?")
 
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
