@@ -39,7 +39,8 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
         msg = await context.send(**kwargs)
         return msg
 
-async def gather_then_raise(coroutines: list[Coroutine]):
+async def gather_then_raise(coroutines: list[Coroutine | None]):
+    coroutines = [coro for coro in coroutines if coro]
     results = await asyncio.gather(*coroutines, return_exceptions=True)
     for res in results:
         if isinstance(res, Exception):
