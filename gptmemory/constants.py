@@ -11,6 +11,7 @@ EMPTY = "ᅠ"
 DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
 TOKEN_ENCODING = "o200k_base"
 PROMPT_TYPES = ("responder", "recaller", "memorizer", "autoresponder")
+MAX_IMAGES_PER_MESSAGE = 10
 
 RESPONSE_CLEANUP_PATTERNS = [
     #("Opening XML",       re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),

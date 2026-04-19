@@ -1,16 +1,39 @@
-from typing import Literal
-from discord import Enum
+import discord
+from enum import Enum
+from typing import Any, Literal
 from pydantic import BaseModel
 from dataclasses import dataclass, field
-
-
-GptImageContent = list[dict[str, str]]
-GptMessage = dict[str, (str | GptImageContent)]
 
 
 class SplitType(Enum):
     HORIZONTAL = "split-horizontal-2"
     VERTICAL = "split-vertical-2"
+
+
+GptImageContent = dict[str, (str | dict[str, str])]
+GptMessage = dict[str, (str | list[GptImageContent])]
+StructuredObject = dict[str, Any]
+ImageSource = tuple[int, discord.Attachment] | str
+
+
+@dataclass
+class ParsedMessageResult:
+    gpt_message: GptMessage
+    tokens: int
+    num_images: int
+
+@dataclass
+class DiscordMessageImageCandidates:
+    message_id: int
+    download: list[ImageSource]
+    caption: list[ImageSource]
+
+@dataclass
+class DiscordMessageResolvedImages:
+    message_id: int
+    image_contents: list[GptImageContent]
+    attachment_captions: dict[int, str]
+    url_captions: dict[str, str]
 
 
 # Results

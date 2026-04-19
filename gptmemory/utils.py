@@ -12,7 +12,7 @@ from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 from redbot.core.bot import Red
 
-from gptmemory.schema import GptMessage
+from gptmemory.schema import GptImageContent, GptMessage
 from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN
 
 
@@ -69,7 +69,7 @@ def farenheit_to_celsius(match: re.Match) -> str:
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
 
-def make_image_content(b: bytes | BytesIO) -> dict:
+def make_image_content(b: bytes | BytesIO) -> GptImageContent:
     b = b.read() if isinstance(b, BytesIO) else b
     return {
         "type": "image_url",
