@@ -96,7 +96,7 @@ class GptMemoryCommands(GptMemoryBase):
             elif name == "memorizer":
                 await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
             elif name == "autoresponder":
-                prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
+                await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
             else:
                 async with self.config.guild(ctx.guild).prompt_keys() as prompt_keys:
                     prompt_keys[name] = prompt
