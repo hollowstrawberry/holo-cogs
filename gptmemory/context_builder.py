@@ -121,7 +121,7 @@ class ContextBuilder:
                     if cached is not None:
                         return src, cached
                 # not cached
-                data = await self.fetch_and_normalize(backmsg, src, max_image_size)
+                data = await self.fetch_and_normalize(backmsg, src, max_image_size=max_image_size)
                 if data is None:
                     return None
                 if isinstance(src, tuple):
@@ -141,7 +141,7 @@ class ContextBuilder:
                     if cached is not None:
                         return src, cached
                 # not cached
-                data = await self.fetch_and_normalize(backmsg, src, max_image_size // 2)
+                data = await self.fetch_and_normalize(backmsg, src, thumbnail_size=384)
                 if data is None:
                     return None
                 image_content = utils.make_image_content(data, low_detail=True)
@@ -274,8 +274,16 @@ class ContextBuilder:
         return [msg.gpt_message for msg in reversed(trimmed)]
 
 
-    async def fetch_and_normalize(self, message: discord.Message, src: ImageSource, max_image_size: int) -> bytes | None:
+    async def fetch_and_normalize(
+            self,
+            message: discord.Message,
+            src: ImageSource,
+            max_image_size: int | None = None,
+            thumbnail_size: int | None = None,
+    ) -> bytes | None:
         """Fetch an attachment or URL and return normalized image bytes, or None on failure."""
+        assert max_image_size or thumbnail_size
+        max_pixels = max_image_size ** 1 if max_image_size else None
         try:
             if isinstance(src, tuple):
                 idx, attachment = src
@@ -292,7 +300,7 @@ class ContextBuilder:
                     response.raise_for_status()
                     fp_before = BytesIO(await response.read())
 
-            fp_after = await asyncio.to_thread(utils.normalize_image, fp_before, max_image_size ** 2)
+            fp_after = await asyncio.to_thread(utils.normalize_image, fp_before, max_pixels, thumbnail_size)
             del fp_before
             return fp_after if fp_after else None
 
