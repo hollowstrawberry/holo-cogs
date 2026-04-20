@@ -548,7 +548,7 @@ class GptMemory(GptMemoryCommands):
         messages: list[GptMessage] = [
             {
                 "role": "system",
-                "content": await self.config.prompt_captioner()
+                "content": await self.config.guild(ctx.guild).prompt_captioner()
             },
             {
                 "role": "user",

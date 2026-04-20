@@ -236,7 +236,7 @@ class ContextBuilder:
                 text_content = xmltodict.unparse(message_obj, full_document=False)
                 for before, after_obj in message_inline_objs.items():
                     text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
-                
+
                 text_tokens  = len(self.encoding.encode(text_content))
                 image_tokens = 1120 * len(images.image_contents)
                 total_tokens = text_tokens + image_tokens
