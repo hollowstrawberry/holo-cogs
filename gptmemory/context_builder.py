@@ -141,7 +141,7 @@ class ContextBuilder:
                     if cached is not None:
                         return src, cached
                 # not cached
-                data = await self.fetch_and_normalize(backmsg, src, max_image_size)
+                data = await self.fetch_and_normalize(backmsg, src, max_image_size // 2)
                 if data is None:
                     return None
                 image_content = utils.make_image_content(data, low_detail=True)
