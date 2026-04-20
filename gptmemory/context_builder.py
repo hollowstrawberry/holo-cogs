@@ -26,7 +26,7 @@ class ContextBuilder:
         config: Config,
         session: aiohttp.ClientSession,
         encoding: tiktoken.Encoding,
-        execute_captioner: Callable[[GptImageContent], Awaitable[str]],
+        execute_captioner: Callable[[commands.Context, GptImageContent], Awaitable[str]],
         is_busy: Callable[[int], bool],
     ):
         self.bot = bot
@@ -145,7 +145,7 @@ class ContextBuilder:
                 if data is None:
                     return None
                 image_content = utils.make_image_content(data)
-                caption = await self.execute_captioner(image_content)
+                caption = await self.execute_captioner(ctx, image_content)
                 if caption is None:
                     return None
                 if isinstance(src, tuple):
@@ -220,7 +220,7 @@ class ContextBuilder:
         for n, backmsg in enumerate(backread):
             try:
                 quote = all_resolved_quotes.get(backmsg.id)
-                resolved = all_resolved_images.get(backmsg.id) or DiscordMessageResolvedImages(backmsg.id, [], {}, {})
+                images = all_resolved_images.get(backmsg.id) or DiscordMessageResolvedImages(backmsg.id, [], {}, {})
 
                 message_obj, message_inline_objs = await self.parse_discord_message(
                     backmsg,
@@ -228,21 +228,21 @@ class ContextBuilder:
                     backread,
                     max_quote_length,
                     max_file_length,
-                    resolved.attachment_captions,
-                    resolved.url_captions,
+                    images.attachment_captions,
+                    images.url_captions,
                     exhaustive=True,
                     recursive=True,
                 )
                 text_content = xmltodict.unparse(message_obj, full_document=False)
                 for before, after_obj in message_inline_objs.items():
                     text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
-
+                
                 text_tokens  = len(self.encoding.encode(text_content))
-                image_tokens = 1120 * len(resolved.image_contents)
+                image_tokens = 1120 * len(images.image_contents)
                 total_tokens = text_tokens + image_tokens
                 content: str | list[GptImageContent]
-                if resolved.image_contents:
-                    content = [{"type": "text", "text": text_content}, *resolved.image_contents]
+                if images.image_contents:
+                    content = [{"type": "text", "text": text_content}, *images.image_contents]
                     role = "user"
                 else:
                     content = text_content
@@ -252,7 +252,7 @@ class ContextBuilder:
                     "role": role,
                     "content": content
                 }
-                parsed_messages.append(ParsedMessageResult(gpt_msg, total_tokens, len(resolved.image_contents)))
+                parsed_messages.append(ParsedMessageResult(gpt_msg, total_tokens, len(images.image_contents)))
 
             except Exception as exc:
                 log.warning(f"build_message_history_context: failed to parse message {backmsg.id}: {type(exc).__name__}: {exc}")

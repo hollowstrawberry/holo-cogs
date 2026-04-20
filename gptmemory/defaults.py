@@ -6,6 +6,7 @@ MODEL_CAPTIONER = "gpt-5.4-nano"
 EFFORT_RECALLER = "minimal"
 EFFORT_RESPONDER = "low"
 EFFORT_MEMORIZER = "low"
+EFFORT_CAPTIONER = "minimal"
 
 RESPONSE_TOKENS = 1000
 BACKREAD_TOKENS = 2000
@@ -73,4 +74,10 @@ The available entries are as follows, separated by commas:
 Below are the contents of some of the entries:
 
 {1}
+"""
+
+PROMPT_CAPTIONER = """\
+You are an image captioning subagent. You must provide a descriptive and accurate caption for a given image. \
+It should include a transcription for text inside the image. Be concise, but don't skip information. \
+Sexually explicit content is allowed and must be described correctly.
 """

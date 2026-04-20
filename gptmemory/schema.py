@@ -5,16 +5,10 @@ from pydantic import BaseModel
 from dataclasses import dataclass, field
 
 
-class SplitType(Enum):
-    HORIZONTAL = "split-horizontal-2"
-    VERTICAL = "split-vertical-2"
-
-
+StructuredObject = dict[str, Any]
 GptImageContent = dict[str, (str | dict[str, str])]
 GptMessage = dict[str, (str | list[GptImageContent])]
-StructuredObject = dict[str, Any]
 ImageSource = tuple[int, discord.Attachment] | str
-
 
 @dataclass
 class ParsedMessageResult:
@@ -35,9 +29,6 @@ class DiscordMessageResolvedImages:
     attachment_captions: dict[int, str]
     url_captions: dict[str, str]
 
-
-# Results
-
 @dataclass
 class TokensDetailsResult:
     system: int = 0
@@ -50,7 +41,6 @@ class TokensDetailsResult:
     recaller: tuple[int, int] | int = 0
     memorizer: tuple[int, int] | int = 0
 
-
 @dataclass
 class GptMemoryResult:
     messages: int = 0
@@ -60,7 +50,6 @@ class GptMemoryResult:
     output_tokens: int = 0
     cost: float | str = "unknown"
     tokens: TokensDetailsResult = field(default_factory=TokensDetailsResult)
-
 
 @dataclass
 class MemoryChangeResult:
@@ -130,3 +119,8 @@ class ImageGenParams:
     subseed_strength: float     = 0.0
     image: None                 = None
     regions: ImageRegionalParams | None = None
+
+
+class SplitType(Enum):
+    HORIZONTAL = "split-horizontal-2"
+    VERTICAL = "split-vertical-2"

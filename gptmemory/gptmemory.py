@@ -14,11 +14,11 @@ from redbot.core.bot import Red
 
 import gptmemory.utils as utils
 import gptmemory.constants as constants
-from gptmemory.schema import GptMessage, GptMemoryResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
+from gptmemory.schema import GptImageContent, GptMessage, GptMemoryResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.functions.base import get_all_function_calls
 from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
-from gptmemory.message_history_context import ContextBuilder
+from gptmemory.context_builder import ContextBuilder
 from gptmemory.views.memory_change import MemoryChangeView
 
 log = logging.getLogger("gptmemory")
@@ -542,6 +542,35 @@ class GptMemory(GptMemoryCommands):
             view.message = await ctx.send(view=view)
         return memory_changes
     
+
+    async def execute_captioner(self, ctx: commands.Context, image: GptImageContent) -> str:
+        assert ctx.guild
+        messages: list[GptMessage] = [
+            {
+                "role": "system",
+                "content": await self.config.prompt_captioner()
+            },
+            {
+                "role": "user",
+                "content": [image]
+            }
+        ]
+        model = await self.config.guild(ctx.guild).model_memorizer()
+        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
+        response = await self.get_client(model).beta.chat.completions.parse(
+            model=model,
+            messages=messages,  # type: ignore
+            response_format=MemoryChangeList,
+            reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
+        )
+        if response.choices and response.choices[0].message.content:
+            caption = response.choices[0].message.content
+        else:
+            caption = "Unidentified image"
+        if self.extended_logging:
+            log.info(f"{caption=}")
+        return caption
+
 
     async def fetch_message_history(self, ctx: commands.Context) -> list[discord.Message]:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))

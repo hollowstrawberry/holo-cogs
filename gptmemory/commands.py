@@ -19,7 +19,7 @@ from gptmemory.views.prompts_edit import PromptsEditView
 
 class GptMemoryCommands(GptMemoryBase):
 
-    PromptTypes = Literal["recaller", "responder", "memorizer"]
+    PromptTypes = Literal["recaller", "responder", "memorizer", "captioner"]
     AllPromptTypes = PromptTypes | Literal["autoresponder"]
 
     @commands.command(name="prompt")
@@ -66,6 +66,9 @@ class GptMemoryCommands(GptMemoryBase):
         elif module == "autoresponder":
             prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
             edit = self.config.guild(ctx.guild).prompt_autoresponder.set
+        elif module == "captioner":
+            prompt = await self.config.guild(ctx.guild).prompt_captioner()
+            edit = self.config.guild(ctx.guild).prompt_captioner.set
         else:
             keys = await self.config.guild(ctx.guild).prompt_keys()
             if module not in keys:
@@ -97,6 +100,8 @@ class GptMemoryCommands(GptMemoryBase):
                 await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
             elif name == "autoresponder":
                 await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
+            elif name == "captioner":
+                await self.config.guild(ctx.guild).prompt_captioner.set(prompt)
             else:
                 async with self.config.guild(ctx.guild).prompt_keys() as prompt_keys:
                     prompt_keys[name] = prompt
@@ -105,6 +110,7 @@ class GptMemoryCommands(GptMemoryBase):
             "autoresponder": await self.config.guild(ctx.guild).prompt_autoresponder(),
             "recaller": await self.config.guild(ctx.guild).prompt_recaller(),
             "memorizer": await self.config.guild(ctx.guild).prompt_memorizer(),
+            "captioner": await self.config.guild(ctx.guild).prompt_captioner(),
             **await self.config.guild(ctx.guild).prompt_keys()
         }
         return PromptsEditView(prompts, edit_callback, self.bot.is_owner)
@@ -299,21 +305,20 @@ class GptMemoryCommands(GptMemoryBase):
         """Views or changes the OpenAI model being used for the recaller, responder, or memorizer."""
         assert ctx.guild
         if module == "recaller":
-            model_value = await self.config.guild(ctx.guild).model_recaller()
-            model_setter = self.config.guild(ctx.guild).model_recaller
+            model_config = self.config.guild(ctx.guild).model_recaller
         elif module == "responder":
-            model_value = await self.config.guild(ctx.guild).model_responder()
-            model_setter = self.config.guild(ctx.guild).model_responder
+            model_config = self.config.guild(ctx.guild).model_responder
         elif module == "memorizer":
-            model_value = await self.config.guild(ctx.guild).model_memorizer()
-            model_setter = self.config.guild(ctx.guild).model_memorizer
+            model_config = self.config.guild(ctx.guild).model_memorizer
+        elif module == "captioner":
+            model_config = self.config.guild(ctx.guild).model_captioner
 
         if not model or not model.strip():
-            await ctx.reply(f"Current model for the {module} is {model_value}")
+            await ctx.reply(f"Current model for the {module} is {await model_config()}")
         elif "/" not in model and model.strip().lower() not in VISION_MODELS:
             await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
         else:
-            await model_setter.set(model.strip().lower())
+            await model_config.set(model.strip().lower())
             if "/" in model:
                 await ctx.reply("Model changed. Note that this model will be used through OpenRouter, and things may break unexpectedly.")
             else:
@@ -325,21 +330,20 @@ class GptMemoryCommands(GptMemoryBase):
         """Views or changes the reasoning effort for the recaller, responder, or memorizer."""
         assert ctx.guild
         if module == "recaller":
-            effort_value = await self.config.guild(ctx.guild).effort_recaller()
-            effort_setter = self.config.guild(ctx.guild).effort_recaller
+            effort_config = self.config.guild(ctx.guild).effort_recaller
         elif module == "responder":
-            effort_value = await self.config.guild(ctx.guild).effort_responder()
-            effort_setter = self.config.guild(ctx.guild).effort_responder
+            effort_config = self.config.guild(ctx.guild).effort_responder
         elif module == "memorizer":
-            effort_value = await self.config.guild(ctx.guild).effort_memorizer()
-            effort_setter = self.config.guild(ctx.guild).effort_memorizer
+            effort_config = self.config.guild(ctx.guild).effort_memorizer
+        elif module == "captioner":
+            effort_config = self.config.guild(ctx.guild).effort_captioner
 
         if not effort or not effort.strip():
-            await ctx.reply(f"Current effort for the {module} is {effort_value}")
+            await ctx.reply(f"Current effort for the {module} is {await effort_config()}")
         elif effort.strip().lower() not in EFFORT_VALUES:
             await ctx.reply("Invalid value!\nValid values are " + ",".join([f"`{m}`" for m in EFFORT_VALUES]))
         else:
-            await effort_setter.set(effort.strip().lower())
+            await effort_config.set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
 
 
@@ -366,6 +370,8 @@ class GptMemoryCommands(GptMemoryBase):
             prompt = await self.config.guild(ctx.guild).prompt_memorizer()
         elif module == "autoresponder":
             prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
+        elif module == "captioner":
+            prompt = await self.config.guild(ctx.guild).prompt_captioner()
         
         await chunk_and_send(ctx, f"`[{module} prompt]`\n```\n{prompt or '*None*'}\n```")
 
@@ -392,6 +398,8 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
         elif module == "autoresponder":
             await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
+        elif module == "captioner":
+            await self.config.guild(ctx.guild).prompt_captioner.set(prompt)
 
         await ctx.tick()
 
