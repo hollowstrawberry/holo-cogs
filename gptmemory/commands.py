@@ -671,7 +671,7 @@ class GptMemoryCommands(GptMemoryBase):
 
     @memoryconfig_limits.command(name="max_images")
     async def memoryconfig_max_images(self, ctx: commands.Context, value: Optional[int]):
-        """How many images to extract from the whole chat history."""
+        """How many images to send to the LLM in full with each response; the rest will be captioned and stored instead."""
         assert ctx.guild
         if value is None:
             value = await self.config.guild(ctx.guild).max_images()
@@ -684,7 +684,7 @@ class GptMemoryCommands(GptMemoryBase):
 
     @memoryconfig_limits.command(name="max_tool")
     async def memoryconfig_max_tool(self, ctx: commands.Context, value: Optional[int]):
-        """Character limit for function calls."""
+        """Character limit for function call results."""
         assert ctx.guild
         if value is None:
             value = await self.config.guild(ctx.guild).max_tool()
@@ -697,7 +697,7 @@ class GptMemoryCommands(GptMemoryBase):
 
     @memoryconfig_limits.command(name="max_depth", aliases=["max_tool_depth"])
     async def memoryconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
-        """How many tools the AI can use one after the other."""
+        """How many tools the AI can use one after the other. Each consecutive tool call is more expensive than the last."""
         assert ctx.guild
         if value is None:
             value = await self.config.guild(ctx.guild).max_tool_depth()
@@ -734,9 +734,9 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).max_text_file.set(value)
         await ctx.reply(f"`[max_text_file:]` {value}", mention_author=False)
 
-    @memoryconfig_limits.command(name="max_image_resolution")
+    @memoryconfig_limits.command(name="max_image_resolution", aliases=["max_resolution"])
     async def memoryconfig_max_image_resolution(self, ctx: commands.Context, value: Optional[int]):
-        """Images will be resized to this resolution before being sent to OpenAI."""
+        """Images will be resized to this resolution before being sent to the LLM."""
         assert ctx.guild
         if value is None:
             value = await self.config.guild(ctx.guild).max_image_resolution()
@@ -746,3 +746,17 @@ class GptMemoryCommands(GptMemoryBase):
         else:
             await self.config.guild(ctx.guild).max_image_resolution.set(value)
         await ctx.reply(f"`[max_image_resolution:]` {value}", mention_author=False)
+
+
+    @memoryconfig_limits.command(name="max_caption_resolution", aliases=["max_thumbnail_resolution"])
+    async def memoryconfig_max_caption_resolution(self, ctx: commands.Context, value: Optional[int]):
+        """Images will be resized to this resolution before being sent for captioning."""
+        assert ctx.guild
+        if value is None:
+            value = await self.config.guild(ctx.guild).max_caption_resolution()
+        elif value < 128 or value > 1024:
+            await ctx.reply("Value must be between 128 and 1024", mention_author=False)
+            return
+        else:
+            await self.config.guild(ctx.guild).max_caption_resolution.set(value)
+        await ctx.reply(f"`[max_caption_resolution:]` {value}", mention_author=False)

@@ -49,7 +49,8 @@ class ContextBuilder:
     ) -> list[GptMessage]:
         assert ctx.guild and self.bot.user
 
-        max_image_size      = await self.config.guild(ctx.guild).max_image_resolution()
+        max_image_res       = await self.config.guild(ctx.guild).max_image_resolution()
+        max_caption_res     = await self.config.guild(ctx.guild).max_caption_resolution()
         max_images          = await self.config.guild(ctx.guild).max_images()
         max_quote_length    = await self.config.guild(ctx.guild).max_quote()
         max_file_length     = await self.config.guild(ctx.guild).max_text_file()
@@ -110,6 +111,8 @@ class ContextBuilder:
             download_srcs = [s for s in all_srcs if s in candidates.download]
             caption_srcs  = [s for s in all_srcs if s in candidates.caption]
 
+            # sub-coroutines
+
             async def process_download(src: ImageSource) -> tuple[ImageSource, bytes] | None:
                 # check cache
                 if isinstance(src, tuple):
@@ -121,7 +124,7 @@ class ContextBuilder:
                     if cached is not None:
                         return src, cached
                 # not cached
-                data = await self.fetch_and_normalize(backmsg, src, max_image_size=max_image_size)
+                data = await self.fetch_and_normalize(backmsg, src, max_image_resolution=max_image_res)
                 if data is None:
                     return None
                 if isinstance(src, tuple):
@@ -141,7 +144,7 @@ class ContextBuilder:
                     if cached is not None:
                         return src, cached
                 # not cached
-                data = await self.fetch_and_normalize(backmsg, src, thumbnail_size=384)
+                data = await self.fetch_and_normalize(backmsg, src, thumbnail_size=max_caption_res)
                 if data is None:
                     return None
                 image_content = utils.make_image_content(data, low_detail=True)
@@ -223,15 +226,10 @@ class ContextBuilder:
                 images = all_resolved_images.get(backmsg.id) or DiscordMessageResolvedImages(backmsg.id, [], {}, {})
 
                 message_obj, message_inline_objs = await self.parse_discord_message(
-                    backmsg,
-                    quote,
-                    backread,
-                    max_quote_length,
-                    max_file_length,
-                    images.attachment_captions,
-                    images.url_captions,
-                    exhaustive=True,
-                    recursive=True,
+                    backmsg, quote, backread,
+                    max_quote_length, max_file_length,
+                    images.attachment_captions, images.url_captions,
+                    exhaustive=True, recursive=True,
                 )
                 text_content = xmltodict.unparse(message_obj, full_document=False)
                 for before, after_obj in message_inline_objs.items():
@@ -252,7 +250,7 @@ class ContextBuilder:
                     "role": role,
                     "content": content
                 }
-                parsed_messages.append(ParsedMessageResult(gpt_msg, total_tokens, len(images.image_contents)))
+                parsed_messages.append(ParsedMessageResult(gpt_msg, total_tokens, images.count))
 
             except Exception as exc:
                 log.warning(f"build_message_history_context: failed to parse message {backmsg.id}: {type(exc).__name__}: {exc}")
@@ -278,12 +276,12 @@ class ContextBuilder:
             self,
             message: discord.Message,
             src: ImageSource,
-            max_image_size: int | None = None,
+            max_image_resolution: int | None = None,
             thumbnail_size: int | None = None,
     ) -> bytes | None:
         """Fetch an attachment or URL and return normalized image bytes, or None on failure."""
-        assert max_image_size or thumbnail_size
-        max_pixels = max_image_size ** 2 if max_image_size else None
+        assert max_image_resolution or thumbnail_size
+        max_pixels = max_image_resolution ** 2 if max_image_resolution else None
         try:
             if isinstance(src, tuple):
                 idx, attachment = src

@@ -10,11 +10,13 @@ GptImageContent = dict[str, (str | dict[str, str])]
 GptMessage = dict[str, (str | list[GptImageContent])]
 ImageSource = tuple[int, discord.Attachment] | str
 
+
 @dataclass
 class ParsedMessageResult:
     gpt_message: GptMessage
     tokens: int
     num_images: int
+
 
 @dataclass
 class DiscordMessageImageCandidates:
@@ -22,12 +24,18 @@ class DiscordMessageImageCandidates:
     download: list[ImageSource]
     caption: list[ImageSource]
 
+
 @dataclass
 class DiscordMessageResolvedImages:
     message_id: int
     image_contents: list[GptImageContent]
     attachment_captions: dict[int, str]
     url_captions: dict[str, str]
+
+    @property
+    def count(self):
+        return len(self.image_contents) + len(self.url_captions) + len(self.attachment_captions)
+
 
 @dataclass
 class TokensDetailsResult:
@@ -42,15 +50,24 @@ class TokensDetailsResult:
     recaller: tuple[int, int] | int = 0
     memorizer: tuple[int, int] | int = 0
 
+
 @dataclass
 class CompletionResult:
-    messages: int = 0
-    images: int = 0
-    tool_calls: int = 0
+    elapsed_ms: float = 0
     input_tokens: int = 0
     output_tokens: int = 0
     cost: float | str = "unknown"
+    messages: int = 0
+    images: int = 0
+    tool_calls: int = 0
     tokens: TokensDetailsResult = field(default_factory=TokensDetailsResult)
+
+    def add_cost(self, cost: float):
+        if isinstance(self.cost, str):
+            self.cost = cost
+        else:
+            self.cost += cost
+
 
 @dataclass
 class MemoryChangeResult:
@@ -120,7 +137,6 @@ class ImageGenParams:
     subseed_strength: float     = 0.0
     image: None                 = None
     regions: ImageRegionalParams | None = None
-
 
 class SplitType(Enum):
     HORIZONTAL = "split-horizontal-2"

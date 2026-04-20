@@ -1,3 +1,4 @@
+import time
 import json
 import logging
 import asyncio
@@ -195,7 +196,7 @@ class GptMemory(GptMemoryCommands):
         assert ctx.guild
         self.memory.setdefault(ctx.guild.id, {})
         memory_names = list(self.memory[ctx.guild.id].keys())
-
+        start = time.perf_counter()
         result = CompletionResult()
         mem_task = None
         async with ctx.typing():
@@ -209,6 +210,7 @@ class GptMemory(GptMemoryCommands):
             await self.execute_responder(ctx, messages, memory_names, recalled_memories_str, result, auto)
         if mem_task:
             await mem_task
+        result.elapsed_ms = int(1000 * (time.perf_counter() - start))
         log.info(result)
 
 
@@ -256,6 +258,8 @@ class GptMemory(GptMemoryCommands):
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         if response.usage:
             result.tokens.recaller = (response.usage.prompt_tokens, response.usage.completion_tokens)
+            if cost := getattr(response.usage, "cost", 0.0):
+                result.add_cost(cost)
         if self.extended_logging:
             log.info(f"{memories_to_recall=}")
 
@@ -339,9 +343,7 @@ class GptMemory(GptMemoryCommands):
                 result.input_tokens += response.usage.prompt_tokens
                 result.output_tokens += response.usage.completion_tokens
                 if cost := getattr(response.usage, "cost", 0.0):
-                    if isinstance(result.cost, str):
-                        result.cost = 0.0
-                    result.cost += cost
+                    result.add_cost(cost)
                 if response.usage.prompt_tokens_details:
                     result.tokens.cached += response.usage.prompt_tokens_details.cached_tokens or 0
                 if response.usage.completion_tokens_details:
@@ -421,13 +423,10 @@ class GptMemory(GptMemoryCommands):
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
-            cleaned_completion = completion
-            if raw_completion != cleaned_completion:
-                log.info(f"{cleaned_completion=}")
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
-            if cleaned_completion != completion:
-                log.info(f"emote_cleaned_{completion=}")
             completion = utils.undo_xml(completion).strip()
+            if self.extended_logging and completion != raw_completion:
+                log.info(f"cleaned_{completion=}")
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
         if completion or view:
@@ -497,6 +496,8 @@ class GptMemory(GptMemoryCommands):
         completion = response.choices[0].message
         if response.usage:
             result.tokens.memorizer = (response.usage.prompt_tokens, response.usage.completion_tokens)
+            if cost := getattr(response.usage, "cost", 0.0):
+                result.add_cost(cost)
         if completion.refusal:
             log.warning(completion.refusal)
             return []
@@ -556,7 +557,7 @@ class GptMemory(GptMemoryCommands):
             }
         ]
         model = await self.config.guild(ctx.guild).model_captioner()
-        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_captioner())
+        effort = utils.adjusted_effort(model, "minimal")
         response = await self.get_client(model).beta.chat.completions.create(
             model=model,
             messages=messages,  # type: ignore
@@ -575,6 +576,8 @@ class GptMemory(GptMemoryCommands):
         if self.extended_logging:
             log.info(f"{caption=}")
         if response.usage:
+            if cost := getattr(response.usage, "cost", 0.0):
+                result.add_cost(cost)
             tokens = (response.usage.prompt_tokens, response.usage.completion_tokens)
             if isinstance(result.tokens.captioner, tuple):
                 result.tokens.captioner = (result.tokens.captioner[0] + tokens[0], result.tokens.captioner[1] + tokens[1])

@@ -54,7 +54,6 @@ class GptMemoryBase(commands.Cog):
             "effort_recaller": defaults.EFFORT_RECALLER,
             "effort_responder": defaults.EFFORT_RESPONDER,
             "effort_memorizer": defaults.EFFORT_MEMORIZER,
-            "effort_captioner": defaults.EFFORT_CAPTIONER,
             "response_tokens": defaults.RESPONSE_TOKENS,
             "backread_tokens": defaults.BACKREAD_TOKENS,
             "backread_messages": defaults.BACKREAD_MESSAGES,
@@ -70,6 +69,7 @@ class GptMemoryBase(commands.Cog):
             "max_tool_depth": defaults.TOOL_DEPTH,
             "max_text_file": defaults.TEXT_FILE_LENGTH,
             "max_image_resolution": defaults.IMAGE_SIZE,
+            "max_caption_resolution": defaults.CAPTION_SIZE,
             "autoresponder_chance": 0.0,
             "autoresponder_cooldown_minutes": 60,
         })

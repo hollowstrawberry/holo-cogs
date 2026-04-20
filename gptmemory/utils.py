@@ -92,7 +92,6 @@ def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
     return int(width * scale), int(height * scale)
 
 def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail_size: int | None = None) -> bytes | None:
-    assert max_pixels or thumbnail_size
     b = b if isinstance(b, BytesIO) else BytesIO(b)
     b.seek(0)
     try:
@@ -102,10 +101,12 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail
     if max_pixels and image.width*image.height > max_pixels:
         width, height = scale_to_size(image.width, image.height, max_pixels)
         image = image.resize((width, height), Image.Resampling.LANCZOS)
-    fp = BytesIO()
+    format = "PNG"
     if thumbnail_size:
+        format = "JPEG"
         image.thumbnail((thumbnail_size, thumbnail_size), Image.Resampling.LANCZOS)
-    image.save(fp, "PNG")
+    fp = BytesIO()
+    image.save(fp, format)
     fp.seek(0)
     return fp.read()
 
