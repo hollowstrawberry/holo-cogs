@@ -555,12 +555,11 @@ class GptMemory(GptMemoryCommands):
                 "content": [image]
             }
         ]
-        model = await self.config.guild(ctx.guild).model_memorizer()
-        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
-        response = await self.get_client(model).beta.chat.completions.parse(
+        model = await self.config.guild(ctx.guild).model_captioner()
+        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_captioner())
+        response = await self.get_client(model).beta.chat.completions.create(
             model=model,
             messages=messages,  # type: ignore
-            response_format=MemoryChangeList,
             reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
         )
         if response.choices and response.choices[0].message.content:
