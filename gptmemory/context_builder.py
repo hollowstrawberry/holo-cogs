@@ -12,7 +12,7 @@ from redbot.core.bot import Red, Config
 
 from gptmemory import utils as utils
 from gptmemory import constants as constants
-from gptmemory.schema import GptImageContent, GptMemoryResult, GptMessage, ParsedMessageResult, StructuredObject
+from gptmemory.schema import GptImageContent, CompletionResult, GptMessage, ParsedMessageResult, StructuredObject
 from gptmemory.schema import DiscordMessageImageCandidates, DiscordMessageResolvedImages, ImageSource
 
 
@@ -26,7 +26,7 @@ class ContextBuilder:
         config: Config,
         session: aiohttp.ClientSession,
         encoding: tiktoken.Encoding,
-        execute_captioner: Callable[[commands.Context, GptImageContent], Awaitable[str]],
+        execute_captioner: Callable[[commands.Context, GptImageContent, CompletionResult], Awaitable[str]],
         is_busy: Callable[[int], bool],
     ):
         self.bot = bot
@@ -45,7 +45,7 @@ class ContextBuilder:
         self,
         ctx: commands.Context,
         backread: list[discord.Message],
-        result: GptMemoryResult,
+        result: CompletionResult,
     ) -> list[GptMessage]:
         assert ctx.guild and self.bot.user
 
@@ -141,11 +141,11 @@ class ContextBuilder:
                     if cached is not None:
                         return src, cached
                 # not cached
-                data = await self.fetch_and_normalize(backmsg, src, max_image_size)
+                data = await self.fetch_and_normalize(backmsg, src, max_image_size // 2)
                 if data is None:
                     return None
                 image_content = utils.make_image_content(data)
-                caption = await self.execute_captioner(ctx, image_content)
+                caption = await self.execute_captioner(ctx, image_content, result)
                 if caption is None:
                     return None
                 if isinstance(src, tuple):

@@ -14,7 +14,7 @@ from redbot.core.bot import Red
 
 import gptmemory.utils as utils
 import gptmemory.constants as constants
-from gptmemory.schema import GptImageContent, GptMessage, GptMemoryResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
+from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.functions.base import get_all_function_calls
 from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
@@ -196,7 +196,7 @@ class GptMemory(GptMemoryCommands):
         self.memory.setdefault(ctx.guild.id, {})
         memory_names = list(self.memory[ctx.guild.id].keys())
 
-        result = GptMemoryResult()
+        result = CompletionResult()
         mem_task = None
         async with ctx.typing():
             backread = await self.fetch_message_history(ctx)
@@ -217,7 +217,7 @@ class GptMemory(GptMemoryCommands):
                                participants: list[discord.Member | discord.User],
                                messages: list[GptMessage],
                                memories: list[str],
-                               result: GptMemoryResult
+                               result: CompletionResult
                                ) -> dict[str, str]:
         """
         Runs an openai completion with the chat history and a list of memories from the database
@@ -268,7 +268,7 @@ class GptMemory(GptMemoryCommands):
                                 messages: list[GptMessage],
                                 memory_names: list[str],
                                 recalled_memories_str: str,
-                                result: GptMemoryResult,
+                                result: CompletionResult,
                                 auto: bool = False,
                                 ) -> GptMessage:
         """
@@ -448,7 +448,7 @@ class GptMemory(GptMemoryCommands):
                                 messages: list[GptMessage],
                                 memory_names: list[str],
                                 recalled_memories_str: str,
-                                result: GptMemoryResult,
+                                result: CompletionResult,
                                 standalone: bool
                                 ) -> list[MemoryChangeResult]:
         """
@@ -543,7 +543,7 @@ class GptMemory(GptMemoryCommands):
         return memory_changes
     
 
-    async def execute_captioner(self, ctx: commands.Context, image: GptImageContent) -> str:
+    async def execute_captioner(self, ctx: commands.Context, image: GptImageContent, result: CompletionResult) -> str:
         assert ctx.guild
         messages: list[GptMessage] = [
             {
@@ -568,6 +568,12 @@ class GptMemory(GptMemoryCommands):
             caption = "Unidentified image"
         if self.extended_logging:
             log.info(f"{caption=}")
+        if response.usage:
+            tokens = (response.usage.prompt_tokens, response.usage.completion_tokens)
+            if isinstance(result.tokens.captioner, tuple):
+                result.tokens.captioner = (result.tokens.captioner[0] + tokens[0], result.tokens.captioner[1] + tokens[1])
+            else:
+                result.tokens.captioner = tokens
         return caption
 
 

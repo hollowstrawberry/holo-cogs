@@ -38,11 +38,12 @@ class TokensDetailsResult:
     cached: int = 0
     thinking: int = 0
     tools: int = 0
+    captioner: tuple[int, int] | int = 0
     recaller: tuple[int, int] | int = 0
     memorizer: tuple[int, int] | int = 0
 
 @dataclass
-class GptMemoryResult:
+class CompletionResult:
     messages: int = 0
     images: int = 0
     tool_calls: int = 0
