@@ -96,19 +96,25 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail
     b.seek(0)
     try:
         image = Image.open(b)
-    except UnidentifiedImageError:
+    except (UnidentifiedImageError, OSError):
         return None
+    if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
+        image_rgba = image.convert("RGBA")
+        background = Image.new("RGB", image.size, (0, 0, 0))
+        background.paste(image_rgba, (0, 0), image_rgba.getchannel("A"))
+        image = background
+    else:
+        image = image.convert("RGB")
+    format = "PNG"
     if max_pixels and image.width*image.height > max_pixels:
         width, height = scale_to_size(image.width, image.height, max_pixels)
         image = image.resize((width, height), Image.Resampling.LANCZOS)
-    format = "PNG"
     if thumbnail_size:
         format = "JPEG"
         image.thumbnail((thumbnail_size, thumbnail_size), Image.Resampling.LANCZOS)
     fp = BytesIO()
-    image.save(fp, format)
-    fp.seek(0)
-    return fp.read()
+    image.save(fp, format, quality=90)
+    return fp.getvalue()
 
 def button_label(button: discord.Button):
     emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
