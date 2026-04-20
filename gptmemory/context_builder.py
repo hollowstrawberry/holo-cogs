@@ -283,7 +283,7 @@ class ContextBuilder:
     ) -> bytes | None:
         """Fetch an attachment or URL and return normalized image bytes, or None on failure."""
         assert max_image_size or thumbnail_size
-        max_pixels = max_image_size ** 1 if max_image_size else None
+        max_pixels = max_image_size ** 2 if max_image_size else None
         try:
             if isinstance(src, tuple):
                 idx, attachment = src
