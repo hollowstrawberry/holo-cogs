@@ -29,7 +29,7 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Em dash",           re.compile(r"(?<=\w)—(?=\w)"), ", "),
 ]
 GENERATE_IMAGE_PATTERNS = {
-    "XML object":        re.compile(r"<(\w+)(?: [^>]+)?>.*?<prompt>(.*?)<\/prompt>.*?<\/\1>", re.DOTALL | re.IGNORECASE),
+    "XML object":        re.compile(r"<(\w+)(?: [^>]+)?>(?:(?!</\1>).)*<prompt>(.*?)</prompt>(?:(?!</\1>).)*</\1>", re.DOTALL | re.IGNORECASE),
     "JSON object":       re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
 }
 #INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?(?:&lt;|<)?a?:(\w{3,}):\d{0,16}(?!\d)(?:&gt;|>)?`?")
