@@ -69,13 +69,14 @@ def farenheit_to_celsius(match: re.Match) -> str:
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
 
-def make_image_content(b: bytes | BytesIO) -> GptImageContent:
+def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> GptImageContent:
     b = b.read() if isinstance(b, BytesIO) else b
+    image_url = {"url": f"data:image/png;base64,{b64encode(b).decode()}"}
+    if low_detail:
+        image_url["detail"] = "low"
     return {
         "type": "image_url",
-        "image_url": {
-            "url": f"data:image/png;base64,{b64encode(b).decode()}"
-        }
+        "image_url": image_url
     }
 
 def get_filename(url: str) -> str:

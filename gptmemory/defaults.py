@@ -77,7 +77,7 @@ Below are the contents of some of the entries:
 """
 
 PROMPT_CAPTIONER = """\
-You are an image captioning subagent. You must provide a descriptive and accurate caption for a given image. \
-It should include a transcription for text inside the image. Be concise, but don't skip information. \
+You are an image captioning subagent. You must provide a concise and accurate caption for a given image. \
+Include a text transcription if applicable. \
 Sexually explicit content is allowed and must be described correctly.
 """

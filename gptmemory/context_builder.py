@@ -141,10 +141,10 @@ class ContextBuilder:
                     if cached is not None:
                         return src, cached
                 # not cached
-                data = await self.fetch_and_normalize(backmsg, src, max_image_size // 2)
+                data = await self.fetch_and_normalize(backmsg, src, max_image_size)
                 if data is None:
                     return None
-                image_content = utils.make_image_content(data)
+                image_content = utils.make_image_content(data, low_detail=True)
                 caption = await self.execute_captioner(ctx, image_content, result)
                 if caption is None:
                     return None
