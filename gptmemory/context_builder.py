@@ -300,7 +300,7 @@ class ContextBuilder:
                     response.raise_for_status()
                     fp_before = BytesIO(await response.read())
 
-            fp_after = await asyncio.to_thread(utils.normalize_image, fp_before, max_pixels, thumbnail_size)
+            fp_after = await asyncio.to_thread(utils.normalize_image, fp_before, max_pixels=max_pixels, thumbnail_size=thumbnail_size)
             del fp_before
             return fp_after if fp_after else None
 
