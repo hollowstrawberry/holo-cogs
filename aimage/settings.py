@@ -69,7 +69,7 @@ class AImageSettings(AImageBase):
         config = await self.config.all()
 
         embed = discord.Embed(title="AImage Config", color=await ctx.embed_color())
-        embed.add_field(name="Default Negative Prompt", value=f"`{config['negative_prompt'][1000]}`", inline=False)
+        embed.add_field(name="Default Negative Prompt", value=f"`{config['negative_prompt'][:1000]}`", inline=False)
         embed.add_field(name="Default Checkpoint", value=f"`{config['checkpoint']}`")
         embed.add_field(name="Default VAE", value=f"`{config['vae']}`")
         embed.add_field(name="Default Sampler", value=f"`{config['sampler']}`")
@@ -80,7 +80,7 @@ class AImageSettings(AImageBase):
         embed.add_field(name="NSFW allowed", value=f"`{config['nsfw']}`")
         embed.add_field(name="Use ADetailer", value=f"`{config['adetailer']}`")
         embed.add_field(name="Max img2img size", value=f"`{config['max_img2img']}`")
-        embed.add_field(name="Blacklist regex", value=f"`{config['blacklist_regex'][1000]}`", inline=False)
+        embed.add_field(name="Blacklist regex", value=f"`{config['blacklist_regex'][:1000]}`", inline=False)
 
         return await ctx.send(embed=embed)
 
