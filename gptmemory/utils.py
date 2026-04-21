@@ -74,6 +74,7 @@ def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> GptImage
     image_url = {"url": f"data:image/png;base64,{b64encode(b).decode()}"}
     if low_detail:
         image_url["detail"] = "low"
+        image_url["media_resolution"] = "MEDIA_RESOLUTION_LOW"
     return {
         "type": "image_url",
         "image_url": image_url
