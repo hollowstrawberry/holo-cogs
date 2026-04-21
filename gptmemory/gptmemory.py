@@ -564,6 +564,9 @@ class GptMemory(GptMemoryCommands):
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
             extra_body={
                 "media_resolution": "LOW",
+                "generation_config": {
+                    "media_resolution": "LOW",
+                }
             }
         )
         if response.choices and response.choices[0].message.content:
