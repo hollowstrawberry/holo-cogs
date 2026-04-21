@@ -562,12 +562,12 @@ class GptMemory(GptMemoryCommands):
             model=model,
             messages=messages,  # type: ignore
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
-            #extra_body={
-            #    "media_resolution": "LOW",
-            #    "generation_config": {
-            #        "media_resolution": "LOW",
-            #    }
-            #}
+            extra_body={
+                "media_resolution": "MEDIA_RESOLUTION_LOW",
+                "generation_config": {
+                    "media_resolution": "MEDIA_RESOLUTION_LOW",
+                }
+            }
         )
         if response.choices and response.choices[0].message.content:
             caption = response.choices[0].message.content
