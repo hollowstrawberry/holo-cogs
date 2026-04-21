@@ -561,13 +561,7 @@ class GptMemory(GptMemoryCommands):
         response = await self.get_client(model).beta.chat.completions.create(
             model=model,
             messages=messages,  # type: ignore
-            reasoning_effort="none",  # type: ignore
-            extra_body={
-                "media_resolution": "MEDIA_RESOLUTION_LOW",
-                "generation_config": {
-                    "media_resolution": "MEDIA_RESOLUTION_LOW",
-                }
-            }
+            reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
         )
         if response.choices and response.choices[0].message.content:
             caption = response.choices[0].message.content
