@@ -230,6 +230,8 @@ class ContextBuilder:
                 log.warning(f"resolve_images raised: {res}")
                 continue
             all_resolved_images[res.message_id] = res
+
+        log.info(all_resolved_images)
  
         # Pass 4: Parse each message and attach images
 
@@ -411,7 +413,8 @@ class ContextBuilder:
         current_images = images.get(message.id)
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
-        # attachments
+        log.info(f"{attachment_captions=} {url_captions=}")
+        # attachmentas
         if "generated_image" not in obj:
             attachments = []
             total_file_length = 0
