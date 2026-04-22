@@ -114,7 +114,6 @@ class ContextBuilder:
         seen_attachments: set[int] = set()
         seen_urls: set[str] = set()
         images_remaining = max_images
-        log.info(f"{all_candidates=}")
         for backmsg in backread:
             quote = all_resolved_quotes.get(backmsg.id)
             backmsg_candidates = extract_candidates(backmsg)
@@ -137,6 +136,7 @@ class ContextBuilder:
             if quote:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote.id, *filter_sources(quote))
 
+        log.info(f"{all_candidates=}")
         # Pass 3: grab images
 
         async def resolve_images(backmsg: discord.Message) -> DiscordMessageResolvedImages:
