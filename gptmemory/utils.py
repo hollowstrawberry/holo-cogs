@@ -5,14 +5,14 @@ import trafilatura
 from io import BytesIO
 from copy import deepcopy
 from base64 import b64encode
-from typing import Any, Callable
+from typing import Callable
 from datetime import datetime
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 from redbot.core.bot import Red
 
-from gptmemory.schema import GptImageContent, GptMessage
+from gptmemory.schema import GptImageContent, GptMessage, StructuredObject
 from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN
 
 
@@ -152,7 +152,7 @@ def parse_prompt(prompt: str) -> str:
     prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)
     return prompt
 
-def parse_arcenciel_model(data: dict) -> dict[str, Any]:
+def parse_arcenciel_model(data: dict) -> StructuredObject:
     obj = {
         "@title": data["title"],
         "@type": data["type"],

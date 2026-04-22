@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict
 from redbot.core import commands
 
-from gptmemory.schema import ToolCall
+from gptmemory.schema import StructuredObject, ToolCall
 from gptmemory.base import GptMemoryBase
 
 
@@ -24,7 +24,7 @@ class FunctionCallBase(ABC):
         return asdict(cls.schema)
 
     @abstractmethod
-    async def run(self, arguments: dict) -> dict | str:
+    async def run(self, arguments: dict) -> StructuredObject | str:
         raise NotImplementedError
     
 

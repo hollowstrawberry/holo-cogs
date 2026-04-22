@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 StructuredObject = dict[str, Any]
 GptImageContent = dict[str, (str | dict[str, str])]
 GptMessage = dict[str, (str | list[GptImageContent])]
-ImageSource = tuple[int, discord.Attachment] | str
 
 
 @dataclass
@@ -16,6 +15,14 @@ class ParsedMessageResult:
     gpt_message: GptMessage
     tokens: int
     num_images: int
+
+
+@dataclass
+class ImageSource:
+    message: discord.Message
+    attachment: discord.Attachment | None = None
+    att_index: int = 0
+    url: str | None = None
 
 
 @dataclass
