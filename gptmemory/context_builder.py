@@ -372,7 +372,7 @@ class ContextBuilder:
         if message.is_system():
             obj["action"] = "Joined the server" if message.type == discord.MessageType.new_member else message.system_content
         elif message.content:
-            content = message.content
+            content = utils.clean_content(message.content)
             for mentioned in message.mentions + message.role_mentions:
                 content = content.replace(mentioned.mention, f"@{mentioned.name}")
             for mentioned_ch in message.channel_mentions:
@@ -441,7 +441,7 @@ class ContextBuilder:
             if embed.title:
                 embed_obj["title"] = embed.title
             if embed.description:
-                embed_obj["description"] = embed.description if exhaustive else "..."
+                embed_obj["description"] = utils.clean_content(embed.description) if exhaustive else "..."
             if embed.image and embed.image.url:
                 embed_obj["image"] = embed.image.url
             if embed.thumbnail and embed.thumbnail.url:
@@ -450,9 +450,9 @@ class ContextBuilder:
             for field in embed.fields:
                 fields.append({
                     "@name": field.name,
-                    "#text": field.value,
+                    "#text": utils.clean_content(field.value),
                 })
-            if len(fields) > 0 and exhaustive:
+            if fields and exhaustive:
                 utils.add_xml_group(embed_obj, fields, "fields")
             if embed_obj:
                 embeds.append(embed_obj)
