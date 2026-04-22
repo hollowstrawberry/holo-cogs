@@ -31,17 +31,13 @@ class DiscordMessageImageCandidates:
     download: list[ImageSource]
     caption: list[ImageSource]
 
-
+    
 @dataclass
 class DiscordMessageResolvedImages:
     message_id: int
     image_contents: list[GptImageContent]
     attachment_captions: dict[int, str]
     url_captions: dict[str, str]
-
-    @property
-    def count(self):
-        return len(self.image_contents) + len(self.url_captions) + len(self.attachment_captions)
 
 
 @dataclass

@@ -111,25 +111,31 @@ class ContextBuilder:
             return url_candidates
 
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
-        seen_attachments: list[int] = []
-        seen_urls: list[str] = []
+        seen_attachments: set[int] = set()
+        seen_urls: set[str] = set()
         images_remaining = max_images
+
         for backmsg in backread:
             quote = all_resolved_quotes.get(backmsg.id)
-            current_candidates = extract_candidates(backmsg)
-            if quote:
-                current_candidates += extract_candidates(quote)
-            current_candidates = [
-                src for src in current_candidates
+            backmsg_candidates = extract_candidates(backmsg)
+            quote_candidates   = extract_candidates(quote) if quote else []
+            candidates = [
+                src for src in backmsg_candidates + quote_candidates
                 if not (src.attachment and src.attachment.id in seen_attachments or src.url and src.url in seen_urls)
             ]
-            seen_attachments += [src.attachment.id for src in current_candidates if src.attachment]
-            seen_urls += [src.url for src in current_candidates if src.url]
+            seen_attachments.update(src.attachment.id for src in candidates if src.attachment)
+            seen_urls.update(src.url for src in candidates if src.url)
+            # share image budget between base message and its quoted message
             download_slots = max(0, images_remaining)
-            download_list  = current_candidates[:download_slots]
-            caption_list   = current_candidates[download_slots:]
+            download_list  = candidates[:download_slots]
+            caption_list   = candidates[download_slots:]
             images_remaining -= len(download_list)
-            all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg.id, download_list, caption_list)
+            # save them separately
+            def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
+                return ([src for src in download_list if src.message.id == msg.id], [src for src in caption_list if src.message.id == msg.id])
+            all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg.id, *filter_sources(backmsg))
+            if quote:
+                all_candidates[quote.id] = DiscordMessageImageCandidates(quote.id, *filter_sources(quote))
 
         # Pass 3: grab images
 
@@ -238,8 +244,8 @@ class ContextBuilder:
         for n, backmsg in enumerate(backread):
             try:
                 quote = all_resolved_quotes.get(backmsg.id)
-                images = all_resolved_images.get(backmsg.id) or DiscordMessageResolvedImages(backmsg.id, [], {}, {})
-                quoted_images = all_resolved_images.get(quote.id if quote else 0) or DiscordMessageResolvedImages(backmsg.id, [], {}, {})
+                images = all_resolved_images.get(backmsg.id)
+                quoted_images = all_resolved_images.get(quote.id if quote else 0)
 
                 message_obj, message_inline_objs = await self.parse_discord_message(
                     backmsg, quote, backread, all_resolved_images,
@@ -250,12 +256,14 @@ class ContextBuilder:
                 for before, after_obj in message_inline_objs.items():
                     text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
 
+                image_contents = (images.image_contents if images else []) + (quoted_images.image_contents if quoted_images else [])
                 text_tokens  = len(self.encoding.encode(text_content))
-                image_tokens = 1120 * len(images.image_contents)
+                image_tokens = 1120 * len(image_contents)
                 total_tokens = text_tokens + image_tokens
                 content: str | list[GptImageContent]
-                if images.image_contents or quoted_images.image_contents:
-                    content = [{"type": "text", "text": text_content}, *images.image_contents, *quoted_images.image_contents]
+
+                if image_contents:
+                    content = [{"type": "text", "text": text_content}, *image_contents]
                     role = "user"
                 else:
                     content = text_content
@@ -265,7 +273,7 @@ class ContextBuilder:
                     "role": role,
                     "content": content
                 }
-                parsed_messages.append(ParsedMessageResult(gpt_msg, total_tokens, images.count))
+                parsed_messages.append(ParsedMessageResult(gpt_msg, total_tokens, len(image_contents)))
 
             except Exception as error:
                 log.warning(f"build_message_history_context: failed to parse message {backmsg.id}: {type(error).__name__}: {error}")
