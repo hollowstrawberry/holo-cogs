@@ -230,8 +230,6 @@ class ContextBuilder:
                 log.warning(f"resolve_images raised: {res}")
                 continue
             all_resolved_images[res.message_id] = res
-
-        log.info(all_resolved_images)
  
         # Pass 4: Parse each message and attach images
 
@@ -413,7 +411,7 @@ class ContextBuilder:
         current_images = images.get(message.id)
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
-        log.info(f"{attachment_captions=} {url_captions=}")
+        log.info(f"{attachment_captions=}")
         # attachmentas
         if "generated_image" not in obj:
             attachments = []
@@ -423,7 +421,9 @@ class ContextBuilder:
                 if exhaustive and attachment.content_type and attachment.content_type.startswith("text") and total_file_length < max_file_length:
                     if file_content := await self.read_text_file(attachment, max_file_length):
                         att_obj["content"] = file_content
+                log.info(f"{i=}")
                 if attachment_captions and i in attachment_captions:
+                    log.info(f"{attachment_captions[i]=}")
                     att_obj["caption"] = attachment_captions[i]
                 attachments.append(att_obj)
             utils.add_xml_group(obj, attachments, "attachments")
@@ -500,6 +500,7 @@ class ContextBuilder:
                 reactions.append(reaction_obj)
             utils.add_xml_group(obj, reactions, "reactions")
         # done
+        log.info(obj)
         return ({"chat_message": obj}, inline_objs)
     
 
