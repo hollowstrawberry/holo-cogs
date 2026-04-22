@@ -77,10 +77,8 @@ class ContextBuilder:
             except discord.DiscordException:
                 return backmsg.id, None
 
-        quote_results_raw = await asyncio.gather(
-            *[resolve_quote(backmsg) for backmsg in backread],
-            return_exceptions=True,
-        )
+        quote_tasks = [resolve_quote(backmsg) for backmsg in backread]
+        quote_results_raw = await asyncio.gather(*quote_tasks, return_exceptions=True)
         all_resolved_quotes: dict[int, discord.Message | None] = {}
         for res in quote_results_raw:
             if isinstance(res, BaseException):
@@ -93,7 +91,7 @@ class ContextBuilder:
 
         def extract_candidates(msg: discord.Message) -> list[ImageSource]:
             att_candidates: list[ImageSource] = [
-                ImageSource(msg, attachment=att, att_index=i)
+                ImageSource(msg.id, attachment=att, att_index=i)
                 for i, att in enumerate(msg.attachments)
                 if att.content_type and att.content_type.startswith("image/")
             ]
@@ -102,12 +100,12 @@ class ContextBuilder:
             url_candidates: list[ImageSource] = []
             for embed in msg.embeds:
                 if embed.image and embed.image.url:
-                    url_candidates.append(ImageSource(msg, url=embed.image.url))
+                    url_candidates.append(ImageSource(msg.id, url=embed.image.url))
                 if embed.thumbnail and embed.thumbnail.url:
-                    url_candidates.append(ImageSource(msg, url=embed.thumbnail.url))
+                    url_candidates.append(ImageSource(msg.id, url=embed.thumbnail.url))
             for match in constants.URL_PATTERN.findall(msg.content or ""):
                 if match.endswith(constants.IMAGE_EXTENSIONS):
-                    url_candidates.append(ImageSource(msg, url=match))
+                    url_candidates.append(ImageSource(msg.id, url=match))
             return url_candidates
 
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
@@ -131,16 +129,15 @@ class ContextBuilder:
             images_remaining -= len(download_list)
             # save them separately
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
-                return ([src for src in download_list if src.message.id == msg.id], [src for src in caption_list if src.message.id == msg.id])
+                return ([src for src in download_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
             all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg.id, *filter_sources(backmsg))
             if quote:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote.id, *filter_sources(quote))
-
-        log.info(f"{all_candidates=}")
+        
         # Pass 3: grab images
 
-        async def resolve_images(backmsg: discord.Message) -> DiscordMessageResolvedImages:
-            candidates = all_candidates[backmsg.id]
+        async def resolve_images(backmsg_id: int) -> DiscordMessageResolvedImages:
+            candidates = all_candidates[backmsg_id]
             all_srcs = (candidates.download + candidates.caption)[:constants.MAX_IMAGES_PER_MESSAGE]
             download_srcs = [s for s in all_srcs if s in candidates.download]
             caption_srcs  = [s for s in all_srcs if s in candidates.caption]
@@ -188,8 +185,6 @@ class ContextBuilder:
                     self.url_caption_cache[src.url] = caption
                 return src, caption
 
-            # run image sub-tasks
-
             download_tasks = [process_download(src) for src in download_srcs]
             caption_tasks  = [process_caption(src)  for src in caption_srcs]
             download_results_raw, caption_results_raw = await asyncio.gather(
@@ -222,14 +217,10 @@ class ContextBuilder:
                 elif src.url:
                     url_captions[src.url] = caption
 
-            return DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions)
+            return DiscordMessageResolvedImages(backmsg_id, image_contents, attachment_captions, url_captions)
 
-        # run image tasks
-
-        image_results_raw = await asyncio.gather(
-            *[resolve_images(backmsg) for backmsg in backread],
-            return_exceptions=True,
-        )
+        image_tasks = [resolve_images(msg_id) for msg_id in all_candidates]
+        image_results_raw = await asyncio.gather(*image_tasks, return_exceptions=True)
         all_resolved_images: dict[int, DiscordMessageResolvedImages] = {}
         for res in image_results_raw:
             if isinstance(res, BaseException):
@@ -309,8 +300,8 @@ class ContextBuilder:
                 assert src.attachment and src.att_index is not None
                 fp_before = BytesIO()
                 imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
-                if imagescanner and src.message.id in imagescanner.image_cache:  # type: ignore
-                    _, image_bytes = imagescanner.image_cache.get(src.message.id, ({}, {}))  # type: ignore
+                if imagescanner and src.message_id in imagescanner.image_cache:  # type: ignore
+                    _, image_bytes = imagescanner.image_cache.get(src.message_id, ({}, {}))  # type: ignore
                     if src.att_index in image_bytes:
                         fp_before = BytesIO(image_bytes[src.att_index])
                 if fp_before.getbuffer().nbytes == 0:

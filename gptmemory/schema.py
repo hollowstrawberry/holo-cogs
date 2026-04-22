@@ -19,7 +19,7 @@ class ParsedMessageResult:
 
 @dataclass
 class ImageSource:
-    message: discord.Message
+    message_id: int
     attachment: discord.Attachment | None = None
     att_index: int = 0
     url: str | None = None
