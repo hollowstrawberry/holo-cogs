@@ -13,7 +13,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from gptmemory.schema import GptImageContent, GptMessage, StructuredObject
-from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN
+from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN
 
 
 def add_xml_group(obj: dict, group: list, group_name: str) -> None:
@@ -56,6 +56,9 @@ def fix_emote(bot: Red) -> Callable[[re.Match], str]:
             return ""
         return match.group(0)
     return repl
+
+def clean_content(text: str) -> str:
+    return EMOTE_PATTERN.sub(r":\2:", text)
 
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()
