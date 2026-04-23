@@ -659,14 +659,14 @@ class GptMemory(GptMemoryCommands):
             await asyncio.sleep(0)
             self.currently_generating.discard(ctx.message.id)
         self.currently_generating.add(ctx.message.id)
-        task = aimage.generate_image(ctx, params=params, message_content=message_content, callback=callback())  # type: ignore
-        asyncio.create_task(task)
+        generate_image = getattr(aimage, "generate_image")
+        asyncio.create_task(generate_image(ctx, params=params, message_content=message_content, callback=callback()))
 
 
     async def find_last_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
         backread = await self.fetch_message_history(ctx)
         if ctx.message.reference and (ctx.message.reference.cached_message or ctx.message.reference.message_id):
-            quote = ctx.message.reference.cached_message or await ctx.message.channel.fetch_message(ctx.message.reference.message_id)  # type: ignore
+            quote = ctx.message.reference.cached_message or await ctx.message.channel.fetch_message(ctx.message.reference.message_id or 0)
             backread.insert(1, quote)
         for msg in backread[1:]:
             if msg.author == self.bot.user and msg.attachments and len(msg.attachments) == 1 and msg.attachments[0].width and msg.attachments[0].height:

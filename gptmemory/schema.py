@@ -12,6 +12,7 @@ GptMessage = dict[str, (str | list[GptImageContent])]
 
 @dataclass
 class ParsedMessageResult:
+    message_id: int
     gpt_message: GptMessage
     tokens: int
     num_images: int
@@ -27,7 +28,7 @@ class ImageSource:
 
 @dataclass
 class DiscordMessageImageCandidates:
-    message_id: int
+    message: discord.Message
     download: list[ImageSource]
     caption: list[ImageSource]
 
@@ -38,6 +39,7 @@ class DiscordMessageResolvedImages:
     image_contents: list[GptImageContent]
     attachment_captions: dict[int, str]
     url_captions: dict[str, str]
+    generated_image: dict[str, str] | None
 
 
 @dataclass

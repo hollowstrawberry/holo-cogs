@@ -236,7 +236,7 @@ class AImage(AImageCommands):
             content = f":warning: Failed to generate image. {error_message}"
             return await send_response(gen.context, content=content)
         
-        final_tasks: list[Coroutine] = []
+        final_tasks: list[Coroutine | None] = []
         try:
             image_bytes = await self.api.download_image(gen.id)
             metadata = ComfyMetadataReader.from_bytes(image_bytes)
@@ -250,8 +250,8 @@ class AImage(AImageCommands):
             view.message = message
             self.gen_count[gen.user.id] += 1
             imagescanner = self.bot.get_cog("ImageScanner")
-            if message and imagescanner and gen.channel.id in imagescanner.scan_channels:  # type: ignore
-                imagescanner.image_cache[message.id] = ({0: metadata}, {0: image_bytes})  # type: ignore
+            if message and imagescanner and gen.channel.id in getattr(imagescanner, "scan_channels"):
+                getattr(imagescanner, "image_cache")[message.id] = ({0: metadata}, {0: image_bytes})
                 final_tasks.append(message.add_reaction("🔎"))
         except ImageGenError as error:
             error_message = f":warning: Failed to retrieve image. ({error})"

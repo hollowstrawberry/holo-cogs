@@ -1,7 +1,6 @@
 import logging
 import asyncio
 import discord
-from typing import Any
 from redbot.core import commands
 
 from gptmemory.utils import add_xml_group, undo_xml, find_nearest_resolution
@@ -107,7 +106,7 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             sent_by_me, message = False, None
 
         if message and sent_by_me:
-            metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message) # type: ignore
+            metadata: dict[str, str] = await getattr(imagescanner, "grab_metadata_dict")(message)
 
             # add negative tags that weren't already in the existing negative prompt
             negative_prompt = metadata.get("Negative Prompt", "")
@@ -168,7 +167,8 @@ class StableDiffusionFunctionCall(FunctionCallBase):
             await asyncio.sleep(0)
             self.cog.currently_generating.discard(self.ctx.message.id)
         self.cog.currently_generating.add(self.ctx.message.id)
-        asyncio.create_task(aimage.generate_image(self.ctx, params=params, message_content=message_content, callback=callback()))  # type: ignore
+        generate_image = getattr(aimage, "generate_image")
+        asyncio.create_task(generate_image(self.ctx, params=params, message_content=message_content, callback=callback()))
 
         obj = {"message": "Image generation started successfully, the user will have to wait for it to finish."}
         warnings = []

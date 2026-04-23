@@ -47,14 +47,15 @@ class ContextBuilder:
         backread: list[discord.Message],
         result: CompletionResult,
     ) -> list[GptMessage]:
-        assert ctx.guild and self.bot.user
-
+        
+        assert ctx.guild
         max_image_res       = await self.config.guild(ctx.guild).max_image_resolution()
         max_caption_res     = await self.config.guild(ctx.guild).max_caption_resolution()
         max_images          = await self.config.guild(ctx.guild).max_images()
         max_quote_length    = await self.config.guild(ctx.guild).max_quote()
         max_file_length     = await self.config.guild(ctx.guild).max_text_file()
         max_backread_tokens = await self.config.guild(ctx.guild).backread_tokens()
+        imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
 
         # Pass 1: grab quoted messages
 
@@ -130,17 +131,21 @@ class ContextBuilder:
             # save them separately
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
                 return ([src for src in download_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
-            all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg.id, *filter_sources(backmsg))
+            all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
             if quote:
-                all_candidates[quote.id] = DiscordMessageImageCandidates(quote.id, *filter_sources(quote))
+                all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
         
         # Pass 3: grab images
 
-        async def resolve_images(backmsg_id: int) -> DiscordMessageResolvedImages:
-            candidates = all_candidates[backmsg_id]
+        async def resolve_images(backmsg: discord.Message) -> DiscordMessageResolvedImages:
+            candidates = all_candidates[backmsg.id]
             all_srcs = (candidates.download + candidates.caption)[:constants.MAX_IMAGES_PER_MESSAGE]
             download_srcs = [s for s in all_srcs if s in candidates.download]
             caption_srcs  = [s for s in all_srcs if s in candidates.caption]
+
+            generated_image: dict[str, str] | None = None
+            if imagescanner and backmsg.attachments and len(backmsg.attachments) == 1 and backmsg.author == ctx.me:
+                generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
 
             async def process_download(src: ImageSource) -> tuple[ImageSource, bytes] | None:
                 if src.attachment:
@@ -162,6 +167,8 @@ class ContextBuilder:
                 return src, data
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
+                if generated_image:
+                    return None
                 if src.attachment:
                     cached = self.attachment_caption_cache.get(src.attachment.id)
                     if cached is not None:
@@ -184,7 +191,7 @@ class ContextBuilder:
                     assert src.url
                     self.url_caption_cache[src.url] = caption
                 return src, caption
-
+            
             download_tasks = [process_download(src) for src in download_srcs]
             caption_tasks  = [process_caption(src)  for src in caption_srcs]
             download_results_raw, caption_results_raw = await asyncio.gather(
@@ -217,9 +224,9 @@ class ContextBuilder:
                 elif src.url:
                     url_captions[src.url] = caption
 
-            return DiscordMessageResolvedImages(backmsg_id, image_contents, attachment_captions, url_captions)
+            return DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions, generated_image)
 
-        image_tasks = [resolve_images(msg_id) for msg_id in all_candidates]
+        image_tasks = [resolve_images(src.message) for src in all_candidates.values()]
         image_results_raw = await asyncio.gather(*image_tasks, return_exceptions=True)
         all_resolved_images: dict[int, DiscordMessageResolvedImages] = {}
         for res in image_results_raw:
@@ -230,47 +237,51 @@ class ContextBuilder:
  
         # Pass 4: Parse each message and attach images
 
-        parsed_messages: list[ParsedMessageResult] = []
+        async def parse_message_and_images(backmsg: discord.Message) -> ParsedMessageResult:
+            quote = all_resolved_quotes.get(backmsg.id)
+            images = all_resolved_images.get(backmsg.id)
+            quoted_images = all_resolved_images.get(quote.id if quote else 0)
 
-        for n, backmsg in enumerate(backread):
-            try:
-                quote = all_resolved_quotes.get(backmsg.id)
-                images = all_resolved_images.get(backmsg.id)
-                quoted_images = all_resolved_images.get(quote.id if quote else 0)
+            message_obj, message_inline_objs = await self.parse_discord_message(
+                backmsg, quote, backread, all_resolved_images,
+                max_quote_length, max_file_length,
+                exhaustive=True, recursive=True,
+            )
+            text_content = xmltodict.unparse(message_obj, full_document=False)
+            for before, after_obj in message_inline_objs.items():
+                text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
 
-                message_obj, message_inline_objs = await self.parse_discord_message(
-                    backmsg, quote, backread, all_resolved_images,
-                    max_quote_length, max_file_length,
-                    exhaustive=True, recursive=True,
-                )
-                text_content = xmltodict.unparse(message_obj, full_document=False)
-                for before, after_obj in message_inline_objs.items():
-                    text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
+            image_contents = (images.image_contents if images else []) + (quoted_images.image_contents if quoted_images else [])
+            text_tokens  = len(self.encoding.encode(text_content))
+            image_tokens = 1120 * len(image_contents)
+            total_tokens = text_tokens + image_tokens
+            content: str | list[GptImageContent]
 
-                image_contents = (images.image_contents if images else []) + (quoted_images.image_contents if quoted_images else [])
-                text_tokens  = len(self.encoding.encode(text_content))
-                image_tokens = 1120 * len(image_contents)
-                total_tokens = text_tokens + image_tokens
-                content: str | list[GptImageContent]
+            if image_contents:
+                content = [{"type": "text", "text": text_content}, *image_contents]
+                role = "user"
+            else:
+                content = text_content
+                role = "assistant" if backmsg.author == ctx.me else "user"
 
-                if image_contents:
-                    content = [{"type": "text", "text": text_content}, *image_contents]
-                    role = "user"
-                else:
-                    content = text_content
-                    role = "assistant" if backmsg.author.id == self.bot.user.id else "user"
+            gpt_msg = {
+                "role": role,
+                "content": content
+            }
+            return ParsedMessageResult(backmsg.id, gpt_msg, total_tokens, len(image_contents))
 
-                gpt_msg = {
-                    "role": role,
-                    "content": content
-                }
-                parsed_messages.append(ParsedMessageResult(gpt_msg, total_tokens, len(image_contents)))
-
-            except Exception as error:
-                log.warning(f"build_message_history_context: failed to parse message {backmsg.id}: {type(error).__name__}: {error}")
+        parse_tasks = [parse_message_and_images(backmsg) for backmsg in backread]
+        parse_results_raw = await asyncio.gather(*parse_tasks, return_exceptions=True)
+        all_parsed_messages: dict[int, ParsedMessageResult] = {}
+        for res in parse_results_raw:
+            if isinstance(res, BaseException):
+                log.warning(f"parse_message_and_images raised: {res}")
+                continue
+            all_parsed_messages[res.message_id] = res
 
         # Pass 5: trim to token budget and return
 
+        parsed_messages = [all_parsed_messages[backmsg.id] for backmsg in backread if backmsg.id in all_parsed_messages]
         cumulative = 0
         cutoff = len(parsed_messages)
         for i, msg in enumerate(parsed_messages):
@@ -278,12 +289,12 @@ class ContextBuilder:
             if i > 0 and cumulative > max_backread_tokens:
                 cutoff = i
                 break
-        trimmed = parsed_messages[:cutoff]
-        result.messages = len(trimmed)
-        result.images = sum(msg.num_images for msg in trimmed)
-        result.tokens.backread = sum(msg.tokens for msg in trimmed)
+        parsed_messages = parsed_messages[:cutoff]
+        result.messages = len(parsed_messages)
+        result.images = sum(msg.num_images for msg in parsed_messages)
+        result.tokens.backread = sum(msg.tokens for msg in parsed_messages)
 
-        return [msg.gpt_message for msg in reversed(trimmed)]
+        return [msg.gpt_message for msg in reversed(parsed_messages)]
 
 
     async def fetch_and_normalize(
@@ -300,8 +311,8 @@ class ContextBuilder:
                 assert src.attachment and src.att_index is not None
                 fp_before = BytesIO()
                 imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
-                if imagescanner and src.message_id in imagescanner.image_cache:  # type: ignore
-                    _, image_bytes = imagescanner.image_cache.get(src.message_id, ({}, {}))  # type: ignore
+                if imagescanner and src.message_id in getattr(imagescanner, "image_cache"):
+                    _, image_bytes = getattr(imagescanner, "image_cache").get(src.message_id, ({}, {}))
                     if src.att_index in image_bytes:
                         fp_before = BytesIO(image_bytes[src.att_index])
                 if fp_before.getbuffer().nbytes == 0:
@@ -338,6 +349,11 @@ class ContextBuilder:
         Also returns a dictionary of inline objects to be injected back into the final string.
         """
         assert message.guild
+        current_images = images.get(message.id)
+        generated_image = current_images.generated_image if current_images else None
+        attachment_captions = current_images.attachment_captions if current_images else None
+        url_captions = current_images.url_captions if current_images else None
+
         inline_objs: dict[str, dict[str, Any]] = {}
         obj: dict[str, Any] = {
             "@time": message.created_at.astimezone().strftime(constants.DATETIME_FORMATTING),
@@ -350,17 +366,15 @@ class ContextBuilder:
             obj["error"] = "This message is currently being processed"
             return ({"chat_message": obj}, inline_objs)
         # generated image
-        if message.attachments and len(message.attachments) == 1 and message.author == message.guild.me:
-            imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
-            metadata: dict[str, Any] = await imagescanner.grab_metadata_dict(message)  # type: ignore
-            if metadata and metadata.get("Prompt"):
-                obj["generated_image"] = {
-                    "@filename": message.attachments[0].filename,
-                    "@dimensions": metadata.get("Size", "unknown"),
-                    "prompt": utils.parse_prompt(metadata["Prompt"]),
-                }
+        if generated_image and generated_image.get("Prompt"):
+            log.info(f"{generated_image}")
+            obj["generated_image"] = {
+                "@filename": message.attachments[0].filename,
+                "@dimensions": generated_image.get("Size", "unknown"),
+                "prompt": utils.parse_prompt(generated_image["Prompt"]),
+            }
         # quote
-        if quote and exhaustive and recursive and "generated_image" not in obj:
+        if quote and exhaustive and recursive and not generated_image:
             quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(
                 quote, None, backread, images,
                 max_quote_length, max_file_length,
@@ -391,7 +405,7 @@ class ContextBuilder:
                         **link_obj,
                     }}
                 # Add quote for linked message if it is the first
-                if i == 0 and exhaustive and recursive and "generated_image" not in obj:
+                if i == 0 and exhaustive and recursive and not generated_image:
                     try:
                         linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
                     except (AttributeError, discord.NotFound):
@@ -407,11 +421,8 @@ class ContextBuilder:
                 content = content[:max_quote_length - 3] + "..."
                 obj["@truncated"] = "true"
             obj["content"] = content
-        current_images = images.get(message.id)
-        attachment_captions = current_images.attachment_captions if current_images else None
-        url_captions = current_images.url_captions if current_images else None
         # attachmentas
-        if "generated_image" not in obj:
+        if not generated_image:
             attachments = []
             total_file_length = 0
             for i, attachment in enumerate(message.attachments):
@@ -450,7 +461,7 @@ class ContextBuilder:
             for field in embed.fields:
                 fields.append({
                     "@name": field.name,
-                    "#text": utils.clean_content(field.value),
+                    "#text": utils.clean_content(str(field.value)),
                 })
             if fields and exhaustive:
                 utils.add_xml_group(embed_obj, fields, "fields")
@@ -458,7 +469,7 @@ class ContextBuilder:
                 embeds.append(embed_obj)
         utils.add_xml_group(obj, embeds, "embeds")
         # buttons
-        if exhaustive and "generated_image" not in obj:
+        if exhaustive and not generated_image:
             buttons = []
             for component in message.components:
                 if isinstance(component, discord.ActionRow):
@@ -484,7 +495,7 @@ class ContextBuilder:
         if len(obj) == starting_len:
             obj["error"] = "Message empty or not supported"
         # reactions
-        if exhaustive and "generated_image" not in obj:
+        if exhaustive and not generated_image:
             reactions = []
             for reaction in message.reactions[:5]:
                 reaction_obj = {
