@@ -367,7 +367,6 @@ class ContextBuilder:
             return ({"chat_message": obj}, inline_objs)
         # generated image
         if generated_image and generated_image.get("Prompt"):
-            log.info(f"{generated_image}")
             obj["generated_image"] = {
                 "@filename": message.attachments[0].filename,
                 "@dimensions": generated_image.get("Size", "unknown"),
