@@ -231,8 +231,8 @@ class GptMemoryCommands(GptMemoryBase):
         settings = await self.config.guild(ctx.guild).all()
         functions = []
         for tool in get_all_function_calls():
-            name = tool.schema.function.name
-            if name in settings["disabled_functions"]:
+            name = tool.display_name
+            if name not in settings["enabled_functions"]:
                 continue
             for api in tool.apis:
                 secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
@@ -560,11 +560,11 @@ class GptMemoryCommands(GptMemoryBase):
     async def memoryconfig_functions_list(self, ctx: commands.Context):
         """Shows all functions and whether they are active."""
         assert ctx.guild
-        disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
+        enabled_functions = await self.config.guild(ctx.guild).enabled_functions()
         functions = []
         for tool in get_all_function_calls():
-            name = tool.schema.function.name
-            s = f"`{name}`: {'disabled' if name in disabled_functions else 'enabled'}"
+            name = tool.display_name
+            s = f"`{name}`: {'enabled' if name in enabled_functions else 'disabled'}"
             for api in tool.apis:
                 secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
                 if not secret:
@@ -576,17 +576,17 @@ class GptMemoryCommands(GptMemoryBase):
     async def memoryconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
         assert ctx.guild
         """Enables or disables a function"""
-        all_function_names = [f.schema.function.name for f in get_all_function_calls()]
+        all_function_names = [f.display_name for f in get_all_function_calls()]
         if function_name not in all_function_names:
             await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_function_names]))
             return
-        disabled_functions: list[str] = await self.config.guild(ctx.guild).disabled_functions()
-        enabled = function_name not in disabled_functions
+        enabled_functions: list[str] = await self.config.guild(ctx.guild).enabled_functions()
+        enabled = function_name in enabled_functions
         if enabled:
-            disabled_functions.append(function_name)
+            enabled_functions.remove(function_name)
         else:
-            disabled_functions.remove(function_name)
-        await self.config.guild(ctx.guild).disabled_functions.set(disabled_functions)
+            enabled_functions.append(function_name)
+        await self.config.guild(ctx.guild).enabled_functions.set(enabled_functions)
         enabled = not enabled
         await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")
 

@@ -22,7 +22,7 @@ CAPTION_SIZE = 380
 ALLOW_MEMORIZER = False
 MEMORIZER_USER_ONLY = True
 MEMORIZER_ALERTS = True
-DISABLED_FUNCTIONS = ["search_booru_tags", "search_models_arcenciel", "generate_stable_diffusion", "image_tagging"]
+ENABLED_FUNCTIONS = ["update_memory", "search_agent", "scrape"]
 
 PROMPT_RECALLER = """\
 You are a conversation parser. You will be given a list of topics as well as a conversation between various users, \

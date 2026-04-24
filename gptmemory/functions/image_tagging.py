@@ -12,6 +12,7 @@ log = logging.getLogger("gptmemory.imagetagger")
 
 
 class ImageTaggingFunctionCall(FunctionCallBase):
+    display_name = "image_tagging"
     settings = {"tagging_emoji": "🖼️"}
     schema = ToolCall(
         Function(

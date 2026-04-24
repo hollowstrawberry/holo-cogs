@@ -11,6 +11,7 @@ log = logging.getLogger("gptmemory.wolframalpha")
 
 
 class WolframAlphaFunctionCall(FunctionCallBase):
+    display_name="wolfram_alpha"
     apis = [("wolframalpha", "appid")]
     schema = ToolCall(
         Function(

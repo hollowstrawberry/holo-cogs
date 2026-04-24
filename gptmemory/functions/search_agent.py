@@ -9,6 +9,7 @@ log = logging.getLogger("gptmemory.searchweb")
 
 
 class AgenticSearchFunctionCall(FunctionCallBase):
+    display_name = "agent_search"
     settings = {"search_emoji": "🌐"}
     schema = ToolCall(
         Function(

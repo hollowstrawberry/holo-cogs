@@ -10,6 +10,7 @@ log = logging.getLogger("gptmemory.arcenciel")
 
 
 class ArcencielFunctionCall(FunctionCallBase):
+    display_name = "arcenciel"
     settings = {"arcenciel_emoji": "📁"}
     schema = ToolCall(
         Function(

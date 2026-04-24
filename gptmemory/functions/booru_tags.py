@@ -15,6 +15,7 @@ log = logging.getLogger("gptmemory.boorutags")
 
 
 class BooruTagsFunctionCall(FunctionCallBase):
+    display_name = "booru_tags"
     settings = {"boorutag_emoji": "🗒️"}
     schema = ToolCall(
         Function(

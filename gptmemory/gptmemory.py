@@ -33,7 +33,7 @@ class GptMemory(GptMemoryCommands):
         self.encoding = tiktoken.get_encoding(constants.TOKEN_ENCODING)
         self.context_builder = ContextBuilder(self.bot, self.config, self.session, self.encoding, self.execute_captioner, self.is_busy)
         self.available_function_calls = set(get_all_function_calls())
-        all_function_names = [tool.schema.function.name for tool in self.available_function_calls]
+        all_function_names = [tool.display_name for tool in self.available_function_calls]
         log.info(f"{all_function_names=}")
 
 
@@ -321,8 +321,8 @@ class GptMemory(GptMemoryCommands):
             }
             temp_messages.append(prefill_prompt)
 
-        disabled_functions = await self.config.guild(ctx.guild).disabled_functions()
-        tools = [t for t in self.available_function_calls if t.schema.function.name not in disabled_functions]
+        enabled_functions = await self.config.guild(ctx.guild).enabled_functions()
+        tools = [t for t in self.available_function_calls if t.display_name in enabled_functions]
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 

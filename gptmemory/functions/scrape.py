@@ -14,6 +14,7 @@ log = logging.getLogger("gptmemory.scrape")
 
 
 class ScrapeFunctionCall(FunctionCallBase):
+    display_name = "scrape"
     settings = {"scrape_emoji": "🔗"}
     schema = ToolCall(
         Function(

@@ -8,12 +8,13 @@ from gptmemory.functions.base import FunctionCallBase
 log = logging.getLogger("gptmemory.searchgoogle")
 
 
-class SearchFunctionCall(FunctionCallBase):
+class SerperSearchFunctionCall(FunctionCallBase):
+    display_name = "serper_search"
     apis = [("serper", "api_key")]
     schema = ToolCall(
         Function(
             name="search_google",
-            description="Googles a query for any unknown information or for updates on old information.",
+            description="Googles a query for any unknown information or for updates on old information. Uses serper api.",
             parameters=Parameters(
                 properties={
                     "query": {

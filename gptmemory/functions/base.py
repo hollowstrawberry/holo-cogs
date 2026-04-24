@@ -7,6 +7,7 @@ from gptmemory.base import GptMemoryBase
 
 
 class FunctionCallBase(ABC):
+    display_name: str
     schema: ToolCall
     apis: list[tuple[str, str]] = []  # [(service_name, key),]
     settings: dict[str, str] = {}  # key and default value
@@ -14,6 +15,8 @@ class FunctionCallBase(ABC):
     def __init__(self, ctx: commands.Context, cog: GptMemoryBase):
         self.ctx = ctx
         self.cog = cog
+        if not self.display_name or not self.schema:
+            raise RuntimeError("Invalid FunctionCall definition")
 
     async def get_setting(self, key: str) -> str:
         all = await self.cog.config.tool_settings() or {}

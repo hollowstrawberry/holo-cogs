@@ -12,6 +12,7 @@ log = logging.getLogger("gptmemory.stablediffusion")
 
 
 class StableDiffusionFunctionCall(FunctionCallBase):
+    display_name="stable_diffusion"
     schema = ToolCall(
         Function(
             name="generate_stable_diffusion",
