@@ -83,6 +83,9 @@ class MemoryChangeResult:
 
 # Structured Outputs
 
+class ChatMessage(BaseModel):
+    content: str
+
 class MemoryChange(BaseModel):
     action_type: Literal["create", "append", "modify", "delete"]
     memory_name: str
