@@ -8,7 +8,6 @@ import xmltodict
 from random import random
 from difflib import get_close_matches
 from datetime import datetime, timezone
-from pydantic import ValidationError
 from openai import AsyncOpenAI, NotGiven
 from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
@@ -16,9 +15,10 @@ from redbot.core.bot import Red
 
 import gptmemory.utils as utils
 import gptmemory.constants as constants
-from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams, ChatMessage
+from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.functions.base import get_all_function_calls
+from gptmemory.functions.respond import RespondFunctionCall
 from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
 from gptmemory.context_builder import ContextBuilder
 from gptmemory.views.memory_change import MemoryChangeView
@@ -276,10 +276,9 @@ class GptMemory(GptMemoryCommands):
                                 recalled_memories_str: str,
                                 result: CompletionResult,
                                 auto: bool = False,
-                                ) -> GptMessage:
+                                ) -> None:
         """
-        Runs an openai completion with the chat history and the contents of memories
-        and returns a response message after sending it to the user.
+        Runs an LLM completion with the chat history and the contents of memories.
         """
         assert ctx.guild and isinstance(ctx.me, discord.Member) and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
@@ -328,6 +327,7 @@ class GptMemory(GptMemoryCommands):
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 
+        completion = ""
         past_memory_changes: list[MemoryChangeResult] = []
         past_tool_calls: list[str] = []
         for depth in range(max_tool_depth):
@@ -339,7 +339,6 @@ class GptMemory(GptMemoryCommands):
                 tools=tools_schema,  # type: ignore
                 tool_choice="none" if depth >= max_tool_depth - 1 else "auto",
                 reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
-                response_format=type_to_response_format_param(ChatMessage),
             )
             
             if response.usage:
@@ -362,7 +361,7 @@ class GptMemory(GptMemoryCommands):
                     log.error(f"Missing response: {error}")
                     emoji = await self.config.noresponse_emoji()
                 await ctx.message.add_reaction(emoji)
-                return {}
+                return
 
             if not response.choices[0].message.tool_calls:
                 break
@@ -383,6 +382,9 @@ class GptMemory(GptMemoryCommands):
                     else:
                         args = json.loads(call.function.arguments)
                     tool_result = await cls(ctx, self).run(args)
+                    if cls is RespondFunctionCall and isinstance(tool_result, str):
+                        completion = tool_result
+                        break
                 except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                     tool_result = "<error>Unhandled error, please contact the developer</error>"
                     log.exception(f"Calling tool {call.function.name}")
@@ -410,40 +412,38 @@ class GptMemory(GptMemoryCommands):
                     "tool_call_id": call.id,
                 })
 
-        completion = response.choices[0].message.content or ""
-        if self.extended_logging:
-            log.info(f"{completion=}")
-        try:
-            content = ChatMessage.model_validate_json(completion).content if completion else ""
-        except ValidationError:
-            content = completion
-        if content:
-            # special case: the bot tries to generate an image by sending text instead of using the function call
-            #prompt = None
-            #for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
-            #    if m := pattern.search(content):
-            #        prompt = utils.undo_xml(m.groups()[-1])
-            #        content = pattern.sub("", content)
-            #if prompt and "generate_stable_diffusion" not in past_tool_calls:
-            #    await self.generate_stable_diffusion(ctx, prompt)
+        if not completion:  # didn't use response tool call
+            completion = response.choices[0].message.content or ""
+            if self.extended_logging:
+                log.info(f"{completion=}")
+            # special case: the bot tries to generate an image by sending text instead of using the tool call
+            prompt = None
+            for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
+                if m := pattern.search(completion):
+                    prompt = utils.undo_xml(m.groups()[-1])
+                    completion = pattern.sub("", completion)
+            if prompt and "generate_stable_diffusion" not in past_tool_calls:
+                await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
-            #for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
-            #    content = pattern.sub(repl, content)
-            content = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), content)
-            content = utils.undo_xml(content).strip()
-            #if self.extended_logging and content != raw_completion:
-            #    log.info(f"cleaned_{content=}")
+            for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
+                completion = pattern.sub(repl, completion)
+            completion = utils.undo_xml(completion).strip()
+        elif self.extended_logging:
+            log.info(f"{completion=}")
+        # fix emotes
+        if completion:
+            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
-        if content or view:
-            await utils.chunk_and_send(ctx, content, embed=None, view=view, do_reply=not auto)
+        if completion or view:
+            await utils.chunk_and_send(ctx, completion, embed=None, view=view, do_reply=not auto)
         else:
             emoji = await self.config.noresponse_emoji()
             await ctx.message.add_reaction(emoji)
 
         response_message = {
             "role": "assistant",
-            "content": content
+            "content": completion
         }
         return response_message  # type: ignore
 
