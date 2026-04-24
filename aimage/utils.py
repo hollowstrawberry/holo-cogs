@@ -36,14 +36,13 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
             log.exception("Grabbing interaction message")
             return None
     else:
-        msg = await context.send(**kwargs)
-        return msg
+        return await context.send(**kwargs)
 
 async def gather_then_raise(coroutines: list[Coroutine | None]):
     coroutines = [coro for coro in coroutines if coro]
     results = await asyncio.gather(*coroutines, return_exceptions=True)
     for res in results:
-        if isinstance(res, Exception):
+        if isinstance(res, BaseException):
             raise res
 
 def is_nsfw(channel: discord.abc.Messageable) -> bool:
@@ -54,7 +53,7 @@ def is_nsfw(channel: discord.abc.Messageable) -> bool:
     else:
         return False
 
-def make_batches(sequence: list[str], n: int) -> list[list[str]]:
+def make_batches(sequence: list, n: int) -> list[list]:
     return [sequence[i:i + n] for i in range(0, len(sequence), n)]
     
 def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
@@ -70,8 +69,7 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes:
         image = image.resize((width, height), Image.Resampling.LANCZOS)
     fp = BytesIO()
     image.save(fp, "PNG")
-    fp.seek(0)
-    return fp.read()
+    return fp.getvalue()
 
 def filter_names(options: dict, current: str, strict: bool = False) -> dict:
     results = {}
