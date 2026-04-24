@@ -14,13 +14,13 @@ class AImageSettings(AImageBase):
     @commands.command(name="ckpt") # type: ignore
     async def member_checkpoint(self, ctx: commands.Context, *, checkpoint: Optional[str]):
         """
-        Set the default checkpoint for yourself in this guild.
+        Set the default image generation checkpoint for yourself
         """
         if checkpoint is None:
-            checkpoint = await self.config.user(ctx.author).checkpoint()
-            return await ctx.send(f"Your current default checkpoint is `{checkpoint or '(None)'}`")
+            current_checkpoint = await self.config.user(ctx.author).checkpoint()
+            await ctx.send(f"Your current default checkpoint is `{current_checkpoint or '(None)'}`")
 
-        if checkpoint.lower().strip() in ("clear", "reset", "default"):
+        elif checkpoint.lower().strip() in ("clear", "reset", "default", "none"):
             await self.config.user(ctx.author).checkpoint.set("")
             return await ctx.send(f"Checkpoint reset")
         
@@ -39,7 +39,7 @@ class AImageSettings(AImageBase):
     @checks.bot_has_permissions(embed_links=True, add_reactions=True)
     @checks.admin_or_permissions(manage_guild=True)
     async def aimage(self, _: commands.Context):
-        """ Manage AI Image cog settings for this server """
+        """ Manage AI Image cog settings. """
         pass
 
     @aimage.command(name="enable")
@@ -87,17 +87,10 @@ class AImageSettings(AImageBase):
     @aimage.command(name="nsfw")
     async def nsfw_cmd(self, ctx: commands.Context):
         """
-        Toggles filtering of NSFW images (A1111 only)
+        Toggles filtering of NSFW images
         """
         assert ctx.guild
         nsfw = await self.config.nsfw()
-        if nsfw:
-            await ctx.message.add_reaction("🔄")
-            data = self.autocomplete_cache.get("scripts") or []
-            await ctx.message.remove_reaction("🔄", ctx.me)
-            if "censorscript" not in data:
-                return await ctx.send(":warning: sd-webui-nsfw-checker is not installed in webui, install <https://github.com/hollowstrawberry/sd-webui-nsfw-checker>")
-
         await self.config.nsfw.set(not nsfw)
         await ctx.send(f"NSFW filtering is now {'`disabled`' if not nsfw else '`enabled`'}")
 
@@ -197,7 +190,7 @@ class AImageSettings(AImageBase):
     @aimage.command(name="checkpoint", aliases=["model"])
     async def checkpoint_cmd(self, ctx: commands.Context, *, checkpoint: Optional[str]):
         """
-        Set the default checkpoint / model used for generating images.
+        Set the default checkpoint / model used for generating images
         """
         assert ctx.guild
         
@@ -214,7 +207,7 @@ class AImageSettings(AImageBase):
     @aimage.command(name="vae")
     async def vae_cmd(self, ctx: commands.Context, *, vae: Optional[str]):
         """
-        Set the default vae used for generating images.
+        Set the default vae used for generating images
         """
         assert ctx.guild
 
@@ -229,7 +222,7 @@ class AImageSettings(AImageBase):
     @aimage.command(name="adetailer")
     async def adetailer_cmd(self, ctx: commands.Context):
         """
-        Whether to use face adetailer, which improves quality.
+        Whether to use face adetailer for all images
         """
         assert ctx.guild
         new = not await self.config.adetailer()
@@ -288,7 +281,7 @@ class AImageSettings(AImageBase):
     @checks.bot_in_a_guild()
     async def vip_cmd(self, _: commands.Context):
         """
-        Manage the VIP role for image generation, which can generate as many images at the same time as they want.
+        Manage the VIP role for image generation, which can generate as many images as they want
         """
         pass
 
