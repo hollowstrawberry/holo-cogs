@@ -84,6 +84,7 @@ class MemoryChangeResult:
 # Structured Outputs
 
 class ChatMessage(BaseModel):
+    reasoning: str | None
     content: str
 
 class MemoryChange(BaseModel):
