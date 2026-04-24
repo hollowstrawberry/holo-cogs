@@ -185,10 +185,8 @@ class ContextBuilder:
                 if caption is None:
                     return None
                 if src.attachment:
-                    assert src.attachment and src.att_index is not None
                     self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
                 elif src.url:
-                    assert src.url
                     self.url_caption_cache[src.url] = caption
                 return src, caption
             
@@ -209,7 +207,6 @@ class ContextBuilder:
                 content = utils.make_image_content(data)
                 if content:
                     image_contents.append(content)
-
             attachment_captions: dict[int, str] = {}
             url_captions: dict[str, str] = {}
             for res in caption_results_raw:
@@ -223,7 +220,6 @@ class ContextBuilder:
                     attachment_captions[src.att_index] = caption
                 elif src.url:
                     url_captions[src.url] = caption
-
             return DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions, generated_image)
 
         image_tasks = [resolve_images(src.message) for src in all_candidates.values()]
@@ -240,7 +236,7 @@ class ContextBuilder:
         async def parse_message_and_images(backmsg: discord.Message) -> ParsedMessageResult:
             quote = all_resolved_quotes.get(backmsg.id)
             images = all_resolved_images.get(backmsg.id)
-            quoted_images = all_resolved_images.get(quote.id if quote else 0)
+            quoted_images = all_resolved_images.get(quote.id) if quote else None
 
             message_obj, message_inline_objs = await self.parse_discord_message(
                 backmsg, quote, backread, all_resolved_images,
@@ -308,7 +304,6 @@ class ContextBuilder:
         max_pixels = max_image_resolution ** 2 if max_image_resolution else None
         try:
             if src.attachment:
-                assert src.attachment and src.att_index is not None
                 fp_before = BytesIO()
                 imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
                 if imagescanner and src.message_id in getattr(imagescanner, "image_cache"):
@@ -317,8 +312,7 @@ class ContextBuilder:
                         fp_before = BytesIO(image_bytes[src.att_index])
                 if fp_before.getbuffer().nbytes == 0:
                     await src.attachment.save(fp_before, seek_begin=True)
-            else:
-                assert src.url
+            elif src.url:
                 async with self.session.get(src.url) as response:
                     response.raise_for_status()
                     fp_before = BytesIO(await response.read())
