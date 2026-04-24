@@ -448,22 +448,28 @@ class ContextBuilder:
         embeds = []
         for embed in message.embeds:
             embed_obj = {}
+            if embed.author:
+                embed_obj["header"] = embed.author.name
             if embed.title:
                 embed_obj["title"] = embed.title
             if embed.description:
                 embed_obj["description"] = utils.clean_content(embed.description) if exhaustive else "..."
+            if embed.url:
+                embed_obj["url"] = embed.url
             if embed.image and embed.image.url:
                 embed_obj["image"] = embed.image.url
             if embed.thumbnail and embed.thumbnail.url:
                 embed_obj["thumbnail"] = embed.thumbnail.url
-            fields = []
-            for field in embed.fields:
-                fields.append({
-                    "@name": field.name,
-                    "#text": utils.clean_content(str(field.value)),
-                })
-            if fields and exhaustive:
+            if embed.fields and exhaustive:
+                fields = []
+                for field in embed.fields:
+                    fields.append({
+                        "@name": field.name,
+                        "#text": utils.clean_content(str(field.value)),
+                    })
                 utils.add_xml_group(embed_obj, fields, "fields")
+            if embed.footer:
+                embed_obj["footer"] = embed.footer.text
             if embed_obj:
                 embeds.append(embed_obj)
         utils.add_xml_group(obj, embeds, "embeds")
