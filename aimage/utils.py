@@ -27,6 +27,8 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
                 del kwargs["file"]
             if "embed" not in kwargs:
                 kwargs["embed"] = None
+            if "view" not in kwargs:
+                kwargs["view"] = None
             msg = await context.edit_original_response(**kwargs)
         else:
             msg = await context.followup.send(**kwargs)
@@ -39,8 +41,8 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
         return await context.send(**kwargs)
 
 async def gather_then_raise(coroutines: list[Coroutine | None]):
-    coroutines = [coro for coro in coroutines if coro]
-    results = await asyncio.gather(*coroutines, return_exceptions=True)
+    real_coroutines = [coro for coro in coroutines if coro]
+    results = await asyncio.gather(*real_coroutines, return_exceptions=True)
     for res in results:
         if isinstance(res, BaseException):
             raise res

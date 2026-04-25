@@ -1,7 +1,6 @@
 import logging
 import asyncio
 import discord
-from io import BytesIO
 from redbot.core import commands
 
 from gptmemory.utils import get_filename, clean_tag, normalize_image
