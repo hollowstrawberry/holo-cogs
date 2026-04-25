@@ -22,7 +22,7 @@ CAPTION_SIZE = 380
 ALLOW_MEMORIZER = False
 MEMORIZER_USER_ONLY = True
 MEMORIZER_ALERTS = True
-ENABLED_FUNCTIONS = ["update_memory", "agent_search", "scrape"]
+ENABLED_FUNCTIONS = ["update_memory", "search_agent", "scrape"]
 
 PROMPT_RECALLER = """\
 You are a conversation parser. You will be given a list of topics as well as a conversation between various users, \

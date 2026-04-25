@@ -8,7 +8,6 @@ import xmltodict
 from random import random
 from difflib import get_close_matches
 from datetime import datetime, timezone
-from pydantic import ValidationError
 from openai import AsyncOpenAI, NotGiven
 from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
@@ -16,13 +15,12 @@ from redbot.core.bot import Red
 
 import gptmemory.utils as utils
 import gptmemory.constants as constants
-from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams, ChatMessage
+from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.functions.base import get_all_function_calls
 from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
 from gptmemory.context_builder import ContextBuilder
 from gptmemory.views.memory_change import MemoryChangeView
-from openai.lib._parsing._completions import type_to_response_format_param
 
 log = logging.getLogger("gptmemory")
 
@@ -338,8 +336,7 @@ class GptMemory(GptMemoryCommands):
                 max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
                 tools=tools_schema,  # type: ignore
                 tool_choice="none" if depth >= max_tool_depth - 1 else "auto",
-                reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
-                response_format=type_to_response_format_param(ChatMessage),
+                reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
             )
             
             if response.usage:
@@ -411,40 +408,36 @@ class GptMemory(GptMemoryCommands):
                 })
 
         completion = response.choices[0].message.content or ""
-        try:
-            content = ChatMessage.model_validate_json(completion).content if completion else ""
-        except ValidationError:
-            content = completion
-        if content:
-            raw_completion = content
+        if completion:
+            raw_completion = completion
             if self.extended_logging:
                 log.info(f"{raw_completion=}")
             # special case: the bot tries to generate an image by sending text instead of using the function call
             prompt = None
             for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
-                if m := pattern.search(content):
+                if m := pattern.search(completion):
                     prompt = utils.undo_xml(m.groups()[-1])
-                    content = pattern.sub("", content)
+                    completion = pattern.sub("", completion)
             if prompt and "generate_stable_diffusion" not in past_tool_calls:
                 await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
-            #for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
-            #    content = pattern.sub(repl, content)
-            content = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), content)
-            content = utils.undo_xml(content).strip()
-            if self.extended_logging and content != raw_completion:
-                log.info(f"cleaned_{content=}")
+            for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
+                completion = pattern.sub(repl, completion)
+            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
+            completion = utils.undo_xml(completion).strip()
+            if self.extended_logging and completion != raw_completion:
+                log.info(f"cleaned_{completion=}")
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
-        if content or view:
-            await utils.chunk_and_send(ctx, content, embed=None, view=view, do_reply=not auto)
+        if completion or view:
+            await utils.chunk_and_send(ctx, completion, embed=None, view=view, do_reply=not auto)
         else:
             emoji = await self.config.noresponse_emoji()
             await ctx.message.add_reaction(emoji)
 
         response_message = {
             "role": "assistant",
-            "content": content
+            "content": completion
         }
         return response_message  # type: ignore
 
