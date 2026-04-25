@@ -185,7 +185,7 @@ class AImage(AImageCommands):
         embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
             gen.progress_message = await context.reply(embed=embed, view=view, mention_author=False)
-            callback = gather_then_raise([callback, gen.progress_message.delete()])
+            gen.callback = gather_then_raise([callback, gen.progress_message.delete()])
         else:
             await context.edit_original_response(embed=embed, view=view)
     
@@ -224,7 +224,7 @@ class AImage(AImageCommands):
         else:
             return
         # After exception
-        await gather_then_raise([callback, send_response(context, content=error_message)])
+        await gather_then_raise([gen.callback, send_response(context, content=error_message)])
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
