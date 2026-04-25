@@ -35,6 +35,12 @@ class GeneratingView(ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def cancel(self, interaction: discord.Interaction):
+        if not await self.check_if_can_cancel(interaction):
+            return await interaction.response.send_message(
+                content=f":warning: Only {self.gen.user.mention} and moderators can cancel this request!",
+                allowed_mentions=discord.AllowedMentions.none(),
+                ephemeral=True,
+            )
         assert self.cog.api and interaction.message
         self.gen.cancelled = True
         self.stop()
@@ -53,3 +59,12 @@ class GeneratingView(ui.View):
             await interaction.message.delete()
         except discord.NotFound:
             pass
+
+    async def check_if_can_cancel(self, interaction: discord.Interaction):
+        assert interaction.guild and interaction.channel
+        member = interaction.guild.get_member(interaction.user.id)
+        if not member:
+            return False
+        is_requester = interaction.user.id == self.gen.user.id
+        is_privileged = interaction.channel.permissions_for(member).manage_messages or await self.cog.bot.is_owner(member)
+        return is_requester or is_privileged
