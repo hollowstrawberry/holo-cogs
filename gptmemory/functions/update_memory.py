@@ -15,7 +15,7 @@ class UpdateMemoryFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> dict | str:
         changes: list[MemoryChangeResult] = arguments["changes"]
         if not changes:
-            return "<result>Your memory manager did not perform any changes, in accordance with its criteria.</result>"
+            return "<result>Your memory manager did not perform any changes in accordance with its criteria.</result>"
         change_obj = []
         for change in changes:
             change_obj.append({

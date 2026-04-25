@@ -411,28 +411,29 @@ class GptMemory(GptMemoryCommands):
                 })
 
         completion = response.choices[0].message.content or ""
-        if self.extended_logging:
-            log.info(f"{completion=}")
         try:
             content = ChatMessage.model_validate_json(completion).content if completion else ""
         except ValidationError:
             content = completion
         if content:
+            raw_completion = content
+            if self.extended_logging:
+                log.info(f"{raw_completion=}")
             # special case: the bot tries to generate an image by sending text instead of using the function call
-            #prompt = None
-            #for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
-            #    if m := pattern.search(content):
-            #        prompt = utils.undo_xml(m.groups()[-1])
-            #        content = pattern.sub("", content)
-            #if prompt and "generate_stable_diffusion" not in past_tool_calls:
-            #    await self.generate_stable_diffusion(ctx, prompt)
+            prompt = None
+            for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
+                if m := pattern.search(content):
+                    prompt = utils.undo_xml(m.groups()[-1])
+                    content = pattern.sub("", content)
+            if prompt and "generate_stable_diffusion" not in past_tool_calls:
+                await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
             #for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
             #    content = pattern.sub(repl, content)
             content = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), content)
             content = utils.undo_xml(content).strip()
-            #if self.extended_logging and content != raw_completion:
-            #    log.info(f"cleaned_{content=}")
+            if self.extended_logging and content != raw_completion:
+                log.info(f"cleaned_{content=}")
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
         if content or view:

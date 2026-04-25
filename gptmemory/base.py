@@ -62,6 +62,7 @@ class GptMemoryBase(commands.Cog):
             "memorizer_user_only": defaults.MEMORIZER_USER_ONLY,
             "memorizer_alerts": defaults.MEMORIZER_ALERTS,
             "enabled_functions": list(defaults.ENABLED_FUNCTIONS),
+            "emotes": "",
             "max_images": defaults.IMAGES_PER_CONTEXT,
             "max_quote": defaults.QUOTE_LENGTH,
             "max_tool": defaults.TOOL_CALL_LENGTH,
