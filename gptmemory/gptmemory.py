@@ -251,7 +251,10 @@ class GptMemory(GptMemoryCommands):
         response = await self.get_client(model).beta.chat.completions.create(
             model=model,
             messages=temp_messages,  # type: ignore
-            reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
+            reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
+            extra_body={
+                "session_id": str(ctx.message.id),
+            },
         )
         completion = response.choices[0].message.content
         if completion:
@@ -336,7 +339,10 @@ class GptMemory(GptMemoryCommands):
                 max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
                 tools=tools_schema,  # type: ignore
                 tool_choice="none" if depth >= max_tool_depth - 1 else "auto",
-                reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
+                reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
+                extra_body={
+                    "session_id": str(ctx.message.id),
+                },
             )
             
             if response.usage:
@@ -491,7 +497,10 @@ class GptMemory(GptMemoryCommands):
             model=model,
             messages=temp_messages,  # type: ignore
             response_format=MemoryChangeList,
-            reasoning_effort=NotGiven() if "gpt-4" in model else effort  # type: ignore
+            reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
+            extra_body={
+                "session_id": str(ctx.message.id),
+            },
         )
         completion = response.choices[0].message
         if response.usage:
@@ -562,6 +571,9 @@ class GptMemory(GptMemoryCommands):
             model=model,
             messages=messages,  # type: ignore
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
+            extra_body={
+                "session_id": str(ctx.message.id),
+            },
         )
         if response.choices and response.choices[0].message.content:
             caption = response.choices[0].message.content
