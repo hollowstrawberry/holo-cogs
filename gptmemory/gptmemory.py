@@ -252,7 +252,7 @@ class GptMemory(GptMemoryCommands):
             model=model,
             messages=temp_messages,  # type: ignore
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
-            extra_body={
+            extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
             },
         )
@@ -340,7 +340,7 @@ class GptMemory(GptMemoryCommands):
                 tools=tools_schema,  # type: ignore
                 tool_choice="none" if depth >= max_tool_depth - 1 else "auto",
                 reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
-                extra_body={
+                extra_body=None if "/" not in model else {
                     "session_id": str(ctx.message.id),
                 },
             )
@@ -498,7 +498,7 @@ class GptMemory(GptMemoryCommands):
             messages=temp_messages,  # type: ignore
             response_format=MemoryChangeList,
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
-            extra_body={
+            extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
             },
         )
@@ -571,7 +571,7 @@ class GptMemory(GptMemoryCommands):
             model=model,
             messages=messages,  # type: ignore
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
-            extra_body={
+            extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
             },
         )
