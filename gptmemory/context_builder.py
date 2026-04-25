@@ -499,7 +499,7 @@ class ContextBuilder:
             for reaction in message.reactions[:5]:
                 reaction_obj = {
                     "@count": str(reaction.count),
-                    "#text": reaction.emoji if isinstance(reaction.emoji, str) else reaction.emoji.name
+                    "#text": reaction.emoji if isinstance(reaction.emoji, str) else f":{reaction.emoji.name}:"
                 }
                 if reaction.me:
                     reaction_obj["@self_reacted"] = "true"
