@@ -21,8 +21,9 @@ class GptImageTool(ToolBase):
                     "existing": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": 'Optional. The filename of an image(s) in chat to edit or use as reference. ' \
-                                       'For example, <attachment filename="image.png"></attachment> would result in image.png',
+                        "description": 'Optional. The filename of an image in chat to edit or use as reference.' \
+                                       ' For example, <attachment filename="image.png"></attachment> would result in image.png' \
+                                       '\nIf more than one reference is needed, include each one of them, even if they have the same filename.',
                         "minItems": 0,
                         "maxItems": 3,
                     },
@@ -30,7 +31,7 @@ class GptImageTool(ToolBase):
                         "type": "string",
                         "description": 'A prompt for image generation using natural language.' \
                                        '\nMaking new images requires a detailed prompt.' \
-                                       ' Editing an existing image should start with "Keep the image the same, but..."' \
+                                       ' However, editing an existing image must start with "Keep the image the same, but..."' \
                                        ' and then a prompt as short as possible with only the necessary changes.' \
                                        '\nReference images can be described as "the first image", "the second image", etc. ' \
                                        'and must be provided correctly in the "existing" field.'
