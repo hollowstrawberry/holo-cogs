@@ -15,8 +15,8 @@ class TavilySearchFunctionCall(FunctionCallBase):
     settings = {"search_emoji": "🌐"}
     schema = ToolCall(
         Function(
-            name="search_web",
-            description="Search the internet for up-to-date information, such as news, prices, or recent events. Doesn't work for images. Uses tavily api.",
+            name="web_search",
+            description="Search the open internet for unknown information, for example, recent news. Doesn't work for images. Uses tavily api.",
             parameters=Parameters(
                 properties={
                     "query": {
