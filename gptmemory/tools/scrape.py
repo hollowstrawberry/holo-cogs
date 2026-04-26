@@ -7,13 +7,13 @@ from typing import Awaitable, Callable, OrderedDict
 
 from gptmemory.utils import parse_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 from gptmemory.constants import GITHUB_FILE_URL_PATTERN, ARCENCIEL_MODEL_URL_PATTERN
 
 log = logging.getLogger("gptmemory.scrape")
 
 
-class ScrapeFunctionCall(FunctionCallBase):
+class ScrapeTool(ToolBase):
     display_name = "scrape"
     settings = {"scrape_emoji": "🔗"}
     schema = ToolCall(

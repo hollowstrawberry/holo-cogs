@@ -3,12 +3,12 @@ import logging
 import aiohttp
 from gptmemory.utils import add_xml_group
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.searchgoogle")
 
 
-class SerperSearchFunctionCall(FunctionCallBase):
+class SerperSearchTool(ToolBase):
     display_name = "serper_search"
     apis = [("serper", "api_key")]
     schema = ToolCall(

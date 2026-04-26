@@ -4,12 +4,12 @@ from tavily import AsyncTavilyClient
 
 from gptmemory.utils import add_xml_group
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.searchweb")
 
 
-class TavilySearchFunctionCall(FunctionCallBase):
+class TavilySearchTool(ToolBase):
     display_name = "tavily_search"
     apis = [("tavily", "api_key")]
     settings = {"search_emoji": "🌐"}

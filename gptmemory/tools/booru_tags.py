@@ -9,12 +9,12 @@ from redbot.core.data_manager import bundled_data_path
 
 from gptmemory.utils import clean_tag
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.boorutags")
 
 
-class BooruTagsFunctionCall(FunctionCallBase):
+class BooruTagsTool(ToolBase):
     display_name = "booru_tags"
     settings = {"boorutag_emoji": "🗒️"}
     schema = ToolCall(

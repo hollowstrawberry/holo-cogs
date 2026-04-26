@@ -1,8 +1,8 @@
 from gptmemory.schema import MemoryChangeResult, ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 
-class UpdateMemoryFunctionCall(FunctionCallBase):
+class UpdateMemoryTool(ToolBase):
     display_name = "update_memory"
     schema = ToolCall(
         Function(

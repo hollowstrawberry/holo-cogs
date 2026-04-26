@@ -5,12 +5,12 @@ import xml.etree.ElementTree as ElementTree
 from gptmemory.constants import FARENHEIT_PATTERN
 from gptmemory.utils import farenheit_to_celsius
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.wolframalpha")
 
 
-class WolframAlphaFunctionCall(FunctionCallBase):
+class WolframAlphaTool(ToolBase):
     display_name="wolfram_alpha"
     apis = [("wolframalpha", "appid")]
     schema = ToolCall(

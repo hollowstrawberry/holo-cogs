@@ -6,12 +6,12 @@ from redbot.core import commands
 from gptmemory.utils import add_xml_group, undo_xml, find_nearest_resolution
 from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
 from gptmemory.constants import LORA_PATTERN, IMAGEGEN_RESOLUTIONS
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.stablediffusion")
 
 
-class StableDiffusionFunctionCall(FunctionCallBase):
+class StableDiffusionTool(ToolBase):
     display_name="stable_diffusion"
     schema = ToolCall(
         Function(

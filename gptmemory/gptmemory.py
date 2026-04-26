@@ -17,8 +17,8 @@ import gptmemory.utils as utils
 import gptmemory.constants as constants
 from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.functions.base import get_all_function_calls
-from gptmemory.functions.update_memory import UpdateMemoryFunctionCall
+from gptmemory.tools.base import get_all_tools
+from gptmemory.tools.update_memory import UpdateMemoryTool
 from gptmemory.context_builder import ContextBuilder
 from gptmemory.views.memory_change import MemoryChangeView
 
@@ -32,9 +32,9 @@ class GptMemory(GptMemoryCommands):
         super().__init__(bot)
         self.encoding = tiktoken.get_encoding(constants.TOKEN_ENCODING)
         self.context_builder = ContextBuilder(self.bot, self.config, self.session, self.encoding, self.execute_captioner, self.is_busy)
-        self.available_function_calls = set(get_all_function_calls())
-        all_function_names = [tool.display_name for tool in self.available_function_calls]
-        log.info(f"{all_function_names=}")
+        self.available_tools = set(get_all_tools())
+        all_tool_names = [tool.display_name for tool in self.available_tools]
+        log.info(f"{all_tool_names=}")
 
 
     async def cog_load(self):
@@ -56,13 +56,13 @@ class GptMemory(GptMemoryCommands):
 
 
     async def initialize_function_calls(self):
-        all_function_calls = get_all_function_calls()
-        self.available_function_calls = set(all_function_calls)
+        all_function_calls = get_all_tools()
+        self.available_tools = set(all_function_calls)
         for function in all_function_calls:
             for api in function.apis:
                 secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
                 if not secret:
-                    self.available_function_calls.discard(function)
+                    self.available_tools.discard(function)
 
 
     async def initialize_openai_client(self):
@@ -325,7 +325,7 @@ class GptMemory(GptMemoryCommands):
             temp_messages.append(prefill_prompt)
 
         enabled_functions = await self.config.guild(ctx.guild).enabled_functions()
-        tools = [t for t in self.available_function_calls if t.display_name in enabled_functions]
+        tools = [t for t in self.available_tools if t.display_name in enabled_functions]
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 
@@ -376,7 +376,7 @@ class GptMemory(GptMemoryCommands):
                 result.tool_calls += 1
                 try:
                     cls = next(t for t in tools if t.schema.function.name == call.function.name)
-                    if cls is UpdateMemoryFunctionCall:
+                    if cls is UpdateMemoryTool:
                         if past_memory_changes:  # only allow one memory update per response
                             changes = []
                         else:

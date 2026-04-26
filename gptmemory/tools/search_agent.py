@@ -3,12 +3,12 @@ import asyncio
 from openai import NotGiven
 
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.searchweb")
 
 
-class AgenticSearchFunctionCall(FunctionCallBase):
+class AgenticSearchTool(ToolBase):
     display_name = "agent_search"
     settings = {"search_emoji": "🌐"}
     schema = ToolCall(

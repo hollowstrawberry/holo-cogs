@@ -6,7 +6,7 @@ from gptmemory.schema import StructuredObject, ToolCall
 from gptmemory.base import GptMemoryBase
 
 
-class FunctionCallBase(ABC):
+class ToolBase(ABC):
     display_name: str
     schema: ToolCall
     apis: list[tuple[str, str]] = []  # [(service_name, key),]
@@ -31,5 +31,5 @@ class FunctionCallBase(ABC):
         raise NotImplementedError
     
 
-def get_all_function_calls() -> list[type[FunctionCallBase]]:
-    return FunctionCallBase.__subclasses__()
+def get_all_tools() -> list[type[ToolBase]]:
+    return ToolBase.__subclasses__()

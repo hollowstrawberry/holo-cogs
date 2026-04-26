@@ -4,12 +4,12 @@ import aiohttp
 
 from gptmemory.utils import parse_arcenciel_model
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.arcenciel")
 
 
-class ArcencielFunctionCall(FunctionCallBase):
+class ArcencielTool(ToolBase):
     display_name = "arcenciel"
     settings = {"arcenciel_emoji": "📁"}
     schema = ToolCall(

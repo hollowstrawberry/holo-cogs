@@ -9,7 +9,7 @@ from gptmemory.base import GptMemoryBase
 from gptmemory.utils import chunk_and_send
 from gptmemory.schema import MemoryChangeResult
 from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
-from gptmemory.functions.base import get_all_function_calls
+from gptmemory.tools.base import get_all_tools
 from gptmemory.views.memory_info import MemoryInfoView
 from gptmemory.views.memory_list import MemoryListView
 from gptmemory.views.memory_change import MemoryChangeView
@@ -230,7 +230,7 @@ class GptMemoryCommands(GptMemoryBase):
         assert ctx.guild
         settings = await self.config.guild(ctx.guild).all()
         functions = []
-        for tool in get_all_function_calls():
+        for tool in get_all_tools():
             name = tool.display_name
             if name not in settings["enabled_functions"]:
                 continue
@@ -251,7 +251,7 @@ class GptMemoryCommands(GptMemoryBase):
         response += f"\n`[model_responder:]` {settings['model_responder']} `[effort_responder:]` {settings['effort_responder']}"
         response += f"\n`[model_memorizer:]` {settings['model_memorizer']} `[effort_memorizer:]` {settings['effort_memorizer']}"
         response += f"\n`[allow_memorizer:]` {settings['allow_memorizer']} `[memorizer_alerts:]` {settings['memorizer_alerts']} `[memorizer_user_only:]` {settings['memorizer_user_only']}"
-        response += f"\n`[functions:]` {' / '.join(functions)}" 
+        response += f"\n`[tools:]` {' / '.join(functions)}" 
         response += f"\n`[emotes:]` {settings['emotes']}"
         response += "\n## Limits"
         response += f"\n`[response_tokens:]` {settings['response_tokens']} `[backread_tokens:]` {settings['backread_tokens']}"
@@ -551,7 +551,7 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.blocked_emoji.set(str(emoji))
             await ctx.tick()
 
-    @memoryconfig.group(name="functions", aliases=["function", "tools", "tool"])
+    @memoryconfig.group(name="tool", aliases=["function", "functions", "tools"])
     async def memoryconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
         pass
@@ -562,7 +562,7 @@ class GptMemoryCommands(GptMemoryBase):
         assert ctx.guild
         enabled_functions = await self.config.guild(ctx.guild).enabled_functions()
         functions = []
-        for tool in get_all_function_calls():
+        for tool in get_all_tools():
             name = tool.display_name
             s = f"`{name}`: {'enabled' if name in enabled_functions else 'disabled'}"
             for api in tool.apis:
@@ -576,7 +576,7 @@ class GptMemoryCommands(GptMemoryBase):
     async def memoryconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
         assert ctx.guild
         """Enables or disables a function"""
-        all_function_names = [f.display_name for f in get_all_function_calls()]
+        all_function_names = [f.display_name for f in get_all_tools()]
         if function_name not in all_function_names:
             await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_function_names]))
             return
@@ -595,7 +595,7 @@ class GptMemoryCommands(GptMemoryBase):
         """
         Sets a tool-specific key-value setting.
         """
-        setting_dict = reduce(lambda a, b: a | b, [func.settings for func in get_all_function_calls()])
+        setting_dict = reduce(lambda a, b: a | b, [func.settings for func in get_all_tools()])
         setting_values = await self.config.tool_settings()
         if not key:
             lines = [f"`{key}`: `{setting_values.get(key, default or '(empty)')}`" for key, default in setting_dict.items()]

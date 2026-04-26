@@ -5,12 +5,12 @@ from redbot.core import commands
 
 from gptmemory.utils import get_filename, clean_tag, normalize_image
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.imagetagger")
 
 
-class ImageTaggingFunctionCall(FunctionCallBase):
+class ImageTaggingTool(ToolBase):
     display_name = "image_tagging"
     settings = {"tagging_emoji": "🖼️"}
     schema = ToolCall(
