@@ -361,7 +361,7 @@ class ContextBuilder:
             return ({"chat_message": obj}, inline_objs)
         # generated image
         if generated_image and generated_image.get("Prompt"):
-            obj["generated_image"] = {
+            obj["stable_diffusion_image"] = {
                 "@filename": message.attachments[0].filename,
                 "@dimensions": generated_image.get("Size", "unknown"),
                 "prompt": utils.parse_prompt(generated_image["Prompt"]),

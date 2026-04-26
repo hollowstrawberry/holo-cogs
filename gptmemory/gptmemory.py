@@ -662,7 +662,7 @@ class GptMemory(GptMemoryCommands):
             await ctx.message.add_reaction("❌")
             return
 
-        width, height = await self.find_last_generated_image_resolution(ctx)                
+        width, height = await self.find_last_sd_generated_image_resolution(ctx)                
         params = ImageGenParams(
             prompt=prompt,
             width=width,
@@ -677,7 +677,7 @@ class GptMemory(GptMemoryCommands):
         asyncio.create_task(generate_image(ctx, params=params, message_content=message_content, callback=callback()))
 
 
-    async def find_last_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
+    async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
         backread = await self.fetch_message_history(ctx)
         if ctx.message.reference and (ctx.message.reference.cached_message or ctx.message.reference.message_id):
             quote = ctx.message.reference.cached_message or await ctx.message.channel.fetch_message(ctx.message.reference.message_id or 0)
@@ -685,7 +685,7 @@ class GptMemory(GptMemoryCommands):
         for msg in backread[1:]:
             if msg.author == self.bot.user and msg.attachments and len(msg.attachments) == 1 and msg.attachments[0].width and msg.attachments[0].height:
                 width, height = msg.attachments[0].width, msg.attachments[0].height
-                if (width, height) not in constants.IMAGEGEN_RESOLUTIONS:
-                    width, height = utils.find_nearest_resolution((width, height), constants.IMAGEGEN_RESOLUTIONS)
+                if (width, height) not in constants.SD_IMAGEGEN_RESOLUTIONS:
+                    width, height = utils.find_nearest_resolution((width, height), constants.SD_IMAGEGEN_RESOLUTIONS)
                 return width, height
         return None, None

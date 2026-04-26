@@ -74,7 +74,7 @@ class GptMemoryBase(commands.Cog):
             "autoresponder_cooldown_minutes": 60,
         })
 
-    async def find_last_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
+    async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
         raise NotImplementedError()
     
     def is_busy(self, message_id):

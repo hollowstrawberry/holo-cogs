@@ -5,7 +5,7 @@ from redbot.core import commands
 
 from gptmemory.utils import add_xml_group, undo_xml, find_nearest_resolution
 from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
-from gptmemory.constants import LORA_PATTERN, IMAGEGEN_RESOLUTIONS
+from gptmemory.constants import LORA_PATTERN, SD_IMAGEGEN_RESOLUTIONS
 from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.stablediffusion")
@@ -16,7 +16,8 @@ class StableDiffusionTool(ToolBase):
     schema = ToolCall(
         Function(
             name="generate_stable_diffusion",
-            description="Generate an image with Stable Diffusion. Optionally, adjusts an existing image.",
+            description="Generate an image with Stable Diffusion. Stable Diffusion should be used for anime-style content, " \
+                        "particularly content centered on humanoid characters. Optionally, revises an existing Stable Diffusion image.",
             parameters=Parameters(
                 properties={
                     "existing": {
@@ -46,7 +47,7 @@ class StableDiffusionTool(ToolBase):
         limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
         messages = [message async for message in self.ctx.channel.history(limit=limit)]
         if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
-            quoted = await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
+            quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
             messages.insert(0, quoted)
         for message in messages:
             for attachment in message.attachments:
@@ -121,8 +122,8 @@ class StableDiffusionTool(ToolBase):
 
             if width is None or height is None:
                 width, height = [int(d) for d in metadata.get("Size", "1024x1024").split("x")]
-                if (width, height) not in IMAGEGEN_RESOLUTIONS:
-                    width, height = find_nearest_resolution((width, height), IMAGEGEN_RESOLUTIONS)
+                if (width, height) not in SD_IMAGEGEN_RESOLUTIONS:
+                    width, height = find_nearest_resolution((width, height), SD_IMAGEGEN_RESOLUTIONS)
 
             params = ImageGenParams(
                 prompt=prompt,
@@ -150,7 +151,7 @@ class StableDiffusionTool(ToolBase):
                 negative_prompt = ", ".join([tag.strip() for tag in tags if tag.strip() not in default_negative_prompt])
 
             if width is None or height is None:
-                width, height = await self.cog.find_last_generated_image_resolution(self.ctx)
+                width, height = await self.cog.find_last_sd_generated_image_resolution(self.ctx)
             if regions and (width is None or height is None):
                 width, height = 1216, 832
 
@@ -171,7 +172,7 @@ class StableDiffusionTool(ToolBase):
         generate_image = getattr(aimage, "generate_image")
         asyncio.create_task(generate_image(self.ctx, params=params, message_content=message_content, callback=callback()))
 
-        obj = {"message": "Image generation started successfully, the user will have to wait for it to finish."}
+        obj = {"message": "Image generation started successfully. The user will have to wait for it to finish."}
         warnings = []
         if existing and not message:
             warnings.append("The original image was not found, so a new one will be made.")

@@ -83,9 +83,14 @@ EFFORT_VALUES = [
     "high",
 ]
 
-IMAGEGEN_RESOLUTIONS = [
+SD_IMAGEGEN_RESOLUTIONS = [
     (1024, 1024),
     (832, 1216),
     (1216, 832),
     (1536, 640),
+]
+GPT_IMAGEGEN_RESOLUTIONS = [
+    (1024, 1024),
+    (1536, 1024),
+    (1024, 1536),
 ]
