@@ -19,7 +19,7 @@ class BooruTagsFunctionCall(FunctionCallBase):
     settings = {"boorutag_emoji": "🗒️"}
     schema = ToolCall(
         Function(
-            name="search_booru_tags",
+            name="find_booru_tags",
             description="Searches a list of booru tags for terms relating to clothing, composition, etc.",
             parameters=Parameters(
                 properties={
