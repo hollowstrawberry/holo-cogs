@@ -237,7 +237,7 @@ class AImage(AImageCommands):
             content = f":warning: Failed to generate image. {error_message}"
             return await send_response(gen.context, content=content)
         
-        final_tasks: list[Coroutine | None] = []
+        final_tasks = [gen.callback]
         try:
             image_bytes = await self.api.download_image(gen.id)
             metadata = ComfyMetadataReader.from_bytes(image_bytes)
@@ -268,8 +268,6 @@ class AImage(AImageCommands):
 
         if error_message:
             final_tasks.append(send_response(gen.context, content=error_message))
-        if gen.callback:
-            final_tasks.append(gen.callback)
             
         await gather_then_raise(final_tasks)
 

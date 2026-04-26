@@ -55,6 +55,8 @@ class GeneratingView(ui.View):
         embed.description = f"❌ Request cancelled" + (f" by {interaction.user.mention}" if interaction.user != self.gen.user else ".")
         try:
             await interaction.message.edit(content="", embed=embed, view=None)
+            if self.gen.callback:
+                asyncio.create_task(self.gen.callback)
             await asyncio.sleep(5)
             await interaction.message.delete()
         except discord.NotFound:
