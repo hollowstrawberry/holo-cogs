@@ -13,8 +13,8 @@ class AgenticSearchFunctionCall(FunctionCallBase):
     settings = {"search_emoji": "🌐"}
     schema = ToolCall(
         Function(
-            name="search_web",
-            description="Search the internet for up-to-date information, such as news, prices, or recent events. Doesn't work for images.",
+            name="web_search",
+            description="Search the open internet for unknown information, for example, recent news. Doesn't work for images.",
             parameters=Parameters(
                 properties={
                     "query": {
