@@ -43,11 +43,11 @@ class GptImageTool(ToolBase):
                 required=["prompt"],
             )))
 
-    async def find_attachment(self, filename: str, messages: list[discord.Message]) -> discord.Attachment | None:
+    async def find_attachment(self, filename: str, messages: list[discord.Message], consumed: list[discord.Attachment]) -> discord.Attachment | None:
         assert self.ctx.guild
         for message in messages:
             for attachment in message.attachments:
-                if attachment.filename == filename:
+                if attachment.filename == filename and attachment not in consumed:
                     return attachment
         return None
     
@@ -93,7 +93,7 @@ class GptImageTool(ToolBase):
                 quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
                 messages.insert(0, quoted)
             for filename in existing_list:
-                att = await self.find_attachment(filename, messages)
+                att = await self.find_attachment(filename, messages, attachments)
                 if not att:
                     return {
                         "result": {
