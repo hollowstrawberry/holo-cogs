@@ -5,7 +5,7 @@ import discord
 from PIL import Image
 from redbot.core import commands
 
-from gptmemory.utils import undo_xml, find_nearest_resolution
+from gptmemory.utils import undo_xml, find_nearest_resolution, normalize_image
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.constants import GPT_IMAGEGEN_RESOLUTIONS
 from gptmemory.tools.base import ToolBase
@@ -88,8 +88,9 @@ class GptImageTool(ToolBase):
         else:
             attachment = None
 
-        fp = io.BytesIO()
+        images = None
         if attachment:
+            fp = io.BytesIO()
             await attachment.save(fp, seek_begin=True)
             if resolution is None:
                 image = Image.open(fp)
@@ -98,13 +99,10 @@ class GptImageTool(ToolBase):
                     resolution = f"{width}x{height}"
                 else:
                     resolution = f"{image.width}x{image.height}"
+            image_bytes = await asyncio.to_thread(normalize_image, fp.getvalue(), 1536)
+            images=[image_bytes]
         elif resolution is None:
             resolution = "1536x1024"
-
-        if image_bytes := fp.getvalue():
-            images=[image_bytes]
-        else:
-            images=None
 
         async def callback():
             await asyncio.sleep(0)
