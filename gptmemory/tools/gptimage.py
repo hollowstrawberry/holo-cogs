@@ -30,7 +30,8 @@ class GptImageTool(ToolBase):
                         "type": "string",
                         "description": 'A prompt for image generation using natural language.' \
                                        '\nMaking new images requires a detailed prompt.' \
-                                       ' Editing an existing image should start with "Keep the image the same, but..." and only the necessary changes. ' \
+                                       ' Editing an existing image should start with "Keep the image the same, but..."' \
+                                       ' and then a concise prompt with only the necessary changes.' \
                                        '\nReference images can be described as "the first image", "the second image", etc. ' \
                                        'and must be provided correctly in the "existing" field.'
                     },
