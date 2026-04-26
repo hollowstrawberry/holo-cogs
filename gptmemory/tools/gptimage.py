@@ -21,7 +21,8 @@ class GptImageTool(ToolBase):
                     "existing": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Optional. The filename of an image(s) in chat to edit or use as reference.",
+                        "description": "Optional. The filename of an image(s) in chat to edit or use as reference. " \
+                                       'For example, <attachment filename="image.png"></attachment> would result in image.png',
                         "minItems": 0,
                         "maxItems": 3,
                     },
@@ -29,7 +30,7 @@ class GptImageTool(ToolBase):
                         "type": "string",
                         "description": "A prompt for image generation using natural language. " \
                                        "Making new images requires a detailed prompt. " \
-                                       "Editing an existing image should start with \"Keep the image the same, but...\" and only the necessary changes."
+                                       'Editing an existing image should start with "Keep the image the same, but..." and only the necessary changes.'
                     },
                     "resolution": {
                         "type": "string",
@@ -95,7 +96,7 @@ class GptImageTool(ToolBase):
                     return {
                         "result": {
                             "error": f'Image "{filename}" could not be found.',
-                            "hint": 'Use an attachment in chat, for example, <attachment filename="image.png"></attachment> would result in "image.png"',
+                            "hint": 'Use an attachment in chat, for example, <attachment filename="image1.png"></attachment> would result in image1.png',
                         }
                     }
                 attachments.append(att)
