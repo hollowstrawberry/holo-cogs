@@ -16,7 +16,7 @@ class ImageTaggingTool(ToolBase):
     schema = ToolCall(
         Function(
             name="image_tagging",
-            description="Infer booru tags to describe a user-provided image.",
+            description="Infer booru tags to describe a user-provided image. Should only be used when the user needs a stable diffusion prompt.",
             parameters=Parameters(
                 properties={
                     "filename": {
