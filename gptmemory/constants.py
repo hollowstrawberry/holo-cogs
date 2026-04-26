@@ -27,7 +27,6 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Leftover symbol",   re.compile(r"""\n[}'"\s\-]+$"""), ""),
     #("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
     ("Em dash",           re.compile(r"(?<=\w)—(?=\w)"), ", "),
-    ("Fake emote",        re.compile(r"(?:^|\s+):\w+:(?:\s+|$)"), "\n"),
 ]
 GENERATE_IMAGE_PATTERNS = [
     ("XML object strict", re.compile(r"<generated_image(?: [^>]+)?>(?:(?!</generated_image>).)*<prompt>(.*?)</prompt>(?:(?!</generated_image>).)*</generated_image>", re.DOTALL | re.IGNORECASE)),
@@ -36,6 +35,7 @@ GENERATE_IMAGE_PATTERNS = [
 ]
 EMOTE_PATTERN = re.compile(r"<(a?):(\w+):(\d{17,19})>")
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?\\?(?:&lt;|<)?(a?):(\w{3,}):(\d*)(?:&gt;|>)?`?")
+FAKE_EMOTE_PATTERN = re.compile(r"(?:^|\s+):\w+:(?:\s+|$)")
 
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
