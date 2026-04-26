@@ -15,7 +15,7 @@ class GptImageTool(ToolBase):
     schema = ToolCall(
         Function(
             name="generate",
-            description="Generate or edit an image with GPT, meant for general/generic content.",
+            description="Generate or edit an image with GPT, suitable for general/generic content.",
             parameters=Parameters(
                 properties={
                     "existing": {
@@ -29,7 +29,7 @@ class GptImageTool(ToolBase):
                         "type": "string",
                         "description": "A prompt for image generation using natural language. " \
                                        "Making new images requires a detailed prompt. " \
-                                       "Editing an existing image should use a short and simple prompt only with the necessary changes."
+                                       "Editing an existing image should start with \"Keep the image the same, but...\" and only the necessary changes."
                     },
                     "resolution": {
                         "type": "string",
@@ -40,13 +40,8 @@ class GptImageTool(ToolBase):
                 required=["prompt"],
             )))
 
-    async def find_attachment(self, filename: str) -> discord.Attachment | None:
+    async def find_attachment(self, filename: str, messages: list[discord.Message]) -> discord.Attachment | None:
         assert self.ctx.guild
-        limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
-        messages = [message async for message in self.ctx.channel.history(limit=limit)]
-        if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
-            quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
-            messages.insert(0, quoted)
         for message in messages:
             for attachment in message.attachments:
                 if attachment.filename == filename:
@@ -74,6 +69,9 @@ class GptImageTool(ToolBase):
             return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
 
         aspect_ratio = aspect_ratio.lower().strip()
+        if aspect_ratio == "original" and not existing:
+            return "<error>You selected original resolution but didn't provide an existing image</error>"
+
         if aspect_ratio == "square":
             resolution = "1024x1024"
         elif aspect_ratio in ("portrait", "vertical"):
@@ -86,8 +84,13 @@ class GptImageTool(ToolBase):
         attachments: list[discord.Attachment] = []
         if existing:
             existing_list = existing if isinstance(existing, list) else [existing]
+            limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
+            messages = [message async for message in self.ctx.channel.history(limit=limit)]
+            if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
+                quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
+                messages.insert(0, quoted)
             for filename in existing_list:
-                att = await self.find_attachment(filename)
+                att = await self.find_attachment(filename, messages)
                 if not att:
                     return f"<error>Image '{filename}' could not be found in chat</error>"
                 attachments.append(att)
