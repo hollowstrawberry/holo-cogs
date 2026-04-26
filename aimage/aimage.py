@@ -38,10 +38,8 @@ class AImage(AImageCommands):
         asyncio.create_task(self.cog_load_when_ready())
         
     async def cog_unload(self):
-        if self.consume_queue.is_running():
-            self.consume_queue.stop()
-        if self.clear_quota.is_running():
-            self.clear_quota.cancel()
+        self.consume_queue.stop()
+        self.clear_quota.stop()
         if self.api:
             await self.api.session.close()
 
@@ -278,7 +276,7 @@ class AImage(AImageCommands):
         assert context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.abc.Messageable)
 
         vip_role = await self.config.guild(context.guild).vip_role()
-        is_vip = await self.config.user(user).vip() or any(role.id == vip_role for role in user.roles)        
+        is_vip = await self.config.user(user).vip() or any(role.id == vip_role for role in user.roles)
         quota = await self.config.quota()
         has_ongoing_gen = any(gen.user == user for gen in self.queued_images.values())
         elapsed_last_refresh = (datetime.now(timezone.utc) - self.last_quota_refresh).total_seconds()

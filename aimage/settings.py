@@ -31,8 +31,9 @@ class AImageSettings(AImageBase):
             content = f":warning: Checkpoint must be one of:\n" + ",\n".join([", ".join(batch) for batch in batches])
             return await chunk_and_send(ctx, content, do_reply=True)
 
-        await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
-        await ctx.tick(message="✅ Default checkpoint updated.")
+        if checkpoint:
+            await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
+            await ctx.tick(message="✅ Default checkpoint updated.")
 
     @commands.group(name="aimage") # type: ignore
     @commands.guild_only()
