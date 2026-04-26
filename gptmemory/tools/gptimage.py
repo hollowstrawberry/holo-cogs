@@ -21,7 +21,7 @@ class GptImageTool(ToolBase):
                     "existing": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Optional. The filename of an existing image(s) in chat to edit or use as reference.",
+                        "description": "Optional. The filename of an image attachment in chat to edit or use as reference.",
                         "minItems": 0,
                         "maxItems": 3,
                     },
@@ -92,7 +92,7 @@ class GptImageTool(ToolBase):
             for filename in existing_list:
                 att = await self.find_attachment(filename, messages)
                 if not att:
-                    return f"<error>Image '{filename}' could not be found in chat</error>"
+                    return f"<error>Image '{filename}' could not be found, please provide a real attachment filename from the chat history</error>"
                 attachments.append(att)
 
         images = None
