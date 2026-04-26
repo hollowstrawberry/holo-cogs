@@ -420,16 +420,18 @@ class GptMemory(GptMemoryCommands):
                 log.info(f"{raw_completion=}")
             # special case: the bot tries to generate an image by sending text instead of using the function call
             prompt = None
-            for pattern in constants.GENERATE_IMAGE_PATTERNS.values():
+            for _, pattern in constants.GENERATE_IMAGE_PATTERNS:
                 if m := pattern.search(completion):
                     prompt = utils.undo_xml(m.groups()[-1])
                     completion = pattern.sub("", completion)
+                    break
             if prompt and "generate_stable_diffusion" not in past_tool_calls:
                 await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
+            completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
             completion = utils.undo_xml(completion).strip()
             if self.extended_logging and completion != raw_completion:
                 log.info(f"cleaned_{completion=}")
