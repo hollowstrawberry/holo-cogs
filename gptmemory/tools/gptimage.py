@@ -15,13 +15,15 @@ class GptImageTool(ToolBase):
     schema = ToolCall(
         Function(
             name="generate",
-            description="Generate or edit an image with GPT. This should be used for general/generic content. "\
-                        "For more specific content, you must prioritize other tools.",
+            description="Generate or edit an image with GPT, meant for general/generic content.",
             parameters=Parameters(
                 properties={
                     "existing": {
-                        "type": "string",
-                        "description": "Optional. The filename of an existing image in chat to edit."
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional. The filename of an existing image(s) in chat to edit or use as reference.",
+                        "minItems": 0,
+                        "maxItems": 3,
                     },
                     "prompt": {
                         "type": "string",
@@ -32,7 +34,7 @@ class GptImageTool(ToolBase):
                     "resolution": {
                         "type": "string",
                         "description": "Optional. Aspect ratio for the image.",
-                        "enum": ["square", "portrait", "landscape"]
+                        "enum": ["original", "square", "portrait", "landscape"]
                     },
                 },
                 required=["prompt"],
@@ -61,7 +63,7 @@ class GptImageTool(ToolBase):
             if not self.ctx.channel.permissions_for(self.ctx.author).manage_messages:
                 return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
 
-        existing: str = arguments.get("existing", "")
+        existing: str | list[str] | None = arguments.get("existing")
         prompt: str = undo_xml(arguments.get("prompt", ""))
         aspect_ratio: str = arguments.get("resolution", "")
 
@@ -71,27 +73,32 @@ class GptImageTool(ToolBase):
         if not gptimage:
             return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
 
-        if aspect_ratio.lower() == "square":
+        aspect_ratio = aspect_ratio.lower().strip()
+        if aspect_ratio == "square":
             resolution = "1024x1024"
-        elif aspect_ratio.lower() == "portrait":
+        elif aspect_ratio in ("portrait", "vertical"):
             resolution = "1024x1536"
-        elif aspect_ratio.lower() == "landscape":
+        elif aspect_ratio in ("landscape", "horizontal"):
             resolution = "1536x1024"
         else:
             resolution = None
 
+        attachments: list[discord.Attachment] = []
         if existing:
-            attachment = await self.find_attachment(existing)
-            if not attachment:
-                return "<error>The image to edit couldn't be found</error>"
-        else:
-            attachment = None
+            existing_list = existing if isinstance(existing, list) else [existing]
+            for filename in existing_list:
+                att = await self.find_attachment(filename)
+                if not att:
+                    return f"<error>Image '{filename}' could not be found in chat</error>"
+                attachments.append(att)
 
         images = None
-        if attachment:
+        if attachments:
             normalize_attachments = getattr(gptimage, "normalize_attachments")
-            images, resolution = await normalize_attachments([attachment])
-        elif resolution is None:
+            images, original_resolution = await normalize_attachments(attachments)
+            if not resolution:
+                resolution = original_resolution
+        elif not resolution:
             resolution = "1536x1024"
 
         async def callback():
@@ -101,5 +108,8 @@ class GptImageTool(ToolBase):
         generate_image = getattr(gptimage, "imagine")
         asyncio.create_task(generate_image(self.ctx, resolution=resolution, prompt=prompt, images=images, callback=callback()))
 
-        obj = {"message": "Image generation started successfully. The user will have to wait for it to finish."}
-        return {"result": obj}
+        return {
+            "result": {
+                "message": "Image generation started successfully. The user will have to wait for it to finish."
+            }
+        }
