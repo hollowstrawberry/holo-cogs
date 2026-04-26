@@ -16,7 +16,7 @@ MAX_IMAGES_PER_MESSAGE = 4
 RESPONSE_CLEANUP_PATTERNS = [
     #("Opening XML",       re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),
     ("Quote",             re.compile(r"\s*<quote>.*?</quote>\s*", re.DOTALL | re.IGNORECASE), r""),
-    ("Multiple messages", re.compile(r"^\s*<chat_message(?: [^>]+)?>(.*?)</chat_message>\s*<chat_message.+</chat_message>\s*$", re.DOTALL | re.IGNORECASE), r"\1"),
+    ("Multiple messages", re.compile(r"^\s*<chat_message(?: [^>]+)?>(.*?)</chat_message>\s*<chat_message.+</chat_message>\s*$", re.DOTALL | re.IGNORECASE), r"\1"),  # the second one is greedy
     ("Trailing message",  re.compile(r"^(.{10,}?)[^>]\s*<chat_message.+$", re.DOTALL | re.IGNORECASE), r"\1"),
     ("Message content",   re.compile(r"^.*?<content>(.*?)</content>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
     #("Closing content",   re.compile(r"^(.+?)\s*</content>\s*</chat_message>.*$", re.DOTALL | re.IGNORECASE), r"\1"),
@@ -27,12 +27,13 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Leftover symbol",   re.compile(r"""\n[}'"\s\-]+$"""), ""),
     #("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
     ("Em dash",           re.compile(r"(?<=\w)—(?=\w)"), ", "),
+    ("Fake emote",        re.compile(r"(?:^|\s+):\w+:(?:\s+|$)"), "\n"),
 ]
-GENERATE_IMAGE_PATTERNS = {
-    "XML object strict":  re.compile(r"<generated_image(?: [^>]+)?>(?:(?!</generated_image>).)*<prompt>(.*?)</prompt>(?:(?!</generated_image>).)*</generated_image>", re.DOTALL | re.IGNORECASE),
-    "XML object":         re.compile(r"<(\w+)(?: [^>]+)?>(?:(?!</\1>).)*<prompt>(.*?)</prompt>(?:(?!</\1>).)*</\1>", re.DOTALL | re.IGNORECASE),
+GENERATE_IMAGE_PATTERNS = [
+    ("XML object strict", re.compile(r"<generated_image(?: [^>]+)?>(?:(?!</generated_image>).)*<prompt>(.*?)</prompt>(?:(?!</generated_image>).)*</generated_image>", re.DOTALL | re.IGNORECASE)),
+    ("XML object",        re.compile(r"<(\w+)(?: [^>]+)?>(?:(?!</\1>).)*<prompt>(.*?)</prompt>(?:(?!</\1>).)*</\1>", re.DOTALL | re.IGNORECASE)),
     #"JSON object":       re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
-}
+]
 EMOTE_PATTERN = re.compile(r"<(a?):(\w+):(\d{17,19})>")
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?\\?(?:&lt;|<)?(a?):(\w{3,}):(\d*)(?:&gt;|>)?`?")
 
