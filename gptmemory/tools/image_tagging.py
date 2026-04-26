@@ -43,7 +43,7 @@ class ImageTaggingTool(ToolBase):
                     return embed.image.url
         return None
     
-    async def run(self, arguments: dict) -> str:
+    async def run(self, arguments: dict) -> str | dict:
         assert self.ctx.guild
         filename: str = arguments.get("filename", "")
         if not filename:
@@ -53,7 +53,12 @@ class ImageTaggingTool(ToolBase):
             return "<error>`aimage` cog not installed, please notify the bot owner</error>"
         image_source = await self.find_image(filename.strip())
         if not image_source:
-            return f"<error>Can't find image '{filename}' in recent chat logs</error>"
+            return {
+                "result": {
+                    "error": f'Image "{filename}" could not be found.',
+                    "hint": 'Use an attachment in chat, for example, <attachment filename="image.png"></attachment> would result in "image.png"',
+                }
+            }
 
         emoji = await self.get_setting("tagging_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
