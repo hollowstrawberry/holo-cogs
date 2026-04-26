@@ -22,7 +22,7 @@ class StableDiffusionTool(ToolBase):
                 properties={
                     "existing": {
                         "type": "string",
-                        "description": "The filename of an existing image to revise."
+                        "description": "The filename of an existing stable diffusion image in chat to revise."
                     },
                     "prompt": {
                         "type": "string",

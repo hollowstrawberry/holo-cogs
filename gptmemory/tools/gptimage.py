@@ -24,11 +24,13 @@ class GptImageTool(ToolBase):
                 properties={
                     "existing": {
                         "type": "string",
-                        "description": "Optional. The filename of an existing image to edit."
+                        "description": "Optional. The filename of an existing image in chat to edit."
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "A detailed prompt for image generation using natural language."
+                        "description": "A prompt for image generation using natural language. " \
+                                       "Making new images requires a detailed prompt. " \
+                                       "Editing an existing image should use a short and simple prompt only with the necessary changes."
                     },
                     "resolution": {
                         "type": "string",
