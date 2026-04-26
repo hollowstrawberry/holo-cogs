@@ -15,8 +15,8 @@ class ImageTaggingTool(ToolBase):
     settings = {"tagging_emoji": "🖼️"}
     schema = ToolCall(
         Function(
-            name="image_tagging",
-            description="Infer booru tags to describe a user-provided image. Must only be used when the user needs a stable diffusion prompt (booru tags).",
+            name="infer_booru_tags",
+            description="Calculate the booru tags to describe a user-provided image. Must only be used when the user needs a stable diffusion prompt (booru tags).",
             parameters=Parameters(
                 properties={
                     "filename": {
