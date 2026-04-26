@@ -16,7 +16,7 @@ class ToolBase(ABC):
         self.ctx = ctx
         self.cog = cog
         if not self.display_name or not self.schema:
-            raise RuntimeError("Invalid FunctionCall definition")
+            raise RuntimeError("Invalid Tool definition")
 
     async def get_setting(self, key: str) -> str:
         all = await self.cog.config.tool_settings() or {}
