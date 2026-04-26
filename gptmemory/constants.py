@@ -89,8 +89,3 @@ SD_IMAGEGEN_RESOLUTIONS = [
     (1216, 832),
     (1536, 640),
 ]
-GPT_IMAGEGEN_RESOLUTIONS = [
-    (1024, 1024),
-    (1536, 1024),
-    (1024, 1536),
-]
