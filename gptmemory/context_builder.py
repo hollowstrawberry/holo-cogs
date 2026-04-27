@@ -417,7 +417,7 @@ class ContextBuilder:
                 obj["@truncated"] = "true"
             obj["content"] = content
         # attachmentas
-        if not generated_image:
+        if not generated_image or not generated_image.get("Prompt"):
             attachments = []
             total_file_length = 0
             for i, attachment in enumerate(message.attachments):
@@ -496,9 +496,11 @@ class ContextBuilder:
         if len(obj) == starting_len:
             obj["error"] = "Message empty or not supported"
         # reactions
-        if exhaustive and not generated_image:
+        if exhaustive:
             reactions = []
             for reaction in message.reactions[:5]:
+                if reaction.emoji == "🔎":
+                    continue
                 reaction_obj = {
                     "@count": str(reaction.count),
                     "#text": reaction.emoji if isinstance(reaction.emoji, str) else f":{reaction.emoji.name}:"
