@@ -136,5 +136,5 @@ class GptImageEditTool(GptImageToolBase):
                                        ' Here you can only reference images by order (first, second) instead of by filename.'
                     },
                 },
-                required=["image", "prompt"],
+                required=["images", "prompt"],
             )))
