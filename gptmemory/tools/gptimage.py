@@ -28,13 +28,14 @@ class GptImageToolBase(ToolBase):
 
         prompt: str = undo_xml(arguments.get("prompt", ""))
         aspect_ratio: str = arguments.get("resolution", "")
-        existing: list[str] = arguments.get("extra_images") or []
-        existing_single: str = arguments.get("image", "")
-        if existing_single:
-            existing.insert(0, existing_single)
+        existing: list[str] | str | None = arguments.get("images")
+        if isinstance(existing, str):
+            existing = [existing]
 
         if not prompt:
             return "<error>No prompt provided</error>"
+        if not existing and "second image" in prompt:
+            return "<error>You didn't provide all the reference images</error>"
         prompt = f"Keep the image the same, except for the following changes: {prompt}"
 
         gptimage: commands.Cog | None = self.ctx.bot.get_cog("GptImage")
@@ -121,20 +122,17 @@ class GptImageEditTool(GptImageToolBase):
             description="Edits an image with GPT, suitable for general/generic content.",
             parameters=Parameters(
                 properties={
-                    "image": {
-                        "type": "string",
-                        "description": 'The filename of a chat message attachment, extracted from the message history only.'
-                    },
-                    "extra_images": {
+                    "images": {
                         "type": "array",
                         "items": {"type": "string"},
                         "minItems": 0,
-                        "maxItems": 3,
-                        "description": 'If more than one reference is needed, include each of them here, even if they have the same name.',
+                        "maxItems": 4,
+                        "description": 'The filename of a chat message attachment, extracted from the message history only.' \
+                                       ' If more than one reference is needed, include all of them here, even if they have the same name.',
                     },
                     "prompt": {
                         "type": "string",
-                        "description": 'A prompt as short as possible with only the necessary changes in natural language.' \
+                        "description": 'A prompt as short as possible with only the necessary changes.' \
                                        ' Here you can only reference images by order (first, second) instead of by filename.'
                     },
                 },
