@@ -146,5 +146,5 @@ class GptImageEditTool(GptImageToolBase):
                         "description": 'A prompt as short as possible with only the necessary changes.'
                     },
                 },
-                required=["images", "prompt"],
+                required=["image", "prompt"],
             )))
