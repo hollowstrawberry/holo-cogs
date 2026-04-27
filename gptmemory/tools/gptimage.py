@@ -21,7 +21,7 @@ class GptImageTool(ToolBase):
                     "existing": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": 'Optional. The filename of an image in chat to edit or use as reference.' \
+                        "description": 'The filename of an image in chat to edit. If you want to edit an image, this field is mandatory.' \
                                        ' For example, <attachment filename="image.png"></attachment> would result in image.png' \
                                        '\nIf more than one reference is needed, include each one of them, even if they have the same filename.',
                         "minItems": 0,
@@ -100,10 +100,17 @@ class GptImageTool(ToolBase):
                     return {
                         "result": {
                             "error": f'Image "{filename}" could not be found.',
-                            "hint": 'Use an attachment in chat, for example, <attachment filename="image1.png"></attachment> would result in image1.png',
+                            "hint": 'Use an attachment in chat, for example, <attachment filename="image.png"></attachment> would result in image.png',
                         }
                     }
                 attachments.append(att)
+        elif "keep the image the same" in prompt.lower():
+            return {  # how is gemini so terrible at following instructions
+                "result": {
+                    "error": "You didn't specify which image you want to edit.",
+                    "hint": 'Use an attachment in chat, for example, <attachment filename="image.png"></attachment> would result in image.png',
+                }
+            }
 
         images = None
         if attachments:
