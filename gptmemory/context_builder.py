@@ -144,9 +144,11 @@ class ContextBuilder:
             caption_srcs  = [s for s in all_srcs if s in candidates.caption]
 
             generated_image: dict[str, str] | None = None
-            if imagescanner and backmsg.attachments and len(backmsg.attachments) == 1 and backmsg.author == ctx.me:
-                generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
-
+            if backmsg.attachments and len(backmsg.attachments) == 1 and backmsg.author == ctx.me:
+                if "gptimage" in backmsg.attachments[0].filename:
+                    generated_image = {"type": "gptimage"}
+                elif imagescanner:
+                    generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
             async def process_download(src: ImageSource) -> tuple[ImageSource, bytes] | None:
                 if src.attachment:
                     cached = self.attachment_image_cache.get(src.attachment.id)
