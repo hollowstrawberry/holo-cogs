@@ -74,7 +74,9 @@ class GptImageToolBase(ToolBase):
         images = None
         if attachments:
             normalize_attachments = getattr(gptimage, "normalize_attachments")
-            images, resolution = await normalize_attachments(attachments)
+            images, new_resolution = await normalize_attachments(attachments)
+            if not resolution:
+                resolution = new_resolution
         if not resolution:
             resolution = "1536x1024"
 
@@ -134,6 +136,11 @@ class GptImageEditTool(GptImageToolBase):
                         "type": "string",
                         "description": 'A prompt as short as possible with only the necessary changes.' \
                                        ' Here you can only reference images by order (first, second) instead of by filename.'
+                    },
+                    "resolution": {
+                        "type": "string",
+                        "description": "Optional. Override the aspect ratio of the final image.",
+                        "enum": ["original", "square", "portrait", "landscape"]
                     },
                 },
                 required=["images", "prompt"],
