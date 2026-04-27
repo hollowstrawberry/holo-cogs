@@ -112,7 +112,7 @@ class ContextBuilder:
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
         seen_attachments: set[int] = set()
         seen_urls: set[str] = set()
-        images_remaining = max_images
+        priority_remaining = max_images
         for backmsg in backread:
             quote = all_resolved_quotes.get(backmsg.id)
             backmsg_candidates = extract_candidates(backmsg)
@@ -124,13 +124,13 @@ class ContextBuilder:
             seen_attachments.update(src.attachment.id for src in candidates if src.attachment)
             seen_urls.update(src.url for src in candidates if src.url)
             # share image budget between base message and its quoted message
-            download_slots = max(0, images_remaining)
-            download_list  = candidates[:download_slots]
-            caption_list   = candidates[download_slots:]
-            images_remaining -= len(download_list)
+            priority_slots = max(0, priority_remaining)
+            priority_list  = candidates[:priority_slots]
+            caption_list   = candidates[priority_slots:]
+            priority_remaining -= len(priority_list)
             # save them separately
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
-                return ([src for src in download_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
+                return ([src for src in priority_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
             all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
             if quote:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
@@ -138,47 +138,46 @@ class ContextBuilder:
         # Pass 3: grab images
 
         async def resolve_images(backmsg: discord.Message) -> DiscordMessageResolvedImages:
-            candidates = all_candidates[backmsg.id]
-            all_srcs = (candidates.download + candidates.caption)[:constants.MAX_IMAGES_PER_MESSAGE]
-            download_srcs = [s for s in all_srcs if s in candidates.download]
-            caption_srcs  = [s for s in all_srcs if s in candidates.caption]
-
             generated_image: dict[str, str] | None = None
             if backmsg.attachments and len(backmsg.attachments) == 1 and backmsg.author == ctx.me:
                 if "gptimage" in backmsg.attachments[0].filename:
                     generated_image = {"type": "gptimage"}
                 elif imagescanner:
                     generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
-            async def process_download(src: ImageSource) -> tuple[ImageSource, bytes] | None:
+            
+            async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
+                data, caption = None, ""
                 if src.attachment:
-                    cached = self.attachment_image_cache.get(src.attachment.id)
-                    if cached is not None:
-                        return src, cached[1]
+                    _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
+                    _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, ""))
                 elif src.url:
-                    cached = self.url_image_cache.get(src.url)
-                    if cached is not None:
-                        return src, cached
-                data = await self.fetch_and_normalize(src, max_image_resolution=max_image_res)
-                if data is None:
+                    data = self.url_image_cache.get(src.url)
+                    caption = self.url_caption_cache.get(src.url, "")
+                if not data:
+                    data = await self.fetch_and_normalize(src, max_image_resolution=max_image_res)
+                if not data:
                     return None
+                if not caption and not generated_image:
+                    image_content = utils.make_image_content(data, low_detail=True)
+                    caption = await self.execute_captioner(ctx, image_content, result)
                 if src.attachment:
-                    assert src.attachment and src.att_index is not None
                     self.attachment_image_cache[src.attachment.id] = (src.att_index, data)
+                    self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
                 elif src.url:
                     self.url_image_cache[src.url] = data
-                return src, data
+                    self.url_caption_cache[src.url] = caption
+                return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
                 if generated_image:
                     return None
+                caption = None
                 if src.attachment:
-                    cached = self.attachment_caption_cache.get(src.attachment.id)
-                    if cached is not None:
-                        return src, cached[1]
+                    _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, None))
                 elif src.url:
-                    cached = self.url_caption_cache.get(src.url)
-                    if cached is not None:
-                        return src, cached
+                    caption = self.url_caption_cache.get(src.url)
+                if caption:
+                    return src, caption
                 data = await self.fetch_and_normalize(src, thumbnail_size=max_caption_res)
                 if data is None:
                     return None
@@ -192,25 +191,31 @@ class ContextBuilder:
                     self.url_caption_cache[src.url] = caption
                 return src, caption
             
-            download_tasks = [process_download(src) for src in download_srcs]
+            candidates = all_candidates[backmsg.id]
+            all_srcs = (candidates.download + candidates.caption)[:constants.MAX_IMAGES_PER_MESSAGE]
+            priority_srcs = [s for s in all_srcs if s in candidates.download]
+            caption_srcs  = [s for s in all_srcs if s in candidates.caption]
+            priority_tasks = [process_priority(src) for src in priority_srcs]
             caption_tasks  = [process_caption(src)  for src in caption_srcs]
-            download_results_raw, caption_results_raw = await asyncio.gather(
-                asyncio.gather(*download_tasks, return_exceptions=True),
+            priority_results_raw, caption_results_raw = await asyncio.gather(
+                asyncio.gather(*priority_tasks, return_exceptions=True),
                 asyncio.gather(*caption_tasks,  return_exceptions=True),
             )
             image_contents: list[GptImageContent] = []
-            for res in download_results_raw:
+            attachment_captions: dict[int, str] = {}
+            url_captions: dict[str, str] = {}
+            for res in priority_results_raw:
                 if isinstance(res, BaseException):
                     log.warning(f"process_download raised: {res}")
                     continue
                 if res is None:
                     continue
-                _, data = res
-                content = utils.make_image_content(data)
-                if content:
-                    image_contents.append(content)
-            attachment_captions: dict[int, str] = {}
-            url_captions: dict[str, str] = {}
+                src, data, caption = res
+                image_contents.append(utils.make_image_content(data))
+                if src.attachment:
+                    attachment_captions[src.att_index] = caption
+                elif src.url:
+                    url_captions[src.url] = caption
             for res in caption_results_raw:
                 if isinstance(res, BaseException):
                     log.warning(f"process_caption raised: {res}")
@@ -416,7 +421,7 @@ class ContextBuilder:
                 content = content[:max_quote_length - 3] + "..."
                 obj["@truncated"] = "true"
             obj["content"] = content
-        # attachmentas
+        # attachments
         if not generated_image or not generated_image.get("Prompt"):
             attachments = []
             total_file_length = 0
