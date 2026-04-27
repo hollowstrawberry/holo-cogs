@@ -120,7 +120,7 @@ class GptImageGenTool(GptImageToolBase):
                     },
                     "resolution": {
                         "type": "string",
-                        "description": "Aspect ratio for the image.",
+                        "description": "Optional. Forces an aspect ratio for the image.",
                         "enum": ["original", "square", "portrait", "landscape"]
                     },
 
