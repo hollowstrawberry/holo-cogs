@@ -28,15 +28,17 @@ class GptImageToolBase(ToolBase):
 
         prompt: str = undo_xml(arguments.get("prompt", ""))
         aspect_ratio: str = arguments.get("resolution", "")
-        existing: list[str] | str | None = arguments.get("images")
-        if isinstance(existing, str):
-            existing = [existing]
+        existing: list[str] = arguments.get("references") or []
+        existing_single: str = arguments.get("image", "")
+        if existing_single:
+            existing.append(existing_single)
 
         if not prompt:
             return "<error>No prompt provided</error>"
         if not existing and "second image" in prompt:
             return "<error>You didn't provide all the reference images</error>"
-        prompt = f"Keep the image the same, except for the following changes: {prompt}"
+        if existing_single:
+            prompt = f"Keep the image the same, except for the following changes: {prompt}"
 
         gptimage: commands.Cog | None = self.ctx.bot.get_cog("GptImage")
         if not gptimage:
@@ -104,13 +106,24 @@ class GptImageGenTool(GptImageToolBase):
                 properties={
                     "prompt": {
                         "type": "string",
-                        "description": 'A detailed prompt in natural language.'
+                        "description": 'A detailed prompt in natural language.' \
+                                       ' You can reference images in the prompt (eg "the second image") but you MUST include them in the `references` field.'
+                    },
+                    "references": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 0,
+                        "maxItems": 4,
+                        "description": 'These will be used to help make the image.'\
+                                       ' Each must be the filename of a chat message attachment, extracted from the message history only.' \
+                                       ' Include all of them even if they have the same name.',
                     },
                     "resolution": {
                         "type": "string",
                         "description": "Aspect ratio for the image.",
-                        "enum": ["square", "portrait", "landscape"]
+                        "enum": ["original", "square", "portrait", "landscape"]
                     },
+
                 },
                 required=["prompt"],
             )))
@@ -124,23 +137,13 @@ class GptImageEditTool(GptImageToolBase):
             description="Edits an image with GPT, suitable for general/generic content.",
             parameters=Parameters(
                 properties={
-                    "images": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 0,
-                        "maxItems": 4,
-                        "description": 'The filename of a chat message attachment, extracted from the message history only.' \
-                                       ' If more than one reference is needed, include all of them here, even if they have the same name.',
+                    "image": {
+                        "type": "string",
+                        "description": 'The filename of a chat message attachment, extracted from the message history only.'
                     },
                     "prompt": {
                         "type": "string",
-                        "description": 'A prompt as short as possible with only the necessary changes.' \
-                                       ' Here you can only reference images by order (first, second) instead of by filename.'
-                    },
-                    "resolution": {
-                        "type": "string",
-                        "description": "Optional. Override the aspect ratio of the final image.",
-                        "enum": ["original", "square", "portrait", "landscape"]
+                        "description": 'A prompt as short as possible with only the necessary changes.'
                     },
                 },
                 required=["images", "prompt"],
