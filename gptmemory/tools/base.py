@@ -32,4 +32,10 @@ class ToolBase(ABC):
     
 
 def get_all_tools() -> list[type[ToolBase]]:
-    return ToolBase.__subclasses__()
+    tool_types: set[type[ToolBase]] = set()
+    for tool in ToolBase.__subclasses__():
+        if subs := tool.__subclasses__():
+            tool_types.update(subs)
+        else:
+            tool_types.add(tool)
+    return list(tool_types)

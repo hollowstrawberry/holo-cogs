@@ -1,4 +1,3 @@
-import logging
 import asyncio
 import discord
 from redbot.core import commands
@@ -7,44 +6,8 @@ from gptmemory.utils import undo_xml
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.tools.base import ToolBase
 
-log = logging.getLogger("gptmemory.gptimage")
 
-
-class GptImageTool(ToolBase):
-    display_name="gptimage"
-    schema = ToolCall(
-        Function(
-            name="generate",
-            description="Generate or edit an image with GPT, suitable for general/generic content.",
-            parameters=Parameters(
-                properties={
-                    "existing": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": 'The filename of an image in chat to edit. If you want to edit an image, this field is mandatory.' \
-                                       ' For example, <attachment filename="image.png"></attachment> would result in image.png' \
-                                       '\nIf more than one reference is needed, include each one of them, even if they have the same filename.',
-                        "minItems": 0,
-                        "maxItems": 3,
-                    },
-                    "prompt": {
-                        "type": "string",
-                        "description": 'A prompt for image generation using natural language.' \
-                                       '\nMaking new images requires a detailed prompt.' \
-                                       ' However, editing an existing image must start with "Keep the image the same, but..."' \
-                                       ' and then a prompt as short as possible with only the necessary changes.' \
-                                       '\nReference images can be described as "the first image", "the second image", etc. ' \
-                                       'and must be provided correctly in the "existing" field.'
-                    },
-                    "resolution": {
-                        "type": "string",
-                        "description": "Optional. Aspect ratio for the image.",
-                        "enum": ["original", "square", "portrait", "landscape"]
-                    },
-                },
-                required=["prompt"],
-            )))
-
+class GptImageToolBase(ToolBase):
     async def find_attachment(self, filename: str, messages: list[discord.Message], consumed: list[discord.Attachment]) -> discord.Attachment | None:
         assert self.ctx.guild
         for message in messages:
@@ -63,20 +26,22 @@ class GptImageTool(ToolBase):
             if not self.ctx.channel.permissions_for(self.ctx.author).manage_messages:
                 return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
 
-        existing: str | list[str] | None = arguments.get("existing")
         prompt: str = undo_xml(arguments.get("prompt", ""))
         aspect_ratio: str = arguments.get("resolution", "")
+        existing: list[str] = arguments.get("extra_images") or []
+        existing_single: str = arguments.get("image", "")
+        if existing_single:
+            existing.insert(0, existing_single)
 
         if not prompt:
             return "<error>No prompt provided</error>"
+        prompt = f"Keep the image the same, except for the following changes: {prompt}"
+
         gptimage: commands.Cog | None = self.ctx.bot.get_cog("GptImage")
         if not gptimage:
             return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
 
         aspect_ratio = aspect_ratio.lower().strip()
-        if aspect_ratio == "original" and not existing:
-            return "<error>You selected original resolution but didn't provide an existing image</error>"
-
         if aspect_ratio == "square":
             resolution = "1024x1024"
         elif aspect_ratio in ("portrait", "vertical"):
@@ -88,37 +53,28 @@ class GptImageTool(ToolBase):
 
         attachments: list[discord.Attachment] = []
         if existing:
-            existing_list = existing if isinstance(existing, list) else [existing]
             limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
             messages = [message async for message in self.ctx.channel.history(limit=limit)]
             if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
                 quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
                 messages.insert(0, quoted)
-            for filename in existing_list:
+            for i, filename in enumerate(existing):
                 att = await self.find_attachment(filename, messages, attachments)
-                if not att:
+                if not att and not (i == 1 and attachments and attachments[0].filename == filename):  # try to prevent same image in both schema fields
                     return {
                         "result": {
                             "error": f'Image "{filename}" could not be found.',
                             "hint": 'Use an attachment in chat, for example, <attachment filename="image.png"></attachment> would result in image.png',
                         }
                     }
-                attachments.append(att)
-        elif "keep the image the same" in prompt.lower():
-            return {  # how is gemini so terrible at following instructions
-                "result": {
-                    "error": "You didn't specify which image you want to edit.",
-                    "hint": 'Use an attachment in chat, for example, <attachment filename="image.png"></attachment> would result in image.png',
-                }
-            }
+                if att:
+                    attachments.append(att)
 
         images = None
         if attachments:
             normalize_attachments = getattr(gptimage, "normalize_attachments")
-            images, original_resolution = await normalize_attachments(attachments)
-            if not resolution:
-                resolution = original_resolution
-        elif not resolution:
+            images, resolution = await normalize_attachments(attachments)
+        if not resolution:
             resolution = "1536x1024"
 
         async def callback():
@@ -133,3 +89,54 @@ class GptImageTool(ToolBase):
                 "message": "Image generation started successfully. The user will have to wait for it to finish."
             }
         }
+
+
+class GptImageGenTool(GptImageToolBase):
+    display_name="gptimage_gen"
+    schema = ToolCall(
+        Function(
+            name="generate_image",
+            description="Generate an image with GPT, suitable for general/generic content.",
+            parameters=Parameters(
+                properties={
+                    "prompt": {
+                        "type": "string",
+                        "description": 'A detailed prompt in natural language.'
+                    },
+                    "resolution": {
+                        "type": "string",
+                        "description": "Aspect ratio for the image.",
+                        "enum": ["square", "portrait", "landscape"]
+                    },
+                },
+                required=["prompt"],
+            )))
+    
+
+class GptImageEditTool(GptImageToolBase):
+    display_name="gptimage_edit"
+    schema = ToolCall(
+        Function(
+            name="edit_image",
+            description="Edits an image with GPT, suitable for general/generic content.",
+            parameters=Parameters(
+                properties={
+                    "image": {
+                        "type": "string",
+                        "description": 'The filename of a chat message attachment, extracted from the message history only.'
+                    },
+                    "extra_images": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 0,
+                        "maxItems": 3,
+                        "description": 'If more than one reference is needed, include each of them here, even if they have the same name.',
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": 'A prompt as short as possible with only the necessary changes in natural language.' \
+                                       ' Here you can only reference images by order (first, second) instead of by filename.'
+                    },
+                },
+                required=["image", "prompt"],
+            )))
