@@ -18,6 +18,9 @@ class GptImageToolBase(ToolBase):
     
     async def run(self, arguments: dict) -> dict | str:
         assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
+        gptimage: commands.Cog | None = self.ctx.bot.get_cog("GptImage")
+        if not gptimage:
+            return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
         
         channel_mode = await self.cog.config.guild(self.ctx.guild).generation_channel_mode()
         channels = await self.cog.config.guild(self.ctx.guild).generation_channels()
@@ -26,25 +29,23 @@ class GptImageToolBase(ToolBase):
             if not self.ctx.channel.permissions_for(self.ctx.author).manage_messages:
                 return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
 
-        prompt: str = undo_xml(arguments.get("prompt", ""))
-        aspect_ratio: str = arguments.get("resolution", "")
+        prompt: str = undo_xml(arguments.get("prompt", "")).strip()
+        aspect_ratio: str = arguments.get("resolution", "").lower().strip()
         existing: list[str] = arguments.get("references") or []
         existing_single: str = arguments.get("image", "")
         if existing_single:
-            existing.append(existing_single)
+            existing.insert(0, existing_single)
 
         if not prompt:
             return "<error>No prompt provided</error>"
-        if not existing and "second image" in prompt:
+        if not existing and "first image" in prompt or len(existing) < 2 and "second image" in prompt or len(existing) < 3 and "third image" in prompt:
             return "<error>You didn't provide all the reference images</error>"
+    
         if existing_single:
             prompt = f"Keep the image the same, except for the following changes: {prompt}"
+        elif existing:
+            prompt += "\nUse the provided images only as a reference for a new image and not as direct input."
 
-        gptimage: commands.Cog | None = self.ctx.bot.get_cog("GptImage")
-        if not gptimage:
-            return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
-
-        aspect_ratio = aspect_ratio.lower().strip()
         if aspect_ratio == "square":
             resolution = "1024x1024"
         elif aspect_ratio in ("portrait", "vertical"):
@@ -57,28 +58,27 @@ class GptImageToolBase(ToolBase):
         attachments: list[discord.Attachment] = []
         if existing:
             limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
-            messages = [message async for message in self.ctx.channel.history(limit=limit)]
+            messages = [message async for message in self.ctx.channel.history(limit=limit+1)]
             if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
                 quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
                 messages.insert(0, quoted)
             for i, filename in enumerate(existing):
                 att = await self.find_attachment(filename, messages, attachments)
-                if not att and not (i == 1 and attachments and attachments[0].filename == filename):  # try to prevent same image in both schema fields
+                if not att:
                     return {
                         "result": {
                             "error": f'Image "{filename}" could not be found.',
                             "hint": 'Use an attachment in chat, for example, <attachment filename="image.png"></attachment> would result in image.png',
                         }
                     }
-                if att:
-                    attachments.append(att)
+                attachments.append(att)
 
         images = None
         if attachments:
             normalize_attachments = getattr(gptimage, "normalize_attachments")
-            images, new_resolution = await normalize_attachments(attachments)
-            if not resolution:
-                resolution = new_resolution
+            images, original_resolution = await normalize_attachments(attachments)
+            if not resolution or existing_single:
+                resolution = original_resolution
         if not resolution:
             resolution = "1536x1024"
 
