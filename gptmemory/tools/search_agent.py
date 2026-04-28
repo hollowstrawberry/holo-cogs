@@ -14,13 +14,13 @@ class AgenticSearchTool(ToolBase):
     schema = ToolCall(
         Function(
             name="web_search",
-            description="Search the open internet for unknown information, for example, recent news. Doesn't work for images.",
+            description="Search for textual information beyond your base knowledge, such as: recent events, new technologies, real-time data, niche documentation.",
             parameters=Parameters(
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "The search query",
-                    }},
+                    },
+                },
                 required=["query"],
             )))
 
