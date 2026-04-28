@@ -43,8 +43,8 @@ class GptImageToolBase(ToolBase):
     
         if existing_single:
             prompt = f"Keep the image the same, except for the following changes: {prompt}"
-        elif existing:
-            prompt += "\nMake an entirely new image, don't use the provided images as direct input."
+        #elif existing:
+        #    prompt += "\nMake an entirely new image, don't use the provided images as direct input."
 
         if aspect_ratio == "square":
             resolution = "1024x1024"
@@ -107,7 +107,7 @@ class GptImageGenTool(GptImageToolBase):
                     "prompt": {
                         "type": "string",
                         "description": 'A detailed prompt in natural language.' \
-                                       ' You must never describe a reference image, instead simply put it in the `references` field' \
+                                       ' You must never describe a reference image and its details, instead simply put it in the `references` field' \
                                        ' and refer to it by order (eg "the first image" instead of the filename)'
                     },
                     "references": {
