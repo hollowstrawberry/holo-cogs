@@ -16,8 +16,7 @@ class StableDiffusionTool(ToolBase):
     schema = ToolCall(
         Function(
             name="generate_stable_diffusion",
-            description="Generate an image with Stable Diffusion. Stable Diffusion should be used for anime-style content, " \
-                        "particularly content centered on humanoid characters. Optionally, revises an existing Stable Diffusion image.",
+            description="Generate anime-style art with Stable Diffusion or revise an existing Stable Diffusion image.",
             parameters=Parameters(
                 properties={
                     "existing": {
