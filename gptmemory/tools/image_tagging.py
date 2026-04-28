@@ -16,15 +16,15 @@ class ImageTaggingTool(ToolBase):
     schema = ToolCall(
         Function(
             name="infer_booru_tags",
-            description="Calculate the booru tags to describe a user-provided image. Must only be used when the user needs a stable diffusion prompt (booru tags).",
+            description="Determine the booru tags that would match a user-provided image. Typically only useful for stable diffusion prompts.",
             parameters=Parameters(
                 properties={
-                    "filename": {
+                    "image": {
                         "type": "string",
-                        "description": "Which image file to infer tags for.",
+                        "description": "The filename of a chat message attachment, extracted from the message history only."
                     },
                 },
-                required=["filename"],
+                required=["image"],
             )))
 
     async def find_image(self, filename: str) -> discord.Attachment | str | None:
@@ -45,7 +45,7 @@ class ImageTaggingTool(ToolBase):
     
     async def run(self, arguments: dict) -> str | dict:
         assert self.ctx.guild
-        filename: str = arguments.get("filename", "")
+        filename: str = arguments.get("image", "")
         if not filename:
             return "<error>No filename provided</error>"
         aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
