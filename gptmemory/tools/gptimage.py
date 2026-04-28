@@ -44,7 +44,7 @@ class GptImageToolBase(ToolBase):
         if existing_single:
             prompt = f"Keep the image the same, except for the following changes: {prompt}"
         elif existing:
-            prompt += "\nUse the provided images only as a reference for a new image and not as direct input."
+            prompt += "\nMake an entirely new image, don't use the provided image as a direct input reference."
 
         if aspect_ratio == "square":
             resolution = "1024x1024"
