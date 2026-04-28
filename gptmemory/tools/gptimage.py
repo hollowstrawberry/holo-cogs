@@ -33,7 +33,7 @@ class GptImageToolBase(ToolBase):
         aspect_ratio: str = arguments.get("resolution", "").lower().strip()
         references: list[str] = arguments.get("references") or []
         extra_references: list[str] = arguments.get("extra_references") or []
-        base_image: str = arguments.get("image", "")
+        base_image: str = arguments.get("base_image", "")
         existing = references + extra_references
         if base_image:
             existing.insert(0, base_image)
