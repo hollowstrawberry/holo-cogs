@@ -50,7 +50,7 @@ class ArcencielTool(ToolBase):
                     data = await response.json()
             except aiohttp.ClientError as error:
                 log.warning(f"Trying to grab user from Arc en Ciel: {type(error).__name__}: {error}")
-                return "<error>Failed to grab user from Arc en Cie</error>"
+                return "<error>Failed to grab user from Arc en Ciel</error>"
             if data:
                 found_user = data[0]['id']
             else:
@@ -72,7 +72,7 @@ class ArcencielTool(ToolBase):
 
         results = []
         for result in data["data"]:
-            if not result.get("versions", None):
+            if not result.get("versions"):
                 continue
             results.append(parse_arcenciel_model(result))
         return {
