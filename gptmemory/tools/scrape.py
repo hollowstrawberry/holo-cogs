@@ -19,12 +19,11 @@ class ScrapeTool(ToolBase):
     schema = ToolCall(
         Function(
             name="open_url",
-            description="Opens a URL and returns its text-based content.",
+            description="Opens a website URL and returns its text-based content.",
             parameters=Parameters(
                 properties={
                     "url": {
                         "type": "string",
-                        "description": "The link to open",
                     }},
                 required=["url"],
             )))
