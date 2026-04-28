@@ -16,12 +16,11 @@ class TavilySearchTool(ToolBase):
     schema = ToolCall(
         Function(
             name="web_search",
-            description="Search the open internet for unknown information, for example, recent news. Doesn't work for images. Uses tavily api.",
+            description="Search for information beyond your base knowledge, such as: recent events, new technologies, real-time data, niche documentation. Doesn't work for images. Uses tavily api.",
             parameters=Parameters(
                 properties={
                     "query": {
-                        "type": "string",
-                        "description": "The search query",
+                        "type": "string"
                     }},
                 required=["query"],
             )))
