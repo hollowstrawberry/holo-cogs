@@ -107,8 +107,8 @@ class GptImageGenTool(GptImageToolBase):
                     "prompt": {
                         "type": "string",
                         "description": 'A detailed prompt in natural language.' \
-                                       ' You must never describe a reference image, instead put it in the `references` field.' \
-                                       ' You can refer to them in the prompt by order (eg "the first image") and not by filename.'
+                                       ' You must never describe a reference image, instead simply put it in the `references` field' \
+                                       ' and refer to it by order (eg "the first image" instead of the filename)'
                     },
                     "references": {
                         "type": "array",
