@@ -31,17 +31,19 @@ class GptImageToolBase(ToolBase):
 
         prompt: str = undo_xml(arguments.get("prompt", "")).strip()
         aspect_ratio: str = arguments.get("resolution", "").lower().strip()
-        existing: list[str] = arguments.get("references") or []
-        existing_single: str = arguments.get("image", "")
-        if existing_single:
-            existing.insert(0, existing_single)
+        references: list[str] = arguments.get("references") or []
+        extra_references: list[str] = arguments.get("extra_references") or []
+        base_image: str = arguments.get("image", "")
+        existing = references + extra_references
+        if base_image:
+            existing.insert(0, base_image)
 
         if not prompt:
             return "<error>No prompt provided</error>"
         if not existing and "first image" in prompt or len(existing) < 2 and "second image" in prompt or len(existing) < 3 and "third image" in prompt:
             return "<error>You didn't provide all the reference images</error>"
     
-        if existing_single:
+        if base_image:
             prompt = f"Keep the image the same, except for the following changes: {prompt}"
         #elif existing:
         #    prompt += "\nMake an entirely new image, don't use the provided images as direct input."
@@ -77,7 +79,7 @@ class GptImageToolBase(ToolBase):
         if attachments:
             normalize_attachments = getattr(gptimage, "normalize_attachments")
             images, original_resolution = await normalize_attachments(attachments)
-            if existing_single:
+            if base_image:
                 resolution = original_resolution
         if not resolution:
             resolution = "1536x1024"
@@ -86,6 +88,7 @@ class GptImageToolBase(ToolBase):
             await asyncio.sleep(0)
             self.cog.currently_generating.discard(self.ctx.message.id)
         self.cog.currently_generating.add(self.ctx.message.id)
+        
         generate_image = getattr(gptimage, "imagine")
         asyncio.create_task(generate_image(self.ctx, resolution=resolution, prompt=prompt, images=images, callback=callback()))
 
@@ -107,8 +110,8 @@ class GptImageGenTool(GptImageToolBase):
                     "prompt": {
                         "type": "string",
                         "description": 'A detailed prompt in natural language.' \
-                                       ' You must never describe a reference image and its details, instead simply put it in the `references` field' \
-                                       ' and refer to it by order (eg "the first image" instead of the filename)'
+                                       ' You must never describe a reference image ot its details or its filename,' \
+                                       ' instead simply put it in the `references` field and refer to it by order (eg "the first image").'
                     },
                     "references": {
                         "type": "array",
@@ -116,8 +119,7 @@ class GptImageGenTool(GptImageToolBase):
                         "minItems": 0,
                         "maxItems": 4,
                         "description": 'These will be used to help make the final image.'\
-                                       ' Each must be the filename of a chat message attachment, extracted from the message history only.' \
-                                       ' Include all of them even if they have the same name.',
+                                       ' Each must be the filename of individual chat message attachments, extracted from the message history only.'
                     },
                     "resolution": {
                         "type": "string",
@@ -138,14 +140,24 @@ class GptImageEditTool(GptImageToolBase):
             description="Edits an image with GPT, suitable for general/generic content.",
             parameters=Parameters(
                 properties={
-                    "image": {
+                    "base_image": {
                         "type": "string",
-                        "description": 'The filename of a chat message attachment, extracted from the message history only.'
+                        "description": 'The filename of a chat message attachment, extracted from the message history only. Refer to this as "the first image".'
                     },
                     "prompt": {
                         "type": "string",
-                        "description": 'A prompt AS SHORT AS POSSIBLE with ONLY the necessary changes.'
+                        "description": 'A prompt AS SHORT AS POSSIBLE with ONLY the necessary changes to the first image.' \
+                                       ' You must never describe the details of the images or their filenames in the prompt,' \
+                                       ' instead you must put them in the `base_image` and `extra_references` fields and refer to them by their order.'
+                    },
+                    "extra_references": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 0,
+                        "maxItems": 3,
+                        "description": 'Use if more than one image is needed. Refer to these as "the second/third/fourth image".'\
+                                       ' Each must be the filename of individual chat message attachments, extracted from the message history only.',
                     },
                 },
-                required=["image", "prompt"],
+                required=["base_image", "prompt"],
             )))
