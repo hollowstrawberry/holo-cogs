@@ -77,7 +77,7 @@ class GptImageToolBase(ToolBase):
         if attachments:
             normalize_attachments = getattr(gptimage, "normalize_attachments")
             images, original_resolution = await normalize_attachments(attachments)
-            if not resolution or existing_single:
+            if existing_single:
                 resolution = original_resolution
         if not resolution:
             resolution = "1536x1024"
