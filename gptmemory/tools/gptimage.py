@@ -115,13 +115,13 @@ class GptImageGenTool(GptImageToolBase):
                         "items": {"type": "string"},
                         "minItems": 0,
                         "maxItems": 4,
-                        "description": 'These will be used to help make the image.'\
+                        "description": 'These will be used to help make the final image.'\
                                        ' Each must be the filename of a chat message attachment, extracted from the message history only.' \
                                        ' Include all of them even if they have the same name.',
                     },
                     "resolution": {
                         "type": "string",
-                        "description": "Optional. Forces an aspect ratio for the image.",
+                        "description": "Forces an aspect ratio for the image.",
                         "enum": ["original", "square", "portrait", "landscape"]
                     },
 
