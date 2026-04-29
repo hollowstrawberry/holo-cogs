@@ -94,6 +94,7 @@ class GptMemory(GptMemoryCommands):
                     "CF-Access-Client-Id": openwebui_credentials.get("cf_client_id") or "",
                     "CF-Access-Client-Secret": openwebui_credentials.get("cf_client_secret") or "",
                 },
+                timeout=3600,
             )
 
 
