@@ -110,7 +110,7 @@ class GptMemory(GptMemoryCommands):
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name, _):
         await self.initialize_function_calls()
-        if service_name in ("openai", "openrouter"):
+        if service_name in ("openai", "openrouter", "openwebui"):
             await self.initialize_openai_client()
 
 
