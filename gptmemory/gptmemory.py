@@ -594,7 +594,7 @@ class GptMemory(GptMemoryCommands):
             }
         ]
         model = await self.config.guild(ctx.guild).model_captioner()
-        effort = utils.adjusted_effort(model, "minimal")
+        effort = utils.adjusted_effort(model, "none")
         response = await self.get_client(model).beta.chat.completions.create(
             model=utils.clean_model(model),
             messages=messages,  # type: ignore
