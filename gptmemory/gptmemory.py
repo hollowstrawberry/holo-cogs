@@ -299,7 +299,7 @@ class GptMemory(GptMemoryCommands):
                                 recalled_memories_str: str,
                                 result: CompletionResult,
                                 auto: bool = False,
-                                ) -> GptMessage:
+                                ):
         """
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
@@ -368,7 +368,7 @@ class GptMemory(GptMemoryCommands):
                 #},
             )
             if response is None:
-                log.info(f"{model=} {temp_messages=}")
+                log.error(f"OpenAI SDK returned NoneType")
                 return
             
             if response.usage:
