@@ -78,7 +78,7 @@ class GptMemory(GptMemoryCommands):
             if self.openrouter_client:
                 await self.openrouter_client.close()
             self.openrouter_client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
-        openwebui_credentials = await self.bot.get_shared_api_tokens("openrouter")
+        openwebui_credentials = await self.bot.get_shared_api_tokens("openwebui")
         if openwebui_credentials:
             if self.openwebui_client:
                 await self.openwebui_client.close()
