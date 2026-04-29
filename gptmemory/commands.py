@@ -315,11 +315,13 @@ class GptMemoryCommands(GptMemoryBase):
 
         if not model or not model.strip():
             await ctx.reply(f"Current model for the {module} is {await model_config()}")
-        elif "/" not in model and model.strip().lower() not in VISION_MODELS:
+        elif "/" not in model and "$" not in model and model.strip().lower() not in VISION_MODELS:
             await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
         else:
             await model_config.set(model.strip().lower())
-            if "/" in model:
+            if "$" in model:
+                await ctx.reply("Model changed. Note that this model will be used through OpenWebui, and things may break unexpectedly.")
+            elif "/" in model:
                 await ctx.reply("Model changed. Note that this model will be used through OpenRouter, and things may break unexpectedly.")
             else:
                 await ctx.tick(message="Model changed")
