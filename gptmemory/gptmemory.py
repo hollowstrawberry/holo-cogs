@@ -86,12 +86,9 @@ class GptMemory(GptMemoryCommands):
                 base_url=openwebui_credentials.get("endpoint"),
                 api_key=openwebui_credentials.get("api_key"),
                 default_headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {openwebui_credentials.get('api_key')}",
                     "CF-Access-Client-Id": openwebui_credentials.get("cf_client_id") or "",
                     "CF-Access-Client-Secret": openwebui_credentials.get("cf_client_secret") or "",
                 },
-                timeout=3600,
             )
 
 
@@ -357,18 +354,22 @@ class GptMemory(GptMemoryCommands):
         past_memory_changes: list[MemoryChangeResult] = []
         past_tool_calls: list[str] = []
         for depth in range(max_tool_depth):
+            can_use_tools = depth >= max_tool_depth - 1
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 messages=temp_messages,  # type: ignore
-                max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
-                max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
-                tools=tools_schema,  # type: ignore
-                tool_choice="none" if depth >= max_tool_depth - 1 else "auto",
-                reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
-                extra_body=None if "/" not in model else {
-                    "session_id": str(ctx.message.id),
-                },
+                #max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
+                #max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
+                #tools=tools_schema if can_use_tools else None,  # type: ignore
+                #tool_choice="auto" if can_use_tools else "none",
+                #reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
+                #extra_body=None if "/" not in model else {
+                #    "session_id": str(ctx.message.id),
+                #},
             )
+            if response is None:
+                log.info(f"{model=} {temp_messages=}")
+                return
             
             if response.usage:
                 result.input_tokens += response.usage.prompt_tokens
