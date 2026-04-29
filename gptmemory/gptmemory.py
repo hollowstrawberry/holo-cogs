@@ -360,8 +360,8 @@ class GptMemory(GptMemoryCommands):
                 messages=temp_messages,  # type: ignore
                 #max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
                 #max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
-                #tools=tools_schema if can_use_tools else None,  # type: ignore
-                #tool_choice="auto" if can_use_tools else "none",
+                tools=tools_schema if can_use_tools else None,  # type: ignore
+                tool_choice="auto" if can_use_tools else "none",
                 #reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
                 #extra_body=None if "/" not in model else {
                 #    "session_id": str(ctx.message.id),
