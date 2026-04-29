@@ -53,6 +53,8 @@ class GptMemory(GptMemoryCommands):
             await self.openai_client.close()
         if self.openrouter_client:
             await self.openrouter_client.close()
+        if self.openwebui_client:
+            await self.openwebui_client.close()
 
 
     async def initialize_function_calls(self):
@@ -76,13 +78,33 @@ class GptMemory(GptMemoryCommands):
             if self.openrouter_client:
                 await self.openrouter_client.close()
             self.openrouter_client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
+        openwebui_credentials = await self.bot.get_shared_api_tokens("openrouter")
+        if openwebui_credentials:
+            if self.openwebui_client:
+                await self.openwebui_client.close()
+            self.openwebui_client = AsyncOpenAI(
+                base_url=openwebui_credentials.get("endpoint"),
+                api_key=openwebui_credentials.get("api_key"),
+                default_headers={
+                    "CF-Access-Client-Id": openwebui_credentials.get("cf_client_id") or "",
+                    "CF-Access-Client-Secret": openwebui_credentials.get("cf_client_secret") or "",
+                },
+            )
 
 
     def get_client(self, model: str) -> AsyncOpenAI:
-        client = self.openrouter_client if "/" in model else self.openai_client
-        if client is None:
-            raise RuntimeError(f"{'OpenRouter' if '/' in model else 'OpenAI'} client not initialized. Did you set up an api_key?")
-        return client
+        if "$" in model:
+            if not self.openwebui_client:
+                raise RuntimeError("OpenWebui client is not initialized, please set up credentials including endpoint, api_key, cf_client_id, and cf_client_secret")
+            return self.openwebui_client
+        elif "/" in model:
+            if not self.openrouter_client:
+                raise RuntimeError("OpenRouter client is not initialized, did you set an api_key?")
+            return self.openrouter_client
+        else:
+            if not self.openai_client:
+                raise RuntimeError("OpenAI client is not initialized, did you set an api_key?")
+            return self.openai_client
 
 
     @commands.Cog.listener()
@@ -249,7 +271,7 @@ class GptMemory(GptMemoryCommands):
         model = await self.config.guild(ctx.guild).model_recaller()
         effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
         response = await self.get_client(model).beta.chat.completions.create(
-            model=model,
+            model=utils.clean_model(model),
             messages=temp_messages,  # type: ignore
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
             extra_body=None if "/" not in model else {
@@ -333,7 +355,7 @@ class GptMemory(GptMemoryCommands):
         past_tool_calls: list[str] = []
         for depth in range(max_tool_depth):
             response = await self.get_client(model).chat.completions.create(
-                model=model,
+                model=utils.clean_model(model),
                 messages=temp_messages,  # type: ignore
                 max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
                 max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
@@ -496,7 +518,7 @@ class GptMemory(GptMemoryCommands):
         model = await self.config.guild(ctx.guild).model_memorizer()
         effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
         response = await self.get_client(model).beta.chat.completions.parse(
-            model=model,
+            model=utils.clean_model(model),
             messages=temp_messages,  # type: ignore
             response_format=MemoryChangeList,
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
@@ -570,7 +592,7 @@ class GptMemory(GptMemoryCommands):
         model = await self.config.guild(ctx.guild).model_captioner()
         effort = utils.adjusted_effort(model, "minimal")
         response = await self.get_client(model).beta.chat.completions.create(
-            model=model,
+            model=utils.clean_model(model),
             messages=messages,  # type: ignore
             reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
             extra_body=None if "/" not in model else {

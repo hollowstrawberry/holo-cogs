@@ -151,6 +151,9 @@ def adjusted_effort(model: str, effort: str) -> str:
    else:
        return effort
    
+def clean_model(model: str) -> str:
+    return model.replace("$", "")  # identifies openwebui model
+   
 def parse_prompt(prompt: str) -> str:
     prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)
     return prompt

@@ -31,7 +31,10 @@ class AgenticSearchTool(ToolBase):
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         model = await self.cog.config.guild(self.ctx.guild).model_responder()
-        if "/" in model:  # openrouter
+        if "$" in model:  # openwebui
+            log.error("Tried to use agent_search with a openwebui model, which is not possible.")
+            return "<error>Web search is not possible at this time</error>"
+        elif "/" in model:  # openrouter
             response = await self.cog.openrouter_client.chat.completions.create(
                 model=model,
                 reasoning_effort="low",
