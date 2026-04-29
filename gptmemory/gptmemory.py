@@ -86,6 +86,8 @@ class GptMemory(GptMemoryCommands):
                 base_url=openwebui_credentials.get("endpoint"),
                 api_key=openwebui_credentials.get("api_key"),
                 default_headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {openwebui_credentials.get('api_key')}",
                     "CF-Access-Client-Id": openwebui_credentials.get("cf_client_id") or "",
                     "CF-Access-Client-Secret": openwebui_credentials.get("cf_client_secret") or "",
                 },
