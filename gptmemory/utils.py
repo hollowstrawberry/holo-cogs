@@ -146,10 +146,10 @@ def get_text_contents(messages: list[GptMessage]) -> list[GptMessage]:
     return temp_messages
 
 def adjusted_effort(model: str, effort: str) -> str:
-   if effort == "minimal" and ("$" in model or "gemini-2.5" in model or "/" not in model and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano")):
-       return "none"
-   else:
-       return effort
+   #if effort == "minimal" and ("$" in model or "gemini-2.5" in model or "/" not in model and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano")):
+   #    return "none"
+   #else:
+    return effort
    
 def clean_model(model: str) -> str:
     return model.replace("$", "")  # identifies openwebui model

@@ -78,6 +78,7 @@ MODELS_THAT_USE_MINIMAL = [
 ]
 
 EFFORT_VALUES = [
+    "none",
     "minimal",
     "low",
     "medium",
