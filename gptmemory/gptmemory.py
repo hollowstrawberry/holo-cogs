@@ -354,7 +354,7 @@ class GptMemory(GptMemoryCommands):
         past_memory_changes: list[MemoryChangeResult] = []
         past_tool_calls: list[str] = []
         for depth in range(max_tool_depth):
-            can_use_tools = depth >= max_tool_depth - 1
+            can_use_tools = depth < max_tool_depth - 1
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 messages=temp_messages,  # type: ignore
