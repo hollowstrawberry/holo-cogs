@@ -8,7 +8,7 @@ import xmltodict
 from random import random
 from difflib import get_close_matches
 from datetime import datetime, timezone
-from openai import AsyncOpenAI, NotGiven
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -269,11 +269,11 @@ class GptMemory(GptMemoryCommands):
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_recaller()
-        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_recaller())
+        effort = await self.config.guild(ctx.guild).effort_recaller()
         response = await self.get_client(model).beta.chat.completions.create(
             model=utils.clean_model(model),
+            reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
             messages=temp_messages,  # type: ignore
-            reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
             },
@@ -307,7 +307,7 @@ class GptMemory(GptMemoryCommands):
         assert ctx.guild and isinstance(ctx.me, discord.Member) and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         
         model = await self.config.guild(ctx.guild).model_responder()
-        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_responder())
+        effort = await self.config.guild(ctx.guild).effort_responder()
         max_tokens = await self.config.guild(ctx.guild).response_tokens()
         max_tool_depth = await self.config.guild(ctx.guild).max_tool_depth()
         max_tool_length = await self.config.guild(ctx.guild).max_tool()
@@ -357,12 +357,11 @@ class GptMemory(GptMemoryCommands):
             can_use_tools = depth < max_tool_depth - 1
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
+                reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
                 messages=temp_messages,  # type: ignore
-                max_tokens=NotGiven() if "gpt-5" in model else max_tokens,  # type: ignore
-                max_completion_tokens=NotGiven() if "gpt-5" not in model else max_tokens,  # type: ignore
+                max_completion_tokens=max_tokens,  # type: ignore
                 tools=tools_schema if can_use_tools else None,  # type: ignore
                 tool_choice="auto" if can_use_tools else "none",
-                reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
                 extra_body=None if "/" not in model else {
                     "session_id": str(ctx.message.id),
                 },
@@ -520,12 +519,12 @@ class GptMemory(GptMemoryCommands):
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_memorizer()
-        effort = utils.adjusted_effort(model, await self.config.guild(ctx.guild).effort_memorizer())
+        effort = await self.config.guild(ctx.guild).effort_memorizer()
         response = await self.get_client(model).beta.chat.completions.parse(
             model=utils.clean_model(model),
+            reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
             messages=temp_messages,  # type: ignore
             response_format=MemoryChangeList,
-            reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
             },
@@ -594,11 +593,10 @@ class GptMemory(GptMemoryCommands):
             }
         ]
         model = await self.config.guild(ctx.guild).model_captioner()
-        effort = utils.adjusted_effort(model, "none")
         response = await self.get_client(model).beta.chat.completions.create(
             model=utils.clean_model(model),
+            reasoning_effort=utils.adjusted_effort(model, "none"),  # type: ignore
             messages=messages,  # type: ignore
-            reasoning_effort=NotGiven() if "gpt-4" in model else effort,  # type: ignore
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
             },

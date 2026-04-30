@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
 from redbot.core.bot import Red
+from openai import Omit
 
 from gptmemory.schema import GptImageContent, GptMessage, StructuredObject
 from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN
@@ -145,10 +146,15 @@ def get_text_contents(messages: list[GptMessage]) -> list[GptMessage]:
                 break
     return temp_messages
 
-def adjusted_effort(model: str, effort: str) -> str:
-   #if effort == "minimal" and ("$" in model or "gemini-2.5" in model or "/" not in model and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano")):
-   #    return "none"
-   #else:
+def adjusted_effort(model: str, effort: str) -> str | Omit:
+    if "gpt-4" in model:
+        return Omit()
+    if effort in ("none", "minimal"):
+        if "codex" in model:
+            return "low"
+        if model in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
+            return "minimal"
+        return "none"
     return effort
    
 def clean_model(model: str) -> str:
