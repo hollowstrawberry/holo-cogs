@@ -132,7 +132,7 @@ class ContextBuilder:
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
                 return ([src for src in priority_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
             if backmsg.id not in all_candidates:
-                all_candidates[backmsg.id] = candidates
+                all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, priority_list, caption_list)
             if quote and quote.id not in all_candidates:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, [src for src in priority_list if src.message_id == quote.id], [src for src in caption_list if src.message_id == quote.id])
 
