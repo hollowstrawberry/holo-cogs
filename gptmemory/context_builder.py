@@ -110,35 +110,23 @@ class ContextBuilder:
             return url_candidates
 
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
-        seen_attachments: set[int] = set()
-        seen_urls: set[str] = set()
         priority_remaining = max_images
         for backmsg in backread:
             quote = all_resolved_quotes.get(backmsg.id)
             backmsg_candidates = extract_candidates(backmsg)
             quote_candidates   = extract_candidates(quote) if quote else []
-            candidates = [
-                src for src in backmsg_candidates + quote_candidates
-                if not (src.attachment and src.attachment.id in seen_attachments or src.url and src.url in seen_urls)
-            ]
-            seen_attachments.update(src.attachment.id for src in candidates if src.attachment)
-            seen_urls.update(src.url for src in candidates if src.url)
+            candidates = backmsg_candidates + quote_candidates
             # share image budget between base message and its quoted message
             priority_slots = max(0, priority_remaining)
-            priority_list  = candidates[:priority_slots]
-            caption_list   = candidates[priority_slots:]
+            priority_list = candidates[:priority_slots]
+            caption_list  = candidates[priority_slots:]
             priority_remaining -= len(priority_list)
-            if backmsg_candidates:
-                log.info(f"{backmsg_candidates=}")
-            if quote_candidates:
-                log.info(f"{quote_candidates=}")
-            if backmsg_candidates or quote_candidates:
-                log.info(f"{caption_list=}")
             # save them separately
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
                 return ([src for src in priority_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
-            all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
-            if quote:
+            if backmsg.id not in all_candidates:
+                all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
+            if quote and quote.id not in all_candidates:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
         
         # Pass 3: grab images
@@ -363,8 +351,6 @@ class ContextBuilder:
         generated_image = current_images.generated_image if current_images else None
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
-
-        log.info(f"{attachment_captions=}")
         
         inline_objs: dict[str, dict[str, Any]] = {}
         obj: dict[str, Any] = {
