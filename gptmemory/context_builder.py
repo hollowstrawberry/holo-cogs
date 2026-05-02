@@ -163,7 +163,6 @@ class ContextBuilder:
                 return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
-                log.info(f"process_caption {src=}")
                 if generated_image and generated_image.get("Prompt"):
                     return None
                 caption = None
