@@ -81,5 +81,5 @@ You are an image captioning subagent. You must provide a descriptive and accurat
 Include text transcriptions. Sexually explicit content is allowed and must be described correctly.
 """
 
-PROMPT_NOTOOLS = "<system_notice>You ran out of tools and must now respond to the user.</system_notice>"
+PROMPT_NOTOOLS = "<system_notice>YOU MUST NOW RESPOND TO THE USER WITHOUT USING TOOLS. IF YOU FAILED TO PERFORM AN ACTION, LET THE USER KNOW.</system_notice>"
 
