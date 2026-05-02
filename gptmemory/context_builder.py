@@ -135,6 +135,8 @@ class ContextBuilder:
                 all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, priority_list, caption_list)
             if quote and quote.id not in all_candidates:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, [src for src in priority_list if src.message_id == quote.id], [src for src in caption_list if src.message_id == quote.id])
+
+        log.info(f"{first_appearance=}")
         
         # Pass 3: grab images
 
@@ -173,10 +175,11 @@ class ContextBuilder:
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
                 if first_appearance[src] != backmsg.id:
+                    log.info(f"skipped {first_appearance[src=]}, {backmsg.id=}, {src}")
                     return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
-                log.info(f"processing {src}")
+                log.info(f"processing {first_appearance[src=]}, {backmsg.id=}, {src}")
                 caption = None
                 if src.attachment:
                     _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, None))
