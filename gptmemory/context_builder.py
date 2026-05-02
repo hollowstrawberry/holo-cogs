@@ -157,7 +157,7 @@ class ContextBuilder:
                 if not caption and not generated_image:
                     image_content = utils.make_image_content(data, low_detail=True)
                     caption = await self.execute_captioner(ctx, image_content, result)
-                if not caption and not generated_image;
+                if not caption and not generated_image:
                     log.warning(f"caption is None for {src}")
                 if src.attachment:
                     self.attachment_image_cache[src.attachment.id] = (src.att_index, data)
