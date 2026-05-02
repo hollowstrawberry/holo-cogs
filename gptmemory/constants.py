@@ -24,7 +24,7 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Automated actions", re.compile(r"^\s*-?\s*#\s*(Request|Revise|Reroll|Result|Upscale|Change|Variation).+", re.MULTILINE | re.IGNORECASE), ""),
     ("JSON objects",      re.compile(r"{[^}]*?(image|file|action)[^}]*?}(?!\s*`{3,})", re.IGNORECASE), ""),
     ("Markdown image",    re.compile(r"!\[[^\]]+?\]\([^\)]+?\.(png|jpe?g|webp)\)", re.IGNORECASE), ""),
-    #("Closing XML",       re.compile(r"(\s*</\w+>)+\s*$"), ""),
+    ("Closing XML",       re.compile(r"(?:\s*</(?:chat_message|content)>)+\s*$"), ""),
     ("Leftover symbol",   re.compile(r"""\n[}'"\s\-]+$"""), ""),
     #("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
     ("Em dash",           re.compile(r"(?<=\w)—(?=\w)"), ", "),
