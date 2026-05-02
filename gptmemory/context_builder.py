@@ -91,8 +91,6 @@ class ContextBuilder:
         # Pass 2: decide which images will be downloaded and which will be captioned
 
         def extract_candidates(msg: discord.Message) -> list[ImageSource]:
-            if msg.attachments:
-                log.info(f"{msg.attachments}")
             att_candidates: list[ImageSource] = [
                 ImageSource(msg.id, attachment=att, att_index=i)
                 for i, att in enumerate(msg.attachments)
@@ -178,7 +176,7 @@ class ContextBuilder:
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
                 log.info(f"process_caption {src=}")
-                if generated_image:
+                if generated_image and generated_image.get("Prompt"):
                     return None
                 caption = None
                 if src.attachment:
@@ -189,10 +187,12 @@ class ContextBuilder:
                     return src, caption
                 data = await self.fetch_and_normalize(src, thumbnail_size=max_caption_res)
                 if data is None:
+                    log.warning(f"data for captioning is None for {src}")
                     return None
                 image_content = utils.make_image_content(data, low_detail=True)
                 caption = await self.execute_captioner(ctx, image_content, result)
                 if caption is None:
+                    log.warning(f"caption is None for {src}")
                     return None
                 if src.attachment:
                     self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
@@ -245,7 +245,6 @@ class ContextBuilder:
             if isinstance(res, BaseException):
                 log.warning(f"resolve_images raised: {res}")
                 continue
-            log.info(f"{res=}")
             all_resolved_images[res.message_id] = res
  
         # Pass 4: Parse each message and attach images
