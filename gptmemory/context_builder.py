@@ -132,9 +132,9 @@ class ContextBuilder:
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
                 return ([src for src in priority_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
             if backmsg.id not in all_candidates:
-                all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
+                all_candidates[backmsg.id] = candidates
             if quote and quote.id not in all_candidates:
-                all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
+                all_candidates[quote.id] = DiscordMessageImageCandidates(quote, [src for src in priority_list if src.message_id == quote.id], [src for src in caption_list if src.message_id == quote.id])
 
         log.info(f"{first_appearance=}")
         
@@ -149,8 +149,6 @@ class ContextBuilder:
                     generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
             
             async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
-                if first_appearance[src] != backmsg.id:
-                    return None
                 data, caption = None, ""
                 if src.attachment:
                     _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
@@ -174,9 +172,6 @@ class ContextBuilder:
                 return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
-                if first_appearance[src] != backmsg.id:
-                    log.info(f"skipping, {first_appearance[src]=}, {backmsg.id=}, {src=}")
-                    return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
                 log.info(f"processing {src}")
