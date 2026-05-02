@@ -118,8 +118,8 @@ class ContextBuilder:
             quote_candidates   = extract_candidates(quote) if quote else []
             candidates = backmsg_candidates + quote_candidates
             for src in candidates:
-                first_instance[src] = first_instance.get(src, backmsg.id)
-            candidates = [src for src in candidates if first_instance[src] == backmsg.id]
+                first_appearance[src] = first_appearance.get(src, backmsg.id)
+            candidates = [src for src in candidates if first_appearance[src] == backmsg.id]
             if not candidates:
                 continue
             # share image budget between base message and its quoted message
@@ -145,7 +145,7 @@ class ContextBuilder:
                     generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
             
             async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
-                if first_instance[src] != backmsg.id:
+                if first_appearance[src] != backmsg.id:
                     return None
                 data, caption = None, ""
                 if src.attachment:
@@ -170,7 +170,7 @@ class ContextBuilder:
                 return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
-                if first_instance[src] != backmsg.id:
+                if first_appearance[src] != backmsg.id:
                     return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
