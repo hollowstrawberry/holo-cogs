@@ -175,6 +175,7 @@ class ContextBuilder:
                 return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
+                log.info(f"process_caption {src=}")
                 if generated_image:
                     return None
                 caption = None
@@ -195,6 +196,7 @@ class ContextBuilder:
                     self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
                 elif src.url:
                     self.url_caption_cache[src.url] = caption
+                log.info(f"process_caption {caption=}")
                 return src, caption
             
             candidates = all_candidates[backmsg.id]
