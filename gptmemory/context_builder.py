@@ -134,14 +134,14 @@ class ContextBuilder:
                 log.info(f"{backmsg_candidates=}")
             if quote_candidates:
                 log.info(f"{quote_candidates=}")
+            if backmsg_candidates or quote_candidates:
+                log.info(f"{caption_list=}")
             # save them separately
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
                 return ([src for src in priority_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
             all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
             if quote:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
-
-        log.info(f"{all_candidates=}")
         
         # Pass 3: grab images
 
