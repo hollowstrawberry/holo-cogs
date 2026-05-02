@@ -54,7 +54,7 @@ DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezon
 
 MEDIA_HEADERS =  {
     "User-Agent": "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
-    "Accept": "image/*,video/*;q=0.8",
+    "Accept": "image/*;q=0.9",
 }
 
 VISION_MODELS = [
