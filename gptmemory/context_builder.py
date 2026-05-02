@@ -111,16 +111,11 @@ class ContextBuilder:
 
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
         priority_remaining = max_images
-        first_appearance: dict[ImageSource, int] = {}
         for backmsg in backread:
             quote = all_resolved_quotes.get(backmsg.id)
             backmsg_candidates = extract_candidates(backmsg)
             quote_candidates   = extract_candidates(quote) if quote else []
             candidates = backmsg_candidates + quote_candidates
-            for src in candidates:
-                if src not in first_appearance:
-                    first_appearance[src] = backmsg.id
-            candidates = [src for src in candidates if first_appearance[src] == backmsg.id]
             if not candidates:
                 continue
             # share image budget between base message and its quoted message
@@ -132,9 +127,9 @@ class ContextBuilder:
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
                 return ([src for src in priority_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
             if backmsg.id not in all_candidates:
-                all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, priority_list, caption_list)
-
-        log.info(f"{first_appearance=}")
+                all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
+            if quote and quote.id not in all_candidates:
+                all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
         
         # Pass 3: grab images
 
@@ -147,8 +142,6 @@ class ContextBuilder:
                     generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
             
             async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
-                if first_appearance[src] != backmsg.id:
-                    return None
                 data, caption = None, ""
                 if src.attachment:
                     _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
@@ -172,8 +165,6 @@ class ContextBuilder:
                 return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
-                if first_appearance[src] != backmsg.id:
-                    return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
                 caption = None
@@ -209,7 +200,7 @@ class ContextBuilder:
                 asyncio.gather(*caption_tasks,  return_exceptions=True),
             )
             image_contents: list[GptImageContent] = []
-            attachment_captions: dict[int], str] = {}
+            attachment_captions: dict[int, str] = {}
             url_captions: dict[str, str] = {}
             for res in priority_results_raw:
                 if isinstance(res, BaseException):
@@ -244,8 +235,6 @@ class ContextBuilder:
                 log.warning(f"resolve_images raised: {res}")
                 continue
             all_resolved_images[res.message_id] = res
-
-        log.info(f"{all_resolved_images=}")
  
         # Pass 4: Parse each message and attach images
 
