@@ -91,6 +91,8 @@ class ContextBuilder:
         # Pass 2: decide which images will be downloaded and which will be captioned
 
         def extract_candidates(msg: discord.Message) -> list[ImageSource]:
+            if msg.attachments:
+                log.info(f"{msg.attachments}")
             att_candidates: list[ImageSource] = [
                 ImageSource(msg.id, attachment=att, att_index=i)
                 for i, att in enumerate(msg.attachments)
@@ -128,14 +130,16 @@ class ContextBuilder:
             priority_list  = candidates[:priority_slots]
             caption_list   = candidates[priority_slots:]
             priority_remaining -= len(priority_list)
+            if backmsg_candidates:
+                log.info(f"{backmsg_candidates=}")
+            if quote_candidates:
+                log.info(f"{quote_candidates=}")
             # save them separately
             def filter_sources(msg: discord.Message) -> tuple[list[ImageSource], list[ImageSource]]:
                 return ([src for src in priority_list if src.message_id == msg.id], [src for src in caption_list if src.message_id == msg.id])
             all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
             if quote:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
-
-        log.info(f"{all_candidates=}")
         
         # Pass 3: grab images
 
