@@ -140,6 +140,8 @@ class ContextBuilder:
             all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
             if quote:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
+
+        log.info(f"{all_candidates=}")
         
         # Pass 3: grab images
 
@@ -196,7 +198,6 @@ class ContextBuilder:
                     self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
                 elif src.url:
                     self.url_caption_cache[src.url] = caption
-                log.info(f"process_caption {caption=}")
                 return src, caption
             
             candidates = all_candidates[backmsg.id]
