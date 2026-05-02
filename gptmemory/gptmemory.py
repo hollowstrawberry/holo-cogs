@@ -398,7 +398,7 @@ class GptMemory(GptMemoryCommands):
                 await ctx.message.add_reaction(emoji)
                 return {}
 
-            if not response.choices[0].message.tool_calls:
+            if not can_use_tools or not response.choices[0].message.tool_calls:
                 break
                   
             temp_messages.append(response.choices[0].message)  # type: ignore
