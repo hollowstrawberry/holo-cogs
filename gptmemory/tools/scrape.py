@@ -75,7 +75,7 @@ class ScrapeTool(ToolBase):
         repo = match.group("repo")
         branch = match.group("branch")
         path = match.group("path")
-        url = f"https://raw.githubusercontent.com/{user}/{repo}/refs/heads/{branch}/{path}"
+        url = f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/{path}"
         return await self.scrape_generic(url)
 
     async def scrape_arcenciel_model(self, match: re.Match) -> dict | str:
