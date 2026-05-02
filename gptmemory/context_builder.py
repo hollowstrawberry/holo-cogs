@@ -355,6 +355,8 @@ class ContextBuilder:
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
 
+        log.info(f"{attachment_captions=}")
+        
         inline_objs: dict[str, dict[str, Any]] = {}
         obj: dict[str, Any] = {
             "@time": message.created_at.astimezone().strftime(constants.DATETIME_FORMATTING),
