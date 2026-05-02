@@ -121,6 +121,7 @@ class ContextBuilder:
             log.info(f"{quote_candidates=}")
             for src in candidates:
                 if src not in first_appearance:
+                    log.info(f"setting first {src.message_id=} {backmsg.id=}"),
                     first_appearance[src] = backmsg.id
             candidates = [src for src in candidates if first_appearance[src] == backmsg.id]
             if not candidates:
