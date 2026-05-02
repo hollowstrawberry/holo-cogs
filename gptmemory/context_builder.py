@@ -134,6 +134,8 @@ class ContextBuilder:
             all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
             if quote:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
+
+        log.info(f"{all_candidates=}")
         
         # Pass 3: grab images
 
