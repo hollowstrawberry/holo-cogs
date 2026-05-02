@@ -352,7 +352,6 @@ class ContextBuilder:
         generated_image = current_images.generated_image if current_images else None
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
-        log.info(f"{attachment_captions=}")
         
         inline_objs: dict[str, dict[str, Any]] = {}
         obj: dict[str, Any] = {
@@ -434,8 +433,8 @@ class ContextBuilder:
                 attachments.append(att_obj)
             utils.add_xml_group(obj, attachments, "attachments")
         # linked images
+        linked_images = []
         if url_captions:
-            linked_images = []
             for url, caption in url_captions.items():
                 linked_images.append({"@url": url, "caption": caption})
             utils.add_xml_group(obj, linked_images, "linked_images")
@@ -454,11 +453,11 @@ class ContextBuilder:
                 embed_obj["title"] = embed.title
             if embed.description:
                 embed_obj["description"] = utils.clean_content(embed.description) if exhaustive else "..."
-            if embed.url:
+            if embed.url and embed.url not in obj.get("content", ""):
                 embed_obj["url"] = embed.url
-            if embed.image and embed.image.url:
+            if embed.image and embed.image.url and not any(link["@url"] == embed.image.url for link in linked_images):
                 embed_obj["image"] = embed.image.url
-            if embed.thumbnail and embed.thumbnail.url:
+            if embed.thumbnail and embed.thumbnail.url and not any(link["@url"] == embed.thumbnail.url for link in linked_images):
                 embed_obj["thumbnail"] = embed.thumbnail.url
             if embed.fields and exhaustive:
                 fields = []
