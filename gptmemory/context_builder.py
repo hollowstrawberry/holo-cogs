@@ -134,6 +134,9 @@ class ContextBuilder:
                 all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
             if quote and quote.id not in all_candidates:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
+
+        log.info(f"{first_appearance=}")
+        
         # Pass 3: grab images
 
         async def resolve_images(backmsg: discord.Message) -> DiscordMessageResolvedImages:
