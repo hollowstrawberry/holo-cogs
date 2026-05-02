@@ -190,6 +190,8 @@ class ContextBuilder:
                 return src, caption
             
             candidates = all_candidates[backmsg.id]
+            if candidates: 
+                log.info(f"{candidates=}")
             all_srcs = (candidates.download + candidates.caption)[:constants.MAX_IMAGES_PER_MESSAGE]
             priority_srcs = [s for s in all_srcs if s in candidates.download]
             caption_srcs  = [s for s in all_srcs if s in candidates.caption]
@@ -318,6 +320,7 @@ class ContextBuilder:
                 if fp_before.getbuffer().nbytes == 0:
                     await src.attachment.save(fp_before, seek_begin=True)
             elif src.url:
+                log.info(f"{src.url=}")
                 async with self.session.get(src.url) as response:
                     response.raise_for_status()
                     fp_before = BytesIO(await response.read())
