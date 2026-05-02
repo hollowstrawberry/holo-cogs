@@ -17,6 +17,7 @@ import gptmemory.utils as utils
 import gptmemory.constants as constants
 from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
 from gptmemory.commands import GptMemoryCommands
+from gptmemory.defaults import PROMPT_NOTOOLS
 from gptmemory.tools.base import get_all_tools
 from gptmemory.tools.update_memory import UpdateMemoryTool
 from gptmemory.context_builder import ContextBuilder
@@ -355,10 +356,10 @@ class GptMemory(GptMemoryCommands):
         past_tool_calls: list[str] = []
         for depth in range(max_tool_depth):
             can_use_tools = depth < max_tool_depth - 1
-            if not can_use_tools and i > 0:
+            if not can_use_tools and depth > 0:
                 temp_messages.append({
                     "role": "system",
-                    "content": prompt_keys.get("notools", constants.NOTOOLS_PROMPT),
+                    "content": prompt_keys.get("notools", PROMPT_NOTOOLS),
                 })
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
