@@ -20,7 +20,7 @@ class BooruTagsTool(ToolBase):
     schema = ToolCall(
         Function(
             name="find_booru_tags",
-            description="Search a database of booru tags, such as those for clothing, composition, etc.",
+            description="Search a database of booru tags, such as those for clothing, composition, etc. Typically only useful for stable diffusion prompts.",
             parameters=Parameters(
                 properties={
                     "query": {
