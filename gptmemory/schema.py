@@ -10,7 +10,7 @@ GptImageContent = dict[str, (str | dict[str, str])]
 GptMessage = dict[str, (str | list[GptImageContent])]
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParsedMessageResult:
     message_id: int
     gpt_message: GptMessage
@@ -18,7 +18,7 @@ class ParsedMessageResult:
     num_images: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class ImageSource:
     message_id: int
     attachment: discord.Attachment | None = None
@@ -26,14 +26,14 @@ class ImageSource:
     url: str | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class DiscordMessageImageCandidates:
     message: discord.Message
     download: list[ImageSource]
     caption: list[ImageSource]
 
     
-@dataclass
+@dataclass(frozen=True)
 class DiscordMessageResolvedImages:
     message_id: int
     image_contents: list[GptImageContent]
@@ -74,7 +74,7 @@ class CompletionResult:
             self.cost += cost
 
 
-@dataclass
+@dataclass(frozen=True)
 class MemoryChangeResult:
     name: str
     before: str | None
