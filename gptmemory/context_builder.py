@@ -149,6 +149,8 @@ class ContextBuilder:
                     generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
             
             async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
+                if first_appearance[src] != backmsg.id:
+                    return None
                 data, caption = None, ""
                 if src.attachment:
                     _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
@@ -172,6 +174,8 @@ class ContextBuilder:
                 return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
+                if first_appearance[src] != backmsg.id:
+                    return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
                 log.info(f"processing {src}")
