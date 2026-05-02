@@ -193,8 +193,6 @@ class ContextBuilder:
                 return src, caption
             
             candidates = all_candidates[backmsg.id]
-            if candidates: 
-                log.info(f"{candidates=}")
             all_srcs = (candidates.download + candidates.caption)[:constants.MAX_IMAGES_PER_MESSAGE]
             priority_srcs = [s for s in all_srcs if s in candidates.download]
             caption_srcs  = [s for s in all_srcs if s in candidates.caption]
