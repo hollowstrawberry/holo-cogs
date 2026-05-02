@@ -355,12 +355,13 @@ class GptMemory(GptMemoryCommands):
         past_tool_calls: list[str] = []
         for depth in range(max_tool_depth):
             can_use_tools = depth < max_tool_depth - 1
+            log.info(f"{can_use_tools=}")
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
                 messages=temp_messages,  # type: ignore
                 max_completion_tokens=max_tokens,  # type: ignore
-                tools=tools_schema if can_use_tools else None,  # type: ignore
+                tools=tools_schema,# if can_use_tools else None,  # type: ignore
                 tool_choice="auto" if can_use_tools else "none",
                 extra_body=None if "/" not in model else {
                     "session_id": str(ctx.message.id),
