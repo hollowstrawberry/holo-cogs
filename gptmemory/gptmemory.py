@@ -335,17 +335,15 @@ class GptMemory(GptMemoryCommands):
         }
         temp_messages.insert(0, system_prompt)
         if prompt_keys.get("end", "").strip():
-            end_prompt = {
+            temp_messages.append({
                 "role": "system",
                 "content": prompt_keys["end"],
-            }
-            temp_messages.append(end_prompt)
+            })
         if prompt_keys.get("prefill", "").strip():
-            prefill_prompt = {
+            temp_messages.append({
                 "role": "assistant",
                 "content": prompt_keys["prefill"],
-            }
-            temp_messages.append(prefill_prompt)
+            })
 
         enabled_functions = await self.config.guild(ctx.guild).enabled_functions()
         tools = [t for t in self.available_tools if t.display_name in enabled_functions]
@@ -357,10 +355,16 @@ class GptMemory(GptMemoryCommands):
         for depth in range(max_tool_depth):
             can_use_tools = depth < max_tool_depth - 1
             if not can_use_tools and depth > 0:
-                temp_messages.append({
-                    "role": "system",
-                    "content": prompt_keys.get("notools", PROMPT_NOTOOLS),
-                })
+                if prompt_keys.get("notools", ""):
+                    temp_messages.append({
+                        "role": "system",
+                        "content": prompt_keys.get["notools"],
+                    })
+                if prompt_keys.get("notools_prefill, ""):
+                    temp_messages.append({
+                        "role": "assistant",
+                        "content": prompt_keys.get["notools_prefill"],
+                    })
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
