@@ -118,7 +118,8 @@ class ContextBuilder:
             quote_candidates   = extract_candidates(quote) if quote else []
             candidates = backmsg_candidates + quote_candidates
             for src in candidates:
-                first_appearance[src] = first_appearance.get(src, backmsg.id)
+                if src not in first_appearance:
+                    first_appearance[src] = backmsg.id
             candidates = [src for src in candidates if first_appearance[src] == backmsg.id]
             if not candidates:
                 continue
