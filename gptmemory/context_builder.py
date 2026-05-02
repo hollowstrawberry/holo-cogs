@@ -174,9 +174,11 @@ class ContextBuilder:
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
                 if first_appearance[src] != backmsg.id:
+                    log.info(f"skipping {src}")
                     return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
+                log.info(f"processing {src}")
                 caption = None
                 if src.attachment:
                     _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, None))
