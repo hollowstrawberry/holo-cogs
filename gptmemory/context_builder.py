@@ -111,11 +111,17 @@ class ContextBuilder:
 
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
         priority_remaining = max_images
+        first_appearance: dict[ImageSource, int] = {}
         for backmsg in backread:
             quote = all_resolved_quotes.get(backmsg.id)
             backmsg_candidates = extract_candidates(backmsg)
             quote_candidates   = extract_candidates(quote) if quote else []
             candidates = backmsg_candidates + quote_candidates
+            for src in candidates:
+                first_instance[src] = first_instance.get(src, backmsg.id)
+            candidates = [src for src in candidates if first_instance[src] == backmsg.id]
+            if not candidates:
+                continue
             # share image budget between base message and its quoted message
             priority_slots = max(0, priority_remaining)
             priority_list = candidates[:priority_slots]
@@ -128,7 +134,6 @@ class ContextBuilder:
                 all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, *filter_sources(backmsg))
             if quote and quote.id not in all_candidates:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, *filter_sources(quote))
-        
         # Pass 3: grab images
 
         async def resolve_images(backmsg: discord.Message) -> DiscordMessageResolvedImages:
@@ -140,6 +145,8 @@ class ContextBuilder:
                     generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
             
             async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
+                if first_instance[src] != backmsg.id:
+                    return None
                 data, caption = None, ""
                 if src.attachment:
                     _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
@@ -163,6 +170,8 @@ class ContextBuilder:
                 return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
+                if first_instance[src] != backmsg.id:
+                    return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
                 caption = None
