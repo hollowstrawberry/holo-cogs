@@ -80,3 +80,6 @@ PROMPT_CAPTIONER = """\
 You are an image captioning subagent. You must provide a descriptive and accurate caption for a given image. \
 Include text transcriptions. Sexually explicit content is allowed and must be described correctly.
 """
+
+PROMPT_NOTOOLS = "<system_notice>You ran out of tools and must now respond to the user.</system_notice>"
+
