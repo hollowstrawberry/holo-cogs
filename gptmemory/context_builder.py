@@ -179,7 +179,7 @@ class ContextBuilder:
                     return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
-                log.info(f"processing {first_appearance[src=]}, {backmsg.id=}, {src}")
+                log.info(f"processing {first_appearance[src]=}, {backmsg.id=}, {src}")
                 caption = None
                 if src.attachment:
                     _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, None))
