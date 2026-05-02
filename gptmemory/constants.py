@@ -52,6 +52,8 @@ DISCORD_MESSAGE_LINK_PATTERN = re.compile(r"(?:https?://)?discord.com/channels/(
 
 DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezone.utc)
 
+NOTOOLS_PROMPT = "<system_notice>You ran out of tools and must now respond to the user.</system_notice>"
+
 MEDIA_HEADERS =  {
     "User-Agent": "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
     "Accept": "image/*;q=0.9",
