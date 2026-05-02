@@ -236,6 +236,7 @@ class ContextBuilder:
             if isinstance(res, BaseException):
                 log.warning(f"resolve_images raised: {res}")
                 continue
+            log.info(f"{res=}")
             all_resolved_images[res.message_id] = res
  
         # Pass 4: Parse each message and attach images
