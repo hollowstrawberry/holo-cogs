@@ -17,7 +17,6 @@ import gptmemory.utils as utils
 import gptmemory.constants as constants
 from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
 from gptmemory.commands import GptMemoryCommands
-from gptmemory.defaults import PROMPT_NOTOOLS
 from gptmemory.tools.base import get_all_tools
 from gptmemory.tools.update_memory import UpdateMemoryTool
 from gptmemory.context_builder import ContextBuilder
