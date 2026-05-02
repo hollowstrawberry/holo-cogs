@@ -360,7 +360,7 @@ class GptMemory(GptMemoryCommands):
                         "role": "system",
                         "content": prompt_keys.get["notools"],
                     })
-                if prompt_keys.get("notools_prefill, ""):
+                if prompt_keys.get("notools_prefill", ""):
                     temp_messages.append({
                         "role": "assistant",
                         "content": prompt_keys.get["notools_prefill"],
