@@ -135,8 +135,6 @@ class ContextBuilder:
                 all_candidates[backmsg.id] = DiscordMessageImageCandidates(backmsg, priority_list, caption_list)
             if quote and quote.id not in all_candidates:
                 all_candidates[quote.id] = DiscordMessageImageCandidates(quote, [src for src in priority_list if src.message_id == quote.id], [src for src in caption_list if src.message_id == quote.id])
-
-        log.info(f"{first_appearance=}")
         
         # Pass 3: grab images
 
@@ -247,6 +245,8 @@ class ContextBuilder:
                 log.warning(f"resolve_images raised: {res}")
                 continue
             all_resolved_images[res.message_id] = res
+
+        log.info(f"{all_resolved_images=}")
  
         # Pass 4: Parse each message and attach images
 
@@ -364,6 +364,7 @@ class ContextBuilder:
         generated_image = current_images.generated_image if current_images else None
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
+        log.info(f"{attachment_captions=}")
         
         inline_objs: dict[str, dict[str, Any]] = {}
         obj: dict[str, Any] = {
