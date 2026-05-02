@@ -321,7 +321,7 @@ class ContextBuilder:
                 if fp_before.getbuffer().nbytes == 0:
                     await src.attachment.save(fp_before, seek_begin=True)
             elif src.url:
-                async with self.session.get(src.url) as response:
+                async with self.session.get(src.url, headers=constants.MEDIA_HEADERS) as response:
                     response.raise_for_status()
                     fp_before = BytesIO(await response.read())
 
