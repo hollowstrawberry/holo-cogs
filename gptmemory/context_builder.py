@@ -117,6 +117,8 @@ class ContextBuilder:
             backmsg_candidates = extract_candidates(backmsg)
             quote_candidates   = extract_candidates(quote) if quote else []
             candidates = backmsg_candidates + quote_candidates
+            log.info(f"{backmsg_candidates=}")
+            log.info(f"{quote_candidates=}")
             for src in candidates:
                 if src not in first_appearance:
                     first_appearance[src] = backmsg.id
