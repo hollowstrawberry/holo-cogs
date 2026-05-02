@@ -175,7 +175,7 @@ class ContextBuilder:
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
                 if first_appearance[src] != backmsg.id:
-                    log.info(f"skipped {first_appearance[src=]}, {backmsg.id=}, {src}")
+                    log.info(f"skipped {first_appearance[src]=}, {backmsg.id=}, {src}")
                     return None
                 if generated_image and generated_image.get("Prompt"):
                     return None
