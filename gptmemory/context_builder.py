@@ -152,10 +152,13 @@ class ContextBuilder:
                 if not data:
                     data = await self.fetch_and_normalize(src, max_image_resolution=max_image_res)
                 if not data:
+                    log.warning(f"image data is None for {src}")
                     return None
                 if not caption and not generated_image:
                     image_content = utils.make_image_content(data, low_detail=True)
                     caption = await self.execute_captioner(ctx, image_content, result)
+                if not caption and not generated_image;
+                    log.warning(f"caption is None for {src}")
                 if src.attachment:
                     self.attachment_image_cache[src.attachment.id] = (src.att_index, data)
                     self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
@@ -176,7 +179,7 @@ class ContextBuilder:
                     return src, caption
                 data = await self.fetch_and_normalize(src, thumbnail_size=max_caption_res)
                 if data is None:
-                    log.warning(f"data for captioning is None for {src}")
+                    log.warning(f"image data is None for {src}")
                     return None
                 image_content = utils.make_image_content(data, low_detail=True)
                 caption = await self.execute_captioner(ctx, image_content, result)
@@ -320,7 +323,6 @@ class ContextBuilder:
                 if fp_before.getbuffer().nbytes == 0:
                     await src.attachment.save(fp_before, seek_begin=True)
             elif src.url:
-                log.info(f"{src.url=}")
                 async with self.session.get(src.url) as response:
                     response.raise_for_status()
                     fp_before = BytesIO(await response.read())
