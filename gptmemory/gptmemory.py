@@ -358,12 +358,12 @@ class GptMemory(GptMemoryCommands):
                 if prompt_keys.get("notools", ""):
                     temp_messages.append({
                         "role": "system",
-                        "content": prompt_keys.get["notools"],
+                        "content": prompt_keys["notools"],
                     })
                 if prompt_keys.get("notools_prefill", ""):
                     temp_messages.append({
                         "role": "assistant",
-                        "content": prompt_keys.get["notools_prefill"],
+                        "content": prompt_keys["notools_prefill"],
                     })
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
