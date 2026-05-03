@@ -355,22 +355,12 @@ class GptMemory(GptMemoryCommands):
             can_use_tools = depth < max_tool_depth - 1
             if not can_use_tools and depth > 0:
                 temp_messages.extend(constants.FAKE_TOOL_CALL)
-                #if prompt_keys.get("notools", ""):
-                #    temp_messages.append({
-                #        "role": "system",
-                #        "content": prompt_keys["notools"],
-                #    })
-                #if prompt_keys.get("notools_prefill", ""):
-                #    temp_messages.append({
-                #        "role": "assistant",
-                #        "content": prompt_keys["notools_prefill"],
-                #    })
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
                 messages=temp_messages,  # type: ignore
                 max_completion_tokens=max_tokens,  # type: ignore
-                tools=tools_schema,# if can_use_tools else None,  # type: ignore
+                tools=tools_schema,  # type: ignore
                 tool_choice="auto" if can_use_tools else "none",
                 extra_body=None if "/" not in model else {
                     "session_id": str(ctx.message.id),
