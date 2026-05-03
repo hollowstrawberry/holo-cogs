@@ -406,7 +406,6 @@ class GptMemory(GptMemoryCommands):
                 break
                   
             temp_messages.append(response.choices[0].message)  # type: ignore
-            log.info(response.choices[0].message)
             for call in response.choices[0].message.tool_calls:
                 assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                 result.tool_calls += 1
