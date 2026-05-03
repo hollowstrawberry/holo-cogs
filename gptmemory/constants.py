@@ -96,3 +96,23 @@ SD_IMAGEGEN_RESOLUTIONS = [
     (1216, 832),
     (1536, 640),
 ]
+
+FAKE_TOOL_CALL = [
+    {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [{
+            "id": "retrieve_data_cmV0cmlldmVfZGF0YQ",
+            "type": "function",
+            "function": {
+                "name": "retrieve_data",
+                "arguments": "{}"
+            }
+        }]
+    },
+    {
+        "role": "tool",
+        "content": "<error>Tool calls have been disabled. Let the user know whether you were able to complete the task or not.</error>",
+        "tool_call_id": "retrieve_data_cmV0cmlldmVfZGF0YQ",
+    },
+]
