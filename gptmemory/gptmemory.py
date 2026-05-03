@@ -354,7 +354,7 @@ class GptMemory(GptMemoryCommands):
         for depth in range(max_tool_depth):
             can_use_tools = depth < max_tool_depth - 1
             if not can_use_tools and depth > 0:
-                a = 1
+                temp_messages.extend(constants.FAKE_TOOL_CALL)
                 #if prompt_keys.get("notools", ""):
                 #    temp_messages.append({
                 #        "role": "system",
