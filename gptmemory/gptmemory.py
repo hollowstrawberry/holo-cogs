@@ -354,16 +354,17 @@ class GptMemory(GptMemoryCommands):
         for depth in range(max_tool_depth):
             can_use_tools = depth < max_tool_depth - 1
             if not can_use_tools and depth > 0:
-                if prompt_keys.get("notools", ""):
-                    temp_messages.append({
-                        "role": "system",
-                        "content": prompt_keys["notools"],
-                    })
-                if prompt_keys.get("notools_prefill", ""):
-                    temp_messages.append({
-                        "role": "assistant",
-                        "content": prompt_keys["notools_prefill"],
-                    })
+                
+                #if prompt_keys.get("notools", ""):
+                #    temp_messages.append({
+                #        "role": "system",
+                #        "content": prompt_keys["notools"],
+                #    })
+                #if prompt_keys.get("notools_prefill", ""):
+                #    temp_messages.append({
+                #        "role": "assistant",
+                #        "content": prompt_keys["notools_prefill"],
+                #    })
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
@@ -405,6 +406,7 @@ class GptMemory(GptMemoryCommands):
                 break
                   
             temp_messages.append(response.choices[0].message)  # type: ignore
+            log.info(response.choices[0].message)
             for call in response.choices[0].message.tool_calls:
                 assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                 result.tool_calls += 1
