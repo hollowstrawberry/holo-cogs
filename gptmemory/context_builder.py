@@ -455,7 +455,7 @@ class ContextBuilder:
             if embed.title:
                 embed_obj["title"] = embed.title
             if embed.description:
-                embed_obj["description"] = utils.clean_content(embed.description) if exhaustive else "..."
+                embed_obj["description"] = utils.clean_content(embed.description)# if exhaustive else "..."
             if embed.url and embed.url[:max_quote_length] not in obj.get("content", ""):
                 embed_obj["url"] = embed.url
             if embed.image and embed.image.url and not any(link["@url"] == embed.image.url for link in linked_images):
