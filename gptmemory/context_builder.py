@@ -110,6 +110,7 @@ class ContextBuilder:
             return url_candidates
 
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
+        first_appearance: dict[int, int] = {}
         priority_remaining = max_images
         for backmsg in backread:
             quote = all_resolved_quotes.get(backmsg.id)
@@ -118,6 +119,9 @@ class ContextBuilder:
             candidates = backmsg_candidates + quote_candidates
             if not candidates:
                 continue
+            first_appearance[backmsg.id] = first_appearance.get(backmsg.id) or backmsg.id
+            if quote:
+                first_appearance[quote.id] = first_appearance.get(quote.id) or backmsg.id
             # share image budget between base message and its quoted message
             priority_slots = max(0, priority_remaining)
             priority_list = candidates[:priority_slots]
@@ -255,7 +259,11 @@ class ContextBuilder:
             for before, after_obj in message_inline_objs.items():
                 text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
 
-            image_contents = (images.image_contents if images else []) + (quoted_images.image_contents if quoted_images else [])
+            image_contents: list[GptImageContent] = []
+            if images and first_appearance[images.message_id] == backmsg.id:
+                image_contents.extend(images.image_contents)
+            if quoted_images and first_appearance[quoted_images.message_id] == backmsg.id:
+                image_contents.extend(quoted_images.image_contents)
             text_tokens  = len(self.encoding.encode(text_content))
             image_tokens = 1120 * len(image_contents)
             total_tokens = text_tokens + image_tokens
