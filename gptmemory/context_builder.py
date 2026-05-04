@@ -291,7 +291,7 @@ class ContextBuilder:
         for i, msg in enumerate(parsed_messages):
             cumulative += msg.tokens
             if i > 0 and cumulative > max_backread_tokens:
-                cutoff = i
+                cutoff = i + 1  # it's fine to go over
                 break
         parsed_messages = parsed_messages[:cutoff]
         result.messages = len(parsed_messages)
