@@ -112,7 +112,7 @@ class GptMemoryCommands(GptMemoryBase):
             "autoresponder": await self.config.guild(ctx.guild).prompt_autoresponder(),
             "recaller": await self.config.guild(ctx.guild).prompt_recaller(),
             "captioner": await self.config.guild(ctx.guild).prompt_captioner(),
-            "autoreacter": await self.config.guild(ctx.guild).prompt_autoreacter(),
+            #"autoreacter": await self.config.guild(ctx.guild).prompt_autoreacter(),
             "memorizer": await self.config.guild(ctx.guild).prompt_memorizer(),
             **await self.config.guild(ctx.guild).prompt_keys(),
         }
