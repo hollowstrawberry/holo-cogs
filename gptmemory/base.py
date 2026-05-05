@@ -46,6 +46,7 @@ class GptMemoryBase(commands.Cog):
             "model_responder": defaults.MODEL_RESPONDER,
             "model_memorizer": defaults.MODEL_MEMORIZER,
             "model_captioner": defaults.MODEL_CAPTIONER,
+            "model_autoreacter": defaults.MODEL_AUTOREACTER,
             "prompt_recaller": defaults.PROMPT_RECALLER,
             "prompt_responder": defaults.PROMPT_RESPONDER,
             "prompt_autoresponder": defaults.PROMPT_AUTORESPONDER,

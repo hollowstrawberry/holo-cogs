@@ -2,6 +2,7 @@ MODEL_RECALLER = "gpt-5.4-nano"
 MODEL_RESPONDER = "gpt-5.4-mini"
 MODEL_MEMORIZER = "gpt-5.4-mini"
 MODEL_CAPTIONER = "gpt-5.4-nano"
+MODEL_AUTOREACTER = "gpt-5.4-nano"
 
 EFFORT_RECALLER = "minimal"
 EFFORT_RESPONDER = "low"

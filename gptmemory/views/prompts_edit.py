@@ -2,7 +2,7 @@ import discord
 from discord.ui import View
 from typing import Awaitable, Callable
 
-from gptmemory.constants import VIEW_TIMEOUT, PROMPT_TYPES
+from gptmemory.constants import VIEW_TIMEOUT, PERMANENT_PROMPT_TYPES
 from gptmemory.views.prompt_edit_modal import PromptEditodal
 
 class PromptsEditView(View):
@@ -18,7 +18,7 @@ class PromptsEditView(View):
         self.message: discord.Message | None = None
         self.prompt_buttons: dict[str, discord.ui.Button] = {}
         for name in prompts.keys():
-            if name in PROMPT_TYPES or prompts[name].strip():
+            if name in PERMANENT_PROMPT_TYPES or prompts[name].strip():
                 self.add_button(name)
         self.create_button = discord.ui.Button(emoji="➕", style=discord.ButtonStyle.green)
         self.create_button.callback = self.create_prompt
@@ -28,7 +28,7 @@ class PromptsEditView(View):
         self.add_item(self.delete_button)
 
     def add_button(self, name: str):
-        style = discord.ButtonStyle.blurple if name in PROMPT_TYPES else discord.ButtonStyle.gray
+        style = discord.ButtonStyle.blurple if name in PERMANENT_PROMPT_TYPES else discord.ButtonStyle.gray
         button = discord.ui.Button(emoji="📝", label=name, style=style)
         button.callback = self.prompt_edit_selector(name)
         self.add_item(button)
@@ -43,7 +43,7 @@ class PromptsEditView(View):
         async def prompt_edit_callback_wrapper(prompt: str):
             self.prompts[name] = prompt
             await self.edit_callback(name, prompt)
-            if self.message and not prompt.strip() and name in self.prompt_buttons and name not in PROMPT_TYPES:
+            if self.message and not prompt.strip() and name in self.prompt_buttons and name not in PERMANENT_PROMPT_TYPES:
                 self.remove_item(self.prompt_buttons[name])
                 await self.message.edit(view=self)
         return prompt_edit_callback_wrapper
