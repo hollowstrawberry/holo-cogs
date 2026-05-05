@@ -248,7 +248,7 @@ class GptMemory(GptMemoryCommands):
     
     async def run_reaction(self, ctx: commands.Context):
         start = time.perf_counter()
-        backread = await self.fetch_message_history(ctx)
+        backread = await self.fetch_message_history(ctx, short=True)
         messages = await self.context_builder.build_message_history_context(ctx, backread, CompletionResult())
         result = await self.execute_autoreacter(ctx, messages)
         result.elapsed_ms = int(1000 * (time.perf_counter() - start))
@@ -602,9 +602,6 @@ class GptMemory(GptMemoryCommands):
     async def execute_autoreacter(self, ctx: commands.Context, messages: list[GptMessage]) -> ReactionResult:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         temp_messages = utils.get_text_contents(messages[:-1]) + [messages[-1]]  # allow last message to have an image
-        num_backread = await self.config.guild(ctx.guild).backread_short()
-        if len(temp_messages) > num_backread:
-            temp_messages = temp_messages[-num_backread:]
         base_system_content = await self.config.guild(ctx.guild).prompt_autoreacter()
         prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
         system_content = base_system_content.format(
@@ -709,9 +706,12 @@ class GptMemory(GptMemoryCommands):
         return caption
     
 
-    async def fetch_message_history(self, ctx: commands.Context) -> list[discord.Message]:
+    async def fetch_message_history(self, ctx: commands.Context, short: bool = False) -> list[discord.Message]:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        limit = await self.config.guild(ctx.guild).backread_messages()
+        if short:
+            limit = await self.config.guild(ctx.guild).backread_short()
+        else:
+            limit = await self.config.guild(ctx.guild).backread_messages()
         after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
         backread = [message async for message in ctx.channel.history(
             limit=limit,
