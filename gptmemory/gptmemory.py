@@ -674,6 +674,8 @@ class GptMemory(GptMemoryCommands):
                 raise error
         else:
             result.emote = emote
+        if self.extended_logging:
+            log.info(f"Reason for {completion.parsed.emote} is {completion.parsed.reason}")
         return result
 
 

@@ -100,6 +100,7 @@ class MemoryChangeList(BaseModel):
     memory_changes: list[MemoryChange]
 
 class MessageReaction(BaseModel):
+    reason: str
     emote: str
 
 
