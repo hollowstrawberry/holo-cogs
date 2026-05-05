@@ -131,10 +131,12 @@ class GptMemory(GptMemoryCommands):
             return
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
 
+        prefixes = await self.bot.get_valid_prefixes(ctx.guild)
+        if any(message.content.startswith(prefix) for prefix in prefixes):
+            return
+
         # no direct trigger
         if self.bot.user not in ctx.message.mentions:
-            if ctx.command:
-                return
             autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
             autoresponder_cooldown = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
             last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
