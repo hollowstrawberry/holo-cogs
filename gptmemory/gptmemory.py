@@ -125,7 +125,7 @@ class GptMemory(GptMemoryCommands):
             self.currently_responding.discard(message.id)
 
     
-    async def handle_message(self, message:discord.Message):
+    async def handle_message(self, message: discord.Message):
         ctx: commands.Context = await self.bot.get_context(message) 
         if not await self.is_valid_trigger(ctx):
             return
@@ -136,14 +136,24 @@ class GptMemory(GptMemoryCommands):
             if ctx.command:
                 return
             autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
-            cooldown_minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
+            autoresponder_cooldown = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
             last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
+            now = datetime.now(tz=timezone.utc)
             # no autoresponse
-            if random() > autoresponder_chance or (datetime.now(tz=timezone.utc) - last_response).total_seconds() < cooldown_minutes * 60:
+            if random() > autoresponder_chance or (now - last_response).total_seconds() < autoresponder_cooldown * 60:
                 autoreacter_chance = await self.config.guild(ctx.guild).autoreacter_chance()
-                if random() > autoreacter_chance:
+                autoreacter_chance_images = await self.config.guild(ctx.guild).autoreacter_chance_images()
+                autoreacter_cooldown = await self.config.guild(ctx.guild).autoreacter_cooldown_minutes()
+                last_reaction = datetime.fromisoformat(await self.config.channel(ctx.channel).last_reaction())
+                if (now - last_reaction).total_seconds() < autoreacter_cooldown * 60:
+                    return
+                if message.attachments and "image" in (message.attachments[0].content_type or ""):
+                    if random() > max(autoreacter_chance, autoreacter_chance_images):
+                        return
+                elif random() > autoreacter_chance:
                     return
                 # autoreact
+                await self.config.channel(ctx.channel).last_reaction.set(now.isoformat())
                 try:
                     await self.run_reaction(ctx)
                 except Exception:
@@ -151,7 +161,7 @@ class GptMemory(GptMemoryCommands):
                 return
         
         # in case of response or autoresponse
-        await self.config.channel(ctx.channel).last_response.set(datetime.now(tz=timezone.utc).isoformat())
+        await self.config.channel(ctx.channel).last_response.set(now.isoformat())
         
         if match := constants.URL_PATTERN.search(message.content):
             if not message.embeds and f"<{match.group(0)}>" not in message.content:  # non-embedding links

@@ -501,6 +501,21 @@ class GptMemoryCommands(GptMemoryBase):
         assert percent
         await ctx.reply(f"`[autoreacter_chance:]` {percent*100:.2f}%", mention_author=False)
 
+    @memoryconfig.command(name="autoreacter_chance_images")
+    async def memoryconfig_autoreacter_chance_images(self, ctx: commands.Context, percent: Optional[float]):
+        """The chance that the autoreacter will trigger on an image attachment, from 0.0 to 100.0"""
+        assert ctx.guild
+        if percent is None:
+            percent = await self.config.guild(ctx.guild).autoreacter_chance_images()
+        elif percent < 0 or percent > 100:
+            await ctx.reply("Value must range from 0.0 to 100.0", mention_author=False)
+            return
+        else:
+            percent /= 100
+            await self.config.guild(ctx.guild).autoreacter_chance_images.set(percent)
+        assert percent
+        await ctx.reply(f"`[autoreacter_chance_images:]` {percent*100:.2f}%", mention_author=False)
+
     @memoryconfig.command(name="autoresponder_cooldown")
     async def memoryconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
         """The minimum time between 2 autoresponder triggers in a single channel."""
@@ -513,6 +528,19 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).autoresponder_cooldown_minutes.set(minutes)
         assert minutes
         await ctx.reply(f"`[autoresponder_cooldown:]` {minutes} minutes", mention_author=False)
+
+    @memoryconfig.command(name="autoreacter_cooldown")
+    async def memoryconfig_autoreacter_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
+        """The minimum time between 2 autoreacter triggers in a single channel."""
+        assert ctx.guild
+        if minutes is None:
+            minutes = await self.config.guild(ctx.guild).autoreacter_cooldown_minutes()
+        elif minutes < 0:
+            await ctx.reply("Value must not be negative.", mention_author=False)
+        else:
+            await self.config.guild(ctx.guild).autoreacter_cooldown_minutes.set(minutes)
+        assert minutes
+        await ctx.reply(f"`[autoreacter_cooldown:]` {minutes} minutes", mention_author=False)
 
     @memoryconfig.command(name="timeout")
     async def memoryconfig_timeout(self, ctx: commands.Context, value: Optional[int]):

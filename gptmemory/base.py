@@ -35,6 +35,7 @@ class GptMemoryBase(commands.Cog):
         self.config.register_channel(**{
             "start": DISCORD_EPOCH_DATETIME.isoformat(),
             "last_response": DISCORD_EPOCH_DATETIME.isoformat(),
+            "last_reaction": DISCORD_EPOCH_DATETIME.isoformat(),
         })
         self.config.register_guild(**{
             "channel_mode": "whitelist",
@@ -75,7 +76,9 @@ class GptMemoryBase(commands.Cog):
             "max_caption_resolution": defaults.CAPTION_SIZE,
             "autoresponder_chance": 0.0,
             "autoreacter_chance": 0.0,
+            "autoreacter_chance_images": 0.0,
             "autoresponder_cooldown_minutes": 60,
+            "autoreacter_cooldown_minutes": 5,
         })
 
     async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
