@@ -159,7 +159,8 @@ class ContextBuilder:
                     log.warning(f"image data is None for {src}")
                     return None
                 if not caption and not generated_image:
-                    image_content = utils.make_image_content(data, low_detail=True)
+                    data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, max_caption_res)
+                    image_content = utils.make_image_content(data_thumbnail or b'', low_detail=True)
                     caption = await self.execute_captioner(ctx, image_content, result)
                 if not caption and not generated_image:
                     log.warning(f"caption is None for {src}")
