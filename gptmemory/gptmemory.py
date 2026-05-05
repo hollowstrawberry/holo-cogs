@@ -134,13 +134,13 @@ class GptMemory(GptMemoryCommands):
         prefixes = await self.bot.get_valid_prefixes(ctx.guild)
         if any(message.content.startswith(prefix) for prefix in prefixes):
             return
+        now = datetime.now(tz=timezone.utc)
 
         # no direct trigger
         if self.bot.user not in ctx.message.mentions:
             autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
             autoresponder_cooldown = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
             last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
-            now = datetime.now(tz=timezone.utc)
             # no autoresponse
             if random() > autoresponder_chance or (now - last_response).total_seconds() < autoresponder_cooldown * 60:
                 autoreacter_chance = await self.config.guild(ctx.guild).autoreacter_chance()
@@ -675,7 +675,7 @@ class GptMemory(GptMemoryCommands):
         else:
             result.emote = emote
         if self.extended_logging:
-            log.info(f"Reason for {completion.parsed.emote} is {completion.parsed.reason}")
+            log.info(f'Reason for "{completion.parsed.emote}" is "{completion.parsed.reason}"')
         return result
 
 
