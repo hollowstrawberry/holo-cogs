@@ -51,6 +51,7 @@ class GptMemoryBase(commands.Cog):
             "prompt_autoresponder": defaults.PROMPT_AUTORESPONDER,
             "prompt_memorizer": defaults.PROMPT_MEMORIZER,
             "prompt_captioner": defaults.PROMPT_CAPTIONER,
+            "prompt_autoreacter": defaults.PROMPT_AUTOREACTER,
             "prompt_keys": {},
             "effort_recaller": defaults.EFFORT_RECALLER,
             "effort_responder": defaults.EFFORT_RESPONDER,
@@ -58,7 +59,7 @@ class GptMemoryBase(commands.Cog):
             "response_tokens": defaults.RESPONSE_TOKENS,
             "backread_tokens": defaults.BACKREAD_TOKENS,
             "backread_messages": defaults.BACKREAD_MESSAGES,
-            "backread_memorizer": defaults.BACKREAD_MEMORIZER,
+            "backread_short": defaults.BACKREAD_SHORT,
             "allow_memorizer": defaults.ALLOW_MEMORIZER,
             "memorizer_user_only": defaults.MEMORIZER_USER_ONLY,
             "memorizer_alerts": defaults.MEMORIZER_ALERTS,
@@ -72,6 +73,7 @@ class GptMemoryBase(commands.Cog):
             "max_image_resolution": defaults.IMAGE_SIZE,
             "max_caption_resolution": defaults.CAPTION_SIZE,
             "autoresponder_chance": 0.0,
+            "autoreacter_chance": 0.0,
             "autoresponder_cooldown_minutes": 60,
         })
 

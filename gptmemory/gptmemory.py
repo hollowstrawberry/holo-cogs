@@ -15,7 +15,7 @@ from redbot.core.bot import Red
 
 import gptmemory.utils as utils
 import gptmemory.constants as constants
-from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams
+from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams, MessageReaction, ReactionResult
 from gptmemory.commands import GptMemoryCommands
 from gptmemory.tools.base import get_all_tools
 from gptmemory.tools.update_memory import UpdateMemoryTool
@@ -129,16 +129,26 @@ class GptMemory(GptMemoryCommands):
         ctx: commands.Context = await self.bot.get_context(message) 
         if not await self.is_valid_trigger(ctx):
             return
-
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
 
+        # no direct trigger
         if self.bot.user not in ctx.message.mentions:
             autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
             cooldown_minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
             last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
+            # no autoresponse
             if random() > autoresponder_chance or (datetime.now(tz=timezone.utc) - last_response).total_seconds() < cooldown_minutes * 60:
-                return False
-            
+                autoreacter_chance = await self.config.guild(ctx.guild).autoreacter_chance()
+                if random() > autoreacter_chance:
+                    return
+                # autoreact
+                try:
+                    await self.run_reaction(ctx)
+                except Exception:
+                    log.exception("run_reaction")                
+                return
+        
+        # in case of response or autoresponse
         await self.config.channel(ctx.channel).last_response.set(datetime.now(tz=timezone.utc).isoformat())
         
         if match := constants.URL_PATTERN.search(message.content):
@@ -235,6 +245,15 @@ class GptMemory(GptMemoryCommands):
         result.elapsed_ms = int(1000 * (time.perf_counter() - start))
         log.info(result)
 
+    
+    async def run_reaction(self, ctx: commands.Context):
+        start = time.perf_counter()
+        backread = await self.fetch_message_history(ctx)
+        messages = await self.context_builder.build_message_history_context(ctx, backread, CompletionResult())
+        result = await self.execute_autoreacter(ctx, messages)
+        result.elapsed_ms = int(1000 * (time.perf_counter() - start))
+        log.info(result)
+
 
     async def execute_recaller(self,
                                ctx: commands.Context,
@@ -270,7 +289,7 @@ class GptMemory(GptMemoryCommands):
 
         model = await self.config.guild(ctx.guild).model_recaller()
         effort = await self.config.guild(ctx.guild).effort_recaller()
-        response = await self.get_client(model).beta.chat.completions.create(
+        response = await self.get_client(model).chat.completions.create(
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
             messages=temp_messages,  # type: ignore
@@ -354,7 +373,7 @@ class GptMemory(GptMemoryCommands):
         for depth in range(max_tool_depth):
             can_use_tools = depth < max_tool_depth - 1
             if not can_use_tools and depth > 0:
-                temp_messages.extend(constants.FAKE_TOOL_CALL)
+                temp_messages.extend(constants.FAKE_TOOL_CALL)  # type: ignore
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
@@ -513,14 +532,14 @@ class GptMemory(GptMemoryCommands):
                 return False
             return True
         temp_messages = [msg for msg in utils.get_text_contents(messages) if is_valid(msg)]
-        num_backread = await self.config.guild(ctx.guild).backread_memorizer()
+        num_backread = await self.config.guild(ctx.guild).backread_short()
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]
         temp_messages.insert(0, system_prompt)
 
         model = await self.config.guild(ctx.guild).model_memorizer()
         effort = await self.config.guild(ctx.guild).effort_memorizer()
-        response = await self.get_client(model).beta.chat.completions.parse(
+        response = await self.get_client(model).chat.completions.parse(
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
             messages=temp_messages,  # type: ignore
@@ -535,7 +554,7 @@ class GptMemory(GptMemoryCommands):
             if cost := getattr(response.usage, "cost", 0.0):
                 result.add_cost(cost)
         if completion.refusal:
-            log.warning(completion.refusal)
+            log.warning(f"Memorizer refusal: {completion.refusal}")
             return []
         if not completion.parsed or not completion.parsed.memory_changes:
             return []
@@ -578,7 +597,70 @@ class GptMemory(GptMemoryCommands):
             view = MemoryChangeView(memory_changes, standalone)
             view.message = await ctx.send(view=view)
         return memory_changes
-    
+
+
+    async def execute_autoreacter(self, ctx: commands.Context, messages: list[GptMessage]) -> ReactionResult:
+        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
+        temp_messages = utils.get_text_contents(messages[:-1]) + [messages[-1]]  # allow last message to have an image
+        base_system_content = await self.config.guild(ctx.guild).prompt_autoreacter()
+        prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
+        system_content = base_system_content.format(
+            botname=ctx.me.name,
+            botnickname=ctx.guild.me.nick or ctx.me.name,
+            servername=ctx.guild.name,
+            channelname=ctx.channel.name,
+            currentdatetime=datetime.now().strftime(constants.DATETIME_FORMATTING),
+            **prompt_keys,
+        )
+        system_prompt = {
+            "role": "system",
+            "content": system_content
+        }
+        temp_messages.insert(0, system_prompt)
+        model = await self.config.guild(ctx.guild).model_autoreacter()
+        effort = "none"
+        response = await self.get_client(model).chat.completions.parse(
+            model=utils.clean_model(model),
+            reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
+            messages=temp_messages,  # type: ignore
+            response_format=MessageReaction,
+            extra_body=None if "/" not in model else {
+                "session_id": str(ctx.message.id),
+            },
+        )
+        completion = response.choices[0].message
+        result = ReactionResult()
+        if response.usage:
+            result.input_tokens = response.usage.prompt_tokens
+            result.output_tokens = response.usage.completion_tokens
+            if cost := getattr(response.usage, "cost", 0.0):
+                result.cost = cost
+        if completion.refusal:
+            log.warning(f"Autoreacter refusal: {completion.refusal}")
+            return result
+        if not completion.parsed or not completion.parsed.emote:
+            return result
+        
+        if constants.EMOTE_PATTERN.match(completion.parsed.emote):  # full emote
+            emote = completion.parsed.emote
+        elif constants.INCOMPLETE_EMOTE_PATTERN.match(completion.parsed.emote):  # :name:
+            emote = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(self.bot), completion.parsed.emote)
+        elif constants.ALPHANUMERIC_PATTERN.match(completion.parsed.emote):  # name
+            emote = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(self.bot), f":{completion.parsed.emote}:")
+        else:  # emoji?
+            emote = completion.parsed.emote
+        if not emote:
+            log.warning(f"Bad autoreacter emote: {completion.parsed.emote}")
+            return result
+        
+        try:
+            await ctx.message.add_reaction(emote)
+        except discord.NotFound:
+            pass
+        except TypeError:
+            log.warning(f"Invalid autoreacter emote: {emote}")
+        return result
+
 
     async def execute_captioner(self, ctx: commands.Context, image: GptImageContent, result: CompletionResult) -> str:
         assert ctx.guild
@@ -593,9 +675,10 @@ class GptMemory(GptMemoryCommands):
             }
         ]
         model = await self.config.guild(ctx.guild).model_captioner()
-        response = await self.get_client(model).beta.chat.completions.create(
+        effort = "none"
+        response = await self.get_client(model).chat.completions.create(
             model=utils.clean_model(model),
-            reasoning_effort=utils.adjusted_effort(model, "none"),  # type: ignore
+            reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
             messages=messages,  # type: ignore
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
@@ -616,7 +699,7 @@ class GptMemory(GptMemoryCommands):
             else:
                 result.tokens.captioner = tokens
         return caption
-
+    
 
     async def fetch_message_history(self, ctx: commands.Context) -> list[discord.Message]:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))

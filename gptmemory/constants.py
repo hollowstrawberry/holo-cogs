@@ -38,6 +38,7 @@ EMOTE_PATTERN = re.compile(r"<(a?):(\w+):(\d{17,19})>")
 INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?\\?(?:&lt;|<)?(a?):(\w{3,}):(\d*)(?:&gt;|>)?`?")
 FAKE_EMOTE_PATTERN = re.compile(r"(?:^|\s+):\w+:(?:\s+|$)")
 
+ALPHANUMERIC_PATTERN = re.compile(r"^(\w+)$")
 FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 BACKTICK_PATTERN = re.compile(r"```+")

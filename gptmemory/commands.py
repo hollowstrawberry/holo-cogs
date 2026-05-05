@@ -19,9 +19,6 @@ from gptmemory.views.prompts_edit import PromptsEditView
 
 class GptMemoryCommands(GptMemoryBase):
 
-    PromptTypes = Literal["recaller", "responder", "memorizer", "captioner"]
-    AllPromptTypes = PromptTypes | Literal["autoresponder"]
-
     @commands.command(name="prompt")
     async def prompt_cmd(self, ctx: commands.Context, module: Optional[str]):
         """
@@ -69,6 +66,9 @@ class GptMemoryCommands(GptMemoryBase):
         elif module == "captioner":
             prompt = await self.config.guild(ctx.guild).prompt_captioner()
             edit = self.config.guild(ctx.guild).prompt_captioner.set
+        elif module == "autoreacter":
+            prompt = await self.config.guild(ctx.guild).prompt_autoreacter()
+            edit = self.config.guild(ctx.guild).prompt_autoreacter.set
         else:
             keys = await self.config.guild(ctx.guild).prompt_keys()
             if module not in keys:
@@ -109,9 +109,10 @@ class GptMemoryCommands(GptMemoryBase):
             "responder": await self.config.guild(ctx.guild).prompt_responder(),
             "autoresponder": await self.config.guild(ctx.guild).prompt_autoresponder(),
             "recaller": await self.config.guild(ctx.guild).prompt_recaller(),
-            "memorizer": await self.config.guild(ctx.guild).prompt_memorizer(),
             "captioner": await self.config.guild(ctx.guild).prompt_captioner(),
-            **await self.config.guild(ctx.guild).prompt_keys()
+            "autoreacter": await self.config.guild(ctx.guild).prompt_autoreacter(),
+            "memorizer": await self.config.guild(ctx.guild).prompt_memorizer(),
+            **await self.config.guild(ctx.guild).prompt_keys(),
         }
         return PromptsEditView(prompts, edit_callback, self.bot.is_owner)
 
@@ -255,7 +256,7 @@ class GptMemoryCommands(GptMemoryBase):
         response += f"\n`[emotes:]` {settings['emotes']}"
         response += "\n## Limits"
         response += f"\n`[response_tokens:]` {settings['response_tokens']} `[backread_tokens:]` {settings['backread_tokens']}"
-        response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_memorizer:]` {settings['backread_memorizer']}"
+        response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_short:]` {settings['backread_short']}"
         response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
         response += f"\n`[max_tool:]` {settings['max_tool']} `[max_tool_depth:]` {settings['max_tool_depth']}"
         response += f"\n`[max_quote:]` {settings['max_quote']} `[max_text_file:]` {settings['max_text_file']}"
@@ -299,9 +300,11 @@ class GptMemoryCommands(GptMemoryBase):
         
         await ctx.reply(f"`[generation_channel_mode:]` {mode}\n`[generation_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
+    ModelPromptTypes = Literal["recaller", "responder", "memorizer", "captioner", "autoreacter"]
+
     @memoryconfig.command("model")
     @commands.is_owner()
-    async def memoryconfig_model(self, ctx: commands.Context, module: PromptTypes, model: Optional[str]):
+    async def memoryconfig_model(self, ctx: commands.Context, module: ModelPromptTypes, model: Optional[str]):
         """Views or changes the OpenAI model being used for the recaller, responder, or memorizer."""
         assert ctx.guild
         if module == "recaller":
@@ -312,6 +315,8 @@ class GptMemoryCommands(GptMemoryBase):
             model_config = self.config.guild(ctx.guild).model_memorizer
         elif module == "captioner":
             model_config = self.config.guild(ctx.guild).model_captioner
+        elif module == "autoreacter":
+            model_config = self.config.guild(ctx.guild).model_autoreacter
 
         if not model or not model.strip():
             await ctx.reply(f"Current model for the {module} is {await model_config()}")
@@ -326,9 +331,11 @@ class GptMemoryCommands(GptMemoryBase):
             else:
                 await ctx.tick(message="Model changed")
 
+    EffortPromptTypes = Literal["recaller", "responder", "memorizer"]
+
     @memoryconfig.command("effort")
     @commands.is_owner()
-    async def memoryconfig_effort(self, ctx: commands.Context, module: PromptTypes, effort: Optional[str]):
+    async def memoryconfig_effort(self, ctx: commands.Context, module: EffortPromptTypes, effort: Optional[str]):
         """Views or changes the reasoning effort for the recaller, responder, or memorizer."""
         assert ctx.guild
         if module == "recaller":
@@ -337,8 +344,6 @@ class GptMemoryCommands(GptMemoryBase):
             effort_config = self.config.guild(ctx.guild).effort_responder
         elif module == "memorizer":
             effort_config = self.config.guild(ctx.guild).effort_memorizer
-        elif module == "captioner":
-            effort_config = self.config.guild(ctx.guild).effort_captioner
 
         if not effort or not effort.strip():
             await ctx.reply(f"Current effort for the {module} is {await effort_config()}")
@@ -353,6 +358,8 @@ class GptMemoryCommands(GptMemoryBase):
     async def memoryconfig_prompt(self, ctx: commands.Context):
         """View or edit the prompts"""
         pass
+
+    AllPromptTypes = Literal["recaller", "responder", "autoresponder", "memorizer", "captioner", "autoreacter"]
 
     @memoryconfig_prompt.command(name="show", aliases=["view"])
     async def memoryconfig_prompt_show(self, ctx: commands.Context, module: AllPromptTypes):
@@ -374,7 +381,9 @@ class GptMemoryCommands(GptMemoryBase):
             prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
         elif module == "captioner":
             prompt = await self.config.guild(ctx.guild).prompt_captioner()
-        
+        elif module == "autoreacter":
+            prompt = await self.config.guild(ctx.guild).prompt_autoreacter()
+
         await chunk_and_send(ctx, f"`[{module} prompt]`\n```\n{prompt or '*None*'}\n```")
 
     @memoryconfig_prompt.command(name="set", aliases=["edit"])
@@ -402,6 +411,8 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
         elif module == "captioner":
             await self.config.guild(ctx.guild).prompt_captioner.set(prompt)
+        elif module == "autoreacter":
+            await self.config.guild(ctx.guild).prompt_autoreacter.set(prompt)
 
         await ctx.tick()
 
@@ -472,6 +483,21 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).autoresponder_chance.set(percent)
         assert percent
         await ctx.reply(f"`[autoresponder_chance:]` {percent*100:.2f}%", mention_author=False)
+
+    @memoryconfig.command(name="autoreacter_chance")
+    async def memoryconfig_autoreacter_chance(self, ctx: commands.Context, percent: Optional[float]):
+        """The chance that the autoreacter will trigger, from 0.0 to 100.0"""
+        assert ctx.guild
+        if percent is None:
+            percent = await self.config.guild(ctx.guild).autoreacter_chance()
+        elif percent < 0 or percent > 100:
+            await ctx.reply("Value must range from 0.0 to 100.0", mention_author=False)
+            return
+        else:
+            percent /= 100
+            await self.config.guild(ctx.guild).autoreacter_chance.set(percent)
+        assert percent
+        await ctx.reply(f"`[autoreacter_chance:]` {percent*100:.2f}%", mention_author=False)
 
     @memoryconfig.command(name="autoresponder_cooldown")
     async def memoryconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
@@ -658,18 +684,18 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).backread_messages.set(value)
         await ctx.reply(f"`[backread_messages:]` {value}", mention_author=False)
 
-    @memoryconfig_limits.command(name="backread_memorizer")
-    async def memoryconfig_backread_memorizer(self, ctx: commands.Context, value: Optional[int]):
-        """How many messages in chat the memorizer will read."""
+    @memoryconfig_limits.command(name="backread_short")
+    async def memoryconfig_backread_short(self, ctx: commands.Context, value: Optional[int]):
+        """How many messages in chat will read for shorter contexts (memorizer, autoreacter)."""
         assert ctx.guild
         if value is None:
-            value = await self.config.guild(ctx.guild).backread_memorizer()
+            value = await self.config.guild(ctx.guild).backread_short()
         elif value < 0 or value > 100:
             await ctx.reply("Value must be between 0 and 100", mention_author=False)
             return
         else:
-            await self.config.guild(ctx.guild).backread_memorizer.set(value)
-        await ctx.reply(f"`[backread_memorizer:]` {value}", mention_author=False)
+            await self.config.guild(ctx.guild).backread_short.set(value)
+        await ctx.reply(f"`[backread_short:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_images")
     async def memoryconfig_max_images(self, ctx: commands.Context, value: Optional[int]):

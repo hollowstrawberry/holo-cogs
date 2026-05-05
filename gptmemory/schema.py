@@ -73,6 +73,13 @@ class CompletionResult:
         else:
             self.cost += cost
 
+@dataclass
+class ReactionResult:
+    elapsed_ms: float = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost: float | str = "unknown"
+
 
 @dataclass(frozen=True)
 class MemoryChangeResult:
@@ -90,6 +97,9 @@ class MemoryChange(BaseModel):
 
 class MemoryChangeList(BaseModel):
     memory_changes: list[MemoryChange]
+
+class MessageReaction(BaseModel):
+    emote: str
 
 
 # Function calling

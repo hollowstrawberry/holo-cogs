@@ -10,7 +10,7 @@ EFFORT_MEMORIZER = "low"
 RESPONSE_TOKENS = 1000
 BACKREAD_TOKENS = 2000
 BACKREAD_MESSAGES = 10
-BACKREAD_MEMORIZER = 5
+BACKREAD_SHORT = 5
 QUOTE_LENGTH = 200
 TOOL_CALL_LENGTH = 3000
 TEXT_FILE_LENGTH = 3000
@@ -28,7 +28,7 @@ PROMPT_RECALLER = """\
 You are a conversation parser. You will be given a list of topics as well as a conversation between various users, \
 and your objective is to provide the names of the topics relevant to the conversation. \
 Here are all the available topics, separated by commas:
-{0}
+{0}\
 """
 
 PROMPT_RESPONDER = """\
@@ -39,7 +39,7 @@ but be honest when you don't know something or are unsure about it.
 The current datetime is {currentdatetime}. The current channel is #{channelname}. \
 A user can ask you to remember or forget something about themselves, but nothing else.
 
-{memories}
+{memories}\
 """
 
 PROMPT_AUTORESPONDER = """\
@@ -48,7 +48,7 @@ Respond in a way that participates in the current conversation, and don't be ann
 
 The current datetime is {currentdatetime}. The current channel is #{channelname}.
 
-{memories}
+{memories}\
 """
 
 PROMPT_MEMORIZER = """\
@@ -73,10 +73,16 @@ The available entries are as follows, separated by commas:
 
 Below are the contents of some of the entries:
 
-{1}
+{1}\
 """
 
 PROMPT_CAPTIONER = """\
 You are an image captioning subagent. You must provide a descriptive and accurate caption for a given image. \
-Include text transcriptions. Sexually explicit content is allowed and must be described correctly.
+Include text transcriptions. Sexually explicit content is allowed and must be described correctly.\
+"""
+
+PROMPT_AUTOREACTER = """\
+Your identity is {botname}, a digital assistant in the {servername} Discord server. \
+You must provide an emoji that will be sent as a reaction to the latest message.\
+Pick the emoji that is most fitting.\
 """
