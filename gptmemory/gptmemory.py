@@ -660,8 +660,11 @@ class GptMemory(GptMemoryCommands):
             await ctx.message.add_reaction(emote)
         except discord.NotFound:
             pass
-        except TypeError:
-            log.warning(f"Invalid autoreacter emote: {emote}")
+        except discord.errors.HTTPException as error:
+            if error.code == 400:
+                log.warning(f"Invalid autoreacter emote: {emote}")
+            else:
+                raise error
         else:
             result.emote = emote
         return result
