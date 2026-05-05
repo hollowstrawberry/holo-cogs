@@ -602,6 +602,9 @@ class GptMemory(GptMemoryCommands):
     async def execute_autoreacter(self, ctx: commands.Context, messages: list[GptMessage]) -> ReactionResult:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         temp_messages = utils.get_text_contents(messages[:-1]) + [messages[-1]]  # allow last message to have an image
+        num_backread = await self.config.guild(ctx.guild).backread_short()
+        if len(temp_messages) > num_backread:
+            temp_messages = temp_messages[-num_backread:]
         base_system_content = await self.config.guild(ctx.guild).prompt_autoreacter()
         prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
         system_content = base_system_content.format(
