@@ -102,6 +102,8 @@ class GptMemoryCommands(GptMemoryBase):
                 await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
             elif name == "captioner":
                 await self.config.guild(ctx.guild).prompt_captioner.set(prompt)
+            elif name == "autoreacter":
+                await self.config.guild(ctx.guild).prompt_autoreacter.set(prompt)
             else:
                 async with self.config.guild(ctx.guild).prompt_keys() as prompt_keys:
                     prompt_keys[name] = prompt
