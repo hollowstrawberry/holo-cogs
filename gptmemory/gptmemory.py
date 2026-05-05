@@ -133,6 +133,8 @@ class GptMemory(GptMemoryCommands):
 
         # no direct trigger
         if self.bot.user not in ctx.message.mentions:
+            if ctx.command:
+                return
             autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
             cooldown_minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
             last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
@@ -527,11 +529,7 @@ class GptMemory(GptMemoryCommands):
         }
 
         prefixes = await self.bot.get_valid_prefixes(ctx.guild)
-        def is_valid(msg: GptMessage) -> bool:
-            if msg["role"] == "user" and any(f"<content>{prefix}" in msg["content"] for prefix in prefixes):  # bot command
-                return False
-            return True
-        temp_messages = [msg for msg in utils.get_text_contents(messages) if is_valid(msg)]
+        temp_messages = [msg for msg in utils.get_text_contents(messages) if not utils.is_bot_command(msg, prefixes)]
         num_backread = await self.config.guild(ctx.guild).backread_short()
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]

@@ -67,6 +67,9 @@ def clean_tag(tag: str) -> str:
         return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
     else:
         return tag
+    
+def is_bot_command(message: GptMessage, prefixes: list[str]):
+    return message["role"] == "user" and any(f"<content>{prefix}" in message["content"] for prefix in prefixes)
 
 def farenheit_to_celsius(match: re.Match) -> str:
     f = float(match.group(1))
