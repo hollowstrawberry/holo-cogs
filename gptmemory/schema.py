@@ -75,6 +75,7 @@ class CompletionResult:
 
 @dataclass
 class ReactionResult:
+    emote: str | None = None
     elapsed_ms: float = 0
     input_tokens: int = 0
     output_tokens: int = 0

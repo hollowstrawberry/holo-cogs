@@ -662,6 +662,8 @@ class GptMemory(GptMemoryCommands):
             pass
         except TypeError:
             log.warning(f"Invalid autoreacter emote: {emote}")
+        else:
+            result.emote = emote
         return result
 
 
