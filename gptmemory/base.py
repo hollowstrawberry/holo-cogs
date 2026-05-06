@@ -42,6 +42,8 @@ class GptMemoryBase(commands.Cog):
             "channels": [],
             "generation_channel_mode": "blacklist",
             "generation_channels": [],
+            "auto_channel_mode": "whitelist",
+            "auto_channels": [],
             "memory": {},
             "model_recaller": defaults.MODEL_RECALLER,
             "model_responder": defaults.MODEL_RESPONDER,

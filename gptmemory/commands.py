@@ -250,6 +250,8 @@ class GptMemoryCommands(GptMemoryBase):
         response = ">>> # GptMemory Settings"
         response += "\n`[whitelisted_channels:]` " if settings["channel_mode"] == "whitelist" else "\n`[blacklisted_channels:]` " 
         response += " ".join([f"<#{cid}>" for cid in settings["channels"]])
+        response += "\n`[whitelisted_auto_channels:]` " if settings["auto_channel_mode"] == "whitelist" else "\n`[blacklisted_auto_channels:]` " 
+        response += " ".join([f"<#{cid}>" for cid in settings["auto_channels"]])
         if "generate_stable_diffusion" in functions:
             response += "\n`[whitelisted_generation_channels:]` " if settings["generation_channel_mode"] == "whitelist" else "\n`[blacklisted_generation_channels:]` " 
             response += " ".join([f"<#{cid}>" for cid in settings["generation_channels"]])
@@ -293,7 +295,7 @@ class GptMemoryCommands(GptMemoryBase):
 
     @memoryconfig.command(name="generation_channels")
     async def memoryconfig_generation_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
-        """Shows or sets the channels the stable diffusion generation tool has access to."""
+        """Shows or sets the channels that allow image generation tools."""
         assert ctx.guild
         if mode == "show":
             mode = await self.config.guild(ctx.guild).generation_channel_mode()
@@ -304,6 +306,20 @@ class GptMemoryCommands(GptMemoryBase):
             await self.config.guild(ctx.guild).generation_channels.set(channel_ids)
         
         await ctx.reply(f"`[generation_channel_mode:]` {mode}\n`[generation_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
+
+    @memoryconfig.command(name="auto_channels")
+    async def memoryconfig_auto_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
+        """Shows or sets the channels that allow automatic responses."""
+        assert ctx.guild
+        if mode == "show":
+            mode = await self.config.guild(ctx.guild).auto_channel_mode()
+            channel_ids = await self.config.guild(ctx.guild).auto_channels()
+        else:
+            channel_ids = [c.id for c in channels]
+            await self.config.guild(ctx.guild).auto_channel_mode.set(mode)
+            await self.config.guild(ctx.guild).auto_channels.set(channel_ids)
+        
+        await ctx.reply(f"`[auto_channel_mode:]` {mode}\n`[auto_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
     ModelPromptTypes = Literal["recaller", "responder", "memorizer", "captioner", "autoreacter"]
 

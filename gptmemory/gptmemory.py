@@ -136,13 +136,19 @@ class GptMemory(GptMemoryCommands):
             return
         now = datetime.now(tz=timezone.utc)
 
-        # no direct trigger
+        # automatic response
         if self.bot.user not in ctx.message.mentions:
+            channel_mode = await self.config.guild(ctx.guild).auto_channel_mode()
+            channels = await self.config.guild(ctx.guild).auto_channels()
+            if channel_mode == "blacklist" and ctx.channel.id in channels:
+                return
+            if channel_mode == "whitelist" and ctx.channel.id not in channels:
+                return
             autoresponder_chance = await self.config.guild(ctx.guild).autoresponder_chance()
             autoresponder_cooldown = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
             last_response = datetime.fromisoformat(await self.config.channel(ctx.channel).last_response())
-            # no autoresponse
             if random() > autoresponder_chance or (now - last_response).total_seconds() < autoresponder_cooldown * 60:
+                # automatic reaction
                 autoreacter_chance = await self.config.guild(ctx.guild).autoreacter_chance()
                 autoreacter_chance_images = await self.config.guild(ctx.guild).autoreacter_chance_images()
                 autoreacter_cooldown = await self.config.guild(ctx.guild).autoreacter_cooldown_minutes()
@@ -154,7 +160,6 @@ class GptMemory(GptMemoryCommands):
                         return
                 elif random() > autoreacter_chance:
                     return
-                # autoreact
                 await self.config.channel(ctx.channel).last_reaction.set(now.isoformat())
                 try:
                     await self.run_reaction(ctx)
