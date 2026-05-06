@@ -270,7 +270,7 @@ class ContextBuilder:
                 role = "user"
             else:
                 content = text_content
-                role = "assistant" if backmsg.author == ctx.me else "user"
+                role = "user"#"assistant" if backmsg.author == ctx.me else "user"
 
             gpt_msg = {
                 "role": role,
