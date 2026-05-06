@@ -17,8 +17,10 @@ class PromptsEditView(View):
         self.check_owner = check_owner
         self.message: discord.Message | None = None
         self.prompt_buttons: dict[str, discord.ui.Button] = {}
+        for name in PERMANENT_PROMPT_TYPES:
+            self.add_button(name)
         for name in prompts.keys():
-            if name in PERMANENT_PROMPT_TYPES or prompts[name].strip():
+            if name not in PERMANENT_PROMPT_TYPES and prompts[name].strip():
                 self.add_button(name)
         self.create_button = discord.ui.Button(emoji="➕", style=discord.ButtonStyle.green)
         self.create_button.callback = self.create_prompt
