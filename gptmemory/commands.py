@@ -107,7 +107,10 @@ class GptMemoryCommands(GptMemoryBase):
             else:
                 async with self.config.guild(ctx.guild).prompt_keys() as prompt_keys:
                     prompt_keys[name] = prompt
+        
+        prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
         prompts = {
+            **prompt_keys,
             "responder": await self.config.guild(ctx.guild).prompt_responder(),
             "autoresponder": await self.config.guild(ctx.guild).prompt_autoresponder(),
             "recaller": await self.config.guild(ctx.guild).prompt_recaller(),
@@ -115,10 +118,6 @@ class GptMemoryCommands(GptMemoryBase):
             "autoreacter": await self.config.guild(ctx.guild).prompt_autoreacter(),
             "memorizer": await self.config.guild(ctx.guild).prompt_memorizer(),
         }
-        prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
-        for key, value in prompt_keys.items():
-            if key not in prompts:
-                prompts[key] = value
         return PromptsEditView(prompts, edit_callback, self.bot.is_owner)
 
     @commands.command(name="forget")

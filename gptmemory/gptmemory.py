@@ -346,13 +346,13 @@ class GptMemory(GptMemoryCommands):
         base_system_content: str = config["prompt_autoresponder"] if auto else config["prompt_responder"]
         prompt_keys: dict[str, str] = config["prompt_keys"]
         system_content = base_system_content.format(
+            **prompt_keys,
             botname=ctx.me.name,
             botnickname=ctx.me.nick or ctx.me.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,
             currentdatetime=datetime.now().strftime(constants.DATETIME_FORMATTING),
             memories=recalled_memories_str,
-            **prompt_keys,
         )
         result.tokens.memories = len(self.encoding.encode(recalled_memories_str))
         result.tokens.system = len(self.encoding.encode(system_content)) - result.tokens.memories
@@ -610,12 +610,12 @@ class GptMemory(GptMemoryCommands):
 
         temp_messages = utils.get_text_contents(messages[:-1]) + [messages[-1]]  # allow last message to have an image
         system_content = config["prompt_autoreacter"].format(
+            **config["prompt_keys"],
             botname=ctx.me.name,
             botnickname=ctx.guild.me.nick or ctx.me.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,
             currentdatetime=datetime.now().strftime(constants.DATETIME_FORMATTING),
-            **config["prompt_keys"],
         )
         system_prompt = {
             "role": "system",
