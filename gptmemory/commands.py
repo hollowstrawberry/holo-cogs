@@ -280,7 +280,7 @@ class GptMemoryCommands(GptMemoryBase):
     channel_mode = Literal["whitelist", "blacklist", "show"]
 
     @memoryconfig.command(name="channels")
-    async def memoryconfig_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
+    async def memoryconfig_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Shows or sets the channels the bot has access to."""
         assert ctx.guild
         if mode == "show":
@@ -294,7 +294,7 @@ class GptMemoryCommands(GptMemoryBase):
         await ctx.reply(f"`[channel_mode:]` {mode}\n`[channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
     @memoryconfig.command(name="generation_channels")
-    async def memoryconfig_generation_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
+    async def memoryconfig_generation_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Shows or sets the channels that allow image generation tools."""
         assert ctx.guild
         if mode == "show":
@@ -308,7 +308,7 @@ class GptMemoryCommands(GptMemoryBase):
         await ctx.reply(f"`[generation_channel_mode:]` {mode}\n`[generation_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
     @memoryconfig.command(name="auto_channels")
-    async def memoryconfig_auto_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel]):
+    async def memoryconfig_auto_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Shows or sets the channels that allow automatic responses."""
         assert ctx.guild
         if mode == "show":
