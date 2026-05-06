@@ -341,6 +341,7 @@ class GptMemory(GptMemoryCommands):
         """
         assert ctx.guild and isinstance(ctx.me, discord.Member) and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         config: dict = await self.config.guild(ctx.guild).all()
+        global_config: dict = await self.config.all()
         model: str = config["model_responder"]
 
         base_system_content: str = config["prompt_autoresponder"] if auto else config["prompt_responder"]
@@ -414,10 +415,10 @@ class GptMemory(GptMemoryCommands):
                 error = str(getattr(response, "error", ""))
                 if "403" in error or "PROHIBITED" in error:
                     log.warning(f"Missing response: {error}")
-                    emoji = config["blocked_emoji"]
+                    emoji = global_config["blocked_emoji"]
                 else:
                     log.error(f"Missing response: {error}")
-                    emoji = config["noresponse_emoji"]
+                    emoji = global_config["noresponse_emoji"]
                 await ctx.message.add_reaction(emoji)
                 return {}
 
@@ -494,7 +495,7 @@ class GptMemory(GptMemoryCommands):
         if completion or view:
             await utils.chunk_and_send(ctx, completion, embed=None, view=view, do_reply=not auto)
         else:
-            await ctx.message.add_reaction(config["noresponse_emoji"])
+            await ctx.message.add_reaction(global_config["noresponse_emoji"])
 
         response_message = {
             "role": "assistant",
