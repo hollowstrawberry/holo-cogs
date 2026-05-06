@@ -49,12 +49,7 @@ class ContextBuilder:
     ) -> list[GptMessage]:
         
         assert ctx.guild
-        max_image_res       = await self.config.guild(ctx.guild).max_image_resolution()
-        max_caption_res     = await self.config.guild(ctx.guild).max_caption_resolution()
-        max_images          = await self.config.guild(ctx.guild).max_images()
-        max_quote_length    = await self.config.guild(ctx.guild).max_quote()
-        max_file_length     = await self.config.guild(ctx.guild).max_text_file()
-        max_backread_tokens = await self.config.guild(ctx.guild).backread_tokens()
+        config = await self.config.guild(ctx.guild).all()
         imagescanner: commands.Cog | None = self.bot.get_cog("ImageScanner")
 
         # Pass 1: grab quoted messages
@@ -111,7 +106,7 @@ class ContextBuilder:
 
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
         first_appearance: dict[int, int] = {}
-        priority_remaining = max_images
+        priority_remaining = config["max_images"]
         for backmsg in backread:
             quote = all_resolved_quotes.get(backmsg.id)
             backmsg_candidates = extract_candidates(backmsg)
@@ -154,12 +149,12 @@ class ContextBuilder:
                     data = self.url_image_cache.get(src.url)
                     caption = self.url_caption_cache.get(src.url, "")
                 if not data:
-                    data = await self.fetch_and_normalize(src, max_image_resolution=max_image_res)
+                    data = await self.fetch_and_normalize(src, max_image_resolution=config["max_image_resolution"])
                 if not data:
                     log.warning(f"image data is None for {src}")
                     return None
                 if not caption and not generated_image:
-                    data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, max_caption_res)
+                    data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, config["max_caption_resolution"])
                     image_content = utils.make_image_content(data_thumbnail or b'', low_detail=True)
                     caption = await self.execute_captioner(ctx, image_content, result)
                 if not caption and not generated_image:
@@ -182,7 +177,7 @@ class ContextBuilder:
                     caption = self.url_caption_cache.get(src.url)
                 if caption:
                     return src, caption
-                data = await self.fetch_and_normalize(src, thumbnail_size=max_caption_res)
+                data = await self.fetch_and_normalize(src, thumbnail_size=config["max_caption_resolution"])
                 if data is None:
                     log.warning(f"image data is None for {src}")
                     return None
@@ -253,7 +248,7 @@ class ContextBuilder:
 
             message_obj, message_inline_objs = await self.parse_discord_message(
                 backmsg, quote, backread, all_resolved_images,
-                max_quote_length, max_file_length,
+                config["max_quote"], config["max_text_file"],
                 exhaustive=True, recursive=True,
             )
             text_content = xmltodict.unparse(message_obj, full_document=False)
@@ -299,7 +294,7 @@ class ContextBuilder:
         cutoff = len(parsed_messages)
         for i, msg in enumerate(parsed_messages):
             cumulative += msg.tokens
-            if i > 0 and cumulative > max_backread_tokens:
+            if i > 0 and cumulative > config["backread_tokens"]:
                 cutoff = i + 1  # it's fine to go over
                 break
         parsed_messages = parsed_messages[:cutoff]
