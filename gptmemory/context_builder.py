@@ -149,8 +149,8 @@ class ChatHistoryContext:
     async def resolve_quote(self, quote_id: int | None, backmsg: discord.Message) -> tuple[int, discord.Message | None]:
         if quote_id is None:
             return backmsg.id, None
-        self.builder.quote_lock.setdefault(quote_id, asyncio.Lock())
-        async with self.builder.quote_lock[quote_id]:
+        lock = self.builder.quote_lock.setdefault(quote_id, asyncio.Lock())
+        async with lock:
             if backmsg.reference and backmsg.reference.cached_message:
                 return backmsg.id, backmsg.reference.cached_message
             try:
@@ -230,8 +230,8 @@ class ChatHistoryContext:
         key = src.attachment.url if src.attachment else src.url
         if not key:
             return
-        self.builder.url_lock.setdefault(key, asyncio.Lock())
-        async with self.builder.url_lock[key]:
+        lock = self.builder.url_lock.setdefault(key, asyncio.Lock())
+        async with lock:
             data, caption = None, ""
             if src.attachment:
                 _, data = self.builder.attachment_image_cache.get(src.attachment.id, (None, None))
@@ -265,8 +265,8 @@ class ChatHistoryContext:
         key = src.attachment.url if src.attachment else src.url
         if not key:
             return
-        self.builder.url_lock.setdefault(key, asyncio.Lock())
-        async with self.builder.url_lock[key]:
+        lock = self.builder.url_lock.setdefault(key, asyncio.Lock())
+        async with lock:
             caption = None
             if src.attachment:
                 _, caption = self.builder.attachment_caption_cache.get(src.attachment.id, (None, None))
