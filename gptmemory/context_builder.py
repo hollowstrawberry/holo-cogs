@@ -66,7 +66,7 @@ class ChatHistoryContext:
 
     async def build(self) -> list[GptMessage]:
         assert self.ctx.guild
-        config = await self.builder.config.guild(self.ctx.guild).all()
+        self.config = await self.builder.config.guild(self.ctx.guild).all()
 
         # Pass 1: grab quoted messages
         quotes: dict[int, int | None] = {}
@@ -86,7 +86,7 @@ class ChatHistoryContext:
             self.all_resolved_quotes[msg_id] = quote
 
         # Pass 2: decide which images will be downloaded and which will be captioned
-        priority_remaining = config["max_images"]
+        priority_remaining = self.config["max_images"]
         for backmsg in self.backread:
             quote = self.all_resolved_quotes.get(backmsg.id)
             backmsg_candidates = self.extract_candidates(backmsg)
@@ -135,7 +135,7 @@ class ChatHistoryContext:
         cutoff = len(parsed_messages)
         for i, msg in enumerate(parsed_messages):
             cumulative += msg.tokens
-            if i > 0 and cumulative > config["backread_tokens"]:
+            if i > 0 and cumulative > self.config["backread_tokens"]:
                 cutoff = i + 1  # it's fine to go over
                 break
         parsed_messages = parsed_messages[:cutoff]
@@ -290,40 +290,6 @@ class ChatHistoryContext:
             return src, caption
 
 
-    async def parse_message_and_images(self, backmsg: discord.Message) -> ParsedMessageResult:
-        quote = self.all_resolved_quotes.get(backmsg.id)
-        images = self.all_resolved_images.get(backmsg.id)
-        quoted_images = self.all_resolved_images.get(quote.id) if quote else None
-
-        message_obj, message_inline_objs = await self.parse_discord_message(backmsg, quote, exhaustive=True, recursive=True)
-        text_content = xmltodict.unparse(message_obj, full_document=False)
-        for before, after_obj in message_inline_objs.items():
-            text_content = text_content.replace(before, xmltodict.unparse(after_obj, full_document=False))
-
-        image_contents: list[GptImageContent] = []
-        if images and self.first_appearance[images.message_id] == backmsg.id:
-            image_contents.extend(images.image_contents)
-        if quoted_images and self.first_appearance[quoted_images.message_id] == backmsg.id:
-            image_contents.extend(quoted_images.image_contents)
-        text_tokens  = len(self.encoding.encode(text_content))
-        image_tokens = 1120 * len(image_contents)
-        total_tokens = text_tokens + image_tokens
-        content: str | list[GptImageContent]
-
-        if image_contents:
-            content = [{"type": "text", "text": text_content}, *image_contents]
-            role = "user"
-        else:
-            content = text_content
-            role = "user"#"assistant" if backmsg.author == ctx.me else "user"
-
-        gpt_msg = {
-            "role": role,
-            "content": content
-        }
-        return ParsedMessageResult(backmsg.id, gpt_msg, total_tokens, len(image_contents))
-
-
     async def fetch_and_normalize(self, src: ImageSource, max_resolution: int | None = None, thumbnail_size: int | None = None) -> bytes | None:
         assert max_resolution or thumbnail_size
         max_pixels = max_resolution ** 2 if max_resolution else None
@@ -349,6 +315,40 @@ class ChatHistoryContext:
             src_label = src.attachment.url if src.attachment else src.url
             log.warning(f"fetch_and_normalize {src_label}: {type(error).__name__}: {error}")
             return None
+
+
+    async def parse_message_and_images(self, backmsg: discord.Message) -> ParsedMessageResult:
+        quote = self.all_resolved_quotes.get(backmsg.id)
+        images = self.all_resolved_images.get(backmsg.id)
+        quoted_images = self.all_resolved_images.get(quote.id) if quote else None
+
+        message_obj, message_inline_objs = await self.parse_discord_message(backmsg, quote, exhaustive=True, recursive=True)
+        text_content = xmltodict.unparse(message_obj, full_document=False)
+        for before, after_obj in message_inline_objs.items():
+            text_content = text_content.replace(utils.escape_xml(before), xmltodict.unparse(after_obj, full_document=False))
+
+        image_contents: list[GptImageContent] = []
+        if images and self.first_appearance[images.message_id] == backmsg.id:
+            image_contents.extend(images.image_contents)
+        if quoted_images and self.first_appearance[quoted_images.message_id] == backmsg.id:
+            image_contents.extend(quoted_images.image_contents)
+        text_tokens  = len(self.encoding.encode(text_content))
+        image_tokens = 1120 * len(image_contents)
+        total_tokens = text_tokens + image_tokens
+        content: str | list[GptImageContent]
+
+        if image_contents:
+            content = [{"type": "text", "text": text_content}, *image_contents]
+            role = "user"
+        else:
+            content = text_content
+            role = "user"#"assistant" if backmsg.author == ctx.me else "user"
+
+        gpt_msg = {
+            "role": role,
+            "content": content
+        }
+        return ParsedMessageResult(backmsg.id, gpt_msg, total_tokens, len(image_contents))
 
 
     async def parse_discord_message(
@@ -418,7 +418,7 @@ class ChatHistoryContext:
                 # Add quote for linked message if it is the first
                 if i == 0 and exhaustive and recursive and not generated_image:
                     try:
-                        linked = await self.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
+                        linked = await self.builder.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
                     except (AttributeError, discord.NotFound):
                         continue
                     linked_message_obj, linked_message_inlines = await self.parse_discord_message(

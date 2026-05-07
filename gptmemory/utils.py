@@ -24,6 +24,9 @@ def add_xml_group(obj: dict, group: list, group_name: str) -> None:
     elif len(group) > 1:
         obj[group_name] = {single_name: group}
 
+def escape_xml(s: str) -> str:
+    return s.replace("<", "&lt;").replace(">", "&gt;").replace("'", "&apos;").replace('"', "&quot;").replace("&", "&amp;")
+
 def undo_xml(s: str) -> str:
     return s.replace("&lt;", "<").replace("&gt;", ">").replace("&apos;", "'").replace("&quot;", '"').replace("&amp;", "&")
 
