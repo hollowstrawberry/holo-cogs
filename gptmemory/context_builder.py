@@ -76,7 +76,7 @@ class ChatHistoryContext:
                 quotes[backmsg.id] = ref.message_id
             else:
                 quotes[backmsg.id] = None
-        quote_tasks = [self.resolve_quote(quotes[backmsg.id], backmsg)for backmsg in self.backread]
+        quote_tasks = [self.resolve_quote(quote_id, backmsg) for backmsg in self.backread if (quote_id := quotes[backmsg.id])]
         quote_results_raw = await asyncio.gather(*quote_tasks, return_exceptions=True)
         for res in quote_results_raw:
             if isinstance(res, BaseException):
@@ -130,7 +130,7 @@ class ChatHistoryContext:
             all_parsed_messages[res.message_id] = res
 
         # Pass 5: trim to token budget and return
-        parsed_messages = [all_parsed_messages[backmsg.id] for backmsg in self.backread if backmsg.id in all_parsed_messages]
+        parsed_messages = [parsed_message for backmsg in self.backread if (parsed_message := all_parsed_messages.get(backmsg.id))]
         cumulative = 0
         cutoff = len(parsed_messages)
         for i, msg in enumerate(parsed_messages):
@@ -146,9 +146,7 @@ class ChatHistoryContext:
         return [msg.gpt_message for msg in reversed(parsed_messages)]
         
 
-    async def resolve_quote(self, quote_id: int | None, backmsg: discord.Message) -> tuple[int, discord.Message | None]:
-        if quote_id is None:
-            return backmsg.id, None
+    async def resolve_quote(self, quote_id: int, backmsg: discord.Message) -> tuple[int, discord.Message | None]:
         lock = self.builder.quote_lock.setdefault(quote_id, asyncio.Lock())
         async with lock:
             if backmsg.reference and backmsg.reference.cached_message:
@@ -188,45 +186,35 @@ class ChatHistoryContext:
                 generated_image = {"type": "gptimage"}
             elif imagescanner := self.builder.bot.get_cog("ImageScanner"):
                 generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
-        all_srcs = (candidates.download + candidates.caption)[:constants.MAX_IMAGES_PER_MESSAGE]
-        priority_srcs = [s for s in all_srcs if s in candidates.download]
-        caption_srcs  = [s for s in all_srcs if s in candidates.caption]
+
+        priority_srcs = candidates.priority[:constants.MAX_IMAGES_PER_MESSAGE]
+        num_remaining = constants.MAX_IMAGES_PER_MESSAGE - len(priority_srcs)
+        caption_srcs = candidates.caption[:num_remaining]
         priority_tasks = [self.process_image_full(src, generated_image) for src in priority_srcs]
         caption_tasks  = [self.process_image_caption(src, generated_image) for src in caption_srcs]
-        priority_results_raw, caption_results_raw = await asyncio.gather(
-            asyncio.gather(*priority_tasks, return_exceptions=True),
-            asyncio.gather(*caption_tasks,  return_exceptions=True),
-        )
+        results_raw = await asyncio.gather(*priority_tasks, *caption_tasks, return_exceptions=True)
+    
         image_contents: list[GptImageContent] = []
         attachment_captions: dict[int, str] = {}
         url_captions: dict[str, str] = {}
-        for res in priority_results_raw:
+        for res in results_raw:
             if isinstance(res, BaseException):
                 log.warning(f"process_download raised: {res}")
                 continue
             if res is None:
                 continue
-            src, data, caption = res
-            image_contents.append(utils.make_image_content(data))
+            src, caption, data = res
+            if data:
+                image_contents.append(utils.make_image_content(data))
             if src.attachment:
                 attachment_captions[src.att_index] = caption
             elif src.url:
                 url_captions[src.url] = caption
-        for res in caption_results_raw:
-            if isinstance(res, BaseException):
-                log.warning(f"process_caption raised: {res}")
-                continue
-            if res is None:
-                continue
-            src, caption = res
-            if src.attachment:
-                attachment_captions[src.att_index] = caption
-            elif src.url:
-                url_captions[src.url] = caption
+                
         return DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions, generated_image)
 
 
-    async def process_image_full(self, src: ImageSource, generated_image: Any) -> tuple[ImageSource, bytes, str] | None:
+    async def process_image_full(self, src: ImageSource, generated_image: Any) -> tuple[ImageSource, str, bytes] | None:
         key = src.attachment.url if src.attachment else src.url
         if not key:
             return
@@ -241,25 +229,25 @@ class ChatHistoryContext:
                 caption = self.builder.url_caption_cache.get(src.url, "")
             if not data:
                 data = await self.fetch_and_normalize(src, max_resolution=self.config["max_image_resolution"])
-            if not data:
-                log.warning(f"image data is None for {src}")
-                return None
+                if not data:
+                    log.warning(f"image data is None for {src}")
+                    return None
             if not caption and not generated_image:
                 data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, self.config["max_caption_resolution"])
                 image_content = utils.make_image_content(data_thumbnail or b'', low_detail=True)
                 caption = await self.builder.execute_captioner(self.ctx, image_content, self.result)
-            if not caption and not generated_image:
-                log.warning(f"caption is None for {src}")
+                if not caption:
+                    log.warning(f"caption is None for {src}")
             if src.attachment:
                 self.builder.attachment_image_cache[src.attachment.id] = (src.att_index, data)
                 self.builder.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
             elif src.url:
                 self.builder.url_image_cache[src.url] = data
                 self.builder.url_caption_cache[src.url] = caption
-            return src, data, caption
+            return src, caption, data
 
 
-    async def process_image_caption(self, src: ImageSource, generated_image: Any) -> tuple[ImageSource, str] | None:
+    async def process_image_caption(self, src: ImageSource, generated_image: Any) -> tuple[ImageSource, str, None] | None:
         if generated_image and generated_image.get("Prompt"):
             return None
         key = src.attachment.url if src.attachment else src.url
@@ -273,7 +261,7 @@ class ChatHistoryContext:
             elif src.url:
                 caption = self.builder.url_caption_cache.get(src.url)
             if caption:
-                return src, caption
+                return src, caption, None
             data = await self.fetch_and_normalize(src, thumbnail_size=self.config["max_caption_resolution"])
             if data is None:
                 log.warning(f"image data is None for {src}")
@@ -287,7 +275,7 @@ class ChatHistoryContext:
                 self.builder.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
             elif src.url:
                 self.builder.url_caption_cache[src.url] = caption
-            return src, caption
+            return src, caption, None
 
 
     async def fetch_and_normalize(self, src: ImageSource, max_resolution: int | None = None, thumbnail_size: int | None = None) -> bytes | None:

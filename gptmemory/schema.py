@@ -29,7 +29,7 @@ class ImageSource:
 @dataclass(frozen=True)
 class DiscordMessageImageCandidates:
     message: discord.Message
-    download: list[ImageSource]
+    priority: list[ImageSource]
     caption: list[ImageSource]
 
     
