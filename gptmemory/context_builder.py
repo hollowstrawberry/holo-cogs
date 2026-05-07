@@ -142,6 +142,7 @@ class ContextBuilder:
             
             async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
                 data, caption = None, ""
+                log.info(f"{src.url=}")
                 if src.attachment:
                     _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
                     _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, ""))
@@ -212,6 +213,7 @@ class ContextBuilder:
                 if res is None:
                     continue
                 src, data, caption = res
+                log.info(f"res {src=}")
                 image_contents.append(utils.make_image_content(data))
                 if src.attachment:
                     attachment_captions[src.att_index] = caption
@@ -258,10 +260,8 @@ class ContextBuilder:
             image_contents: list[GptImageContent] = []
             if images and first_appearance[images.message_id] == backmsg.id:
                 image_contents.extend(images.image_contents)
-                log.info(f"{len(images.image_contents)=}")
             if quoted_images and first_appearance[quoted_images.message_id] == backmsg.id:
                 image_contents.extend(quoted_images.image_contents)
-                log.info(f"{len(quoted_images.image_contents)=}")
             text_tokens  = len(self.encoding.encode(text_content))
             image_tokens = 1120 * len(image_contents)
             total_tokens = text_tokens + image_tokens
