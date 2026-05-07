@@ -258,10 +258,10 @@ class ContextBuilder:
             image_contents: list[GptImageContent] = []
             if images and first_appearance[images.message_id] == backmsg.id:
                 image_contents.extend(images.image_contents)
-                log.info("image")
+                log.info(f"{len(images.image_contents)=}")
             if quoted_images and first_appearance[quoted_images.message_id] == backmsg.id:
                 image_contents.extend(quoted_images.image_contents)
-                log.info("quoted image")
+                log.info(f"{len(quoted_images.image_contents)=}")
             text_tokens  = len(self.encoding.encode(text_content))
             image_tokens = 1120 * len(image_contents)
             total_tokens = text_tokens + image_tokens
