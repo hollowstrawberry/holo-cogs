@@ -39,6 +39,7 @@ class ContextBuilder:
         self.url_image_cache: dict[str, bytes]                     = ExpiringDict(max_len=25, max_age_seconds=24*60*60)
         self.attachment_caption_cache: dict[int, tuple[int, str]]  = ExpiringDict(max_len=200, max_age_seconds=24*60*60)
         self.url_caption_cache: dict[str, str]                     = ExpiringDict(max_len=200, max_age_seconds=24*60*60)
+        self.url_lock: dict[str, asyncio.Lock]                     = ExpiringDict(max_len=10, max_age_seconds=60)
 
 
     async def build_message_history_context(
@@ -141,56 +142,66 @@ class ContextBuilder:
                     generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
             
             async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
-                data, caption = None, ""
-                if src.attachment:
-                    _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
-                    _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, ""))
-                elif src.url:
-                    data = self.url_image_cache.get(src.url)
-                    caption = self.url_caption_cache.get(src.url, "")
-                if not data:
-                    data = await self.fetch_and_normalize(src, max_image_resolution=config["max_image_resolution"])
-                if not data:
-                    log.warning(f"image data is None for {src}")
-                    return None
-                if not caption and not generated_image:
-                    data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, config["max_caption_resolution"])
-                    image_content = utils.make_image_content(data_thumbnail or b'', low_detail=True)
-                    caption = await self.execute_captioner(ctx, image_content, result)
-                if not caption and not generated_image:
-                    log.warning(f"caption is None for {src}")
-                if src.attachment:
-                    self.attachment_image_cache[src.attachment.id] = (src.att_index, data)
-                    self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
-                elif src.url:
-                    self.url_image_cache[src.url] = data
-                    self.url_caption_cache[src.url] = caption
-                return src, data, caption
+                key = src.attachment.url if src.attachment else src.url
+                if not key:
+                    return
+                self.url_lock[key] = self.url_lock.get(key, asyncio.Lock())
+                async with self.url_lock[key]:
+                    data, caption = None, ""
+                    if src.attachment:
+                        _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
+                        _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, ""))
+                    elif src.url:
+                        data = self.url_image_cache.get(src.url)
+                        caption = self.url_caption_cache.get(src.url, "")
+                    if not data:
+                        data = await self.fetch_and_normalize(src, max_image_resolution=config["max_image_resolution"])
+                    if not data:
+                        log.warning(f"image data is None for {src}")
+                        return None
+                    if not caption and not generated_image:
+                        data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, config["max_caption_resolution"])
+                        image_content = utils.make_image_content(data_thumbnail or b'', low_detail=True)
+                        caption = await self.execute_captioner(ctx, image_content, result)
+                    if not caption and not generated_image:
+                        log.warning(f"caption is None for {src}")
+                    if src.attachment:
+                        self.attachment_image_cache[src.attachment.id] = (src.att_index, data)
+                        self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
+                    elif src.url:
+                        self.url_image_cache[src.url] = data
+                        self.url_caption_cache[src.url] = caption
+                    return src, data, caption
 
             async def process_caption(src: ImageSource) -> tuple[ImageSource, str] | None:
                 if generated_image and generated_image.get("Prompt"):
                     return None
-                caption = None
-                if src.attachment:
-                    _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, None))
-                elif src.url:
-                    caption = self.url_caption_cache.get(src.url)
-                if caption:
+                key = src.attachment.url if src.attachment else src.url
+                if not key:
+                    return
+                self.url_lock[key] = self.url_lock.get(key, asyncio.Lock())
+                async with self.url_lock[key]:
+                    caption = None
+                    if src.attachment:
+                        _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, None))
+                    elif src.url:
+                        caption = self.url_caption_cache.get(src.url)
+                    if caption:
+                        return src, caption
+                    data = await self.fetch_and_normalize(src, thumbnail_size=config["max_caption_resolution"])
+                    if data is None:
+                        log.warning(f"image data is None for {src}")
+                        return None
+                    image_content = utils.make_image_content(data, low_detail=True)
+                    caption = await self.execute_captioner(ctx, image_content, result)
+                    if caption is None:
+                        log.warning(f"caption is None for {src}")
+                        return None
+                    if src.attachment:
+                        self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
+                    elif src.url:
+                        self.url_caption_cache[src.url] = caption
                     return src, caption
-                data = await self.fetch_and_normalize(src, thumbnail_size=config["max_caption_resolution"])
-                if data is None:
-                    log.warning(f"image data is None for {src}")
-                    return None
-                image_content = utils.make_image_content(data, low_detail=True)
-                caption = await self.execute_captioner(ctx, image_content, result)
-                if caption is None:
-                    log.warning(f"caption is None for {src}")
-                    return None
-                if src.attachment:
-                    self.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
-                elif src.url:
-                    self.url_caption_cache[src.url] = caption
-                return src, caption
             
             candidates = all_candidates[backmsg.id]
             all_srcs = (candidates.download + candidates.caption)[:constants.MAX_IMAGES_PER_MESSAGE]
