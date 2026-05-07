@@ -31,7 +31,7 @@ class GptMemory(GptMemoryCommands):
     def __init__(self, bot: Red):
         super().__init__(bot)
         self.encoding = tiktoken.get_encoding(constants.TOKEN_ENCODING)
-        self.context_builder = ContextBuilder(self.bot, self.config, self.session, self.encoding, self.execute_captioner, self.is_busy)
+        self.context_builder = ContextBuilder(self)
         self.available_tools = set(get_all_tools())
         all_tool_names = [tool.display_name for tool in self.available_tools]
         log.info(f"{all_tool_names=}")
@@ -249,7 +249,7 @@ class GptMemory(GptMemoryCommands):
         mem_task = None
         async with ctx.typing():
             backread = await self.fetch_message_history(ctx)
-            messages = await self.context_builder.build_message_history_context(ctx, backread, result)
+            messages = await self.context_builder.build_context(ctx, backread, result, self.encoding)
             participants = list(set([ctx.guild.get_member(msg.author.id) or msg.author for msg in backread]))
             recalled_memories = await self.execute_recaller(ctx, participants, messages, memory_names, result)
             recalled_memories_str = self.build_memory_string(memory_names, recalled_memories, ctx, participants)
@@ -265,7 +265,7 @@ class GptMemory(GptMemoryCommands):
     async def run_reaction(self, ctx: commands.Context):
         start = time.perf_counter()
         backread = await self.fetch_message_history(ctx, short=True)
-        messages = await self.context_builder.build_message_history_context(ctx, backread, CompletionResult())
+        messages = await self.context_builder.build_context(ctx, backread, CompletionResult(), self.encoding)
         result = await self.execute_autoreacter(ctx, messages)
         result.elapsed_ms = int(1000 * (time.perf_counter() - start))
         log.info(result)

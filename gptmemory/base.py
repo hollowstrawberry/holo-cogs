@@ -4,6 +4,7 @@ from redbot.core import commands, Config
 from redbot.core.bot import Red
 
 import gptmemory.defaults as defaults
+from gptmemory.schema import CompletionResult, GptImageContent
 from gptmemory.constants import DISCORD_EPOCH_DATETIME
 
 
@@ -84,6 +85,9 @@ class GptMemoryBase(commands.Cog):
         })
 
     async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
+        raise NotImplementedError()
+    
+    async def execute_captioner(self, ctx: commands.Context, image: GptImageContent, result: CompletionResult) -> str:
         raise NotImplementedError()
     
     def is_busy(self, message_id):
