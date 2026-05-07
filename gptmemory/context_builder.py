@@ -93,16 +93,16 @@ class ContextBuilder:
             ]
             if att_candidates:
                 return att_candidates
-            url_candidates: list[ImageSource] = []
+            url_candidates: set[ImageSource] = set()
             for embed in msg.embeds:
                 if embed.image and embed.image.url:
-                    url_candidates.append(ImageSource(msg.id, url=embed.image.url))
+                    url_candidates.add(ImageSource(msg.id, url=embed.image.url))
                 if embed.thumbnail and embed.thumbnail.url:
-                    url_candidates.append(ImageSource(msg.id, url=embed.thumbnail.url))
+                    url_candidates.add(ImageSource(msg.id, url=embed.thumbnail.url))
             for match in constants.URL_PATTERN.findall(msg.content or ""):
                 if match.endswith(constants.IMAGE_EXTENSIONS):
-                    url_candidates.append(ImageSource(msg.id, url=match))
-            return url_candidates
+                    url_candidates.add(ImageSource(msg.id, url=match))
+            return list(url_candidates)
 
         all_candidates: dict[int, DiscordMessageImageCandidates] = {}
         first_appearance: dict[int, int] = {}
@@ -142,7 +142,6 @@ class ContextBuilder:
             
             async def process_priority(src: ImageSource) -> tuple[ImageSource, bytes, str] | None:
                 data, caption = None, ""
-                log.info(f"{src.url=}")
                 if src.attachment:
                     _, data = self.attachment_image_cache.get(src.attachment.id, (None, None))
                     _, caption = self.attachment_caption_cache.get(src.attachment.id, (None, ""))
@@ -213,7 +212,6 @@ class ContextBuilder:
                 if res is None:
                     continue
                 src, data, caption = res
-                log.info(f"res {src=}")
                 image_contents.append(utils.make_image_content(data))
                 if src.attachment:
                     attachment_captions[src.att_index] = caption
