@@ -103,6 +103,7 @@ class ChannelConfigBase(CogConfigBase):
         config.register_channel(**cls.defaults())
 
 
+
 GuildT = TypeVar("GuildT", bound=GuildConfigBase)
 ChannelT = TypeVar("ChannelT", bound=ChannelConfigBase)
 
