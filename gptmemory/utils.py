@@ -289,7 +289,8 @@ class BotIsTyping:
 
     async def _trigger(self):
         try:
-            await asyncio.wait_for(self.channel._state.http.send_typing(getattr(self.channel, "id")), timeout=2)
+            cid = getattr(self.channel, "id")
+            await asyncio.wait_for(self.channel._state.http.send_typing(cid), timeout=2)
         except Exception:
             pass
 
