@@ -247,7 +247,7 @@ class GptMemory(GptMemoryCommands):
         start = time.perf_counter()
         result = CompletionResult()
         mem_task = None
-        async with ctx.typing():
+        if True:#async with ctx.typing():
             backread = await self.fetch_message_history(ctx)
             messages = await self.context_builder.build_context(ctx, backread, result, self.encoding)
             participants = list(set([ctx.guild.get_member(msg.author.id) or msg.author for msg in backread]))
