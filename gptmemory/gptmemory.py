@@ -15,8 +15,10 @@ from redbot.core.bot import Red
 
 import gptmemory.utils as utils
 import gptmemory.constants as constants
-from gptmemory.schema import GptImageContent, GptMessage, CompletionResult, MemoryChangeResult, MemoryChangeList, ImageGenParams, MessageReaction, ReactionResult
+from gptmemory.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
+from gptmemory.schema import GptMessage, GptImageContent, ImageGenParams, MessageReaction, ReactionResult
 from gptmemory.commands import GptMemoryCommands
+from gptmemory.config_commands import GptMemoryConfigCommands
 from gptmemory.tools.base import get_all_tools
 from gptmemory.tools.update_memory import UpdateMemoryTool
 from gptmemory.context_builder import ContextBuilder
@@ -25,7 +27,7 @@ from gptmemory.views.memory_change import MemoryChangeView
 log = logging.getLogger("gptmemory")
 
 
-class GptMemory(GptMemoryCommands):
+class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
     """OpenAI-powered user with persistent memory and various tools."""
 
     def __init__(self, bot: Red):

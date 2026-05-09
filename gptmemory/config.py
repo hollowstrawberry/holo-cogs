@@ -154,6 +154,7 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
         config.register_global(**cls.defaults())
     
     def register_all(self):
+        """Registers the default values of all config groups in Red's config manager."""
         self.register(self._config)
         self.guild_type.register(self._config)
         self.channel_type.register(self._config)
