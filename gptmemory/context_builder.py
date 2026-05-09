@@ -1,18 +1,16 @@
 import logging
 import asyncio
-import aiohttp
 import discord
 import tiktoken
 import xmltodict
 from io import BytesIO
-from typing import Any, Awaitable, Callable
+from typing import Any
 from expiringdict import ExpiringDict
 from redbot.core import commands
-from redbot.core.bot import Red, Config
 
 from gptmemory import utils as utils
 from gptmemory import constants as constants
-from gptmemory.base import GptMemoryBase
+from gptmemory.base import GptMemoryBase, GptMemoryGuildConfig
 from gptmemory.schema import GptImageContent, CompletionResult, GptMessage, ImageSource, ParsedMessageResult, StructuredObject
 from gptmemory.schema import DiscordMessageImageCandidates, DiscordMessageResolvedImages
 
@@ -37,10 +35,11 @@ class ContextBuilder:
         self,
         ctx: commands.Context,
         backread: list[discord.Message],
+        config: GptMemoryGuildConfig,
         result: CompletionResult,
         encoding: tiktoken.Encoding,
     ) -> list[GptMessage]:
-        return await ChatHistoryContext(self, ctx, backread, result, encoding).build()
+        return await ChatHistoryContext(self, ctx, backread, config, result, encoding).build()
 
 
 class ChatHistoryContext:
@@ -49,6 +48,7 @@ class ChatHistoryContext:
         builder: ContextBuilder,
         ctx: commands.Context,
         backread: list[discord.Message],
+        config: GptMemoryGuildConfig,
         result: CompletionResult,
         encoding: tiktoken.Encoding,
     ):
@@ -57,7 +57,7 @@ class ChatHistoryContext:
         self.backread = backread
         self.result = result
         self.encoding = encoding
-        self.config: dict[str, Any] = {}
+        self.config = config
         self.all_candidates: dict[int, DiscordMessageImageCandidates] = {}
         self.first_appearance: dict[int, int] = {}
         self.all_resolved_quotes: dict[int, discord.Message | None] = {}
@@ -66,7 +66,6 @@ class ChatHistoryContext:
 
     async def build(self) -> list[GptMessage]:
         assert self.ctx.guild
-        self.config = await self.builder.config.guild(self.ctx.guild).all()
 
         # Pass 1: grab quoted messages
         quotes: dict[int, int | None] = {}
@@ -85,8 +84,8 @@ class ChatHistoryContext:
             msg_id, quote = res
             self.all_resolved_quotes[msg_id] = quote
 
-        # Pass 2: decide which images will be downloaded and which will be captioned
-        priority_remaining = self.config["max_images"]
+        # Pass 2: decide which images will be sent in full and which will be captioned
+        priority_remaining = self.config.max_images.value
         for backmsg in self.backread:
             quote = self.all_resolved_quotes.get(backmsg.id)
             backmsg_candidates = self.extract_candidates(backmsg)
@@ -135,7 +134,7 @@ class ChatHistoryContext:
         cutoff = len(parsed_messages)
         for i, msg in enumerate(parsed_messages):
             cumulative += msg.tokens
-            if i > 0 and cumulative > self.config["backread_tokens"]:
+            if i > 0 and cumulative > self.config.backread_tokens.value:
                 cutoff = i + 1  # it's fine to go over
                 break
         parsed_messages = parsed_messages[:cutoff]
@@ -228,12 +227,12 @@ class ChatHistoryContext:
                 data = self.builder.url_image_cache.get(src.url)
                 caption = self.builder.url_caption_cache.get(src.url, "")
             if not data:
-                data = await self.fetch_and_normalize(src, max_resolution=self.config["max_image_resolution"])
+                data = await self.fetch_and_normalize(src, max_resolution=self.config.max_image_resolution.value)
                 if not data:
                     log.warning(f"image data is None for {src}")
                     return None
             if not caption and not generated_image:
-                data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, self.config["max_caption_resolution"])
+                data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, self.config.max_caption_resolution.value)
                 image_content = utils.make_image_content(data_thumbnail or b'', low_detail=True)
                 caption = await self.builder.execute_captioner(self.ctx, image_content, self.result)
                 if not caption:
@@ -262,7 +261,7 @@ class ChatHistoryContext:
                 caption = self.builder.url_caption_cache.get(src.url)
             if caption:
                 return src, caption, None
-            data = await self.fetch_and_normalize(src, thumbnail_size=self.config["max_caption_resolution"])
+            data = await self.fetch_and_normalize(src, thumbnail_size=self.config.max_caption_resolution.value)
             if data is None:
                 log.warning(f"image data is None for {src}")
                 return None
@@ -414,8 +413,8 @@ class ChatHistoryContext:
                     )
                     obj["linked_message"] = {**link_obj, **linked_message_obj}
                     inline_objs.update(linked_message_inlines)
-            if not exhaustive and len(content) > self.config["max_quote"]:
-                content = content[:self.config["max_quote"] - 3] + "..."
+            if not exhaustive and len(content) > self.config.max_quote.value:
+                content = content[:self.config.max_quote.value - 3] + "..."
                 obj["@truncated"] = "true"
             obj["content"] = content
         # attachments
@@ -424,7 +423,8 @@ class ChatHistoryContext:
             total_file_length = 0
             for i, attachment in enumerate(message.attachments):
                 att_obj = {"@filename": attachment.filename}
-                if exhaustive and attachment.content_type and attachment.content_type.startswith("text") and total_file_length < self.config["max_text_file"]:
+                if exhaustive and attachment.content_type and attachment.content_type.startswith("text") \
+                        and total_file_length < self.config.max_text_file.value:
                     if file_content := await self.read_text_file(attachment):
                         att_obj["content"] = file_content
                 if attachment_captions and i in attachment_captions:
@@ -452,7 +452,7 @@ class ChatHistoryContext:
                 embed_obj["title"] = embed.title
             if embed.description:
                 embed_obj["description"] = utils.clean_content(embed.description)# if exhaustive else "..."
-            if embed.url and embed.url[:self.config["max_quote"]] not in obj.get("content", ""):
+            if embed.url and embed.url[:self.config.max_quote.value] not in obj.get("content", ""):
                 embed_obj["url"] = embed.url
             if embed.image and embed.image.url and not any(link["@url"] == embed.image.url for link in linked_images):
                 embed_obj["image"] = embed.image.url
@@ -516,7 +516,7 @@ class ChatHistoryContext:
     
 
     async def read_text_file(self, attachment: discord.Attachment) -> str | None:
-        max_file_length = self.config["max_text_file"]
+        max_length = self.config.max_text_file.value
         fp = BytesIO()
         try:
             await attachment.save(fp, seek_begin=True)
@@ -524,6 +524,6 @@ class ChatHistoryContext:
         except (discord.DiscordException, UnicodeDecodeError) as error:
             log.warning(f"Processing text attachment {attachment.filename}: {type(error).__name__}: {error}")
             return None
-        if len(file_content) > max_file_length + 10:
-            file_content = f"{file_content[:max_file_length//2]}\n(...)\n{file_content[-max_file_length//2:]}"
+        if len(file_content) > max_length + 10:
+            file_content = f"{file_content[:max_length//2]}\n(...)\n{file_content[-max_length//2:]}"
         return file_content

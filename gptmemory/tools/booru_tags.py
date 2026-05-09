@@ -67,7 +67,7 @@ class BooruTagsTool(ToolBase):
         if len(query) < 3:
             return "<error>Query must be at least 3 characters long</error>"
         
-        emoji = await self.get_setting("boorutag_emoji")
+        emoji = self.get_setting("boorutag_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if not self.tag_groups:

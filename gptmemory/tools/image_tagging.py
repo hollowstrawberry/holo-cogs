@@ -29,7 +29,7 @@ class ImageTaggingTool(ToolBase):
 
     async def find_image(self, filename: str) -> discord.Attachment | str | None:
         assert self.ctx.guild
-        limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
+        limit = self.cog.config[self.ctx.guild].backread_messages.value
         messages = [message async for message in self.ctx.channel.history(limit=limit)]
         if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
             quoted = await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
@@ -60,7 +60,7 @@ class ImageTaggingTool(ToolBase):
                 }
             }
 
-        emoji = await self.get_setting("tagging_emoji")
+        emoji = self.get_setting("tagging_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
         try:
             if isinstance(image_source, discord.Attachment):
@@ -69,7 +69,7 @@ class ImageTaggingTool(ToolBase):
                 async with self.cog.session.get(image_source) as response:
                     response.raise_for_status()
                     image_bytes = await response.read()
-            max_resolution = await self.cog.config.guild(self.ctx.guild).max_image_resolution()
+            max_resolution = self.cog.config[self.ctx.guild].max_image_resolution.value
             fp = await asyncio.to_thread(normalize_image, image_bytes, max_resolution**2)
             if not fp:
                 return f"<error>The image appears to be corrupted or invalid</error>"

@@ -22,8 +22,8 @@ class GptImageToolBase(ToolBase):
         if not gptimage:
             return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
         
-        channel_mode = await self.cog.config.guild(self.ctx.guild).generation_channel_mode()
-        channels = await self.cog.config.guild(self.ctx.guild).generation_channels()
+        channel_mode = self.cog.config[self.ctx.guild].generation_channel_mode.value
+        channels = self.cog.config[self.ctx.guild].generation_channels.value
         if channel_mode == "blacklist" and self.ctx.channel.id in channels \
                 or channel_mode == "whitelist" and self.ctx.channel.id not in channels:
             if not self.ctx.channel.permissions_for(self.ctx.author).manage_messages:
@@ -59,7 +59,7 @@ class GptImageToolBase(ToolBase):
 
         attachments: list[discord.Attachment] = []
         if existing:
-            limit = await self.cog.config.guild(self.ctx.guild).backread_messages()
+            limit = self.cog.config[self.ctx.guild].backread_messages.value
             messages = [message async for message in self.ctx.channel.history(limit=limit+1)]
             if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
                 quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)

@@ -46,7 +46,7 @@ class ScrapeTool(ToolBase):
         if not url:
             return "<error>No URL provided</error>"
             
-        emoji = await self.get_setting("scrape_emoji")
+        emoji = self.get_setting("scrape_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
         
         for pattern, method in self.custom_scrapers.items():

@@ -39,7 +39,7 @@ class ArcencielTool(ToolBase):
         user = arguments.get("user", None)
         found_user: int | None = None
 
-        emoji = await self.get_setting("arcenciel_emoji")
+        emoji = self.get_setting("arcenciel_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if user:

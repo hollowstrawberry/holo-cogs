@@ -5,9 +5,10 @@ from difflib import get_close_matches
 from functools import reduce
 from redbot.core import commands
 
-from gptmemory.base import GptMemoryBase
+from gptmemory.base import GptMemoryBase, GptMemoryGuildConfig
 from gptmemory.utils import chunk_and_send
 from gptmemory.schema import MemoryChangeResult
+from gptmemory.config import ConfigField
 from gptmemory.constants import EFFORT_VALUES, VISION_MODELS, DISCORD_EPOCH_DATETIME
 from gptmemory.tools.base import get_all_tools
 from gptmemory.views.memory_info import MemoryInfoView
@@ -19,6 +20,17 @@ from gptmemory.views.prompts_edit import PromptsEditView
 
 class GptMemoryCommands(GptMemoryBase):
 
+    @staticmethod
+    def prompt_fields(config: GptMemoryGuildConfig) -> dict[str, ConfigField[str]]:
+        return {
+            "recaller":      config.prompt_recaller,
+            "responder":     config.prompt_responder,
+            "memorizer":     config.prompt_memorizer,
+            "autoresponder": config.prompt_autoresponder,
+            "captioner":     config.prompt_captioner,
+            "autoreacter":   config.prompt_autoreacter,
+        }
+
     @commands.command(name="prompt")
     async def prompt_cmd(self, ctx: commands.Context, module: Optional[str]):
         """
@@ -29,9 +41,10 @@ class GptMemoryCommands(GptMemoryBase):
         The memorizer edits memories.
         """
         assert ctx.guild
+        config = self.config[ctx.guild]
         if module and module.lower().strip() in ("full", "whole", "file", "all"):
-            prompt = await self.config.guild(ctx.guild).prompt_responder()
-            prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
+            prompt = config.prompt_responder.value
+            prompt_keys = config.prompt_keys.value
             for key, value in prompt_keys.items():
                 prompt = prompt.replace(f"{{{key}}}", value)
             with io.StringIO() as fp:
@@ -49,94 +62,54 @@ class GptMemoryCommands(GptMemoryBase):
             await ctx.message.delete()
 
     async def prompt_cmd_show(self, ctx: commands.Context, module: str) -> PromptView | None:
-        assert ctx.guild
+        config = self.config[ctx.guild]
         prompt = ""
-        if module == "recaller":
-            prompt = await self.config.guild(ctx.guild).prompt_recaller()
-            edit = self.config.guild(ctx.guild).prompt_recaller.set
-        elif module == "responder":
-            prompt = await self.config.guild(ctx.guild).prompt_responder()
-            edit = self.config.guild(ctx.guild).prompt_responder.set
-        elif module == "memorizer":
-            prompt = await self.config.guild(ctx.guild).prompt_memorizer()
-            edit = self.config.guild(ctx.guild).prompt_memorizer.set
-        elif module == "autoresponder":
-            prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
-            edit = self.config.guild(ctx.guild).prompt_autoresponder.set
-        elif module == "captioner":
-            prompt = await self.config.guild(ctx.guild).prompt_captioner()
-            edit = self.config.guild(ctx.guild).prompt_captioner.set
-        elif module == "autoreacter":
-            prompt = await self.config.guild(ctx.guild).prompt_autoreacter()
-            edit = self.config.guild(ctx.guild).prompt_autoreacter.set
+        if field := self.prompt_fields(config).get(module):
+            edit = field.set
+            prompt = field.value
         else:
-            keys = await self.config.guild(ctx.guild).prompt_keys()
-            if module not in keys:
+            if module not in config.prompt_keys.value:
                 await ctx.send(f"Prompt `{module}` not found.", delete_after=60)
                 return None
-            async def edit_callback(p: str):
-                assert ctx.guild
-                async with self.config.guild(ctx.guild).prompt_keys() as prompt_keys:
-                    prompt_keys[module] = p
+            async def edit_callback(pr: str):
+                config.prompt_keys.value[module] = pr
+                await config.prompt_keys.save()
             edit = edit_callback
-            prompt = keys[module]
+            prompt = config.prompt_keys.value[module]
         return PromptView(module, prompt, edit, self.bot.is_owner)
 
     async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptsEditView:
-        """
-        The recaller grabs relevant memories.
-        The responder sends the chat message.
-        The autoresponder sends random chat messages.
-        The memorizer edits memories.
-        """
         assert ctx.guild
+        config = self.config[ctx.guild]
         async def edit_callback(name: str, prompt: str):
             assert ctx.guild
-            if name == "recaller":
-                await self.config.guild(ctx.guild).prompt_recaller.set(prompt)
-            elif name == "responder":
-                await self.config.guild(ctx.guild).prompt_responder.set(prompt)
-            elif name == "memorizer":
-                await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
-            elif name == "autoresponder":
-                await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
-            elif name == "captioner":
-                await self.config.guild(ctx.guild).prompt_captioner.set(prompt)
-            elif name == "autoreacter":
-                await self.config.guild(ctx.guild).prompt_autoreacter.set(prompt)
+            if field := self.prompt_fields(config).get(name):
+                await field.set(prompt)
             else:
-                async with self.config.guild(ctx.guild).prompt_keys() as prompt_keys:
-                    prompt_keys[name] = prompt
-        
-        prompt_keys = await self.config.guild(ctx.guild).prompt_keys()
+                config.prompt_keys.value[name] = prompt
+                await config.prompt_keys.save()
         prompts = {
-            **prompt_keys,
-            "responder": await self.config.guild(ctx.guild).prompt_responder(),
-            "autoresponder": await self.config.guild(ctx.guild).prompt_autoresponder(),
-            "recaller": await self.config.guild(ctx.guild).prompt_recaller(),
-            "captioner": await self.config.guild(ctx.guild).prompt_captioner(),
-            "autoreacter": await self.config.guild(ctx.guild).prompt_autoreacter(),
-            "memorizer": await self.config.guild(ctx.guild).prompt_memorizer(),
+            **config.prompt_keys.value,
+            **{name: field.value for name, field in self.prompt_fields(config).items()}
         }
         return PromptsEditView(prompts, edit_callback, self.bot.is_owner)
 
     @commands.command(name="forget")
     async def command_forget(self, ctx: commands.Context):
         """Temporarily makes the bot only read messages past a certain point."""
-        assert isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        await self.config.channel(ctx.channel).start.set(ctx.message.created_at.isoformat())
+        await self.config.channel[ctx.channel.id].start.set(ctx.message.created_at)
         await ctx.tick(message="✅")
 
     @commands.has_permissions(manage_messages=True)
     @commands.command(name="unforget")
     async def command_unforget(self, ctx: commands.Context):
         """Undoes the effect of [p]forget"""
-        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        await self.config.channel(ctx.channel).start.set(DISCORD_EPOCH_DATETIME.isoformat())
+        await self.config[ctx.channel].start.set(DISCORD_EPOCH_DATETIME)
         await ctx.tick(message="✅")
         # remove the previous [p]forget, this is not perfect but it's not important anyway
+        assert ctx.guild
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            limit = await self.config.guild(ctx.guild).backread_messages()
+            limit = self.config[ctx.guild].backread_messages.value
             async for message in ctx.channel.history(limit=limit, before=ctx.message, oldest_first=False):
                 if message.content == ctx.message.content.replace("unforget", "forget"):
                     try:
@@ -158,22 +131,23 @@ class GptMemoryCommands(GptMemoryBase):
     @commands.guild_only()
     async def command_memory(self, ctx: commands.Context, *, name: discord.Member | str | None):
         """View all memories or a specific memory, for the bot LLM"""
-        assert ctx.guild
         if isinstance(name, discord.Member):
             name = name.name
+        assert ctx.guild
+        memory = self.config[ctx.guild].memory.value
         if not name:
-            if ctx.guild.id in self.memory and self.memory[ctx.guild.id]:
-                view = MemoryListView(list(self.memory[ctx.guild.id].keys()))
+            if memory:
+                view = MemoryListView(list(memory.keys()))
                 view.message = await ctx.send(view=view)
             else:
                 await ctx.send("No memories...", delete_after=60)
-        elif ctx.guild.id in self.memory:
-            if name not in self.memory[ctx.guild.id]:
-                matches = get_close_matches(name, self.memory[ctx.guild.id])
+        elif memory:
+            if name not in memory:
+                matches = get_close_matches(name, memory)
                 if matches:
                     name = matches[0]
-            if name in self.memory[ctx.guild.id]:
-                view = MemoryInfoView(name, self.memory[ctx.guild.id][name])
+            if name in memory:
+                view = MemoryInfoView(name, memory[name])
                 view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
@@ -185,16 +159,15 @@ class GptMemoryCommands(GptMemoryBase):
     @commands.guild_only()
     async def command_deletememory(self, ctx: commands.Context, *, name: str):
         """Delete an LLM memory"""
-        assert ctx.guild
-        if ctx.guild.id in self.memory and name in self.memory[ctx.guild.id]:
-            async with self.config.guild(ctx.guild).memory() as memory:
-                before = memory[name]
-                del memory[name]
-            del self.memory[ctx.guild.id][name]
+        if (memory := self.config[ctx.guild].memory.value) and name in memory:
+            before = memory[name]
+            del memory[name]
+            await self.config[ctx.guild].memory.save()
             view = MemoryChangeView([MemoryChangeResult(name, before, None)], standalone=True)
             view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
+        assert ctx.guild
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
             await ctx.message.delete()
 
@@ -203,20 +176,18 @@ class GptMemoryCommands(GptMemoryBase):
     @commands.guild_only()
     async def command_setmemory(self, ctx: commands.Context, name: str, *, content: str):
         """Overwrite an LLM memory"""
-        assert ctx.guild
         name = name.replace("`", "")
         if not name:
             return await ctx.send("Invalid name")
         if len(name) > 1000:
             return await ctx.send("Name too long")
-        async with self.config.guild(ctx.guild).memory() as memory:
-            before = memory.get(name)
-            memory[name] = content
-        if ctx.guild.id not in self.memory:
-            self.memory[ctx.guild.id] = {}
-        self.memory[ctx.guild.id][name] = content
+        memory = self.config[ctx.guild].memory.value
+        before = memory.get(name)
+        memory[name] = content
+        await self.config[ctx.guild].memory.save()
         view = MemoryChangeView([MemoryChangeResult(name, before, content)], standalone=True)
         view.message = await ctx.send(view=view)
+        assert ctx.guild
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
             await ctx.message.delete()
 
@@ -232,12 +203,11 @@ class GptMemoryCommands(GptMemoryBase):
     @memoryconfig.command(name="config", aliases=["settings"])
     async def memoryconfig_config(self, ctx: commands.Context):
         """View all settings"""
-        assert ctx.guild
-        settings = await self.config.guild(ctx.guild).all()
+        config = self.config[ctx.guild]
         functions = []
         for tool in get_all_tools():
             name = tool.display_name
-            if name not in settings["enabled_functions"]:
+            if name not in config.enabled_functions.value:
                 continue
             for api in tool.apis:
                 secret = (await self.bot.get_shared_api_tokens(api[0])).get(api[1])
@@ -247,76 +217,75 @@ class GptMemoryCommands(GptMemoryBase):
                 functions.append(name)
 
         response = ">>> # GptMemory Settings"
-        response += "\n`[whitelisted_channels:]` " if settings["channel_mode"] == "whitelist" else "\n`[blacklisted_channels:]` " 
-        response += " ".join([f"<#{cid}>" for cid in settings["channels"]])
-        response += "\n`[whitelisted_auto_channels:]` " if settings["auto_channel_mode"] == "whitelist" else "\n`[blacklisted_auto_channels:]` " 
-        response += " ".join([f"<#{cid}>" for cid in settings["auto_channels"]])
+        response += "\n`[whitelisted_channels:]` " if config.channel_mode.value == "whitelist" else "\n`[blacklisted_channels:]` " 
+        response += " ".join([f"<#{cid}>" for cid in config.channels.value])
+        response += "\n`[whitelisted_auto_channels:]` " if config.auto_channel_mode.value == "whitelist" else "\n`[blacklisted_auto_channels:]` " 
+        response += " ".join([f"<#{cid}>" for cid in config.auto_channels.value])
         if "generate_stable_diffusion" in functions:
-            response += "\n`[whitelisted_generation_channels:]` " if settings["generation_channel_mode"] == "whitelist" else "\n`[blacklisted_generation_channels:]` " 
-            response += " ".join([f"<#{cid}>" for cid in settings["generation_channels"]])
-        response += f"\n`[model_recaller:]` {settings['model_recaller']} `[effort_recaller:]` {settings['effort_recaller']}"
-        response += f"\n`[model_responder:]` {settings['model_responder']} `[effort_responder:]` {settings['effort_responder']}"
-        response += f"\n`[model_memorizer:]` {settings['model_memorizer']} `[effort_memorizer:]` {settings['effort_memorizer']}"
-        response += f"\n`[allow_memorizer:]` {settings['allow_memorizer']} `[memorizer_alerts:]` {settings['memorizer_alerts']} `[memorizer_user_only:]` {settings['memorizer_user_only']}"
+            response += "\n`[whitelisted_generation_channels:]` " if config.generation_channel_mode.value == "whitelist" else "\n`[blacklisted_generation_channels:]` " 
+            response += " ".join([f"<#{cid}>" for cid in config.generation_channels.value])
+        response += f"\n`[model_recaller:]` {config.model_recaller.value} `[effort_recaller:]` {config.effort_recaller.value}"
+        response += f"\n`[model_responder:]` {config.model_responder.value} `[effort_responder:]` {config.effort_responder.value}"
+        response += f"\n`[model_memorizer:]` {config.model_memorizer.value} `[effort_memorizer:]` {config.effort_memorizer.value}"
+        response += f"\n`[allow_memorizer:]` {config.allow_memorizer.value} `[memorizer_alerts:]` {config.memorizer_alerts.value} `[memorizer_user_only:]` {config.memorizer_user_only.value}"
         response += f"\n`[tools:]` {' / '.join(functions)}" 
-        response += f"\n`[emotes:]` {settings['emotes']}"
         response += "\n## Limits"
-        response += f"\n`[response_tokens:]` {settings['response_tokens']} `[backread_tokens:]` {settings['backread_tokens']}"
-        response += f"\n`[backread_messages:]` {settings['backread_messages']} `[backread_short:]` {settings['backread_short']}"
-        response += f"\n`[max_images:]` {settings['max_images']} `[max_image_resolution:]` {settings['max_image_resolution']}"
-        response += f"\n`[max_tool:]` {settings['max_tool']} `[max_tool_depth:]` {settings['max_tool_depth']}"
-        response += f"\n`[max_quote:]` {settings['max_quote']} `[max_text_file:]` {settings['max_text_file']}"
+        response += f"\n`[response_tokens:]` {config.response_tokens.value} `[backread_tokens:]` {config.backread_tokens.value}"
+        response += f"\n`[backread_messages:]` {config.backread_messages.value} `[backread_short:]` {config.backread_short.value}"
+        response += f"\n`[max_images:]` {config.max_images.value} `[max_image_resolution:]` {config.max_image_resolution.value}"
+        response += f"\n`[max_tool:]` {config.max_tool.value} `[max_tool_depth:]` {config.max_tool_depth.value}"
+        response += f"\n`[max_quote:]` {config.max_quote.value} `[max_text_file:]` {config.max_text_file.value}"
 
         await ctx.send(response)
 
     @memoryconfig.command(name="logging")
     async def memoryconfig_logging(self, ctx: commands.Context):
         """Toggles logging mode, for the developer."""
-        self.extended_logging = not self.extended_logging
-        await self.config.extended_logging.set(self.extended_logging)
-        await ctx.reply(f"`[logging:]` {'full' if self.extended_logging else 'minimal'}", mention_author=False)
+        field = self.config.extended_logging
+        await field.set(not field.value)
+        await ctx.reply(f"`[logging:]` {'full' if field.value else 'minimal'}", mention_author=False)
     
     channel_mode = Literal["whitelist", "blacklist", "show"]
 
     @memoryconfig.command(name="channels")
     async def memoryconfig_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Shows or sets the channels the bot has access to."""
-        assert ctx.guild
+        config = self.config[ctx.guild]
         if mode == "show":
-            mode = await self.config.guild(ctx.guild).channel_mode()
-            channel_ids = await self.config.guild(ctx.guild).channels()
+            mode = config.channel_mode.value  # type: ignore
+            channel_ids = config.channels.value
         else:
-            channel_ids = [c.id for c in channels] # type: ignore
-            await self.config.guild(ctx.guild).channel_mode.set(mode)
-            await self.config.guild(ctx.guild).channels.set(channel_ids)
+            channel_ids = [c.id for c in channels]
+            await config.channel_mode.set(mode)
+            await config.channels.set(channel_ids)
         
         await ctx.reply(f"`[channel_mode:]` {mode}\n`[channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
     @memoryconfig.command(name="generation_channels")
     async def memoryconfig_generation_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Shows or sets the channels that allow image generation tools."""
-        assert ctx.guild
+        config = self.config[ctx.guild]
         if mode == "show":
-            mode = await self.config.guild(ctx.guild).generation_channel_mode()
-            channel_ids = await self.config.guild(ctx.guild).generation_channels()
+            mode = config.generation_channel_mode.value  # type: ignore
+            channel_ids = config.generation_channels.value
         else:
             channel_ids = [c.id for c in channels]
-            await self.config.guild(ctx.guild).generation_channel_mode.set(mode)
-            await self.config.guild(ctx.guild).generation_channels.set(channel_ids)
+            await config.generation_channel_mode.set(mode)
+            await config.generation_channels.set(channel_ids)
         
         await ctx.reply(f"`[generation_channel_mode:]` {mode}\n`[generation_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
     @memoryconfig.command(name="auto_channels")
     async def memoryconfig_auto_channels(self, ctx: commands.Context, mode: channel_mode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Shows or sets the channels that allow automatic responses."""
-        assert ctx.guild
+        config = self.config[ctx.guild]
         if mode == "show":
-            mode = await self.config.guild(ctx.guild).auto_channel_mode()
-            channel_ids = await self.config.guild(ctx.guild).auto_channels()
+            mode = config.auto_channel_mode.value  # type: ignore
+            channel_ids = config.auto_channels.value
         else:
             channel_ids = [c.id for c in channels]
-            await self.config.guild(ctx.guild).auto_channel_mode.set(mode)
-            await self.config.guild(ctx.guild).auto_channels.set(channel_ids)
+            await config.auto_channel_mode.set(mode)
+            await config.auto_channels.set(channel_ids)
         
         await ctx.reply(f"`[auto_channel_mode:]` {mode}\n`[auto_channels]`\n>>> " + "\n".join([f"<#{cid}>" for cid in channel_ids]), mention_author=False)
 
@@ -326,24 +295,20 @@ class GptMemoryCommands(GptMemoryBase):
     @commands.is_owner()
     async def memoryconfig_model(self, ctx: commands.Context, module: ModelPromptTypes, model: Optional[str]):
         """Views or changes the OpenAI model being used for the recaller, responder, or memorizer."""
-        assert ctx.guild
-        if module == "recaller":
-            model_config = self.config.guild(ctx.guild).model_recaller
-        elif module == "responder":
-            model_config = self.config.guild(ctx.guild).model_responder
-        elif module == "memorizer":
-            model_config = self.config.guild(ctx.guild).model_memorizer
-        elif module == "captioner":
-            model_config = self.config.guild(ctx.guild).model_captioner
-        elif module == "autoreacter":
-            model_config = self.config.guild(ctx.guild).model_autoreacter
-
+        config = self.config[ctx.guild]
+        fields = {
+            "recaller":    config.model_recaller,
+            "responder":   config.model_responder,
+            "memorizer":   config.model_memorizer,
+            "captioner":   config.model_captioner,
+            "autoreacter": config.model_autoreacter,
+        }
         if not model or not model.strip():
-            await ctx.reply(f"Current model for the {module} is {await model_config()}")
+            await ctx.reply(f"Current model for the {module} is {fields[module].value}")
         elif "/" not in model and "$" not in model and model.strip().lower() not in VISION_MODELS:
             await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
         else:
-            await model_config.set(model.strip().lower())
+            await fields[module].set(model.strip().lower())
             if "$" in model:
                 await ctx.reply("Model changed. Note that this model will be used through OpenWebui, and things may break unexpectedly.")
             elif "/" in model:
@@ -357,20 +322,18 @@ class GptMemoryCommands(GptMemoryBase):
     @commands.is_owner()
     async def memoryconfig_effort(self, ctx: commands.Context, module: EffortPromptTypes, effort: Optional[str]):
         """Views or changes the reasoning effort for the recaller, responder, or memorizer."""
-        assert ctx.guild
-        if module == "recaller":
-            effort_config = self.config.guild(ctx.guild).effort_recaller
-        elif module == "responder":
-            effort_config = self.config.guild(ctx.guild).effort_responder
-        elif module == "memorizer":
-            effort_config = self.config.guild(ctx.guild).effort_memorizer
-
+        config = self.config[ctx.guild]
+        fields = {
+            "recaller":  config.effort_recaller,
+            "responder": config.effort_responder,
+            "memorizer": config.effort_memorizer,
+        }
         if not effort or not effort.strip():
-            await ctx.reply(f"Current effort for the {module} is {await effort_config()}")
+            await ctx.reply(f"Current effort for the {module} is {fields[module].value}")
         elif effort.strip().lower() not in EFFORT_VALUES:
             await ctx.reply("Invalid value!\nValid values are " + ",".join([f"`{m}`" for m in EFFORT_VALUES]))
         else:
-            await effort_config.set(effort.strip().lower())
+            await fields[module].set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
 
 
@@ -389,21 +352,7 @@ class GptMemoryCommands(GptMemoryBase):
         The autoresponder sends random chat messages.
         The memorizer edits memories.
         """
-        assert ctx.guild
-        prompt = ""
-        if module == "recaller":
-            prompt = await self.config.guild(ctx.guild).prompt_recaller()
-        elif module == "responder":
-            prompt = await self.config.guild(ctx.guild).prompt_responder()
-        elif module == "memorizer":
-            prompt = await self.config.guild(ctx.guild).prompt_memorizer()
-        elif module == "autoresponder":
-            prompt = await self.config.guild(ctx.guild).prompt_autoresponder()
-        elif module == "captioner":
-            prompt = await self.config.guild(ctx.guild).prompt_captioner()
-        elif module == "autoreacter":
-            prompt = await self.config.guild(ctx.guild).prompt_autoreacter()
-
+        prompt = self.prompt_fields(self.config[ctx.guild])[module].value
         await chunk_and_send(ctx, f"`[{module} prompt]`\n```\n{prompt or '*None*'}\n```")
 
     @memoryconfig_prompt.command(name="set", aliases=["edit"])
@@ -415,148 +364,129 @@ class GptMemoryCommands(GptMemoryBase):
         The autoresponder sends random chat messages.
         The memorizer edits memories.
         """
-        assert ctx.guild
         prompt = prompt.strip()
         if not prompt:
-            await ctx.reply("Invalid prompt", mention_author=False)
-            return
-        
-        if module == "recaller":
-            await self.config.guild(ctx.guild).prompt_recaller.set(prompt)
-        elif module == "responder":
-            await self.config.guild(ctx.guild).prompt_responder.set(prompt)
-        elif module == "memorizer":
-            await self.config.guild(ctx.guild).prompt_memorizer.set(prompt)
-        elif module == "autoresponder":
-            await self.config.guild(ctx.guild).prompt_autoresponder.set(prompt)
-        elif module == "captioner":
-            await self.config.guild(ctx.guild).prompt_captioner.set(prompt)
-        elif module == "autoreacter":
-            await self.config.guild(ctx.guild).prompt_autoreacter.set(prompt)
-
+            return await ctx.reply("Invalid prompt", mention_author=False)
+        await self.prompt_fields(self.config[ctx.guild])[module].set(prompt)
         await ctx.tick()
 
     @memoryconfig_prompt.command(name="key", aliases=["keys"])
     async def memoryconfig_keys(self, ctx: commands.Context, key: Optional[str], *, value: Optional[str]):
         """Shows or sets a {key} to act as a shorthand in the responder prompt."""
-        assert ctx.guild
-        all_keys = await self.config.guild(ctx.guild).prompt_keys()
+        prompt_keys = self.config[ctx.guild].prompt_keys
         if not key:
-            content = f"`[prompt_keys:]` ```\n" + "\n".join([f"{{{key}}}" for key in all_keys.keys()]) + "\n```"
+            content = f"`[prompt_keys:]` ```\n" + "\n".join([f"{{{key}}}" for key in prompt_keys.value.keys()]) + "\n```"
         elif not value:
-            if key in all_keys:
-                content = f"`[{key}:]` ```\n{all_keys[key].replace('```', '`')}```"
+            if key in prompt_keys.value:
+                content = f"`[{key}:]` ```\n{prompt_keys.value[key].replace('```', '`')}```"
             else:
                 content = "Key not found. You can use this same command to set a value for it or clear it."
         elif value.lower() in ("delete", "clear", "none", "empty", "erase"):
-            if key in all_keys:
-                del all_keys[key]
-                await self.config.guild(ctx.guild).prompt_keys.set(all_keys)
+            if key in prompt_keys.value:
+                del prompt_keys.value[key]
+                await prompt_keys.save()
             return await ctx.tick()
         else:
-            all_keys[key] = value
-            await self.config.guild(ctx.guild).prompt_keys.set(all_keys)
+            prompt_keys.value[key] = value
+            await prompt_keys.save()
             return await ctx.tick()
         await ctx.reply(content, mention_author=False)
 
     @memoryconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
     async def memoryconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
         """Whether the memorizer will run at all, editing memories."""
-        assert ctx.guild
+        field = self.config[ctx.guild].allow_memorizer
         if value is None:
-            value = await self.config.guild(ctx.guild).allow_memorizer()
+            value = field.value
         else:
-            await self.config.guild(ctx.guild).allow_memorizer.set(value)
+            await field.set(value)
         await ctx.reply(f"`[allow_memorizer:]` {value}", mention_author=False)
 
     @memoryconfig.command(name="memorizer_user_only")
     async def memoryconfig_memorizer_user_only(self, ctx: commands.Context, value: Optional[bool]):
         """If enabled, only memories of usernames will be passed to the memorizer."""
-        assert ctx.guild
+        field = self.config[ctx.guild].memorizer_user_only
         if value is None:
-            value = await self.config.guild(ctx.guild).memorizer_user_only()
+            value = field.value
         else:
-            await self.config.guild(ctx.guild).memorizer_user_only.set(value)
+            await field.set(value)
         await ctx.reply(f"`[memorizer_user_only:]` {value}", mention_author=False)
 
     @memoryconfig.command(name="memorizer_alerts")
     async def memoryconfig_memorizer_alerts(self, ctx: commands.Context, value: Optional[bool]):
         """Whether the memorizer will send a message in chat after editing memories."""
-        assert ctx.guild
+        field = self.config[ctx.guild].memorizer_alerts
         if value is None:
-            value = await self.config.guild(ctx.guild).memorizer_alerts()
+            value = field.value
         else:
-            await self.config.guild(ctx.guild).memorizer_alerts.set(value)
+            await field.set(value)
         await ctx.reply(f"`[memorizer_alerts:]` {value}", mention_author=False)
 
     @memoryconfig.command(name="autoresponder_chance")
     async def memoryconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
         """The chance that the autoresponder will trigger, from 0.0 to 100.0"""
-        assert ctx.guild
+        field = self.config[ctx.guild].autoresponder_chance
         if percent is None:
-            percent = await self.config.guild(ctx.guild).autoresponder_chance()
+            percent = field.value
         elif percent < 0 or percent > 100:
             await ctx.reply("Value must range from 0.0 to 100.0", mention_author=False)
             return
         else:
             percent /= 100
-            await self.config.guild(ctx.guild).autoresponder_chance.set(percent)
-        assert percent
+            await field.set(percent)
         await ctx.reply(f"`[autoresponder_chance:]` {percent*100:.2f}%", mention_author=False)
 
     @memoryconfig.command(name="autoreacter_chance")
     async def memoryconfig_autoreacter_chance(self, ctx: commands.Context, percent: Optional[float]):
         """The chance that the autoreacter will trigger, from 0.0 to 100.0"""
-        assert ctx.guild
+        field = self.config[ctx.guild].autoreacter_chance
         if percent is None:
-            percent = await self.config.guild(ctx.guild).autoreacter_chance()
+            percent = field.value
         elif percent < 0 or percent > 100:
             await ctx.reply("Value must range from 0.0 to 100.0", mention_author=False)
             return
         else:
             percent /= 100
-            await self.config.guild(ctx.guild).autoreacter_chance.set(percent)
-        assert percent
+            await field.set(percent)
         await ctx.reply(f"`[autoreacter_chance:]` {percent*100:.2f}%", mention_author=False)
 
     @memoryconfig.command(name="autoreacter_chance_images")
     async def memoryconfig_autoreacter_chance_images(self, ctx: commands.Context, percent: Optional[float]):
         """The chance that the autoreacter will trigger on an image attachment, from 0.0 to 100.0"""
-        assert ctx.guild
+        field = self.config[ctx.guild].autoreacter_chance_images
         if percent is None:
-            percent = await self.config.guild(ctx.guild).autoreacter_chance_images()
+            percent = field.value
         elif percent < 0 or percent > 100:
             await ctx.reply("Value must range from 0.0 to 100.0", mention_author=False)
             return
         else:
             percent /= 100
-            await self.config.guild(ctx.guild).autoreacter_chance_images.set(percent)
-        assert percent
+            await field.set(percent)
         await ctx.reply(f"`[autoreacter_chance_images:]` {percent*100:.2f}%", mention_author=False)
 
     @memoryconfig.command(name="autoresponder_cooldown")
     async def memoryconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
         """The minimum time between 2 autoresponder triggers in a single channel."""
-        assert ctx.guild
+        field = self.config[ctx.guild].autoresponder_cooldown_minutes
         if minutes is None:
-            minutes = await self.config.guild(ctx.guild).autoresponder_cooldown_minutes()
+            minutes = field.value
         elif minutes < 0:
             await ctx.reply("Value must not be negative.", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).autoresponder_cooldown_minutes.set(minutes)
+            await field.set(minutes)
         assert minutes
         await ctx.reply(f"`[autoresponder_cooldown:]` {minutes} minutes", mention_author=False)
 
     @memoryconfig.command(name="autoreacter_cooldown")
     async def memoryconfig_autoreacter_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
         """The minimum time between 2 autoreacter triggers in a single channel."""
-        assert ctx.guild
+        field = self.config[ctx.guild].autoreacter_cooldown_minutes
         if minutes is None:
-            minutes = await self.config.guild(ctx.guild).autoreacter_cooldown_minutes()
+            minutes = field.value
         elif minutes < 0:
             await ctx.reply("Value must not be negative.", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).autoreacter_cooldown_minutes.set(minutes)
+            await field.set(minutes)
         assert minutes
         await ctx.reply(f"`[autoreacter_cooldown:]` {minutes} minutes", mention_author=False)
 
@@ -565,13 +495,14 @@ class GptMemoryCommands(GptMemoryBase):
         """
         Sets how long a response can take before it's cancelled
         """
+        field = self.config.response_timeout
         if not value:
-            value = await self.config.response_timeout()
+            value = field.value
         elif value < 10 or value > 3600:
             await ctx.reply("Value must be between 10 and 3600", mention_author=False)
             return
         else:
-            await self.config.response_timeout.set(value)
+            await field.set(value)
         await ctx.reply(f"`[timeout:]` {value}", mention_author=False)
     
     @memoryconfig.command(name="slow_timer")
@@ -579,13 +510,14 @@ class GptMemoryCommands(GptMemoryBase):
         """
         Sets how long a response can take before reacting with slow_emoji
         """
+        field = self.config.slow_timer
         if not value:
-            value = await self.config.slow_timer()
+            value = field.value
         elif value < 5 or value > 600:
             await ctx.reply("Value must be between 5 and 600", mention_author=False)
             return
         else:
-            await self.config.slow_timer.set(value)
+            await field.set(value)
         await ctx.reply(f"`[slow_timer:]` {value}", mention_author=False)
     
     @memoryconfig.command(name="slow_emoji")
@@ -635,8 +567,7 @@ class GptMemoryCommands(GptMemoryBase):
     @memoryconfig_functions.command(name="list")
     async def memoryconfig_functions_list(self, ctx: commands.Context):
         """Shows all functions and whether they are active."""
-        assert ctx.guild
-        enabled_functions = await self.config.guild(ctx.guild).enabled_functions()
+        enabled_functions = self.config[ctx.guild].enabled_functions.value
         functions = []
         for tool in get_all_tools():
             name = tool.display_name
@@ -650,19 +581,18 @@ class GptMemoryCommands(GptMemoryBase):
 
     @memoryconfig_functions.command(name="toggle")
     async def memoryconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
-        assert ctx.guild
         """Enables or disables a function"""
         all_function_names = [f.display_name for f in get_all_tools()]
         if function_name not in all_function_names:
             await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_function_names]))
             return
-        enabled_functions: list[str] = await self.config.guild(ctx.guild).enabled_functions()
-        enabled = function_name in enabled_functions
+        enabled_functions = self.config[ctx.guild].enabled_functions
+        enabled = function_name in enabled_functions.value
         if enabled:
-            enabled_functions.remove(function_name)
+            enabled_functions.value.remove(function_name)
         else:
-            enabled_functions.append(function_name)
-        await self.config.guild(ctx.guild).enabled_functions.set(enabled_functions)
+            enabled_functions.value.append(function_name)
+        await enabled_functions.save()
         enabled = not enabled
         await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")
 
@@ -672,7 +602,7 @@ class GptMemoryCommands(GptMemoryBase):
         Sets a tool-specific key-value setting.
         """
         setting_dict = reduce(lambda a, b: a | b, [func.settings for func in get_all_tools()])
-        setting_values = await self.config.tool_settings()
+        setting_values = self.config.tool_settings.value
         if not key:
             lines = [f"`{key}`: `{setting_values.get(key, default or '(empty)')}`" for key, default in setting_dict.items()]
             return await ctx.send(">>> " + "\n".join(lines))
@@ -684,8 +614,8 @@ class GptMemoryCommands(GptMemoryBase):
                 await ctx.react_quietly(value)
             except (discord.NotFound, discord.Forbidden):
                 return await ctx.reply("Invalid emoji. Note that I must be in the same server as the emoji to use it.")
-        async with self.config.tool_settings() as settings:
-            settings[key] = value
+        setting_values[key] = value
+        await self.config.tool_settings.save()
         await ctx.tick()
 
     @memoryconfig.group(name="limits")
@@ -696,143 +626,132 @@ class GptMemoryCommands(GptMemoryBase):
     @memoryconfig_limits.command(name="response_tokens")
     async def memoryconfig_response_tokens(self, ctx: commands.Context, value: Optional[int]):
         """Hard limit on the number of tokens the responder will send."""
-        assert ctx.guild
+        field = self.config[ctx.guild].response_tokens
         if not value:
-            value = await self.config.guild(ctx.guild).response_tokens()
+            value = field.value
         elif value < 1000 or value > 20000:
-            await ctx.reply("Value must be between 1000 and 20000", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 1000 and 20000", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).response_tokens.set(value)
+            await field.set(value)
         await ctx.reply(f"`[response_tokens:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="backread_tokens")
     async def memoryconfig_backread_tokens(self, ctx: commands.Context, value: Optional[int]):
         """Soft limit on the number of tokens the LLM will read from the chat history."""
-        assert ctx.guild
+        field = self.config[ctx.guild].backread_tokens
         if not value:
-            value = await self.config.guild(ctx.guild).backread_tokens()
+            value = field.value
         elif value < 100 or value > 10000:
-            await ctx.reply("Value must be between 100 and 10000", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 100 and 10000", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).backread_tokens.set(value)
+            await field.set(value)
         await ctx.reply(f"`[backread_tokens:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="backread_messages")
     async def memoryconfig_backread_messages(self, ctx: commands.Context, value: Optional[int]):
         """How many messages in chat the recaller and responder will read."""
-        assert ctx.guild
+        field = self.config[ctx.guild].backread_messages
         if not value:
-            value = await self.config.guild(ctx.guild).backread_messages()
+            value = field.value
         elif value < 0 or value > 100:
-            await ctx.reply("Value must be between 0 and 100", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 0 and 100", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).backread_messages.set(value)
+            await field.set(value)
         await ctx.reply(f"`[backread_messages:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="backread_short")
     async def memoryconfig_backread_short(self, ctx: commands.Context, value: Optional[int]):
         """How many messages in chat will read for shorter contexts (memorizer, autoreacter)."""
-        assert ctx.guild
+        field = self.config[ctx.guild].backread_short
         if value is None:
-            value = await self.config.guild(ctx.guild).backread_short()
+            value = field.value
         elif value < 0 or value > 100:
-            await ctx.reply("Value must be between 0 and 100", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 0 and 100", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).backread_short.set(value)
+            await field.set(value)
         await ctx.reply(f"`[backread_short:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_images")
     async def memoryconfig_max_images(self, ctx: commands.Context, value: Optional[int]):
         """How many images to send to the LLM in full with each response; the rest will be captioned and stored instead."""
-        assert ctx.guild
+        field = field = self.config[ctx.guild].max_images
         if value is None:
-            value = await self.config.guild(ctx.guild).max_images()
+            value = field.value
         elif value < 0 or value > 100:
-            await ctx.reply("Value must be between 0 and 100", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 0 and 100", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).max_images.set(value)
+            await field.set(value)
         await ctx.reply(f"`[max_images:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_tool")
     async def memoryconfig_max_tool(self, ctx: commands.Context, value: Optional[int]):
         """Character limit for function call results."""
-        assert ctx.guild
+        field = self.config[ctx.guild].max_tool
         if value is None:
-            value = await self.config.guild(ctx.guild).max_tool()
+            value = field.value
         elif value < 1000 or value > 20000:
-            await ctx.reply("Value must be between 1000 and 20000", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 1000 and 20000", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).max_tool.set(value)
+            await field.set(value)
         await ctx.reply(f"`[max_tool:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_depth", aliases=["max_tool_depth"])
     async def memoryconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
         """How many tools the AI can use one after the other. Each consecutive tool call is more expensive than the last."""
-        assert ctx.guild
+        field = self.config[ctx.guild].max_tool_depth
         if value is None:
-            value = await self.config.guild(ctx.guild).max_tool_depth()
+            value = field.value
         elif value < 1 or value > 10:
-            await ctx.reply("Value must be between 1 and 10", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 1 and 10", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).max_tool_depth.set(value)
+            await field.set(value)
         await ctx.reply(f"`[max_tool_depth:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_quote")
     async def memoryconfig_max_quote(self, ctx: commands.Context, value: Optional[int]):
         """Character limit for message replies."""
-        assert ctx.guild
+        field = self.config[ctx.guild].max_quote
         if value is None:
-            value = await self.config.guild(ctx.guild).max_quote()
+            value = field.value
         elif value < 200 or value > 10000:
-            await ctx.reply("Value must be between 200 and 10000", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 200 and 10000", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).max_quote.set(value)
+            await field.set(value)
         await ctx.reply(f"`[max_quote:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_text_file")
     async def memoryconfig_max_text_file(self, ctx: commands.Context, value: Optional[int]):
         """Character limit for text files."""
-        assert ctx.guild
+        field = self.config[ctx.guild].max_text_file
         if value is None:
-            value = await self.config.guild(ctx.guild).max_text_file()
+            value = field.value
         elif value < 2000 or value > 20000:
-            await ctx.reply("Value must be between 2000 and 20000", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 2000 and 20000", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).max_text_file.set(value)
+            await field.set(value)
         await ctx.reply(f"`[max_text_file:]` {value}", mention_author=False)
 
     @memoryconfig_limits.command(name="max_image_resolution", aliases=["max_resolution"])
     async def memoryconfig_max_image_resolution(self, ctx: commands.Context, value: Optional[int]):
         """Images will be resized to this resolution before being sent to the LLM."""
-        assert ctx.guild
+        field = self.config[ctx.guild].max_image_resolution
         if value is None:
-            value = await self.config.guild(ctx.guild).max_image_resolution()
+            value = field.value
         elif value < 512 or value > 2048:
-            await ctx.reply("Value must be between 512 and 2048", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 512 and 2048", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).max_image_resolution.set(value)
+            await field.set(value)
         await ctx.reply(f"`[max_image_resolution:]` {value}", mention_author=False)
 
 
     @memoryconfig_limits.command(name="max_caption_resolution", aliases=["max_thumbnail_resolution"])
     async def memoryconfig_max_caption_resolution(self, ctx: commands.Context, value: Optional[int]):
         """Images will be resized to this resolution before being sent for captioning."""
-        assert ctx.guild
+        field = self.config[ctx.guild].max_caption_resolution
         if value is None:
-            value = await self.config.guild(ctx.guild).max_caption_resolution()
+            value = field.value
         elif value < 128 or value > 1024:
-            await ctx.reply("Value must be between 128 and 1024", mention_author=False)
-            return
+            return await ctx.reply("Value must be between 128 and 1024", mention_author=False)
         else:
-            await self.config.guild(ctx.guild).max_caption_resolution.set(value)
+            await field.set(value)
         await ctx.reply(f"`[max_caption_resolution:]` {value}", mention_author=False)

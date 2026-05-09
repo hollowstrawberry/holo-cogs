@@ -27,10 +27,10 @@ class AgenticSearchTool(ToolBase):
     async def run(self, arguments: dict) -> str:
         assert self.ctx.guild and self.cog.openai_client and self.cog.openrouter_client
         if self.ctx.bot_permissions.add_reactions:
-            emoji = await self.get_setting("search_emoji")
+            emoji = self.get_setting("search_emoji")
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
-        model = await self.cog.config.guild(self.ctx.guild).model_responder()
+        model = self.cog.config[self.ctx.guild].model_responder.value
         if "$" in model:  # openwebui
             log.error("Tried to use agent_search with a openwebui model, which is not possible.")
             return "<error>Web search is not possible at this time</error>"

@@ -38,12 +38,9 @@ class GptMemory(GptMemoryCommands):
 
 
     async def cog_load(self):
+        await self.config.load_all(self.bot)
         await self.initialize_function_calls()
         await self.initialize_openai_client()
-        self.extended_logging = await self.config.extended_logging()
-        all_config = await self.config.all_guilds()
-        for guild_id, config in all_config.items():
-            self.memory[guild_id] = config["memory"]
 
 
     async def cog_unload(self):
@@ -115,7 +112,7 @@ class GptMemory(GptMemoryCommands):
 
 
     @commands.Cog.listener()
-    async def on_message_without_command(self, message: discord.Message):
+    async def on_message(self, message: discord.Message):
         if message.id in self.currently_responding:
             return
         self.currently_responding.add(message.id)
@@ -127,39 +124,38 @@ class GptMemory(GptMemoryCommands):
     
     async def handle_message(self, message: discord.Message):
         ctx: commands.Context = await self.bot.get_context(message) 
+        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         if not await self.is_valid_trigger(ctx):
             return
-        assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
 
         prefixes = await self.bot.get_valid_prefixes(ctx.guild)
         if any(message.content.startswith(prefix) for prefix in prefixes):
             return
         
         now = datetime.now(tz=timezone.utc)
-        config = await self.config.guild(ctx.guild).all()
-        channel_config = await self.config.channel(ctx.channel).all()
-        global_config = await self.config.all()
+        config = await self.config.load_guild(ctx.guild)
+        channel_config = await self.config.load_channel(ctx.channel)
 
         # autoresponse or autoreaction
         if self.bot.user not in ctx.message.mentions:
-            if config["auto_channel_mode"] == "blacklist" and ctx.channel.id in config["auto_channels"]:
+            if config.auto_channel_mode == "blacklist" and ctx.channel.id in config.auto_channels.value:
                 return
-            if config["auto_channel_mode"] == "whitelist" and ctx.channel.id not in config["auto_channels"]:
+            if config.auto_channel_mode.value == "whitelist" and ctx.channel.id not in config.auto_channels.value:
                 return
-            last_response = datetime.fromisoformat(channel_config["last_response"])
-            if random() > config["autoresponder_chance"] or (now - last_response).total_seconds() < config["autoresponder_cooldown_minutes"] * 60:
+            last_response = channel_config.last_response.value
+            if random() > config.autoresponder_chance.value or (now - last_response).total_seconds() < config.autoresponder_cooldown_minutes.value * 60:
                 # autoreaction
                 if not ctx.bot_permissions.add_reactions:
                     return
-                last_reaction = datetime.fromisoformat(channel_config["last_reaction"])
-                if (now - last_reaction).total_seconds() < config["autoreacter_cooldown_minutes"] * 60:
+                last_reaction = channel_config.last_reaction.value
+                if (now - last_reaction).total_seconds() < config.autoreacter_cooldown_minutes.value * 60:
                     return
                 if message.attachments and "image" in (message.attachments[0].content_type or ""):
-                    if random() > max(config["autoreacter_chance"], config["autoreacter_chance_images"]):
+                    if random() > max(config.autoreacter_chance.value, config.autoreacter_chance_images.value):
                         return
-                elif random() > config["autoreacter_chance"]:
+                elif random() > config.autoreacter_chance.value:
                     return
-                await self.config.channel(ctx.channel).last_reaction.set(now.isoformat())
+                await channel_config.last_reaction.set(now)
                 try:
                     await self.run_reaction(ctx)
                 except Exception:
@@ -167,26 +163,26 @@ class GptMemory(GptMemoryCommands):
                 return
         
         # response or autoresponse
-        await self.config.channel(ctx.channel).last_response.set(now.isoformat())
+        await channel_config.last_response.set(now)
         
         if match := constants.URL_PATTERN.search(message.content):
             if not message.embeds and f"<{match.group(0)}>" not in message.content:  # non-embedding links
-                await ctx.channel.typing()
-                ctx = await self.wait_for_embed(ctx)
+                async with utils.bot_is_typing(ctx.channel):
+                    ctx = await self.wait_for_embed(ctx)
 
         # run the task with soft timeout
         task = asyncio.create_task(self.run_response(ctx, auto=self.bot.user not in ctx.message.mentions))
-        done, _ = await asyncio.wait([task], timeout=global_config["slow_timer"])
+        done, _ = await asyncio.wait([task], timeout=self.config.slow_timer.value)
         # show the user if task is taking too long
         if task not in done:
-            asyncio.create_task(ctx.message.add_reaction(global_config["slow_emoji"]))
+            asyncio.create_task(ctx.message.add_reaction(self.config.slow_emoji.value))
         # finish running the task with hard timeout, additionally reraise any previous exceptions, or do nothing if already finished
         try:
-            await asyncio.wait_for(task, timeout=global_config["response_timeout"])
+            await asyncio.wait_for(task, timeout=self.config.response_timeout.value)
         except Exception:
             log.exception("run_response")
             # show the user if task didn't finish
-            asyncio.create_task(ctx.message.add_reaction(global_config["noresponse_emoji"]))
+            asyncio.create_task(ctx.message.add_reaction(self.config.noresponse_emoji.value))
     
 
     @commands.Cog.listener()
@@ -194,39 +190,32 @@ class GptMemory(GptMemoryCommands):
         if before.name == after.name:
             return
         for guild in self.bot.guilds:
-            if before.name in self.memory.get(guild.id, {}):
-                self.memory[guild.id][after.name] = self.memory[guild.id][before.name]
-                del self.memory[guild.id][before.name]
-                async with self.config.guild(guild).memory() as memory:
-                    if before.name in memory:
-                        memory[after.name] = memory[before.name]
-                        del memory[before.name]
+            config = self.config.guild.get(guild.id)
+            if not config:
+                continue
+            if before.name in config.memory.value:
+                config.memory.value[after.name] = config.memory.value[before.name]
+                del config.memory.value[before.name]
+                await config.memory.save()
                 log.info(f"Moved user memory {before.name=} {after.name=}")
 
 
     async def is_valid_trigger(self, ctx: commands.Context) -> bool:
-        if ctx.author.bot:
+        if not ctx.guild or ctx.author.bot:
             return False
-        if not ctx.guild:
+        config = await self.config.load_guild(ctx.guild)
+        if config.channel_mode.value == "blacklist" and ctx.channel.id in config.channels.value:
             return False
-
-        channel_mode = await self.config.guild(ctx.guild).channel_mode()
-        channel_list = await self.config.guild(ctx.guild).channels()
-        if channel_mode == "blacklist" and ctx.channel.id in channel_list:
+        elif config.channel_mode.value == "whitelist" and ctx.channel.id not in config.channels.value:
             return False
-        if channel_mode == "whitelist" and ctx.channel.id not in channel_list:
-            return False
-
         if await self.bot.cog_disabled_in_guild(self, ctx.guild):
             return False
         if not await self.bot.ignored_channel_or_guild(ctx):
             return False
         if not await self.bot.allowed_by_whitelist_blacklist(ctx.author):
             return False
-
         if not self.openai_client and not self.openrouter_client:
             await self.initialize_openai_client()
-
         return True
 
 
@@ -242,30 +231,31 @@ class GptMemory(GptMemoryCommands):
 
     async def run_response(self, ctx: commands.Context, auto: bool = False):
         assert ctx.guild
-        self.memory.setdefault(ctx.guild.id, {})
-        memory_names = list(self.memory[ctx.guild.id].keys())
+        config = self.config[ctx.guild]
+        memory_names = list(config.memory.value.keys())
         start = time.perf_counter()
         result = CompletionResult()
         mem_task = None
-        if True:#async with ctx.typing():
+        async with utils.bot_is_typing(ctx.channel):
             backread = await self.fetch_message_history(ctx)
-            messages = await self.context_builder.build_context(ctx, backread, result, self.encoding)
+            messages = await self.context_builder.build_context(ctx, backread, config, result, self.encoding)
             participants = list(set([ctx.guild.get_member(msg.author.id) or msg.author for msg in backread]))
             recalled_memories = await self.execute_recaller(ctx, participants, messages, memory_names, result)
             recalled_memories_str = self.build_memory_string(memory_names, recalled_memories, ctx, participants)
-            if not auto and await self.config.guild(ctx.guild).allow_memorizer():
+            if not auto and config.allow_memorizer.value:
                 mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=True))
             await self.execute_responder(ctx, messages, memory_names, recalled_memories_str, result, auto)
-        if mem_task:
-            await mem_task
+            if mem_task:
+                await mem_task
         result.elapsed_ms = int(1000 * (time.perf_counter() - start))
         log.info(result)
 
     
     async def run_reaction(self, ctx: commands.Context):
+        assert ctx.guild
         start = time.perf_counter()
         backread = await self.fetch_message_history(ctx, short=True)
-        messages = await self.context_builder.build_context(ctx, backread, CompletionResult(), self.encoding)
+        messages = await self.context_builder.build_context(ctx, backread, self.config[ctx.guild], CompletionResult(), self.encoding)
         result = await self.execute_autoreacter(ctx, messages)
         result.elapsed_ms = int(1000 * (time.perf_counter() - start))
         log.info(result)
@@ -282,10 +272,11 @@ class GptMemory(GptMemoryCommands):
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a dictionary of memories and their contents as chosen by the LLM.
         """
-        assert ctx.guild
         if not memories:
             return {}
-        config = await self.config.guild(ctx.guild).all()
+        
+        assert ctx.guild
+        config = self.config[ctx.guild]
 
         temp_messages = utils.get_text_contents(messages)
         temp_memories = list(memories)
@@ -297,14 +288,14 @@ class GptMemory(GptMemoryCommands):
                 memories_to_recall.add(memory)
 
         temp_memories_str = ", ".join(temp_memories)
-        system_content = config["prompt_recaller"].format(temp_memories_str)
+        system_content = config.prompt_recaller.value.format(temp_memories_str)
         system_prompt = {
             "role": "system",
             "content": system_content
         }
-        temp_messages.insert(0, system_prompt)
+        temp_messages.insert(0, system_prompt)  # type: ignore
 
-        model, effort = config["model_recaller"], config["effort_recaller"]
+        model, effort = config.model_recaller.value, config.effort_recaller.value
         response = await self.get_client(model).chat.completions.create(
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
@@ -320,10 +311,10 @@ class GptMemory(GptMemoryCommands):
             result.tokens.recaller = (response.usage.prompt_tokens, response.usage.completion_tokens)
             if cost := getattr(response.usage, "cost", 0.0):
                 result.add_cost(cost)
-        if self.extended_logging:
+        if self.config.extended_logging.value:
             log.info(f"{memories_to_recall=}")
 
-        recalled_memories = {k: v for k, v in self.memory[ctx.guild.id].items() if k in memories_to_recall}
+        recalled_memories = {k: v for k, v in config.memory.value.items() if k in memories_to_recall}
         return recalled_memories or {}
   
 
@@ -340,12 +331,11 @@ class GptMemory(GptMemoryCommands):
         and returns a response message after sending it to the user.
         """
         assert ctx.guild and isinstance(ctx.me, discord.Member) and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        config: dict = await self.config.guild(ctx.guild).all()
-        global_config: dict = await self.config.all()
-        model: str = config["model_responder"]
+        config = self.config[ctx.guild]
+        model: str = config.model_responder.value
 
-        base_system_content: str = config["prompt_autoresponder"] if auto else config["prompt_responder"]
-        prompt_keys: dict[str, str] = config["prompt_keys"]
+        base_system_content: str = config.prompt_autoresponder.value if auto else config.prompt_responder.value
+        prompt_keys: dict[str, str] = config.prompt_keys.value
         system_content = base_system_content.format(
             **prompt_keys,
             botname=ctx.me.name,
@@ -376,21 +366,21 @@ class GptMemory(GptMemoryCommands):
                 "content": prompt_keys["prefill"],
             })
 
-        tools = [t for t in self.available_tools if t.display_name in config["enabled_functions"]]
+        tools = [t for t in self.available_tools if t.display_name in config.enabled_functions.value]
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 
         past_memory_changes: list[MemoryChangeResult] = []
         past_tool_calls: list[str] = []
-        for depth in range(config["max_tool_depth"]):
-            can_use_tools = depth < config["max_tool_depth"] - 1
+        for depth in range(config.max_tool_depth.value):
+            can_use_tools = depth < config.max_tool_depth.value - 1
             if not can_use_tools and depth > 0:
                 temp_messages.extend(constants.FAKE_TOOL_CALL)  # type: ignore
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
-                reasoning_effort=utils.adjusted_effort(model, config["effort_responder"]),  # type: ignore
+                reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),  # type: ignore
                 messages=temp_messages,  # type: ignore
-                max_completion_tokens=config["response_tokens"],  # type: ignore
+                max_completion_tokens=config.response_tokens.value,  # type: ignore
                 tools=tools_schema,  # type: ignore
                 tool_choice="auto" if can_use_tools else "none",
                 extra_body=None if "/" not in model else {
@@ -415,10 +405,10 @@ class GptMemory(GptMemoryCommands):
                 error = str(getattr(response, "error", ""))
                 if "403" in error or "PROHIBITED" in error:
                     log.warning(f"Missing response: {error}")
-                    emoji = global_config["blocked_emoji"]
+                    emoji = self.config.blocked_emoji.value
                 else:
                     log.error(f"Missing response: {error}")
-                    emoji = global_config["noresponse_emoji"]
+                    emoji = self.config.noresponse_emoji.value
                 await ctx.message.add_reaction(emoji)
                 return {}
 
@@ -455,11 +445,11 @@ class GptMemory(GptMemoryCommands):
                 else:
                     tool_text = tool_result.strip()
 
-                if len(tool_text) > config["max_tool"]:
-                    tool_text = utils.fix_truncated_xml(tool_text[:config["max_tool"]]) + "..."
+                if len(tool_text) > config.max_tool.value:
+                    tool_text = utils.fix_truncated_xml(tool_text[:config.max_tool.value]) + "..."
                 result.tokens.tools += len(self.encoding.encode(tool_text))
                 log.info(f"{call.function.name=} {call.function.arguments=}")
-                if self.extended_logging:
+                if self.config.extended_logging.value:
                     log.info(f"{tool_text=}")
               
                 temp_messages.append({
@@ -471,7 +461,7 @@ class GptMemory(GptMemoryCommands):
         completion = response.choices[0].message.content or ""
         if completion:
             raw_completion = completion
-            if self.extended_logging:
+            if self.config.extended_logging.value:
                 log.info(f"{raw_completion=}")
             # special case: the bot tries to generate an image by sending text instead of using the function call
             prompt = None
@@ -488,14 +478,14 @@ class GptMemory(GptMemoryCommands):
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
             completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
             completion = utils.undo_xml(completion).strip()
-            if self.extended_logging and completion != raw_completion:
+            if self.config.extended_logging.value and completion != raw_completion:
                 log.info(f"cleaned_{completion=}")
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
         if completion or view:
             await utils.chunk_and_send(ctx, completion, embed=None, view=view, do_reply=not auto)
         else:
-            await ctx.message.add_reaction(global_config["noresponse_emoji"])
+            await ctx.message.add_reaction(self.config.noresponse_emoji.value)
 
         response_message = {
             "role": "assistant",
@@ -517,16 +507,16 @@ class GptMemory(GptMemoryCommands):
         and executes database operations as decided by the LLM.
         """
         assert ctx.guild and ctx.guild.me
-        config = await self.config.guild(ctx.guild).all()
+        config = self.config[ctx.guild]
 
-        if config["memorizer_user_only"]:
+        if config.memorizer_user_only.value:
             memory_names = [memory for memory in memory_names if any(member.name == memory for member in ctx.guild.members)]
         memory_names_obj = {
             "memory_names": {
                 "#text": ", ".join(memory_names),
             }
         }
-        system_content = config["prompt_memorizer"].format(
+        system_content = config.prompt_memorizer.value.format(
             xmltodict.unparse(memory_names_obj, full_document=False),
             recalled_memories_str,
             botname=ctx.me.name,
@@ -539,12 +529,12 @@ class GptMemory(GptMemoryCommands):
 
         prefixes = await self.bot.get_valid_prefixes(ctx.guild)
         temp_messages = [msg for msg in utils.get_text_contents(messages) if not utils.is_bot_command(msg, prefixes)]
-        num_backread = config["backread_short"]
+        num_backread = config.backread_short.value
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]
-        temp_messages.insert(0, system_prompt)
+        temp_messages.insert(0, system_prompt)  # type: ignore
 
-        model, effort = config["model_memorizer"], config["effort_memorizer"]
+        model, effort = config.model_memorizer.value, config.effort_memorizer.value
         response = await self.get_client(model).chat.completions.parse(
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
@@ -566,40 +556,36 @@ class GptMemory(GptMemoryCommands):
             return []
 
         memory_changes: list[MemoryChangeResult] = []
-        async with self.config.guild(ctx.guild).memory() as memory:
-            memory: dict[str, str]
-            for change in completion.parsed.memory_changes:
-                action, name, content = change.action_type, change.memory_name, change.memory_content
+        memory = config.memory.value
+        for change in completion.parsed.memory_changes:
+            action, name, content = change.action_type, change.memory_name, change.memory_content
 
-                if name not in memory and action != "create":
-                    matches = get_close_matches(name, memory)
-                    if not matches:
-                        continue
-                    name = matches[0]
+            if name not in memory and action != "create":
+                matches = get_close_matches(name, memory)
+                if not matches:
+                    continue
+                name = matches[0]
 
-                content = content.strip()
-                before = memory.get(name)
-                if action == "delete":
-                    del memory[name]
-                    del self.memory[ctx.guild.id][name]
-                elif action == "create" and name not in memory:
-                    memory[name] = content
-                    self.memory[ctx.guild.id][name] = content
-                elif action == "modify" and name in memory:
-                    memory[name] = content
-                    self.memory[ctx.guild.id][name] = content
-                else:
-                    memory[name] += " ... " + content
-                    self.memory[ctx.guild.id][name] += " ... " + content
+            content = content.strip()
+            before = memory.get(name)
+            if action == "delete":
+                memory.pop(name, None)
+            elif action == "create" and name not in memory:
+                memory[name] = content
+            elif action == "modify" and name in memory:
+                memory[name] = content
+            else:
+                memory[name] += " ... " + content
 
-                if self.extended_logging:
-                    log.info(f"{action} memory / {name=} / {content=}")
+            if self.config.extended_logging.value:
+                log.info(f"{action} memory / {name=} / {content=}")
+            after = memory.get(name)
+            if before != after:
+                memory_changes.append(MemoryChangeResult(name, before, after))
+        
+        await config.memory.save()
 
-                after = memory.get(name)
-                if before != after:
-                    memory_changes.append(MemoryChangeResult(name, before, after))
-
-        if standalone and memory_changes and config["memorizer_alerts"]:
+        if standalone and memory_changes and config.memorizer_alerts.value:
             view = MemoryChangeView(memory_changes, standalone)
             view.message = await ctx.send(view=view)
         return memory_changes
@@ -607,11 +593,11 @@ class GptMemory(GptMemoryCommands):
 
     async def execute_autoreacter(self, ctx: commands.Context, messages: list[GptMessage]) -> ReactionResult:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        config = await self.config.guild(ctx.guild).all()
+        config = self.config[ctx.guild]
 
         temp_messages = utils.get_text_contents(messages[:-1]) + [messages[-1]]  # allow last message to have an image
-        system_content = config["prompt_autoreacter"].format(
-            **config["prompt_keys"],
+        system_content = config.prompt_autoreacter.value.format(
+            **config.prompt_keys.value,
             botname=ctx.me.name,
             botnickname=ctx.guild.me.nick or ctx.me.name,
             servername=ctx.guild.name,
@@ -622,8 +608,8 @@ class GptMemory(GptMemoryCommands):
             "role": "system",
             "content": system_content
         }
-        temp_messages.insert(0, system_prompt)
-        model = config["model_autoreacter"]
+        temp_messages.insert(0, system_prompt)  # type: ignore
+        model = config.model_autoreacter.value
         effort = "none"
         response = await self.get_client(model).chat.completions.parse(
             model=utils.clean_model(model),
@@ -670,26 +656,26 @@ class GptMemory(GptMemoryCommands):
                 raise error
         else:
             result.emote = emote
-        if self.extended_logging:
+        if self.config.extended_logging.value:
             log.info(f'Reason for "{completion.parsed.emote}" is "{completion.parsed.reason}"')
         return result
 
 
     async def execute_captioner(self, ctx: commands.Context, image: GptImageContent, result: CompletionResult) -> str:
         assert ctx.guild
-        config = await self.config.guild(ctx.guild).all()
+        config = self.config[ctx.guild]
 
         messages: list[GptMessage] = [
             {
                 "role": "system",
-                "content": config["prompt_captioner"],
+                "content": config.prompt_captioner.value,
             },
             {
                 "role": "user",
                 "content": [image],
             }
         ]
-        model = config["model_captioner"]
+        model = config.model_captioner.value
         effort = "none"
         response = await self.get_client(model).chat.completions.create(
             model=utils.clean_model(model),
@@ -703,7 +689,7 @@ class GptMemory(GptMemoryCommands):
             caption = response.choices[0].message.content
         else:
             caption = "Unidentified image"
-        if self.extended_logging:
+        if self.config.extended_logging.value:
             log.info(f"{caption=}")
         if response.usage:
             if cost := getattr(response.usage, "cost", 0.0):
@@ -718,15 +704,13 @@ class GptMemory(GptMemoryCommands):
 
     async def fetch_message_history(self, ctx: commands.Context, short: bool = False) -> list[discord.Message]:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
-        if short:
-            limit = await self.config.guild(ctx.guild).backread_short()
-        else:
-            limit = await self.config.guild(ctx.guild).backread_messages()
-        after = datetime.fromisoformat(await self.config.channel(ctx.channel).start())
+        config = self.config[ctx.guild]
+        channel_config = await self.config.load_channel(ctx.channel)
+        limit = config.backread_short.value if short else config.backread_messages.value
         backread = [message async for message in ctx.channel.history(
             limit=limit,
             before=ctx.message,
-            after=after,
+            after=channel_config.start.value,
             oldest_first=False
         )]
         backread.insert(0, ctx.message)
@@ -773,10 +757,9 @@ class GptMemory(GptMemoryCommands):
 
     async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
         assert ctx.guild and self.bot.user
-
-        channel_mode = await self.config.guild(ctx.guild).generation_channel_mode()
-        channels = await self.config.guild(ctx.guild).generation_channels()
-        if channel_mode == "blacklist" and ctx.channel.id in channels or channel_mode == "whitelist" and ctx.channel.id not in channels:
+        config = self.config[ctx.guild]
+        if config.channel_mode.value == "blacklist" and ctx.channel.id in config.channels.value \
+                or config.channel_mode.value == "whitelist" and ctx.channel.id not in config.channels.value:
             if ctx.bot_permissions.add_reactions:
                 await ctx.message.add_reaction("❌")
             return

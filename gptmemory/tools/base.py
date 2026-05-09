@@ -18,8 +18,8 @@ class ToolBase(ABC):
         if not self.display_name or not self.schema:
             raise RuntimeError("Invalid Tool definition")
 
-    async def get_setting(self, key: str) -> str:
-        all = await self.cog.config.tool_settings() or {}
+    def get_setting(self, key: str) -> str:
+        all = self.cog.config.tool_settings.value or {}
         return all.get(key) or self.settings.get(key) or ""
 
     @classmethod

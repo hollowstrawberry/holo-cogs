@@ -1,5 +1,6 @@
 import os
 import re
+import asyncio
 import discord
 import trafilatura
 from io import BytesIO
@@ -273,3 +274,38 @@ async def chunk_and_send(ctx: commands.Context,
         )
         if view and hasattr(view, "message"):
             setattr(view, "message", msg)
+
+
+def bot_is_typing(channel: discord.abc.Messageable):
+    return BotIsTyping(channel)
+
+class BotIsTyping:
+    """
+    Like channel.typing() but ignores errors, because Discord disables typing events after an outage
+    """
+    def __init__(self, channel: discord.abc.Messageable):
+        self.channel = channel
+        self._task: asyncio.Task | None = None
+
+    async def _trigger(self):
+        try:
+            await asyncio.wait_for(self.channel._state.http.send_typing(getattr(self.channel, "id")), timeout=2)
+        except Exception:
+            pass
+
+    async def _keep_typing(self):
+        while True:
+            await self._trigger()
+            await asyncio.sleep(5)
+
+    async def __aenter__(self):
+        self._task = asyncio.create_task(self._keep_typing())
+        return self
+
+    async def __aexit__(self, *_):
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass

@@ -33,7 +33,7 @@ class TavilySearchTool(ToolBase):
             return "<error>An error occured while searching the web.</error>"
         
         if self.ctx.bot_permissions.add_reactions:
-            emoji = await self.get_setting("search_emoji")
+            emoji = self.get_setting("search_emoji")
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         client = AsyncTavilyClient(api_key)
