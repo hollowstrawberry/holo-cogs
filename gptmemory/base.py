@@ -6,11 +6,11 @@ from redbot.core.bot import Red
 
 import gptmemory.defaults as defaults
 from gptmemory.schema import CompletionResult, GptImageContent
-from gptmemory.config import ConfigField, CogConfig, GuildConfigBase, ChannelConfigBase
+from gptmemory.config import ConfigField, CogConfig, CogConfigBase
 from gptmemory.constants import DISCORD_EPOCH_DATETIME
 
 
-class GptMemoryGuildConfig(GuildConfigBase):
+class GptMemoryGuildConfig(CogConfigBase):
     # General
     channel_mode:            ConfigField[str]            = ConfigField("whitelist")
     channels:                ConfigField[list[int]]      = ConfigField([])
@@ -60,7 +60,7 @@ class GptMemoryGuildConfig(GuildConfigBase):
     autoreacter_cooldown_minutes:   ConfigField[int]   = ConfigField(5)
 
 
-class GptMemoryChannelConfig(ChannelConfigBase):
+class GptMemoryChannelConfig(CogConfigBase):
     start: ConfigField[datetime]         = ConfigField(DISCORD_EPOCH_DATETIME)
     last_response: ConfigField[datetime] = ConfigField(DISCORD_EPOCH_DATETIME)
     last_reaction: ConfigField[datetime] = ConfigField(DISCORD_EPOCH_DATETIME)

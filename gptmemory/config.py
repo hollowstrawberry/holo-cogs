@@ -73,11 +73,6 @@ class CogConfigBase:
         """Creates an instance of this class, loading its values from disk."""
         values = await group.all()
         return cls(values, group)
-    
-    @classmethod
-    def register(cls, config: Config) -> None:
-        """Registers the default values of this class in Red's config manager."""
-        raise NotImplementedError
 
     @classmethod
     def defaults(cls) -> dict:
@@ -89,23 +84,8 @@ class CogConfigBase:
         }
 
 
-class GuildConfigBase(CogConfigBase):
-    """Base class for a group of guild config fields."""
-    @classmethod
-    def register(cls, config: Config):
-        config.register_guild(**cls.defaults())
-
-
-class ChannelConfigBase(CogConfigBase):
-    """Base class for a group of channel config fields."""
-    @classmethod
-    def register(cls, config: Config):
-        config.register_channel(**cls.defaults())
-
-
-
-GuildT = TypeVar("GuildT", bound=GuildConfigBase)
-ChannelT = TypeVar("ChannelT", bound=ChannelConfigBase)
+GuildT = TypeVar("GuildT", bound=CogConfigBase)
+ChannelT = TypeVar("ChannelT", bound=CogConfigBase)
 
 class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
     """
@@ -149,15 +129,11 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
             self.channel[channel.id] = await self.channel_type.load(self._config.channel(channel))
         return self.channel[channel.id]
     
-    @classmethod
-    def register(cls, config: Config):
-        config.register_global(**cls.defaults())
-    
     def register_all(self):
         """Registers the default values of all config groups in Red's config manager."""
-        self.register(self._config)
-        self.guild_type.register(self._config)
-        self.channel_type.register(self._config)
+        self._config.register_global(**self.defaults())
+        self._config.register_guild(**self.guild_type.defaults())
+        self._config.register_channel(**self.channel_type.defaults())
 
     @overload
     def __getitem__(self, key: discord.Guild | None) -> GuildT: ...
