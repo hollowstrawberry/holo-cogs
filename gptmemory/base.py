@@ -67,8 +67,8 @@ class GptMemoryChannelConfig(CogConfigBase):
 
 
 class GptMemoryConfig(CogConfig[GptMemoryGuildConfig, GptMemoryChannelConfig]):
-    guild_type = GptMemoryGuildConfig
-    channel_type = GptMemoryChannelConfig
+    _guild_type = GptMemoryGuildConfig
+    _channel_type = GptMemoryChannelConfig
     # Global
     extended_logging: ConfigField[bool]        = ConfigField(True)
     tool_settings: ConfigField[dict[str, str]] = ConfigField({})
