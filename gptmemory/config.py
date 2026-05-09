@@ -6,8 +6,8 @@ from redbot.core import Config
 from redbot.core.bot import Red
 from redbot.core.config import Group
 
-T = TypeVar("T")
 
+T = TypeVar("T")
 
 class ConfigField(Generic[T]):
     """
@@ -105,7 +105,6 @@ class ChannelConfigBase(CogConfigBase):
 
 GuildT = TypeVar("GuildT", bound=GuildConfigBase)
 ChannelT = TypeVar("ChannelT", bound=ChannelConfigBase)
-
 
 class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
     """
