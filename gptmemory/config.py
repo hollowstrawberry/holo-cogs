@@ -21,6 +21,11 @@ class ConfigField(Generic[T]):
         self._loaded = False
 
     @property
+    def name(self) -> str:
+        """The internal name of this field"""
+        return self._name
+
+    @property
     def value(self) -> T:
         """The value of this field in memory."""
         return self._value
