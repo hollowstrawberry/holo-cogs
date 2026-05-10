@@ -285,7 +285,7 @@ async def bot_is_typing(channel: discord.abc.Messageable):
             await asyncio.wait_for(channel.typing(), timeout=2.0)
             await asyncio.sleep(5.0)
             
-    task = asyncio.create_task(keep_typing)
+    task = asyncio.create_task(keep_typing())
     try:
         yield
     finally:
