@@ -2,6 +2,7 @@ import os
 import re
 import asyncio
 import discord
+import contextlib
 import trafilatura
 from io import BytesIO
 from copy import deepcopy
@@ -276,37 +277,18 @@ async def chunk_and_send(ctx: commands.Context,
             setattr(view, "message", msg)
 
 
-def bot_is_typing(channel: discord.abc.Messageable):
-    return BotIsTyping(channel)
-
-class BotIsTyping:
-    """
-    Like channel.typing() but ignores errors, because Discord disables typing events after an outage
-    """
-    def __init__(self, channel: discord.abc.Messageable):
-        self.channel = channel
-        self._task: asyncio.Task | None = None
-
-    async def _trigger(self):
-        try:
-            cid = getattr(self.channel, "id")
-            await asyncio.wait_for(self.channel._state.http.send_typing(cid), timeout=2)
-        except Exception:
-            pass
-
-    async def _keep_typing(self):
+@contextlib.asynccontextmanager
+async def bot_is_typing(channel: discord.abc.Messageable):
+    """Like channel.typing but doesn't stop execution if typing fails."""
+    async def keep_typing():
         while True:
-            await self._trigger()
-            await asyncio.sleep(5)
-
-    async def __aenter__(self):
-        self._task = asyncio.create_task(self._keep_typing())
-        return self
-
-    async def __aexit__(self, *_):
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
+            await asyncio.wait_for(channel.typing(channel.id), timeout=2.0))
+            await asyncio.sleep(5.0)
+            
+    task = asyncio.create_task(keep_typing)
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(Exception):
+            await task
