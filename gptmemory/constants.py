@@ -27,7 +27,7 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Closing XML",       re.compile(r"(?:\s*</(?:chat_message|content)>)+\s*$"), ""),
     ("Leftover symbol",   re.compile(r"""\n[}'"\s\-]+$"""), ""),
     #("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
-    ("Em dash",           re.compile(r"(?<=\w)—(?=\w)"), ", "),
+    ("Em dash",           re.compile(r"(?<=[\w\s.!?)])—(?=[\w\s])"), ", "),
 ]
 GENERATE_IMAGE_PATTERNS = [
     ("XML object strict", re.compile(r"<generated_image(?: [^>]+)?>(?:(?!</generated_image>).)*<prompt>(.*?)</prompt>(?:(?!</generated_image>).)*</generated_image>", re.DOTALL | re.IGNORECASE)),
