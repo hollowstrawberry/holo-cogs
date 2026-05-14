@@ -27,6 +27,7 @@ class AImageSettings(AImageBase):
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
         if checkpoint not in ckpt_names.keys():
             names = [f"`{name}`" for name in ckpt_names.keys()]
+            log.info(names)
             batches = make_batches(names, 10)
             content = f":warning: Checkpoint must be one of:\n" + ",\n".join([", ".join(batch) for batch in batches])
             return await chunk_and_send(ctx, content, do_reply=True)
