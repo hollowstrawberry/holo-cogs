@@ -162,6 +162,7 @@ def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
 
 async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
     base_lines = full_text.splitlines(keepends=True)
+    log.info(base_lines)
     lines = []
     for base_line in base_lines:
         if len(base_line) > MAX_MESSAGE_LENGTH:
