@@ -45,7 +45,7 @@ class ImageActions(discord.ui.View):
         self.button_delete = discord.ui.Button(emoji='🗑️')
         self.button_delete.callback = self.delete_image
 
-        ckpt = metadata.get("Model") or metadata.get("Checkpoint") or payload.get("modelName") or ""
+        ckpt = metadata.checkpoint or payload.get("modelName") or ""
         if "anima" in ckpt.lower():
             self.button_variation.disabled = True
             self.button_upscale.disabled = True
