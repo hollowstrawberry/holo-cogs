@@ -133,7 +133,7 @@ class StableDiffusionTool(ToolBase):
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 cfg=float(metadata.get("CFG", metadata.get("Cfg", 5))),
-                checkpoint=metadata.get("Model", ""),
+                checkpoint=metadata.get("Model") or metadata.get("Checkpoint") or "",
                 width=width,
                 height=height,
                 sampler=metadata.get("Sampler", ""),
@@ -142,7 +142,7 @@ class StableDiffusionTool(ToolBase):
                 subseed=int(metadata.get("Extra Seed", -1)),
                 subseed_strength=float(metadata.get("Extra Seed Strength", 0)),
                 steps=int(metadata.get("Steps", 30)),
-                vae=metadata.get("VAE", metadata.get("Vae", "")),
+                vae=metadata.get("VAE") or metadata.get("Vae") or "",
                 loras=loras,
                 regions=regions,
             )
