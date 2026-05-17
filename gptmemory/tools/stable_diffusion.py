@@ -13,7 +13,11 @@ log = logging.getLogger("gptmemory.stablediffusion")
 
 class StableDiffusionTool(ToolBase):
     display_name="stable_diffusion"
-    settings = {"checkpoint": ""}
+    settings = {
+        "checkpoint": "",
+        "sampler": "",
+        "scheduler": "",
+    }
     schema = ToolCall(
         Function(
             name="generate_stable_diffusion",
@@ -163,6 +167,8 @@ class StableDiffusionTool(ToolBase):
                 loras=loras,
                 regions=regions,
                 checkpoint=self.get_setting("checkpoint")
+                sampler=self.get_setting("sampler"),
+                scheduler=self.get_settint("scheduler"),
             )
 
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
