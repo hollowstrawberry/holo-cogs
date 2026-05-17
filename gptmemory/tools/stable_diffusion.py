@@ -30,8 +30,8 @@ class StableDiffusionTool(ToolBase):
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "The prompt for image generation. Uses booru tags instead of sentences. " +
-                                       "Can be split into left prompt and right prompt by putting || between them."
+                        "description": "The prompt for image generation. Uses booru tags instead of sentences. " #+
+                                       #"Can be split into left prompt and right prompt by putting || between them."
                     },
                     "negative_prompt": {
                         "type": "string",
