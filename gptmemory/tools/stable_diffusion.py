@@ -168,7 +168,7 @@ class StableDiffusionTool(ToolBase):
                 regions=regions,
                 checkpoint=self.get_setting("checkpoint"),
                 sampler=self.get_setting("sampler"),
-                scheduler=self.get_settint("scheduler"),
+                scheduler=self.get_setting("scheduler"),
             )
 
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
