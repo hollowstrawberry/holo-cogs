@@ -55,7 +55,7 @@ class AImage(AImageCommands):
         log.info("Refreshed hourly quota")
 
 
-    @tasks.loop(seconds=1, reconnect=True)
+    @tasks.loop(seconds=1.5, reconnect=True)
     async def consume_queue(self):
         assert self.api
         if not self.queued_images or not self.api.session:
@@ -97,8 +97,7 @@ class AImage(AImageCommands):
             nsfw = any(r.get("rating") in ["sensitive", "explicit"] for r in ratings)
             error_message = None
             if job["status"] == "failed":
-                error_message = f"Reason: `{job.get('safety', {}).get('reason') or 'none'}`, " \
-                              + f"Error: `{job.get('safety', {}).get('error') or 'none'}`"
+                error_message = job.get("error") or job.get("safety", {}).get("reason") or "Unknown error."
             asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
             
         elif job["status"] in ["queued", "running"]:
@@ -233,7 +232,7 @@ class AImage(AImageCommands):
         
         if error_message:
             content = f":warning: Failed to generate image. {error_message}"
-            return await send_response(gen.context, content=content)
+            await gather_then_raise([gen.callback, send_response(gen.context, content=content)])
         
         final_tasks = [gen.callback]
         try:
