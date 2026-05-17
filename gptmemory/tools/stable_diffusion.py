@@ -166,7 +166,7 @@ class StableDiffusionTool(ToolBase):
                 height=height,
                 loras=loras,
                 regions=regions,
-                checkpoint=self.get_setting("checkpoint")
+                checkpoint=self.get_setting("checkpoint"),
                 sampler=self.get_setting("sampler"),
                 scheduler=self.get_settint("scheduler"),
             )
