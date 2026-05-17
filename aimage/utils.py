@@ -40,12 +40,11 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
     else:
         return await context.send(**kwargs)
 
-async def gather_then_raise(coroutines: list[Coroutine | None]):
-    real_coroutines = [coro for coro in coroutines if coro]
+async def gather_then_maybe_raise(*coroutines: Coroutine | None) -> None:
+    real_coroutines = [coro for coro in coroutines if coro is not None]
     results = await asyncio.gather(*real_coroutines, return_exceptions=True)
-    for res in results:
-        if isinstance(res, BaseException):
-            raise res
+    if errors := [res for res in results if isinstance(res, BaseException)]:
+        raise BaseExceptionGroup("gather_then_maybe_raise", errors)
 
 def is_nsfw(channel: discord.abc.Messageable) -> bool:
     if isinstance(channel, discord.TextChannel):

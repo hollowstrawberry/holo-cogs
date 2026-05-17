@@ -12,7 +12,7 @@ from redbot.core import commands
 
 import aimage.constants as constants
 from aimage.comfy import ComfyMetadata, ComfyMetadataReader
-from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_then_raise
+from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_then_maybe_raise
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
 from aimage.views.generating import GeneratingView
@@ -182,7 +182,7 @@ class AImage(AImageCommands):
         embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
             gen.progress_message = await context.reply(embed=embed, view=view, mention_author=False)
-            gen.callback = gather_then_raise([callback, gen.progress_message.delete()])
+            gen.callback = gather_then_maybe_raise(callback, gen.progress_message.delete())
         else:
             await context.edit_original_response(embed=embed, view=view)
     
@@ -221,7 +221,7 @@ class AImage(AImageCommands):
         else:
             return
         # After exception
-        await gather_then_raise([gen.callback, send_response(context, content=error_message)])
+        await gather_then_maybe_raise(gen.callback, send_response(context, content=error_message))
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
@@ -232,7 +232,7 @@ class AImage(AImageCommands):
         
         if error_message:
             content = f":warning: Failed to generate image. {error_message}"
-            await gather_then_raise([gen.callback, send_response(gen.context, content=content)])
+            await gather_then_maybe_raise(gen.callback, send_response(gen.context, content=content))
         
         final_tasks = [gen.callback]
         try:
@@ -266,7 +266,7 @@ class AImage(AImageCommands):
         if error_message:
             final_tasks.append(send_response(gen.context, content=error_message))
             
-        await gather_then_raise(final_tasks)
+        await gather_then_maybe_raise(*final_tasks)
 
 
     async def reject_non_vip(self, context: commands.Context | discord.Interaction) -> bool:
