@@ -5,7 +5,7 @@ from redbot.core import commands
 
 from gptmemory.utils import add_xml_group, undo_xml, find_nearest_resolution
 from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
-from gptmemory.constants import LORA_PATTERN, SD_IMAGEGEN_RESOLUTIONS
+from gptmemory.constants import LORA_PATTERN, SD_IMAGEGEN_RESOLUTIONS, PIPE_SEPARATOR_PATTERN
 from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.stablediffusion")
@@ -87,6 +87,9 @@ class StableDiffusionTool(ToolBase):
         for lora, _, _ in LORA_PATTERN.findall(prompt):
             prompt = prompt.replace(lora, "").strip()
             loras.append(lora)
+
+        if "anima" in self.get_setting("checkpoint").lower():
+            prompt = PIPE_SEPARATOR_PATTERN.sub("\n", prompt)
         
         regions = None
         if "||" in prompt:
