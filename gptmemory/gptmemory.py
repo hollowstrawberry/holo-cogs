@@ -225,7 +225,7 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
 
     @staticmethod
     async def wait_for_embed(ctx: commands.Context) -> commands.Context:
-        for _ in range(2):
+        for _ in range(4):
             await asyncio.sleep(1)
             try:
                 ctx.message = await ctx.channel.fetch_message(ctx.message.id)
