@@ -18,6 +18,8 @@ from openai import Omit
 from gptmemory.schema import GptImageContent, GptMessage, StructuredObject
 from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN
 
+log = logging.getLogger("gptmemory.utils")
+
 
 def add_xml_group(obj: dict, group: list, group_name: str) -> None:
     single_name = group_name[:-1]
