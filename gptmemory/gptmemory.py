@@ -171,12 +171,8 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
         
         if match := constants.URL_PATTERN.search(message.content):
             if not message.embeds and f"<{match.group(0)}>" not in message.content:  # non-embedding links
-                log.info("before bot is typing")
                 async with utils.bot_is_typing(ctx.channel):
-                    log.info("before waiting for embed")
                     ctx = await self.wait_for_embed(ctx)
-                    log.info("after waiting for embed")
-                log.info("after bot is typing")
     
         # run the task with soft timeout
         task = asyncio.create_task(self.run_response(ctx, auto=self.bot.user not in ctx.message.mentions))
