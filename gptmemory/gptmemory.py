@@ -120,6 +120,8 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
         self.currently_responding.add(message.id)
         try:
             await self.handle_message(message)
+        except Exception:
+            log.exception("Uncaught error in message listener")
         finally:
             self.currently_responding.discard(message.id)
 
@@ -225,10 +227,14 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
     async def wait_for_embed(ctx: commands.Context) -> commands.Context:
         for _ in range(2):
             await asyncio.sleep(1)
-            ctx.message = await ctx.channel.fetch_message(ctx.message.id)
+            try:
+                ctx.message = await ctx.channel.fetch_message(ctx.message.id)
+            except Exception as error:
+                log.warning(f"wait_for_embed {type(error).__name__}: {error}")
+                break
             if ctx.message.embeds:
                 break
-        return ctx        
+        return ctx
 
 
     async def run_response(self, ctx: commands.Context, auto: bool = False):
