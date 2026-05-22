@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 import asyncio
 import discord
 import contextlib
