@@ -285,9 +285,7 @@ async def bot_is_typing(channel: discord.abc.Messageable):
     """Like channel.typing but doesn't stop execution if typing fails."""
     async def keep_typing():
         while True:
-            log.info("typing")
             await asyncio.wait_for(channel.typing(), timeout=2.0)
-            log.info("waiting")
             await asyncio.sleep(5.0)
             
     task = asyncio.create_task(keep_typing())
