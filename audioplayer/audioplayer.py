@@ -61,7 +61,7 @@ class AudioPlayer(Cog):
         if not audio:
             return
         
-        tasks: list[Coroutine] = []
+        pending: list[Coroutine] = []
         for guild_id, channel_id in self.channel.items():
             guild = self.bot.get_guild(guild_id)
             if not guild:
@@ -74,15 +74,17 @@ class AudioPlayer(Cog):
                 player = lavalink.get_player(guild.id)
             except lavalink.errors.RedLavalinkException:
                 player = None
-            changed_song = (player.current if player else None) != self.last_song.get(guild.id)
-            update_due = (datetime.utcnow() - self.last_updated.get(guild.id, datetime.min)).total_seconds() >= INTERVAL
+            now = datetime.utcnow()
+            current_song = player.current if player else None
+            changed_song = current_song != self.last_song.get(guild.id)
+            update_due = (now - self.last_updated.get(guild.id, datetime.min)).total_seconds() >= INTERVAL
             if not update_due and not changed_song:
                 continue
-            self.last_updated[guild.id] = datetime.utcnow()
-            self.last_song[guild.id] = player.current if player else None
-            tasks.append(self.update_player(guild, channel, audio, player))
+            self.last_updated[guild.id] = now
+            self.last_song[guild.id] = current_song
+            pending.append(self.update_player(guild, channel, audio, player))
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*pending, return_exceptions=True)
         for result in results:
             if isinstance(result, Exception):
                 log.error(f"{type(result).__name__}: {result}")
@@ -114,11 +116,12 @@ class AudioPlayer(Cog):
         embed.description = ""
         if player.current.requester:
             embed.description += f"\n-# Requested by {player.current.requester}\n\n"
-        if not player.current.is_stream and player.current.length and player.current.length != 0:
+        if not player.current.is_stream and player.current.length:
             ratio = player.position / player.current.length
+            filled = round(PLAYER_WIDTH * ratio) 
             pos = round(player.position / 1000)
             length = round(player.current.length / 1000)
-            line = (round(PLAYER_WIDTH * ratio) * LINE_SYMBOL) + MARKER_SYMBOL + ((PLAYER_WIDTH - 1 - round(PLAYER_WIDTH * ratio)) * LINE_SYMBOL)
+            line = (filled * LINE_SYMBOL) + MARKER_SYMBOL + ((PLAYER_WIDTH - 1 - filled) * LINE_SYMBOL)
             embed.description += f"`{pos//60:02}:{pos%60:02}{line}{length//60:02}:{length%60:02}`"
         else:
             pos = round(player.position / 1000)
@@ -169,13 +172,11 @@ class AudioPlayer(Cog):
     async def command_audioplayer_channel(self, ctx: commands.Context, channel: Optional[discord.TextChannel]):
         """Sets the channel being used for AudioPlayer. Passing no arguments clears the channel, disabling the cog in this server."""
         assert ctx.guild is not None
-        if self.last_message.get(ctx.guild.id):
-            player_channel = ctx.guild.get_channel(self.channel.get(ctx.guild.id, 0))
-            if player_channel:
-                message = self.last_message.get(ctx.guild.id)
-                if message:
-                    await message.delete()
-                del self.last_message[ctx.guild.id]
+        if last_message := self.last_message.pop(ctx.guild.id, None):
+            try:
+                await last_message.delete()
+            except discord.DiscordException:
+                pass
         if not channel:
             channel_id = await self.config.guild(ctx.guild).channel()
             self.channel[ctx.guild.id] = channel_id
