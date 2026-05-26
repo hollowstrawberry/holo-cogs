@@ -293,5 +293,5 @@ async def bot_is_typing(channel: discord.abc.Messageable):
         yield
     finally:
         task.cancel()
-        with contextlib.suppress(Exception, asyncio.CancelledError):
+        with contextlib.suppress(BaseException):
             await task
