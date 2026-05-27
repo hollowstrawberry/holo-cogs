@@ -26,6 +26,7 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Markdown image",    re.compile(r"!\[.*?\]\(.+?\.(?:jpe?g|png|gif|webp)(?:[&?].*?)?\)", re.IGNORECASE), ""),
     ("Closing XML",       re.compile(r"(?:\s*</(?:chat_message|content)>)+\s*$"), ""),
     ("Leftover symbol",   re.compile(r"""\n[}'"\s\-]+$"""), ""),
+    ("Leftover symbol 2", re.compile(r"""^[}'"\s\-]+\n"""), ""),
     #("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
     ("Em dash",           re.compile(r"(?<=\w)\s*—\s*(?=\w)"), ", "),
     ("Em dash 2",         re.compile(r"(?<=[.!?)])\s*—\s*"), " "),
