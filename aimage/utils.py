@@ -22,13 +22,10 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
     if isinstance(context, discord.Interaction):
         assert isinstance(context.channel, discord.abc.Messageable)
         if context.response.is_done():
-            if "file" in kwargs:
-                kwargs["attachments"] = [kwargs["file"]]
-                del kwargs["file"]
-            if "embed" not in kwargs:
-                kwargs["embed"] = None
-            if "view" not in kwargs:
-                kwargs["view"] = None
+            kwargs["view"] = kwargs.get("view", None)
+            kwargs["embed"] = kwargs.get("embed", None)
+            kwargs["attachments"] = [kwargs.pop("file")] if "file" in kwargs else None
+            kwargs.pop("ephemeral", None)
             msg = await context.edit_original_response(**kwargs)
         else:
             msg = await context.followup.send(**kwargs)
