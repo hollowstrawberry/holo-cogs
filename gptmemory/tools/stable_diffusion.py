@@ -14,9 +14,7 @@ log = logging.getLogger("gptmemory.stablediffusion")
 class StableDiffusionTool(ToolBase):
     display_name="stable_diffusion"
     settings = {
-        "checkpoint": "",
-        "sampler": "",
-        "scheduler": "",
+        "enable_regional_prompt": "",
     }
     schema = ToolCall(
         Function(
@@ -88,11 +86,10 @@ class StableDiffusionTool(ToolBase):
             prompt = prompt.replace(lora, "").strip()
             loras.append(lora)
 
-        if "anima" in self.get_setting("checkpoint").lower():
-            prompt = PIPE_SEPARATOR_PATTERN.sub("\n", prompt)
-        
         regions = None
-        if "||" in prompt:
+        if not self.get_setting("enable_regional_prompt"):
+            prompt = PIPE_SEPARATOR_PATTERN.sub("\n", prompt)
+        elif "||" in prompt:
             segments = prompt.split("||")
             if len(segments) != 2:
                 return "<error>The prompt was divided into regions but was not in the format left||right</error>"
