@@ -24,7 +24,7 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
         if context.response.is_done():
             kwargs["view"] = kwargs.get("view", None)
             kwargs["embed"] = kwargs.get("embed", None)
-            kwargs["attachments"] = [kwargs.pop("file")] if "file" in kwargs else None
+            kwargs["attachments"] = [kwargs.pop("file")] if "file" in kwargs else []
             kwargs.pop("ephemeral", None)
             msg = await context.edit_original_response(**kwargs)
         else:
