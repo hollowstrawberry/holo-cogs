@@ -49,7 +49,7 @@ class ImageActions(discord.ui.View):
         if not payload.get("upscaleProfiles", False):
             self.add_item(self.button_reroll)
             self.add_item(self.button_modify)
-            self.add_item(self.button_variation)
+            #self.add_item(self.button_variation)
             if self.payload["width"]*self.payload["height"]*1.1 < maxsize*maxsize:
                 self.add_item(self.button_upscale)
         self.add_item(self.button_delete)
