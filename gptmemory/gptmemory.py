@@ -312,15 +312,20 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
                 "session_id": str(ctx.message.id),
             },
         )
-        if not response.choices:
-            return {}
-        completion = response.choices[0].message.content
-        if completion:
-            memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
+
         if response.usage:
             result.tokens.recaller = (response.usage.prompt_tokens, response.usage.completion_tokens)
             if cost := getattr(response.usage, "cost", 0.0):
                 result.add_cost(cost)
+                                   
+        if not response.choices:
+            error = str(getattr(response, "error", ""))
+            log.error(f"Missing recaller response: {error}")
+            return {}
+        
+        if completion := response.choices[0].message.content
+            memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
+        
         if self.config.extended_logging.value:
             log.info(f"{memories_to_recall=}")
 
