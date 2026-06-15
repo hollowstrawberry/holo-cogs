@@ -312,6 +312,8 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
                 "session_id": str(ctx.message.id),
             },
         )
+        if not response.choices:
+            return {}
         completion = response.choices[0].message.content
         if completion:
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
