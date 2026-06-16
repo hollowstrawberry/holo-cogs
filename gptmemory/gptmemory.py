@@ -323,7 +323,7 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
             log.error(f"Missing recaller response: {error}")
             return {}
         
-        if completion := response.choices[0].message.content
+        if completion := response.choices[0].message.content:
             memories_to_recall.update([memory for memory in temp_memories if memory.lower() in completion.lower()])
         
         if self.config.extended_logging.value:
