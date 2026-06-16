@@ -473,9 +473,10 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
                     "tool_call_id": call.id,
                 })
 
+            if response.choices[0].message.content:
+                break
+
         completion = response.choices[0].message.content or ""
-        if not completion:
-            log.info(response)
         if completion:
             raw_completion = completion
             if self.config.extended_logging.value:
