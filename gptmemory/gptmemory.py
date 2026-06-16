@@ -474,6 +474,8 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
                 })
 
         completion = response.choices[0].message.content or ""
+        if not completion:
+            log.info(response)
         if completion:
             raw_completion = completion
             if self.config.extended_logging.value:
