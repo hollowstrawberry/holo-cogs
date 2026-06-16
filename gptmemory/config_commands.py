@@ -79,7 +79,7 @@ class GptMemoryConfigCommands(GptMemoryBase):
         await ctx.reply(f"`[{field.name}:]` {percent*100:.2f}%", mention_author=False)
 
     @staticmethod
-    async def integer_config_command(ctx: commands.Context, field: ConfigField[int], max: int | None, min: int | None, value: int | None, unit: str = ""):
+    async def integer_config_command(ctx: commands.Context, field: ConfigField[int], min: int | None, max: int | None, value: int | None, unit: str = ""):
         if value is None:
             value = field.value
         elif max is not None and value > max or min is not None and value < min:
