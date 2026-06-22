@@ -30,7 +30,7 @@ RESPONSE_CLEANUP_PATTERNS = [
     #("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
     ("Em dash",           re.compile(r"(?<=\w)\s*—\s*(?=\w)"), ", "),
     ("Em dash 2",         re.compile(r"(?<=[.!?)])\s*—\s*"), " "),
-    ("Tone modifier",     re.compile(r"\[(happy|angry|sad|soft|excited|laughing|whispering|yelling|screaming|crying|moaning|sigh|clear(s|ing)?.throat)\]"), re.IGNORECASE),
+    ("Tone modifier",     re.compile(r"\[(happy|angry|sad|soft|excited|laughing|whispering|yelling|screaming|crying|moaning|sigh|clear(s|ing)?.throat)\]", re.IGNORECASE), ""),
 ]
 GENERATE_IMAGE_PATTERNS = [
     ("XML object strict", re.compile(r"<generated_image(?: [^>]+)?>(?:(?!</generated_image>).)*<prompt>(.*?)</prompt>(?:(?!</generated_image>).)*</generated_image>", re.DOTALL | re.IGNORECASE)),
