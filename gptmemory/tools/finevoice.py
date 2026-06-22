@@ -62,19 +62,20 @@ class FinevoiceTool(ToolBase):
             log.exception("finevoice tool: Failed to get response from endpoint.")
             return VOICE_ERROR
         
-        if not data or not data.get("url"):
+        voice_result_url = data.get("url") or next(data.get("urls"), None)
+        if not voice_result_url:
             log.error(f"finevoice tool: Response data does not contain necessary 'url' field. Response data:\n{data}")
             return VOICE_ERROR
 
         try:
-            async with self.cog.session.get(data["url"]) as response:
+            async with self.cog.session.get(voice_result_url) as response:
                 response.raise_for_status()
-                data = await response.read()
+                audio_data = await response.read()
         except aiohttp.ClientError:
             log.exception("finevoice tool: Failed to download result.")
             return VOICE_ERROR
         
-        file = discord.File(data, filename=f"{self.ctx.me.display_name} speaking.mp3")
+        file = discord.File(audio_data, filename=f"{self.ctx.me.display_name} speaking.mp3")
         await self.ctx.reply(file=file, allowed_mentions=discord.AllowedMentions.none())
 
         return "<result>You sent an audio file with your voice in chat.</result>"
