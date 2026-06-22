@@ -20,6 +20,9 @@ class FinevoiceTool(ToolBase):
     settings = {
         "voice_emoji": "🗣️",
         "voice": "",
+        "voice_speed": "1.0",
+        "voice_pitch": "0",
+        "voice_temperature": "0.9",
     }
     schema = ToolCall(
         Function(
@@ -54,6 +57,9 @@ class FinevoiceTool(ToolBase):
         payload = {
             "voice": self.get_setting("voice"),
             "text": text,
+            "speed": float(self.get_setting("voice_speed")),
+            "pitch": float(self.get_setting("voice_pitch")),
+            "temperature": float(self.get_setting("voice_temperature")),
         }
         headers = {
             "Authorization": f"Bearer {api_key}",
