@@ -1,4 +1,5 @@
 import io
+import re
 import logging
 import asyncio
 import aiohttp
@@ -6,6 +7,7 @@ import discord
 
 from gptmemory.schema import ToolCall, Function, Parameters
 from gptmemory.tools.base import ToolBase
+from gptmemory.constants import INCOMPLETE_EMOTE_PATTERN
 
 log = logging.getLogger("gptmemory.searchweb")
 
@@ -46,9 +48,12 @@ class FinevoiceTool(ToolBase):
             log.error("llm did not provide text for tts")
             return "<error>You didn't send a text to convert into audio.</error>"
 
+        text = arguments["text"]
+        text = INCOMPLETE_EMOTE_PATTERN.sub("", text)
+
         payload = {
             "voice": self.get_setting("voice"),
-            "text": arguments["text"],
+            "text": text,
         }
         headers = {
             "Authorization": f"Bearer {api_key}",
