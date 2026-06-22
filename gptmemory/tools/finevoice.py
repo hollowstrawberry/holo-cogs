@@ -1,3 +1,4 @@
+import io
 import logging
 import asyncio
 import aiohttp
@@ -75,7 +76,7 @@ class FinevoiceTool(ToolBase):
             log.exception("finevoice tool: Failed to download result.")
             return VOICE_ERROR
         
-        file = discord.File(audio_data, filename=f"{self.ctx.me.display_name} speaking.mp3")
+        file = discord.File(io.BytesIO(audio_data), filename=f"{self.ctx.me.display_name} speaking.mp3")
         await self.ctx.reply(file=file, allowed_mentions=discord.AllowedMentions.none())
 
         return "<result>You sent an audio file with your voice in chat.</result>"
