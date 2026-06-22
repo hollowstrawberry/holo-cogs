@@ -81,10 +81,7 @@ class FinevoiceTool(ToolBase):
             log.exception("finevoice tool: Failed to download result.")
             return VOICE_ERROR
         
-        file = discord.File(io.BytesIO(audio_data), filename=f"{self.ctx.me.display_name} speaking.mp3")
-        await self.ctx.reply(file=file, allowed_mentions=discord.AllowedMentions.none())
-
         return {
-            "file": file,
+            "file": discord.File(io.BytesIO(audio_data), filename=f"{self.ctx.me.display_name} speaking.mp3"),
             "message": "A voice message was successfully sent in chat.",
         }
