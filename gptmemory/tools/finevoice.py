@@ -49,7 +49,7 @@ class FinevoiceTool(ToolBase):
             return "<error>You didn't send a text to convert into audio.</error>"
 
         text = arguments["text"]
-        text = INCOMPLETE_EMOTE_PATTERN.sub("", text)
+        text = INCOMPLETE_EMOTE_PATTERN.sub(".", text)
 
         payload = {
             "voice": self.get_setting("voice"),
