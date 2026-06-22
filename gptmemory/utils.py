@@ -1,22 +1,73 @@
 import os
 import re
+import logging
+import asyncio
 import discord
+import contextlib
 import trafilatura
 from io import BytesIO
 from copy import deepcopy
 from base64 import b64encode
+from typing import Callable
+from datetime import datetime
 from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 from redbot.core import commands
+from redbot.core.bot import Red
+from openai import Omit
 
-from gptmemory.constants import MAX_MESSAGE_LENGTH, CODEBLOCK_PATTERN
+from gptmemory.schema import GptImageContent, GptMessage, StructuredObject
+from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN
+
+log = logging.getLogger("gptmemory.utils")
 
 
-def sanitize(text: str) -> str:
-    special_characters = "[]"
-    for c in special_characters:
-        text = text.replace(c, "")
+def add_xml_group(obj: dict, group: list, group_name: str) -> None:
+    single_name = group_name[:-1]
+    if len(group) == 1:
+        obj[single_name] = group[0]
+    elif len(group) > 1:
+        obj[group_name] = {single_name: group}
+
+def escape_xml(s: str) -> str:
+    return s.replace("<", "&lt;").replace(">", "&gt;").replace("'", "&apos;").replace('"', "&quot;").replace("&", "&amp;")
+
+def undo_xml(s: str) -> str:
+    return s.replace("&lt;", "<").replace("&gt;", ">").replace("&apos;", "'").replace("&quot;", '"').replace("&amp;", "&")
+
+def fix_truncated_xml(text: str) -> str:
+    text = UNCLOSED_XML_TAG_PATTERN.sub("", text)
+    stack = []
+    for match in XML_TAG_PATTERN.finditer(text):
+        is_closing, tag_name, is_self_closing = match.groups()
+        if is_self_closing:
+            continue
+        elif is_closing:
+            if stack and stack[-1] == tag_name:
+                stack.pop()
+        else:
+            stack.append(tag_name)
+    for tag in reversed(stack):
+        text += f"</{tag}>"
     return text
+
+def fix_emote(bot: Red) -> Callable[[re.Match], str]:
+    def repl(match: re.Match) -> str:
+        _, name, eid = match.groups()
+        emote = None
+        if eid:
+            emote = bot.get_emoji(int(eid))
+        if not emote:
+            emote = discord.utils.get(bot.emojis, name=name)
+        if emote:
+            return str(emote)
+        if "<" in match.group(0) and ">" in match.group(0):
+            return ""
+        return match.group(0)
+    return repl
+
+def clean_content(text: str) -> str:
+    return EMOTE_PATTERN.sub(r":\2:", text)
 
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()
@@ -24,18 +75,23 @@ def clean_tag(tag: str) -> str:
         return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
     else:
         return tag
+    
+def is_bot_command(message: GptMessage, prefixes: list[str]):
+    return message["role"] == "user" and any(f"<content>{prefix}" in message["content"] for prefix in prefixes)
 
 def farenheit_to_celsius(match: re.Match) -> str:
     f = float(match.group(1))
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
 
-def make_image_content(fp: BytesIO) -> dict:
+def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> GptImageContent:
+    b = b.read() if isinstance(b, BytesIO) else b
+    image_url = {"url": f"data:image/png;base64,{b64encode(b).decode()}"}
+    if low_detail:
+        image_url["detail"] = "low"
     return {
         "type": "image_url",
-        "image_url": {
-            "url": f"data:image/png;base64,{b64encode(fp.read()).decode()}"
-        }
+        "image_url": image_url
     }
 
 def get_filename(url: str) -> str:
@@ -46,23 +102,40 @@ def find_nearest_resolution(current: tuple[int, int], targets: list[tuple[int, i
     best_match = min(targets, key=lambda res: abs((res[0] / res[1]) - ratio))
     return best_match
 
-def process_image(buffer: BytesIO, size: int) -> BytesIO | None:
-    try:
-        image = Image.open(buffer)
-    except UnidentifiedImageError:
-        return None
-    width, height = image.size
-    image_resolution = width * height
-    target_resolution = size*size
-    if image_resolution > target_resolution:
-        scale_factor = (target_resolution / image_resolution) ** 0.5
-        image = image.resize((int(width * scale_factor), int(height * scale_factor)), Image.Resampling.LANCZOS)
-    fp = BytesIO()
-    image.save(fp, "PNG")
-    fp.seek(0)
-    return fp
+def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
+    scale = (pixels / (width * height)) ** 0.5
+    return int(width * scale), int(height * scale)
 
-def get_text_contents(messages: list[dict]):
+def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail_size: int | None = None) -> bytes | None:
+    b = b if isinstance(b, BytesIO) else BytesIO(b)
+    b.seek(0)
+    try:
+        image = Image.open(b)
+    except (UnidentifiedImageError, OSError):
+        return None
+    if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
+        image_rgba = image.convert("RGBA")
+        background = Image.new("RGB", image.size, (0, 0, 0))
+        background.paste(image_rgba, (0, 0), image_rgba.getchannel("A"))
+        image = background
+    else:
+        image = image.convert("RGB")
+    format = "PNG"
+    if max_pixels and image.width*image.height > max_pixels:
+        width, height = scale_to_size(image.width, image.height, max_pixels)
+        image = image.resize((width, height), Image.Resampling.LANCZOS)
+    if thumbnail_size:
+        format = "JPEG"
+        image.thumbnail((thumbnail_size, thumbnail_size), Image.Resampling.LANCZOS)
+    fp = BytesIO()
+    image.save(fp, format, quality=90)
+    return fp.getvalue()
+
+def button_label(button: discord.Button):
+    emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
+    return " ".join([s for s in (emoji_name, button.label) if s])
+
+def get_text_contents(messages: list[GptMessage]) -> list[GptMessage]:
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.
@@ -84,7 +157,72 @@ def get_text_contents(messages: list[dict]):
                 break
     return temp_messages
 
-async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
+def adjusted_effort(model: str, effort: str) -> str | Omit:
+    if "gpt-4" in model:
+        return Omit()
+    if effort in ("none", "minimal"):
+        if "codex" in model:
+            return "low"
+        if model in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
+            return "minimal"
+        return "none"
+    return effort
+   
+def clean_model(model: str) -> str:
+    return model.replace("$", "")  # identifies openwebui model
+   
+def parse_prompt(prompt: str) -> str:
+    prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)
+    return prompt
+
+def parse_arcenciel_model(data: dict) -> StructuredObject:
+    obj = {
+        "@title": data["title"],
+        "@type": data["type"],
+        "url": f"https://arcenciel.io/models/{data['id']}",
+        "uploader": data["uploader"]["username"],
+        "description": trafilatura.extract(data["description"]) or data["description"] or "(Empty)",
+    }
+    versions_obj = []
+    versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
+    for i, version in enumerate(versions):
+        ver_obj = {
+            "@name": version["versionName"],
+            "@base_model": version["baseModel"],
+            "@published": datetime.fromisoformat(version["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING)
+        }
+        if i <= 1 and data["type"] == "LORA":
+            filename = version.get("filePath", "").split("/")[-1].replace(".safetensors", "").strip()
+            if filename:
+                ver_obj["lora"] = f"<lora:{filename}:1.0>"
+            if version.get("aboutThisVersion"):
+                ver_obj["description"] = version["aboutThisVersion"]
+            if version.get("activationTags", []):
+                tags_obj = []
+                for tags in version["activationTags"]:
+                    t_obj = {}
+                    if tags.count("|") == 1:
+                        name, tags = [t.strip() for t in tags.split("|")]
+                        t_obj["@name"] = name
+                    if len(tags) > 10 and tags in obj["description"]:
+                        obj["description"] = obj["description"].replace(tags, "<tags>")
+                    t_obj["#text"] = tags
+                    tags_obj.append(t_obj)
+                ver_obj["activation_tags"] = {"prompt": tags_obj}
+        else:
+            ver_obj["#text"] = "Incomplete data"
+        versions_obj.append(ver_obj)
+    obj["versions"] = {"version": versions_obj}
+    return obj
+
+
+async def chunk_and_send(ctx: commands.Context,
+                         full_text: str,
+                         embed: discord.Embed = None,
+                         view: discord.ui.View = None,
+                         files: list[discord.File] = None,
+                         do_reply: bool = False
+                        ):
     base_lines = full_text.splitlines(keepends=True)
     lines = []
     for base_line in base_lines:
@@ -113,7 +251,7 @@ async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
             current += f"```{code_lang}\n"
     
     for line in lines:
-        if m := CODEBLOCK_PATTERN.match(line):
+        if m := re.match(r"^```(\w*)\s*$", line):
             if m.group(1):
                 in_code = True
                 code_lang = m.group(1)
@@ -125,47 +263,39 @@ async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
 
     flush_chunk()
 
-    first_reply = True
-    for chunk in chunks:
-        if first_reply and do_reply:
-            await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
-            first_reply = False
-        else:
-            await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
+    for i, chunk in enumerate(chunks):
+        current_reference, current_embed, current_view = None, None, None
+        current_files = []
+        if do_reply and i == 0:
+            current_reference = ctx.message
+        if i == len(chunks) - 1:
+            current_embed, current_view = embed, view
+            current_files = files or []
+        msg = await ctx.send(
+            chunk,
+            embed=current_embed,
+            view=current_view,
+            files=current_files,
+            reference=current_reference,
+            allowed_mentions=discord.AllowedMentions.none(),
+            mention_author=False
+        )
+        if view and hasattr(view, "message"):
+            setattr(view, "message", msg)
 
 
-def adjusted_effort(model: str, effort: str) -> str:
-   if effort == "minimal" and "/" not in model and model not in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
-       return "none"
-   else:
-       return effort
-   
-def parse_prompt(prompt: str) -> str:
-    prompt = re.sub(r",?\s*\n[\n\s]*", " || ", prompt)
-    return prompt
-
-def format_arcenciel_model(data: dict) -> str:
-    description = trafilatura.extract(data['description']) or data['description'] or "(Empty)"
-    versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
-    model_info = f"[[ Model name: {data['title']} ]] [Model URL: https://arcenciel.io/models/{data['id']}] [Type: {data['type']}] [Uploader: {data['uploader']['username']}] [Versions: {len(versions)}]"
-    versions_info = ""
-    for i, version in enumerate(versions):
-        versions_info += f"\n[[ [Version name: {version['versionName']}] [Base model: {version['baseModel']}] [Published: {version['publishedAt']}]"
-        if i <= 1 and data['type'] == "LORA":
-            versions_info += " [Activation tags:]"
-            filename = version['filePath'].split("/")[-1].replace(".safetensors", "")
-            lora = f"<lora:{filename}:1>" if filename else ""
-            if version.get('activationTags', []):
-                for tags in version['activationTags']:
-                    if tags.count('|') == 1:
-                        tags = tags.split('|')[1].strip()
-                    if tags in description:
-                        description = description.replace(tags, "[tags]")
-                    versions_info += f" [{lora} {tags}]"
-            else:
-                versions_info += f" {lora}"
-        else:
-            versions_info += " [Incomplete data]"
-        versions_info += " ]]"
-    content = f"{model_info} [Model description:] {description}\n{versions_info}"
-    return content
+@contextlib.asynccontextmanager
+async def bot_is_typing(channel: discord.abc.Messageable):
+    """Like channel.typing but doesn't stop execution if typing fails."""
+    async def keep_typing():
+        while True:
+            await asyncio.wait_for(channel.typing(), timeout=2.0)
+            await asyncio.sleep(5.0)
+            
+    task = asyncio.create_task(keep_typing())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(BaseException):
+            await task

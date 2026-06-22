@@ -1,71 +1,102 @@
 import aiohttp
+from datetime import datetime
 from openai import AsyncOpenAI
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
 import gptmemory.defaults as defaults
+from gptmemory.schema import CompletionResult, GptImageContent
+from gptmemory.config import ConfigField, CogConfig, CogConfigBase
 from gptmemory.constants import DISCORD_EPOCH_DATETIME
+
+
+class GptMemoryGuildConfig(CogConfigBase):
+    # General
+    channel_mode:            ConfigField[str]            = ConfigField("whitelist")
+    channels:                ConfigField[list[int]]      = ConfigField([])
+    generation_channel_mode: ConfigField[str]            = ConfigField("blacklist")
+    generation_channels:     ConfigField[list[int]]      = ConfigField([])
+    auto_channel_mode:       ConfigField[str]            = ConfigField("whitelist")
+    auto_channels:           ConfigField[list[int]]      = ConfigField([])
+    memory:                  ConfigField[dict[str, str]] = ConfigField({})
+    prompt_keys:             ConfigField[dict[str, str]] = ConfigField({})
+    enabled_functions:       ConfigField[list[str]]      = ConfigField(defaults.ENABLED_FUNCTIONS)
+    # LLM
+    model_recaller:          ConfigField[str] = ConfigField(defaults.MODEL_RECALLER)
+    model_responder:         ConfigField[str] = ConfigField(defaults.MODEL_RESPONDER)
+    model_memorizer:         ConfigField[str] = ConfigField(defaults.MODEL_MEMORIZER)
+    model_captioner:         ConfigField[str] = ConfigField(defaults.MODEL_CAPTIONER)
+    model_autoreacter:       ConfigField[str] = ConfigField(defaults.MODEL_AUTOREACTER)
+    prompt_recaller:         ConfigField[str] = ConfigField(defaults.PROMPT_RECALLER)
+    prompt_responder:        ConfigField[str] = ConfigField(defaults.PROMPT_RESPONDER)
+    prompt_autoresponder:    ConfigField[str] = ConfigField(defaults.PROMPT_AUTORESPONDER)
+    prompt_memorizer:        ConfigField[str] = ConfigField(defaults.PROMPT_MEMORIZER)
+    prompt_captioner:        ConfigField[str] = ConfigField(defaults.PROMPT_CAPTIONER)
+    prompt_autoreacter:      ConfigField[str] = ConfigField(defaults.PROMPT_AUTOREACTER)
+    effort_recaller:         ConfigField[str] = ConfigField(defaults.EFFORT_RECALLER)
+    effort_responder:        ConfigField[str] = ConfigField(defaults.EFFORT_RESPONDER)
+    effort_memorizer:        ConfigField[str] = ConfigField(defaults.EFFORT_MEMORIZER)
+    # Limits 
+    response_tokens:         ConfigField[int] = ConfigField(defaults.RESPONSE_TOKENS)
+    backread_tokens:         ConfigField[int] = ConfigField(defaults.BACKREAD_TOKENS)
+    backread_messages:       ConfigField[int] = ConfigField(defaults.BACKREAD_MESSAGES)
+    backread_short:          ConfigField[int] = ConfigField(defaults.BACKREAD_SHORT)
+    max_images:              ConfigField[int] = ConfigField(defaults.IMAGES_PER_CONTEXT)
+    max_quote:               ConfigField[int] = ConfigField(defaults.QUOTE_LENGTH)
+    max_tool:                ConfigField[int] = ConfigField(defaults.TOOL_CALL_LENGTH)
+    max_tool_depth:          ConfigField[int] = ConfigField(defaults.TOOL_DEPTH)
+    max_text_file:           ConfigField[int] = ConfigField(defaults.TEXT_FILE_LENGTH)
+    max_image_resolution:    ConfigField[int] = ConfigField(defaults.IMAGE_SIZE)
+    max_caption_resolution:  ConfigField[int] = ConfigField(defaults.CAPTION_SIZE)
+    # Memorizer
+    allow_memorizer:         ConfigField[bool] = ConfigField(defaults.ALLOW_MEMORIZER)
+    memorizer_user_only:     ConfigField[bool] = ConfigField(defaults.MEMORIZER_USER_ONLY)
+    memorizer_alerts:        ConfigField[bool] = ConfigField(defaults.MEMORIZER_ALERTS)
+    # Autoresponder
+    autoresponder_chance:           ConfigField[float] = ConfigField(0.0)
+    autoreacter_chance:             ConfigField[float] = ConfigField(0.0)
+    autoreacter_chance_images:      ConfigField[float] = ConfigField(0.0)
+    autoresponder_cooldown_minutes: ConfigField[int]   = ConfigField(60)
+    autoreacter_cooldown_minutes:   ConfigField[int]   = ConfigField(5)
+
+
+class GptMemoryChannelConfig(CogConfigBase):
+    start: ConfigField[datetime]         = ConfigField(DISCORD_EPOCH_DATETIME)
+    last_response: ConfigField[datetime] = ConfigField(DISCORD_EPOCH_DATETIME)
+    last_reaction: ConfigField[datetime] = ConfigField(DISCORD_EPOCH_DATETIME)
+
+
+class GptMemoryConfig(CogConfig[GptMemoryGuildConfig, GptMemoryChannelConfig]):
+    _guild_type = GptMemoryGuildConfig
+    _channel_type = GptMemoryChannelConfig
+    # Global
+    extended_logging: ConfigField[bool]        = ConfigField(True)
+    tool_settings: ConfigField[dict[str, str]] = ConfigField({})
+    response_timeout: ConfigField[int]         = ConfigField(120)
+    slow_timer: ConfigField[int]               = ConfigField(30)
+    slow_emoji: ConfigField[str]               = ConfigField("🤔")
+    noresponse_emoji: ConfigField[str]         = ConfigField("🤐")
+    blocked_emoji: ConfigField[str]            = ConfigField("❌")
 
 
 class GptMemoryBase(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
-        self.memory: dict[int, dict[str, str]] = {}  # {guild_id: {memory_name: memory_content}}
-        self.extended_logging = True
-        self.config = Config.get_conf(self, identifier=19475820)
-        
         self.session = aiohttp.ClientSession()
         self.openai_client: AsyncOpenAI | None = None
         self.openrouter_client: AsyncOpenAI | None = None
+        self.openwebui_client: AsyncOpenAI | None = None
+        self.currently_responding: set[int] = set()
+        self.currently_generating: set[int] = set()
+        self.config = GptMemoryConfig(Config.get_conf(self, identifier=19475820))
+        self.config.register_all()
         
-        self.config.register_global(**{
-            "extended_logging": True,
-            "tool_settings": {},
-            "response_timeout": 120,
-            "slow_timer": 15,
-            "slow_emoji": "🤔",
-            "noresponse_emoji": "🤐",
-            "blocked_emoji": "❌",
-        })
-        self.config.register_channel(**{
-            "start": DISCORD_EPOCH_DATETIME.isoformat(),
-            "last_response": DISCORD_EPOCH_DATETIME.isoformat(),
-        })
-        self.config.register_guild(**{
-            "channel_mode": "whitelist",
-            "channels": [],
-            "generation_channel_mode": "blacklist",
-            "generation_channels": [],
-            "memory": {},
-            "model_recaller": defaults.MODEL_RECALLER,
-            "model_responder": defaults.MODEL_RESPONDER,
-            "model_memorizer": defaults.MODEL_MEMORIZER,
-            "prompt_recaller": defaults.PROMPT_RECALLER,
-            "prompt_responder": defaults.PROMPT_RESPONDER,
-            "prompt_autoresponder": defaults.PROMPT_AUTORESPONDER,
-            "prompt_memorizer": defaults.PROMPT_MEMORIZER,
-            "effort_recaller": defaults.EFFORT_RECALLER,
-            "effort_responder": defaults.EFFORT_RESPONDER,
-            "effort_memorizer": defaults.EFFORT_MEMORIZER,
-            "response_tokens": defaults.RESPONSE_TOKENS,
-            "backread_tokens": defaults.BACKREAD_TOKENS,
-            "backread_messages": defaults.BACKREAD_MESSAGES,
-            "backread_memorizer": defaults.BACKREAD_MEMORIZER,
-            "allow_memorizer": defaults.ALLOW_MEMORIZER,
-            "memorizer_user_only": defaults.MEMORIZER_USER_ONLY,
-            "memorizer_alerts": defaults.MEMORIZER_ALERTS,
-            "disabled_functions": list(defaults.DISABLED_FUNCTIONS),
-            "emotes": "",
-            "max_images": defaults.IMAGES_PER_CONTEXT,
-            "max_quote": defaults.QUOTE_LENGTH,
-            "max_tool": defaults.TOOL_CALL_LENGTH,
-            "max_tool_depth": defaults.TOOL_DEPTH,
-            "max_text_file": defaults.TEXT_FILE_LENGTH,
-            "max_image_resolution": defaults.IMAGE_SIZE,
-            "autoresponder_chance": 0.0,
-            "autoresponder_cooldown_minutes": 60,
-        })
-
-    async def find_last_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
+    async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
         raise NotImplementedError()
+    
+    async def execute_captioner(self, ctx: commands.Context, image: GptImageContent, result: CompletionResult) -> str:
+        raise NotImplementedError()
+    
+    def is_busy(self, message_id):
+        return message_id in self.currently_responding or message_id in self.currently_generating

@@ -3,34 +3,38 @@ import asyncio
 from openai import NotGiven
 
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.searchweb")
 
 
-class AgenticSearchFunctionCall(FunctionCallBase):
+class AgenticSearchTool(ToolBase):
+    display_name = "agent_search"
     settings = {"search_emoji": "🌐"}
     schema = ToolCall(
         Function(
-            name="search_web",
-            description="Search the internet for up-to-date information, such as news, prices, or recent events. Doesn't work for images.",
+            name="web_search",
+            description="Search for textual information beyond your base knowledge, such as: recent events, new technologies, real-time data, niche documentation.",
             parameters=Parameters(
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "The search query",
-                    }},
+                    },
+                },
                 required=["query"],
             )))
 
     async def run(self, arguments: dict) -> str:
         assert self.ctx.guild and self.cog.openai_client and self.cog.openrouter_client
         if self.ctx.bot_permissions.add_reactions:
-            emoji = await self.get_setting("search_emoji")
+            emoji = self.get_setting("search_emoji")
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
-        model = await self.cog.config.guild(self.ctx.guild).model_responder()
-        if "/" in model:  # openrouter
+        model = self.cog.config[self.ctx.guild].model_responder.value
+        if "$" in model:  # openwebui
+            log.error("Tried to use agent_search with a openwebui model, which is not possible.")
+            return "<error>Web search is not possible at this time</error>"
+        elif "/" in model:  # openrouter
             response = await self.cog.openrouter_client.chat.completions.create(
                 model=model,
                 reasoning_effort="low",

@@ -9,17 +9,18 @@ from redbot.core.data_manager import bundled_data_path
 
 from gptmemory.utils import clean_tag
 from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.functions.base import FunctionCallBase
+from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.boorutags")
 
 
-class BooruTagsFunctionCall(FunctionCallBase):
+class BooruTagsTool(ToolBase):
+    display_name = "booru_tags"
     settings = {"boorutag_emoji": "🗒️"}
     schema = ToolCall(
         Function(
-            name="search_booru_tags",
-            description="Searches a list of booru tags for terms relating to clothing, composition, etc.",
+            name="find_booru_tags",
+            description="Search a database of booru tags, such as those for clothing, composition, etc. Typically only useful for stable diffusion prompts.",
             parameters=Parameters(
                 properties={
                     "query": {
@@ -64,9 +65,9 @@ class BooruTagsFunctionCall(FunctionCallBase):
     async def run(self, arguments: dict) -> str:
         query = arguments.get("query", "")
         if len(query) < 3:
-            return "[Error: Query must be at least 3 characters long]"
+            return "<error>Query must be at least 3 characters long</error>"
         
-        emoji = await self.get_setting("boorutag_emoji")
+        emoji = self.get_setting("boorutag_emoji")
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if not self.tag_groups:
@@ -78,4 +79,4 @@ class BooruTagsFunctionCall(FunctionCallBase):
         if results:
             return f"`{', '.join(results)}`"
         else:
-            return "(No results)"
+            return "No results"
