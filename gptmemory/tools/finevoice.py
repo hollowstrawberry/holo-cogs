@@ -62,7 +62,7 @@ class FinevoiceTool(ToolBase):
             log.exception("finevoice tool: Failed to get response from endpoint.")
             return VOICE_ERROR
         
-        voice_result_url = data.get("url") or next(data.get("urls"), None)
+        voice_result_url = data.get("url") or next(iter(data.get("urls")), None)
         if not voice_result_url:
             log.error(f"finevoice tool: Response data does not contain necessary 'url' field. Response data:\n{data}")
             return VOICE_ERROR
