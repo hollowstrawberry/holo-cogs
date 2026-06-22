@@ -1,18 +1,20 @@
 import re
 import logging
+import asyncio
 import discord
 from io import BytesIO
 from PIL import Image, ImageDraw
+from typing import Coroutine
 from rapidfuzz import fuzz
 from redbot.core import commands
 
 from aimage.schema import SplitType
-from aimage.constants import LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
+from aimage.constants import MAX_MESSAGE_LENGTH, LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
 
 log = logging.getLogger("red.bz_cogs.aimage")
 
 
-class ImageGenError(ValueError):
+class ImageGenError(Exception):
     pass
 
 
@@ -20,11 +22,10 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
     if isinstance(context, discord.Interaction):
         assert isinstance(context.channel, discord.abc.Messageable)
         if context.response.is_done():
-            if "file" in kwargs:
-                kwargs["attachments"] = [kwargs["file"]]
-                del kwargs["file"]
-            if "embed" not in kwargs:
-                kwargs["embed"] = None
+            kwargs["view"] = kwargs.get("view", None)
+            kwargs["embed"] = kwargs.get("embed", None)
+            kwargs["attachments"] = [kwargs.pop("file")] if "file" in kwargs else []
+            kwargs.pop("ephemeral", None)
             msg = await context.edit_original_response(**kwargs)
         else:
             msg = await context.followup.send(**kwargs)
@@ -34,9 +35,14 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
             log.exception("Grabbing interaction message")
             return None
     else:
-        msg = await context.send(**kwargs)
-        return msg
-    
+        return await context.send(**kwargs)
+
+async def gather_raise_all(*coroutines: Coroutine | None) -> None:
+    real_coroutines = [coro for coro in coroutines if coro is not None]
+    results = await asyncio.gather(*real_coroutines, return_exceptions=True)
+    if errors := [res for res in results if isinstance(res, BaseException)]:
+        raise BaseExceptionGroup("gather_raise_all", errors)
+
 def is_nsfw(channel: discord.abc.Messageable) -> bool:
     if isinstance(channel, discord.TextChannel):
         return channel.nsfw
@@ -45,22 +51,23 @@ def is_nsfw(channel: discord.abc.Messageable) -> bool:
     else:
         return False
 
-def round_to_nearest(x, base) -> int:
-    return int(base * round(x/base))
-
+def make_batches(sequence: list, n: int) -> list[list]:
+    return [sequence[i:i + n] for i in range(0, len(sequence), n)]
+    
 def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
     scale = (pixels / (width * height)) ** 0.5
     return int(width * scale), int(height * scale)
 
-def normalize_image(b: bytes, max_pixels: int) -> bytes:
-    image = Image.open(BytesIO(b))
+def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes:
+    b = b if isinstance(b, BytesIO) else BytesIO(b)
+    b.seek(0)
+    image = Image.open(b)
     if image.width*image.height > max_pixels:
         width, height = scale_to_size(image.width, image.height, max_pixels)
         image = image.resize((width, height), Image.Resampling.LANCZOS)
     fp = BytesIO()
     image.save(fp, "PNG")
-    fp.seek(0)
-    return fp.read()
+    return fp.getvalue()
 
 def filter_names(options: dict, current: str, strict: bool = False) -> dict:
     results = {}
@@ -147,3 +154,52 @@ def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
         edited_prompts[i] = prompt
     final_prompt = " || ".join(edited_prompts)
     return [final_prompt, *edited_prompts]
+
+
+async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
+    base_lines = full_text.splitlines(keepends=True)
+    lines = []
+    for base_line in base_lines:
+        if len(base_line) > MAX_MESSAGE_LENGTH:
+            while len(base_line) > MAX_MESSAGE_LENGTH:
+                lines.append(base_line)
+                base_line = base_line[:MAX_MESSAGE_LENGTH]
+        else:
+            lines.append(base_line)
+
+    chunks = []
+    current = ""
+    in_code = False
+    code_lang = ""
+
+    def flush_chunk():
+        nonlocal current, in_code, code_lang
+        if in_code:
+            current += "```\n"  # close open fence
+        if current:
+            chunks.append(current)
+        # start new
+        current = ""
+        if in_code:
+            # re-open fence with language
+            current += f"```{code_lang}\n"
+    
+    for line in lines:
+        if m := re.match(r"^```(\w*)\s*$", line):
+            if m.group(1):
+                in_code = True
+                code_lang = m.group(1)
+            else:
+                in_code = not in_code
+        if len(current) + len(line) > MAX_MESSAGE_LENGTH:
+            flush_chunk()
+        current += line
+
+    flush_chunk()
+
+    for chunk in chunks:
+        if do_reply:
+            await ctx.reply(chunk, allowed_mentions=discord.AllowedMentions.none(), mention_author=False)
+            do_reply = False
+        else:
+            await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())

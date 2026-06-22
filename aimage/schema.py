@@ -26,6 +26,7 @@ class QueuedImageGen:
     last_position: int = -1
     last_percent: int = 0
     last_eta: int = 1_000_000
+    cancelled: bool = False
 
 @dataclass
 class ImageToImageParams:

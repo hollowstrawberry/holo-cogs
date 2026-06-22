@@ -34,7 +34,15 @@ class ArcEnCielAPI:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
         return r["job"]
-    
+
+    async def cancel_request(self, id: str):
+        url = f"{self.endpoint}/generator/jobs/{id}/cancel"
+        async with self.session.post(url) as response:
+            if response.status >= 400:
+                log.info(f"job {id} couldn't be cancelled {response.status}")
+            else:
+                log.info(f"job {id} cancelled")
+
     async def close_request(self, id: str):
         url = f"{self.endpoint}/generator/jobs/{id}"
         async with self.session.delete(url) as response:

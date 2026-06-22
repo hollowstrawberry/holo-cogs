@@ -12,9 +12,10 @@ from redbot.core import commands
 
 import aimage.constants as constants
 from aimage.comfy import ComfyMetadata, ComfyMetadataReader
-from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response
+from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_raise_all
 from aimage.schema import ImageGenParams, QueuedImageGen
 from aimage.commands import AImageCommands
+from aimage.views.generating import GeneratingView
 from aimage.views.image_actions import ImageActions
 from aimage.arcenciel_api import ArcEnCielAPI
 
@@ -37,10 +38,8 @@ class AImage(AImageCommands):
         asyncio.create_task(self.cog_load_when_ready())
         
     async def cog_unload(self):
-        if self.consume_queue.is_running():
-            self.consume_queue.stop()
-        if self.clear_quota.is_running():
-            self.clear_quota.cancel()
+        self.consume_queue.stop()
+        self.clear_quota.stop()
         if self.api:
             await self.api.session.close()
 
@@ -56,7 +55,7 @@ class AImage(AImageCommands):
         log.info("Refreshed hourly quota")
 
 
-    @tasks.loop(seconds=1, reconnect=True)
+    @tasks.loop(seconds=1.5, reconnect=True)
     async def consume_queue(self):
         assert self.api
         if not self.queued_images or not self.api.session:
@@ -64,7 +63,7 @@ class AImage(AImageCommands):
         if self.api.session.closed:
             error_message = f":warning: The generator restarted, please try again."
             for gen_id, gen in list(self.queued_images.items()):
-                del self.queued_images[gen_id]
+                self.queued_images.pop(gen_id, None)
                 asyncio.create_task(self.finalize_image_generation(gen, False, error_message))
             return
         jobs = await self.api.fetch_queue()
@@ -75,8 +74,7 @@ class AImage(AImageCommands):
             try:
                 await self.update_job(job, gen)
             except Exception as error:
-                if gen.id in self.queued_images:
-                    del self.queued_images[gen.id]
+                self.queued_images.pop(gen.id, None)
                 log.exception("Updating job")
                 error_message = f"The bot aborted the operation due to an unexpected error.\n`{type(error).__name__}: {error}`"
                 asyncio.create_task(self.finalize_image_generation(gen, False, error_message))
@@ -86,19 +84,20 @@ class AImage(AImageCommands):
         assert isinstance(gen.context.channel, discord.abc.Messageable)
         now = datetime.now(timezone.utc)
         created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
+        user = gen.context.author if isinstance(gen.context, commands.Context) else gen.context.user
+        assert isinstance(user, discord.Member)
 
         if (now - created).total_seconds() > constants.JOB_TIMEOUT:
-            del self.queued_images[gen.id]
+            self.queued_images.pop(gen.id, None)
             asyncio.create_task(self.finalize_image_generation(gen, False, "Timed out."))
 
         elif job["status"] in ["completed", "failed"]:
-            del self.queued_images[gen.id]
+            self.queued_images.pop(gen.id, None)
             ratings = job.get("safety", {}).get("outputs", {}).values()
             nsfw = any(r.get("rating") in ["sensitive", "explicit"] for r in ratings)
             error_message = None
             if job["status"] == "failed":
-                error_message = f"Reason: `{job.get('safety', {}).get('reason') or 'none'}`, " \
-                              + f"Error: `{job.get('safety', {}).get('error') or 'none'}`"
+                error_message = job.get("error") or job.get("safety", {}).get("reason") or "Unknown error."
             asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
             
         elif job["status"] in ["queued", "running"]:
@@ -117,6 +116,8 @@ class AImage(AImageCommands):
             
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
             embed.description = f"{await self.config.loading_emoji()} "
+            embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
+            
             if current_phase == "queued":
                 embed.description += "Image request received..."
                 embed.add_field(name="Position in queue", value=f"`{current_position}`")
@@ -124,6 +125,8 @@ class AImage(AImageCommands):
                 embed.description += "Upscaling image..."
             elif current_phase == "refining":
                 embed.description += "Refining image..."
+            elif current_phase == "warmup":
+                embed.description += "Preparing generator..."
             elif current_phase == "finalizing":
                 embed.description += "Finishing image..."
             else:
@@ -147,8 +150,8 @@ class AImage(AImageCommands):
                              payload: dict | None = None,
                              params: ImageGenParams | None = None,
                              callback: Coroutine | None = None,
-                             message_content: str | None = None):
-        
+                             message_content: str | None = None
+                            ):
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
@@ -166,17 +169,23 @@ class AImage(AImageCommands):
         if await self.contains_blacklisted_word(prompt):
             return await send_response(context, content=":warning: Blocked prompt.")
         
-        progress_message = None
+        gen = QueuedImageGen(
+            "", payload,
+            user, channel, context,
+            callback, message_content, None,
+            datetime.now(timezone.utc),
+        )
         loading = await self.config.loading_emoji()
+        view = GeneratingView(self, gen)
         embed = discord.Embed(description=f"{loading} Image request sent...")
         embed.color = await self.bot.get_embed_color(channel)
+        embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
-            progress_message = await context.reply(embed=embed, mention_author=False)
-            if not callback:
-                callback = progress_message.delete()
+            gen.progress_message = await context.reply(embed=embed, view=view, mention_author=False)
+            gen.callback = gather_raise_all(callback, gen.progress_message.delete())
         else:
-            await context.edit_original_response(embed=embed)
-            
+            await context.edit_original_response(embed=embed, view=view)
+    
         try:
             if "masterpiece" not in prompt and "best quality" not in prompt:
                 payload["prompt"] = "masterpiece, best quality, " + prompt
@@ -192,17 +201,12 @@ class AImage(AImageCommands):
                     payload["attentionCouple"]["regions"][i]["maskPath"] = path
                 
             job = await self.api.request_image(payload)
-            self.queued_images[job["id"]] = QueuedImageGen(
-                job["id"],
-                payload,
-                user,
-                channel,
-                context,
-                callback,
-                message_content,
-                progress_message,
-                datetime.now(timezone.utc),
-            )
+            if gen.cancelled:  # gotta love race conditions
+                await self.api.cancel_request(job["id"])
+            else:
+                gen.id = job["id"]
+                self.queued_images[job["id"]] = gen
+
         except ImageGenError as error:
             error_message = f":warning: The image couldn't be generated. ({error})"
         except (aiohttp.ContentTypeError, aiohttp.ClientConnectionError) as error:
@@ -217,8 +221,7 @@ class AImage(AImageCommands):
         else:
             return
         # After exception
-        tasks = [callback, send_response(context, content=error_message)]
-        await asyncio.gather(*[t for t in tasks if t])
+        await gather_raise_all(gen.callback, send_response(context, content=error_message))
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
@@ -229,9 +232,9 @@ class AImage(AImageCommands):
         
         if error_message:
             content = f":warning: Failed to generate image. {error_message}"
-            return await send_response(gen.context, content=content)
+            return await gather_raise_all(gen.callback, send_response(gen.context, content=content))
         
-        final_tasks: list[Coroutine] = []
+        final_tasks = [gen.callback]
         try:
             image_bytes = await self.api.download_image(gen.id)
             metadata = ComfyMetadataReader.from_bytes(image_bytes)
@@ -245,8 +248,8 @@ class AImage(AImageCommands):
             view.message = message
             self.gen_count[gen.user.id] += 1
             imagescanner = self.bot.get_cog("ImageScanner")
-            if message and imagescanner and gen.channel.id in imagescanner.scan_channels:  # type: ignore
-                imagescanner.image_cache[message.id] = ({0: metadata}, {0: image_bytes})  # type: ignore
+            if message and imagescanner and gen.channel.id in getattr(imagescanner, "scan_channels"):
+                getattr(imagescanner, "image_cache")[message.id] = ({0: metadata}, {0: image_bytes})
                 final_tasks.append(message.add_reaction("🔎"))
         except ImageGenError as error:
             error_message = f":warning: Failed to retrieve image. ({error})"
@@ -262,10 +265,8 @@ class AImage(AImageCommands):
 
         if error_message:
             final_tasks.append(send_response(gen.context, content=error_message))
-        if gen.callback:
-            final_tasks.append(gen.callback)
             
-        await asyncio.gather(*final_tasks)
+        await gather_raise_all(*final_tasks)
 
 
     async def reject_non_vip(self, context: commands.Context | discord.Interaction) -> bool:
@@ -274,24 +275,26 @@ class AImage(AImageCommands):
         assert context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.abc.Messageable)
 
         vip_role = await self.config.guild(context.guild).vip_role()
-        is_vip = await self.config.user(user).vip() or any(role.id == vip_role for role in user.roles)        
+        is_vip = await self.config.user(user).vip() or any(role.id == vip_role for role in user.roles)
         quota = await self.config.quota()
         has_ongoing_gen = any(gen.user == user for gen in self.queued_images.values())
         elapsed_last_refresh = (datetime.now(timezone.utc) - self.last_quota_refresh).total_seconds()
 
         if is_vip:
             return False
+        embed = discord.Embed(color=await self.bot.get_embed_color(channel))
+        embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if has_ongoing_gen:
-            content = "🕒 You must wait for your current image to finish generating before you can request a new one."
-            await send_response(context, content=content, ephemeral=True)
+            embed.description = "🕒 You must wait for your current image to finish generating before you can request a new one."
+            await send_response(context, embed=embed, ephemeral=True)
             return True
         if self.gen_count[user.id] >= quota:
             if quota == 0:
-                content = ":warning: You are not authorized to use the generator at this time. You may be interested in [<https://arcenciel.io>](our web generator)."
+                embed.description = ":warning: You are not authorized to use the generator at this time. You may be interested in [our web generator](<https://arcenciel.io/generate>)."
             else:
-                content = "🕒 You have met your generation quota. You can wait for it to refresh, or try [<https://arcenciel.io>](our web generator)." \
-                        + f"\n\nTime remaining: {int(60 - (elapsed_last_refresh // 60))} minutes."
-            await send_response(context, content=content, ephemeral=True)
+                embed.description = "🕒 You have met your hourly quota. You can wait for it to refresh, or try [our web generator](<https://arcenciel.io/generate>)."
+                embed.add_field(name="Time remaining", value=f"{int(60 - (elapsed_last_refresh // 60))} minutes.")
+            await send_response(context, embed=embed, ephemeral=True)
             return True
         return False
 
