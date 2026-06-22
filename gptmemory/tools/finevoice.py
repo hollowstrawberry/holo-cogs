@@ -8,6 +8,8 @@ from gptmemory.tools.base import ToolBase
 
 log = logging.getLogger("gptmemory.searchweb")
 
+VOICE_ERROR = "<error>An error occured and voice could not be used.</error>"
+
 
 class FinevoiceTool(ToolBase):
     display_name = "finevoice"
@@ -33,7 +35,7 @@ class FinevoiceTool(ToolBase):
         api_key = (await self.ctx.bot.get_shared_api_tokens("finevoice")).get("api_key")
         if not api_key:
             log.error("finevoice api_key not found")
-            return "<error>An error occured while using voice.</error>"
+            return VOICE_ERROR
         
         if self.ctx.bot_permissions.add_reactions:
             emoji = self.get_setting("voice_emoji")
@@ -53,16 +55,16 @@ class FinevoiceTool(ToolBase):
         }
 
         try:
-            async with self.cog.session.post("https://apis.finevoice.ai/v1/audio/speech-synthesis", payload=payload, headers=headers) as response:
+            async with self.cog.session.post("https://apis.finevoice.ai/v1/audio/speech-synthesis", json=payload, headers=headers) as response:
                 response.raise_for_status()
                 data = await response.json()
         except aiohttp.ClientError:
             log.exception("finevoice tool: Failed to get response from endpoint.")
-            return "<error>An error occured while using voice.</error>"
+            return VOICE_ERROR
         
         if not data or not data.get("url"):
             log.error(f"finevoice tool: Response data does not contain necessary 'url' field. Response data:\n{data}")
-            return "<error>An error occured while using voice.</error>"
+            return VOICE_ERROR
 
         try:
             async with self.cog.session.get(data["url"]) as response:
@@ -70,7 +72,7 @@ class FinevoiceTool(ToolBase):
                 data = await response.read()
         except aiohttp.ClientError:
             log.exception("finevoice tool: Failed to download result.")
-            return "<error>An error occured while using voice.</error>"
+            return VOICE_ERROR
         
         file = discord.File(data, filename=f"{self.ctx.me.display_name} speaking.mp3")
         await self.ctx.reply(file=file, allowed_mentions=discord.AllowedMentions.none())
