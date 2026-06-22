@@ -220,6 +220,7 @@ async def chunk_and_send(ctx: commands.Context,
                          full_text: str,
                          embed: discord.Embed = None,
                          view: discord.ui.View = None,
+                         files: list[discord.File] = None,
                          do_reply: bool = False
                         ):
     base_lines = full_text.splitlines(keepends=True)
@@ -264,14 +265,17 @@ async def chunk_and_send(ctx: commands.Context,
 
     for i, chunk in enumerate(chunks):
         current_reference, current_embed, current_view = None, None, None
+        current_files = []
         if do_reply and i == 0:
             current_reference = ctx.message
         if i == len(chunks) - 1:
             current_embed, current_view = embed, view
+            current_files = files or []
         msg = await ctx.send(
             chunk,
             embed=current_embed,
             view=current_view,
+            files=current_files,
             reference=current_reference,
             allowed_mentions=discord.AllowedMentions.none(),
             mention_author=False

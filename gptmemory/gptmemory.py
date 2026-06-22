@@ -387,6 +387,7 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
 
         past_memory_changes: list[MemoryChangeResult] = []
         past_tool_calls: list[str] = []
+        files: list[discord.File] = []
         for depth in range(config.max_tool_depth.value):
             can_use_tools = depth < config.max_tool_depth.value - 1
             if not can_use_tools and depth > 0:
@@ -452,6 +453,8 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
 
                 past_tool_calls.append(call.function.name)
                 if isinstance(tool_result, dict):
+                    if (file := tool_result.pop("file", None)) and isinstance(file, discord.File):
+                        files.append(file)
                     if len(tool_result) == 0:
                         tool_result = {"result": "None"}
                     elif len(tool_result) > 1:
@@ -500,8 +503,8 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
                 log.info(f"cleaned_{completion=}")
 
         view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
-        if completion or view:
-            await utils.chunk_and_send(ctx, completion, embed=None, view=view, do_reply=not auto)
+        if completion or view or files:
+            await utils.chunk_and_send(ctx, completion, embed=None, view=view, files=files, do_reply=not auto)
         else:
             await ctx.message.add_reaction(self.config.noresponse_emoji.value)
 

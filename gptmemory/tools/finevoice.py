@@ -34,7 +34,7 @@ class FinevoiceTool(ToolBase):
                 required=["text"],
             )))
 
-    async def run(self, arguments: dict) -> str:
+    async def run(self, arguments: dict) -> str | dict:
         api_key = (await self.ctx.bot.get_shared_api_tokens("finevoice")).get("api_key")
         if not api_key:
             log.error("finevoice api_key not found")
@@ -84,4 +84,7 @@ class FinevoiceTool(ToolBase):
         file = discord.File(io.BytesIO(audio_data), filename=f"{self.ctx.me.display_name} speaking.mp3")
         await self.ctx.reply(file=file, allowed_mentions=discord.AllowedMentions.none())
 
-        return "<result>You sent an audio file with your voice in chat.</result>"
+        return {
+            "file": file,
+            "message": "A voice message was successfully sent in chat.",
+        }
