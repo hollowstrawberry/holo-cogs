@@ -144,7 +144,7 @@ class GptWelcome(commands.Cog):
                 ]
             })
 
-        response = await client.beta.chat.completions.parse(
+        response = await client.chat.completions.parse(
             model=model,
             messages=messages, # type: ignore
             reasoning_effort="low" if model in REASONING_MODELS else Omit(),
