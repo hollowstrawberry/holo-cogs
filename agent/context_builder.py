@@ -8,17 +8,17 @@ from typing import Any
 from expiringdict import ExpiringDict
 from redbot.core import commands
 
-from gptmemory import utils as utils
-from gptmemory import constants as constants
-from gptmemory.base import GptMemoryBase, GptMemoryGuildConfig
-from gptmemory.schema import GptImageContent, CompletionResult, GptMessage, ImageSource, ParsedMessageResult, StructuredObject
-from gptmemory.schema import DiscordMessageImageCandidates, DiscordMessageResolvedImages
+from agent import utils as utils
+from agent import constants as constants
+from agent.base import AgentCogBase, AgentCogGuildConfig
+from agent.schema import AgentImageContent, CompletionResult, AgentMessage, ImageSource, ParsedMessageResult, StructuredObject
+from agent.schema import DiscordMessageImageCandidates, DiscordMessageResolvedImages
 
-log = logging.getLogger("gptmemory.context")
+log = logging.getLogger("agent.context")
 
 
 class ContextBuilder:
-    def __init__(self, cog: GptMemoryBase):
+    def __init__(self, cog: AgentCogBase):
         self.bot = cog.bot
         self.config = cog.config
         self.session = cog.session
@@ -35,10 +35,10 @@ class ContextBuilder:
         self,
         ctx: commands.Context,
         backread: list[discord.Message],
-        config: GptMemoryGuildConfig,
+        config: AgentCogGuildConfig,
         result: CompletionResult,
         encoding: tiktoken.Encoding,
-    ) -> list[GptMessage]:
+    ) -> list[AgentMessage]:
         return await ChatHistoryContext(self, ctx, backread, config, result, encoding).build()
 
 
@@ -48,7 +48,7 @@ class ChatHistoryContext:
         builder: ContextBuilder,
         ctx: commands.Context,
         backread: list[discord.Message],
-        config: GptMemoryGuildConfig,
+        config: AgentCogGuildConfig,
         result: CompletionResult,
         encoding: tiktoken.Encoding,
     ):
@@ -64,7 +64,7 @@ class ChatHistoryContext:
         self.all_resolved_images: dict[int, DiscordMessageResolvedImages] = {}
 
 
-    async def build(self) -> list[GptMessage]:
+    async def build(self) -> list[AgentMessage]:
         assert self.ctx.guild
 
         # Pass 1: grab quoted messages
@@ -193,7 +193,7 @@ class ChatHistoryContext:
         caption_tasks  = [self.process_image_caption(src, generated_image) for src in caption_srcs]
         results_raw = await asyncio.gather(*priority_tasks, *caption_tasks, return_exceptions=True)
     
-        image_contents: list[GptImageContent] = []
+        image_contents: list[AgentImageContent] = []
         attachment_captions: dict[int, str] = {}
         url_captions: dict[str, str] = {}
         for res in results_raw:
@@ -314,7 +314,7 @@ class ChatHistoryContext:
         for before, after_obj in message_inline_objs.items():
             text_content = text_content.replace(utils.escape_xml(before), xmltodict.unparse(after_obj, full_document=False))
 
-        image_contents: list[GptImageContent] = []
+        image_contents: list[AgentImageContent] = []
         if images and self.first_appearance[images.message_id] == backmsg.id:
             image_contents.extend(images.image_contents)
         if quoted_images and self.first_appearance[quoted_images.message_id] == backmsg.id:
@@ -322,7 +322,7 @@ class ChatHistoryContext:
         text_tokens  = len(self.encoding.encode(text_content))
         image_tokens = 1120 * len(image_contents)
         total_tokens = text_tokens + image_tokens
-        content: str | list[GptImageContent]
+        content: str | list[AgentImageContent]
 
         if image_contents:
             content = [{"type": "text", "text": text_content}, *image_contents]

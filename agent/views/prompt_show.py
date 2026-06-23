@@ -2,7 +2,7 @@ import discord
 from discord.ui import View
 from typing import Awaitable, Callable
 
-from gptmemory.constants import BACKTICK_PATTERN, VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
+from agent.constants import BACKTICK_PATTERN, VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
 
 
 class PromptView(View):
@@ -40,7 +40,7 @@ class PromptView(View):
     async def edit_prompt(self, interaction: discord.Interaction):
         if not await self.check_owner(interaction.user):
             return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
-        from gptmemory.views.prompt_edit_modal import PromptEditodal
+        from agent.views.prompt_edit_modal import PromptEditodal
         modal = PromptEditodal(self.name, self.prompt, self.check_owner, self.edit_callback)
         await interaction.response.send_modal(modal)
 

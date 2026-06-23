@@ -3,15 +3,15 @@ from typing import Literal, Optional
 from functools import reduce
 from redbot.core import commands
 
-from gptmemory.base import GptMemoryBase
-from gptmemory.config import ConfigField
-from gptmemory.constants import EFFORT_VALUES, VISION_MODELS
-from gptmemory.tools.base import get_all_tools
+from agent.base import AgentCogBase
+from agent.config import ConfigField
+from agent.constants import EFFORT_VALUES, VISION_MODELS
+from agent.tools.base import get_all_tools
 
 
-class GptMemoryConfigCommands(GptMemoryBase):
+class AgentCogConfigCommands(AgentCogBase):
 
-    @commands.group(name="llm", aliases=["gpt", "gptmemory", "memoryconfig"]) # type: ignore
+    @commands.group(name="llm", aliases=["gpt", "agent", "memoryconfig"]) # type: ignore
     @commands.is_owner()
     @commands.guild_only()
     async def memoryconfig(self, _: commands.Context):
@@ -35,7 +35,7 @@ class GptMemoryConfigCommands(GptMemoryBase):
             else:
                 functions.append(name)
 
-        response = ">>> # GptMemory Settings"
+        response = ">>> # Agent Cog Settings"
         response += "\n`[whitelisted_channels:]` " if config.channel_mode.value == "whitelist" else "\n`[blacklisted_channels:]` " 
         response += " ".join([f"<#{cid}>" for cid in config.channels.value])
         response += "\n`[whitelisted_auto_channels:]` " if config.auto_channel_mode.value == "whitelist" else "\n`[blacklisted_auto_channels:]` " 

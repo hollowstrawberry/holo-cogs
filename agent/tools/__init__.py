@@ -1,7 +1,7 @@
 import os
 import importlib
 
-# import entire gptmemory.functions folder
+# import entire agent.functions folder
 
 module_dir = os.path.dirname(__file__)
 

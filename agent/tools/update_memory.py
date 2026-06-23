@@ -1,5 +1,5 @@
-from gptmemory.schema import MemoryChangeResult, ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
+from agent.schema import MemoryChangeResult, ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
 
 
 class UpdateMemoryTool(ToolBase):

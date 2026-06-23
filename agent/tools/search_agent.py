@@ -2,10 +2,10 @@ import logging
 import asyncio
 from openai import NotGiven
 
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
 
-log = logging.getLogger("gptmemory.searchweb")
+log = logging.getLogger("agent.searchweb")
 
 
 class AgenticSearchTool(ToolBase):

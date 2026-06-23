@@ -1,7 +1,7 @@
 import discord
 from discord.ui import View
 
-from gptmemory.constants import BACKTICK_PATTERN, VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
+from agent.constants import BACKTICK_PATTERN, VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
 
 
 class MemoryInfoView(View):

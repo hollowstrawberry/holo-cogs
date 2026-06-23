@@ -4,21 +4,21 @@ from typing import Optional
 from difflib import get_close_matches
 from redbot.core import commands
 
-from gptmemory.base import GptMemoryBase, GptMemoryGuildConfig
-from gptmemory.schema import MemoryChangeResult
-from gptmemory.config import ConfigField
-from gptmemory.constants import DISCORD_EPOCH_DATETIME
-from gptmemory.views.memory_info import MemoryInfoView
-from gptmemory.views.memory_list import MemoryListView
-from gptmemory.views.memory_change import MemoryChangeView
-from gptmemory.views.prompt_show import PromptView
-from gptmemory.views.prompts_edit import PromptsEditView
+from agent.base import AgentCogBase, AgentCogGuildConfig
+from agent.schema import MemoryChangeResult
+from agent.config import ConfigField
+from agent.constants import DISCORD_EPOCH_DATETIME
+from agent.views.memory_info import MemoryInfoView
+from agent.views.memory_list import MemoryListView
+from agent.views.memory_change import MemoryChangeView
+from agent.views.prompt_show import PromptView
+from agent.views.prompts_edit import PromptsEditView
 
 
-class GptMemoryCommands(GptMemoryBase):
+class AgentCogCommands(AgentCogBase):
 
     @staticmethod
-    def prompt_fields(config: GptMemoryGuildConfig) -> dict[str, ConfigField[str]]:
+    def prompt_fields(config: AgentCogGuildConfig) -> dict[str, ConfigField[str]]:
         return {
             "recaller":      config.prompt_recaller,
             "responder":     config.prompt_responder,

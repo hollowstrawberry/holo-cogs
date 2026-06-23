@@ -3,11 +3,11 @@ import asyncio
 import discord
 from redbot.core import commands
 
-from gptmemory.utils import get_filename, clean_tag, normalize_image
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
+from agent.utils import get_filename, clean_tag, normalize_image
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
 
-log = logging.getLogger("gptmemory.imagetagger")
+log = logging.getLogger("agent.imagetagger")
 
 
 class ImageTaggingTool(ToolBase):

@@ -16,10 +16,10 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from openai import Omit
 
-from gptmemory.schema import GptImageContent, GptMessage, StructuredObject
-from gptmemory.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN
+from agent.schema import AgentImageContent, AgentMessage, StructuredObject
+from agent.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN
 
-log = logging.getLogger("gptmemory.utils")
+log = logging.getLogger("agent.utils")
 
 
 def add_xml_group(obj: dict, group: list, group_name: str) -> None:
@@ -76,7 +76,7 @@ def clean_tag(tag: str) -> str:
     else:
         return tag
     
-def is_bot_command(message: GptMessage, prefixes: list[str]):
+def is_bot_command(message: AgentMessage, prefixes: list[str]):
     return message["role"] == "user" and any(f"<content>{prefix}" in message["content"] for prefix in prefixes)
 
 def farenheit_to_celsius(match: re.Match) -> str:
@@ -84,7 +84,7 @@ def farenheit_to_celsius(match: re.Match) -> str:
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
 
-def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> GptImageContent:
+def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentImageContent:
     b = b.read() if isinstance(b, BytesIO) else b
     image_url = {"url": f"data:image/png;base64,{b64encode(b).decode()}"}
     if low_detail:
@@ -135,7 +135,7 @@ def button_label(button: discord.Button):
     emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
     return " ".join([s for s in (emoji_name, button.label) if s])
 
-def get_text_contents(messages: list[GptMessage]) -> list[GptMessage]:
+def get_text_contents(messages: list[AgentMessage]) -> list[AgentMessage]:
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.

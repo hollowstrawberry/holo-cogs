@@ -2,11 +2,11 @@ import logging
 import asyncio
 from tavily import AsyncTavilyClient
 
-from gptmemory.utils import add_xml_group
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
+from agent.utils import add_xml_group
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
 
-log = logging.getLogger("gptmemory.searchweb")
+log = logging.getLogger("agent.searchweb")
 
 
 class TavilySearchTool(ToolBase):

@@ -7,11 +7,11 @@ from typing import Any
 from rapidfuzz import process, fuzz
 from redbot.core.data_manager import bundled_data_path
 
-from gptmemory.utils import clean_tag
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
+from agent.utils import clean_tag
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
 
-log = logging.getLogger("gptmemory.boorutags")
+log = logging.getLogger("agent.boorutags")
 
 
 class BooruTagsTool(ToolBase):

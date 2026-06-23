@@ -3,12 +3,12 @@ import asyncio
 import discord
 from redbot.core import commands
 
-from gptmemory.utils import add_xml_group, undo_xml, find_nearest_resolution
-from gptmemory.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
-from gptmemory.constants import LORA_PATTERN, SD_IMAGEGEN_RESOLUTIONS, PIPE_SEPARATOR_PATTERN
-from gptmemory.tools.base import ToolBase
+from agent.utils import add_xml_group, undo_xml, find_nearest_resolution
+from agent.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRegionalParams, SplitType
+from agent.constants import LORA_PATTERN, SD_IMAGEGEN_RESOLUTIONS, PIPE_SEPARATOR_PATTERN
+from agent.tools.base import ToolBase
 
-log = logging.getLogger("gptmemory.stablediffusion")
+log = logging.getLogger("agent.stablediffusion")
 
 
 class StableDiffusionTool(ToolBase):

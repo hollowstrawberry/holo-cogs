@@ -6,14 +6,14 @@ from dataclasses import dataclass, field
 
 
 StructuredObject = dict[str, Any]
-GptImageContent = dict[str, (str | dict[str, str])]
-GptMessage = dict[str, (str | list[GptImageContent])]
+AgentImageContent = dict[str, (str | dict[str, str])]
+AgentMessage = dict[str, (str | list[AgentImageContent])]
 
 
 @dataclass(frozen=True)
 class ParsedMessageResult:
     message_id: int
-    gpt_message: GptMessage
+    gpt_message: AgentMessage
     tokens: int
     num_images: int
 
@@ -36,7 +36,7 @@ class DiscordMessageImageCandidates:
 @dataclass(frozen=True)
 class DiscordMessageResolvedImages:
     message_id: int
-    image_contents: list[GptImageContent]
+    image_contents: list[AgentImageContent]
     attachment_captions: dict[int, str]
     url_captions: dict[str, str]
     generated_image: dict[str, str] | None

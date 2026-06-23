@@ -2,12 +2,12 @@ import logging
 import aiohttp
 import xml.etree.ElementTree as ElementTree
 
-from gptmemory.constants import FARENHEIT_PATTERN
-from gptmemory.utils import farenheit_to_celsius
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
+from agent.constants import FARENHEIT_PATTERN
+from agent.utils import farenheit_to_celsius
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
 
-log = logging.getLogger("gptmemory.wolframalpha")
+log = logging.getLogger("agent.wolframalpha")
 
 
 class WolframAlphaTool(ToolBase):

@@ -13,22 +13,22 @@ from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
 from redbot.core.bot import Red
 
-import gptmemory.utils as utils
-import gptmemory.constants as constants
-from gptmemory.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
-from gptmemory.schema import GptMessage, GptImageContent, ImageGenParams, MessageReaction, ReactionResult
-from gptmemory.commands import GptMemoryCommands
-from gptmemory.config_commands import GptMemoryConfigCommands
-from gptmemory.tools.base import get_all_tools
-from gptmemory.tools.update_memory import UpdateMemoryTool
-from gptmemory.context_builder import ContextBuilder
-from gptmemory.views.memory_change import MemoryChangeView
+import agent.utils as utils
+import agent.constants as constants
+from agent.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
+from agent.schema import AgentMessage, AgentImageContent, ImageGenParams, MessageReaction, ReactionResult
+from agent.commands import AgentCogCommands
+from agent.config_commands import AgentCogConfigCommands
+from agent.tools.base import get_all_tools
+from agent.tools.update_memory import UpdateMemoryTool
+from agent.context_builder import ContextBuilder
+from agent.views.memory_change import MemoryChangeView
 
-log = logging.getLogger("gptmemory")
+log = logging.getLogger("agent")
 
 
-class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
-    """OpenAI-powered user with persistent memory and various tools."""
+class AgentCog(AgentCogCommands, AgentCogConfigCommands):
+    """A custom-built conversational agent for Discord"""
 
     def __init__(self, bot: Red):
         super().__init__(bot)
@@ -94,7 +94,7 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
     def get_client(self, model: str) -> AsyncOpenAI:
         if "$" in model:
             if not self.openwebui_client:
-                raise RuntimeError("OpenWebui client is not initialized, please set up credentials including endpoint, api_key, cf_client_id, and cf_client_secret")
+                raise RuntimeError("OpenWebui client is not initialized, please set up credentials including endpoint, api_key, and optionally: cf_client_id, cf_client_secret")
             return self.openwebui_client
         elif "/" in model:
             if not self.openrouter_client:
@@ -272,7 +272,7 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
     async def execute_recaller(self,
                                ctx: commands.Context,
                                participants: list[discord.Member | discord.User],
-                               messages: list[GptMessage],
+                               messages: list[AgentMessage],
                                memories: list[str],
                                result: CompletionResult
                                ) -> dict[str, str]:
@@ -335,7 +335,7 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
 
     async def execute_responder(self,
                                 ctx: commands.Context,
-                                messages: list[GptMessage],
+                                messages: list[AgentMessage],
                                 memory_names: list[str],
                                 recalled_memories_str: str,
                                 result: CompletionResult,
@@ -517,7 +517,7 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
 
     async def execute_memorizer(self,
                                 ctx: commands.Context,
-                                messages: list[GptMessage],
+                                messages: list[AgentMessage],
                                 memory_names: list[str],
                                 recalled_memories_str: str,
                                 result: CompletionResult,
@@ -612,7 +612,7 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
         return memory_changes
 
 
-    async def execute_autoreacter(self, ctx: commands.Context, messages: list[GptMessage]) -> ReactionResult:
+    async def execute_autoreacter(self, ctx: commands.Context, messages: list[AgentMessage]) -> ReactionResult:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         config = self.config[ctx.guild]
 
@@ -682,11 +682,11 @@ class GptMemory(GptMemoryCommands, GptMemoryConfigCommands):
         return result
 
 
-    async def execute_captioner(self, ctx: commands.Context, image: GptImageContent, result: CompletionResult) -> str:
+    async def execute_captioner(self, ctx: commands.Context, image: AgentImageContent, result: CompletionResult) -> str:
         assert ctx.guild
         config = self.config[ctx.guild]
 
-        messages: list[GptMessage] = [
+        messages: list[AgentMessage] = [
             {
                 "role": "system",
                 "content": config.prompt_captioner.value,

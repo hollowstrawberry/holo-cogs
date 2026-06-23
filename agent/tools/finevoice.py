@@ -5,11 +5,11 @@ import asyncio
 import aiohttp
 import discord
 
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
-from gptmemory.constants import INCOMPLETE_EMOTE_PATTERN
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
+from agent.constants import INCOMPLETE_EMOTE_PATTERN
 
-log = logging.getLogger("gptmemory.searchweb")
+log = logging.getLogger("agent.searchweb")
 
 VOICE_ERROR = "<error>An error occured and voice could not be used.</error>"
 

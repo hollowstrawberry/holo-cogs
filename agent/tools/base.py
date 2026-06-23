@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict
 from redbot.core import commands
 
-from gptmemory.schema import StructuredObject, ToolCall
-from gptmemory.base import GptMemoryBase
+from agent.schema import StructuredObject, ToolCall
+from agent.base import AgentCogBase
 
 
 class ToolBase(ABC):
@@ -12,7 +12,7 @@ class ToolBase(ABC):
     apis: list[tuple[str, str]] = []  # [(service_name, key),]
     settings: dict[str, str] = {}  # key and default value
 
-    def __init__(self, ctx: commands.Context, cog: GptMemoryBase):
+    def __init__(self, ctx: commands.Context, cog: AgentCogBase):
         self.ctx = ctx
         self.cog = cog
         if not self.display_name or not self.schema:

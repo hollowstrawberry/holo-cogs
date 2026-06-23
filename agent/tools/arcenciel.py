@@ -2,11 +2,11 @@ import logging
 import asyncio
 import aiohttp
 
-from gptmemory.utils import parse_arcenciel_model
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
+from agent.utils import parse_arcenciel_model
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
 
-log = logging.getLogger("gptmemory.arcenciel")
+log = logging.getLogger("agent.arcenciel")
 
 
 class ArcencielTool(ToolBase):

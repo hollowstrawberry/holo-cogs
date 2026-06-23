@@ -2,9 +2,9 @@ import asyncio
 import discord
 from redbot.core import commands
 
-from gptmemory.utils import undo_xml
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
+from agent.utils import undo_xml
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
 
 
 class GptImageToolBase(ToolBase):

@@ -1,8 +1,8 @@
 import discord
 from discord.ui import View
 
-from gptmemory.schema import MemoryChangeResult
-from gptmemory.constants import VIEW_TIMEOUT, EMPTY, MAX_EMBED_DESCRIPTION, BACKTICK_PATTERN
+from agent.schema import MemoryChangeResult
+from agent.constants import VIEW_TIMEOUT, EMPTY, MAX_EMBED_DESCRIPTION, BACKTICK_PATTERN
 
 
 class MemoryChangeView(View):

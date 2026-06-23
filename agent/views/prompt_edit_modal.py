@@ -3,7 +3,7 @@ import discord.ui as ui
 import tiktoken
 from typing import Awaitable, Callable
 
-from gptmemory import constants
+from agent import constants
 
 
 class PromptEditodal(ui.Modal):

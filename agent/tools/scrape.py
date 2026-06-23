@@ -5,12 +5,12 @@ import aiohttp
 import trafilatura
 from typing import Awaitable, Callable, OrderedDict
 
-from gptmemory.utils import parse_arcenciel_model
-from gptmemory.schema import ToolCall, Function, Parameters
-from gptmemory.tools.base import ToolBase
-from gptmemory.constants import GITHUB_FILE_URL_PATTERN, ARCENCIEL_MODEL_URL_PATTERN
+from agent.utils import parse_arcenciel_model
+from agent.schema import ToolCall, Function, Parameters
+from agent.tools.base import ToolBase
+from agent.constants import GITHUB_FILE_URL_PATTERN, ARCENCIEL_MODEL_URL_PATTERN
 
-log = logging.getLogger("gptmemory.scrape")
+log = logging.getLogger("agent.scrape")
 
 
 class ScrapeTool(ToolBase):

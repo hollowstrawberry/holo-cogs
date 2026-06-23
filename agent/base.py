@@ -4,13 +4,13 @@ from openai import AsyncOpenAI
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
-import gptmemory.defaults as defaults
-from gptmemory.schema import CompletionResult, GptImageContent
-from gptmemory.config import ConfigField, CogConfig, CogConfigBase
-from gptmemory.constants import DISCORD_EPOCH_DATETIME
+import agent.defaults as defaults
+from agent.schema import CompletionResult, AgentImageContent
+from agent.config import ConfigField, CogConfig, CogConfigBase
+from agent.constants import DISCORD_EPOCH_DATETIME
 
 
-class GptMemoryGuildConfig(CogConfigBase):
+class AgentCogGuildConfig(CogConfigBase):
     # General
     channel_mode:            ConfigField[str]            = ConfigField("whitelist")
     channels:                ConfigField[list[int]]      = ConfigField([])
@@ -60,15 +60,15 @@ class GptMemoryGuildConfig(CogConfigBase):
     autoreacter_cooldown_minutes:   ConfigField[int]   = ConfigField(5)
 
 
-class GptMemoryChannelConfig(CogConfigBase):
+class AgentCogChannelConfig(CogConfigBase):
     start: ConfigField[datetime]         = ConfigField(DISCORD_EPOCH_DATETIME)
     last_response: ConfigField[datetime] = ConfigField(DISCORD_EPOCH_DATETIME)
     last_reaction: ConfigField[datetime] = ConfigField(DISCORD_EPOCH_DATETIME)
 
 
-class GptMemoryConfig(CogConfig[GptMemoryGuildConfig, GptMemoryChannelConfig]):
-    _guild_type = GptMemoryGuildConfig
-    _channel_type = GptMemoryChannelConfig
+class AgentCogConfig(CogConfig[AgentCogGuildConfig, AgentCogChannelConfig]):
+    _guild_type = AgentCogGuildConfig
+    _channel_type = AgentCogChannelConfig
     # Global
     extended_logging: ConfigField[bool]        = ConfigField(True)
     tool_settings: ConfigField[dict[str, str]] = ConfigField({})
@@ -79,7 +79,7 @@ class GptMemoryConfig(CogConfig[GptMemoryGuildConfig, GptMemoryChannelConfig]):
     blocked_emoji: ConfigField[str]            = ConfigField("❌")
 
 
-class GptMemoryBase(commands.Cog):
+class AgentCogBase(commands.Cog):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
@@ -89,13 +89,13 @@ class GptMemoryBase(commands.Cog):
         self.openwebui_client: AsyncOpenAI | None = None
         self.currently_responding: set[int] = set()
         self.currently_generating: set[int] = set()
-        self.config = GptMemoryConfig(Config.get_conf(self, identifier=19475820))
+        self.config = AgentCogConfig(Config.get_conf(None, identifier=19475820, cog_name="GptMemory"))
         self.config.register_all()
         
     async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
         raise NotImplementedError()
     
-    async def execute_captioner(self, ctx: commands.Context, image: GptImageContent, result: CompletionResult) -> str:
+    async def execute_captioner(self, ctx: commands.Context, image: AgentImageContent, result: CompletionResult) -> str:
         raise NotImplementedError()
     
     def is_busy(self, message_id):

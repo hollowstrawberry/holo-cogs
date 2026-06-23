@@ -2,8 +2,8 @@ import discord
 from discord.ui import View
 from typing import Awaitable, Callable
 
-from gptmemory.constants import VIEW_TIMEOUT, PERMANENT_PROMPT_TYPES
-from gptmemory.views.prompt_edit_modal import PromptEditodal
+from agent.constants import VIEW_TIMEOUT, PERMANENT_PROMPT_TYPES
+from agent.views.prompt_edit_modal import PromptEditodal
 
 class PromptsEditView(View):
     def __init__(self,
