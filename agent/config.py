@@ -148,7 +148,8 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
 
     def __getitem__(self, key):
         if isinstance(key, discord.Guild):
-            return self.guild[key.id]
-        if isinstance(key, discord.abc.Messageable):
-            return self.channel[getattr(key, "id")]
+            return self.guild.get(key.id) or self.guild.setdefault(key.id, self._guild_type({}, self._config.guild(key)))
+        if isinstance(key, discord.abc.Messageable):  # messageable is more useful for type checks
+            assert isinstance(key, discord.abc.GuildChannel | discord.Thread)
+            return self.channel.get(key.id) or self.channel.setdefault(key.id, self._channel_type({}, self._config.channel(key)))
         raise TypeError(f"Invalid key {key}")
