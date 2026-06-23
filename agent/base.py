@@ -77,6 +77,7 @@ class AgentCogConfig(CogConfig[AgentCogGuildConfig, AgentCogChannelConfig]):
     slow_emoji: ConfigField[str]               = ConfigField("🤔")
     noresponse_emoji: ConfigField[str]         = ConfigField("🤐")
     blocked_emoji: ConfigField[str]            = ConfigField("❌")
+    status: ConfigField[str]                   = ConfigField("")
 
 
 class AgentCogBase(commands.Cog):

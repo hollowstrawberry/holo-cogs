@@ -458,3 +458,17 @@ class AgentCogConfigCommands(AgentCogBase):
         else:
             await fields[module].set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
+
+    @agentconfig.command("status")
+    @commands.is_owner()
+    async def agentconfig_status(self, ctx: commands.Context, *, status: Optional[str]):
+        """Little feature to preset a status on bot startup"""
+        if not status:
+            await self.config.status.set("")
+            await self.bot.change_presence(activity=None)
+            await ctx.reply("The bot's status will not be set on startup.")
+        else:
+            status = status[:128].replace("\n", " ")
+            await self.config.status.set(status)
+            await self.bot.change_presence(activity=discord.CustomActivity(name=status))
+            await ctx.reply(f"The bot's status will be set to `{status}` on startup.")

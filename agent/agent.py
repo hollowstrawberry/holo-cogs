@@ -43,6 +43,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         await self.config.load_all(self.bot)
         await self.initialize_function_calls()
         await self.initialize_openai_client()
+        if self.config.status.value:
+            asyncio.create_task(self.set_custom_status())
 
 
     async def cog_unload(self):
@@ -89,6 +91,11 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     "CF-Access-Client-Secret": openwebui_credentials.get("cf_client_secret") or "",
                 },
             )
+
+    
+    async def set_custom_status(self):
+        await self.bot.wait_until_red_ready()
+        await self.bot.change_presence(activity=discord.CustomActivity(name=self.config.status.value))
 
 
     def get_client(self, model: str) -> AsyncOpenAI:
