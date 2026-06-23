@@ -2,7 +2,7 @@
 
 This is the place for my cogs that were too spicy to go into [crab-cogs](https://github.com/hollowstrawberry/crab-cogs). Mostly AI stuff.
 
-These require Red 3.5, which uses the newer Discord interaction features.
+These require Red 3.5+ and Python 3.10+
 
 ### Installation
 
@@ -30,6 +30,6 @@ I have found that the more context you provide to an LLM, the more natural its r
 
 &nbsp;
 
-## 🖼️ arcenciel
+## 🖼️ Arcenciel
 
-Image generation using my website's api, [arcenciel.io](https://arcenciel.io). Not really meant for public use.
+Image generation using my website's api, [arcenciel.io](https://arcenciel.io). Not really useful for public use.
