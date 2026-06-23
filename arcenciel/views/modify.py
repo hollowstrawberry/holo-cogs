@@ -3,8 +3,8 @@ import discord
 import discord.ui as ui
 from copy import deepcopy
 
-from aimage.constants import NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN
-from aimage.views.image_actions import ImageActions
+from arcenciel.constants import NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN
+from arcenciel.views.image_actions import ImageActions
 
 
 class ModifyModal(ui.Modal):

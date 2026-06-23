@@ -3,8 +3,8 @@ import discord
 import discord.ui as ui
 from copy import deepcopy
 
-from aimage.constants import ADETAILER_ARGS, DEFAULT_UPSCALER, DEFAULT_DENOISE, DEFAULT_ADETAILER_DENOISE
-from aimage.views.image_actions import ImageActions
+from arcenciel.constants import ADETAILER_ARGS, DEFAULT_UPSCALER, DEFAULT_DENOISE, DEFAULT_ADETAILER_DENOISE
+from arcenciel.views.image_actions import ImageActions
 
 
 class HiresModal(ui.Modal):

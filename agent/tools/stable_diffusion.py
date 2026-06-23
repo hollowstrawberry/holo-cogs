@@ -74,9 +74,9 @@ class StableDiffusionTool(ToolBase):
 
         if not prompt:
             return "<error>No prompt provided</error>"
-        aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
-        if not aimage:
-            return "<error>`aimage` cog not installed, please notify the bot owner</error>"
+        arcenciel: commands.Cog | None = self.ctx.bot.get_cog("Arcenciel")
+        if not arcenciel:
+            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         imagescanner: commands.Cog | None = self.ctx.bot.get_cog("ImageScanner")
         if not imagescanner:
             return "<error>`imagescanner` cog not installed, please notify the bot owner</error>"
@@ -148,7 +148,7 @@ class StableDiffusionTool(ToolBase):
             )
         else:
             # add negative tags that weren't already in the default negative prompt
-            default_negative_prompt = await aimage.config.negative_prompt() # type: ignore
+            default_negative_prompt = await arcenciel.config.negative_prompt() # type: ignore
             negative_prompt = ""
             if negative_prompt_extra:
                 tags = [tag.strip() for tag in negative_prompt_extra.split(",")]
@@ -176,7 +176,7 @@ class StableDiffusionTool(ToolBase):
             await asyncio.sleep(0)
             self.cog.currently_generating.discard(self.ctx.message.id)
         self.cog.currently_generating.add(self.ctx.message.id)
-        generate_image = getattr(aimage, "generate_image")
+        generate_image = getattr(arcenciel, "generate_image")
         asyncio.create_task(generate_image(self.ctx, params=params, message_content=message_content, callback=callback()))
 
         obj = {"message": "Image generation started successfully. The user will have to wait for it to finish."}

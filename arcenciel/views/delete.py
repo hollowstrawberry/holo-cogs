@@ -1,7 +1,7 @@
 import discord
 import discord.ui as ui
 
-from aimage.views.image_actions import ImageActions
+from arcenciel.views.image_actions import ImageActions
 
 
 class DeleteModal(ui.Modal):

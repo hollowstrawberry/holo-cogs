@@ -10,19 +10,19 @@ from datetime import datetime, timedelta, timezone
 from discord.ext import tasks
 from redbot.core import commands
 
-import aimage.constants as constants
-from aimage.comfy import ComfyMetadata, ComfyMetadataReader
-from aimage.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_raise_all
-from aimage.schema import ImageGenParams, QueuedImageGen
-from aimage.commands import AImageCommands
-from aimage.views.generating import GeneratingView
-from aimage.views.image_actions import ImageActions
-from aimage.arcenciel_api import ArcEnCielAPI
+import arcenciel.constants as constants
+from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
+from arcenciel.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_raise_all
+from arcenciel.schema import ImageGenParams, QueuedImageGen
+from arcenciel.commands import ArcencielCommands
+from arcenciel.views.generating import GeneratingView
+from arcenciel.views.image_actions import ImageActions
+from arcenciel.arcenciel_api import ArcEnCielAPI
 
-log = logging.getLogger("red.holo-cogs.aimage")
+log = logging.getLogger("red.holo-cogs.arcenciel")
 
 
-class AImage(AImageCommands):
+class Arcenciel(ArcencielCommands):
     """Generate AI images with arcenciel.io"""
 
     async def cog_load_when_ready(self):

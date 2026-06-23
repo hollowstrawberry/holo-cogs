@@ -8,14 +8,14 @@ from PIL.Image import UnidentifiedImageError
 
 from redbot.core import app_commands, checks, commands
 
-from aimage.utils import clean_tag, clean_model, edit_regional_prompts, filter_names, normalize_image
-from aimage.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
-from aimage.settings import AImageSettings
-from aimage.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, LORA_PATTERN, MAX_UPLOAD_PIXELS
+from arcenciel.utils import clean_tag, clean_model, edit_regional_prompts, filter_names, normalize_image
+from arcenciel.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
+from arcenciel.settings import ArcencielSettings
+from arcenciel.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, LORA_PATTERN, MAX_UPLOAD_PIXELS
 
-log = logging.getLogger("red.holo-cogs.aimage")
+log = logging.getLogger("red.holo-cogs.arcenciel")
  
-class AImageCommands(AImageSettings):
+class ArcencielCommands(ArcencielSettings):
     
     async def contains_blacklisted_word(self, prompt: str):
         blacklist_regex = await self.config.blacklist_regex()

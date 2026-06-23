@@ -30,6 +30,6 @@ I have found that the more context you provide to an LLM, the more natural its r
 
 &nbsp;
 
-## 🖼️ aimage
+## 🖼️ arcenciel
 
-Image generation using my website's api, [arcenciel.io](https://arcenciel.io). Not really meant for public use. Branched a long time ago from the generally more useful [bz-cogs aimage](https://github.com/zhaobenny/bz-cogs/).
+Image generation using my website's api, [arcenciel.io](https://arcenciel.io). Not really meant for public use.

@@ -6,11 +6,11 @@ from expiringdict import ExpiringDict
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 
-from aimage.comfy import ComfyMetadata
-from aimage.schema import ImageGenParams, QueuedImageGen
+from arcenciel.comfy import ComfyMetadata
+from arcenciel.schema import ImageGenParams, QueuedImageGen
 
 
-class AImageBase(commands.Cog):
+class ArcencielBase(commands.Cog):
 
     def __init__(self, bot: Red):
         self.bot: Red = bot
@@ -18,12 +18,12 @@ class AImageBase(commands.Cog):
         self.queued_images: dict[str, QueuedImageGen] = {}
         self.gen_count: dict[int, int] = defaultdict(int)
         self.last_quota = datetime.min
-        from aimage.arcenciel_api import ArcEnCielAPI
+        from arcenciel.arcenciel_api import ArcEnCielAPI
         self.api: ArcEnCielAPI | None = None
         self.resource_cache: dict[str, str] = {}
         self.resource_not_found_cache: dict[str, bool] = ExpiringDict(max_len=100, max_age_seconds=24*60*60)
 
-        self.config = Config.get_conf(self, identifier=75567113)
+        self.config = Config.get_conf(None, identifier=75567113, cog_name="AImage")
         default_global = {
             "resource_cache": {},
             "nsfw": True,

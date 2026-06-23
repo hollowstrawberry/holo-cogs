@@ -3,13 +3,13 @@ import discord
 from typing import Optional
 from redbot.core import checks, commands
 
-from aimage.base import AImageBase
-from aimage.utils import make_batches, chunk_and_send
+from arcenciel.base import ArcencielBase
+from arcenciel.utils import make_batches, chunk_and_send
 
-log = logging.getLogger("red.bz_cogs.aimage")
+log = logging.getLogger("red.bz_cogs.arcenciel")
 
 
-class AImageSettings(AImageBase):
+class ArcencielSettings(ArcencielBase):
 
     @commands.command(name="ckpt") # type: ignore
     async def member_checkpoint(self, ctx: commands.Context, *, checkpoint: Optional[str]):
@@ -36,15 +36,15 @@ class AImageSettings(AImageBase):
             await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
             await ctx.tick(message="✅ Default checkpoint updated.")
 
-    @commands.group(name="aimage") # type: ignore
+    @commands.group(name="arcenciel") # type: ignore
     @commands.guild_only()
     @checks.bot_has_permissions(embed_links=True, add_reactions=True)
     @checks.admin_or_permissions(manage_guild=True)
-    async def aimage(self, _: commands.Context):
+    async def arcenciel(self, _: commands.Context):
         """ Manage AI Image cog settings. """
         pass
 
-    @aimage.command(name="enable")
+    @arcenciel.command(name="enable")
     async def enable_cmd(self, ctx: commands.Context):
         """
         Enables the generator on this server
@@ -53,7 +53,7 @@ class AImageSettings(AImageBase):
         await self.config.guild(ctx.guild).enabled.set(True)
         await ctx.tick()
 
-    @aimage.command(name="disable")
+    @arcenciel.command(name="disable")
     async def disable_cmd(self, ctx: commands.Context):
         """
         Disables the generator on this server
@@ -62,7 +62,7 @@ class AImageSettings(AImageBase):
         await self.config.guild(ctx.guild).enabled.set(False)
         await ctx.tick()
 
-    @aimage.command(name="config")
+    @arcenciel.command(name="config")
     async def config_cmd(self, ctx: commands.Context):
         """
         Show the current AI Image config
@@ -70,7 +70,7 @@ class AImageSettings(AImageBase):
         assert ctx.guild
         config = await self.config.all()
 
-        embed = discord.Embed(title="AImage Config", color=await ctx.embed_color())
+        embed = discord.Embed(title="Arcenciel Config", color=await ctx.embed_color())
         embed.add_field(name="Default Negative Prompt", value=f"`{config['negative_prompt'][:1000]}`", inline=False)
         embed.add_field(name="Default Checkpoint", value=f"`{config['checkpoint']}`")
         embed.add_field(name="Default VAE", value=f"`{config['vae']}`")
@@ -86,7 +86,7 @@ class AImageSettings(AImageBase):
 
         return await ctx.send(embed=embed)
 
-    @aimage.command(name="nsfw")
+    @arcenciel.command(name="nsfw")
     async def nsfw_cmd(self, ctx: commands.Context):
         """
         Toggles filtering of NSFW images
@@ -96,7 +96,7 @@ class AImageSettings(AImageBase):
         await self.config.nsfw.set(not nsfw)
         await ctx.send(f"NSFW filtering is now {'`disabled`' if not nsfw else '`enabled`'}")
 
-    @aimage.command(name="negative_prompt")
+    @arcenciel.command(name="negative_prompt")
     async def negative_prompt_cmd(self, ctx: commands.Context, *, negative_prompt: Optional[str]):
         """
         Set the default negative prompt
@@ -107,7 +107,7 @@ class AImageSettings(AImageBase):
         await self.config.negative_prompt.set(negative_prompt)
         await ctx.tick(message="✅ Default negative prompt updated.")
 
-    @aimage.command(name="cfg")
+    @arcenciel.command(name="cfg")
     async def cfg_cmd(self, ctx: commands.Context, cfg: int):
         """
         Set the default cfg
@@ -116,7 +116,7 @@ class AImageSettings(AImageBase):
         await self.config.cfg.set(cfg)
         await ctx.tick(message="✅ Default CFG updated.")
 
-    @aimage.command(name="steps")
+    @arcenciel.command(name="steps")
     async def sampling_steps_cmd(self, ctx: commands.Context, sampling_steps: int):
         """
         Set the default sampling steps
@@ -125,7 +125,7 @@ class AImageSettings(AImageBase):
         await self.config.sampling_steps.set(sampling_steps)
         await ctx.tick(message="✅ Default sampling steps updated.")
 
-    @aimage.command(name="sampler")
+    @arcenciel.command(name="sampler")
     async def sampler_cmd(self, ctx: commands.Context, *, sampler: Optional[str]):
         """
         Set the default sampler
@@ -140,7 +140,7 @@ class AImageSettings(AImageBase):
         await self.config.sampler.set(sampler_names[sampler])
         await ctx.tick(message="✅ Default sampler updated.")
 
-    @aimage.command(name="scheduler")
+    @arcenciel.command(name="scheduler")
     async def scheduler_cmd(self, ctx: commands.Context, *, scheduler: Optional[str]):
         """
         Set the default scheduler
@@ -155,7 +155,7 @@ class AImageSettings(AImageBase):
         await self.config.scheduler.set(sch_names[scheduler])
         await ctx.tick(message="✅ Default scheduler updated.")
 
-    @aimage.command(name="width")
+    @arcenciel.command(name="width")
     async def width_cmd(self, ctx: commands.Context, width: int):
         """
         Set the default width
@@ -166,7 +166,7 @@ class AImageSettings(AImageBase):
         await self.config.width.set(width)
         await ctx.tick(message="✅ Default width updated.")
 
-    @aimage.command(name="height")
+    @arcenciel.command(name="height")
     async def height_cmd(self, ctx: commands.Context, height: int):
         """
         Set the default height
@@ -177,7 +177,7 @@ class AImageSettings(AImageBase):
         await self.config.height.set(height)
         await ctx.tick(message="✅ Default height updated.")
 
-    @aimage.command(name="max_img2img")
+    @arcenciel.command(name="max_img2img")
     async def max_img2img_cmd(self, ctx: commands.Context, resolution: int):
         """
         Set the maximum size (in pixels squared) of img2img and hires upscale.
@@ -189,7 +189,7 @@ class AImageSettings(AImageBase):
         await self.config.max_img2img.set(resolution)
         await ctx.tick(message="✅ Maximum img2img size updated.")
 
-    @aimage.command(name="checkpoint", aliases=["model"])
+    @arcenciel.command(name="checkpoint", aliases=["model"])
     async def checkpoint_cmd(self, ctx: commands.Context, *, checkpoint: Optional[str]):
         """
         Set the default checkpoint / model used for generating images
@@ -206,7 +206,7 @@ class AImageSettings(AImageBase):
         await self.config.checkpoint.set(ckpt_names[checkpoint])
         await ctx.tick(message="✅ Default checkpoint updated.")
 
-    @aimage.command(name="vae")
+    @arcenciel.command(name="vae")
     async def vae_cmd(self, ctx: commands.Context, *, vae: Optional[str]):
         """
         Set the default vae used for generating images
@@ -221,7 +221,7 @@ class AImageSettings(AImageBase):
         await self.config.vae.set(vae_names[vae])
         await ctx.tick(message="✅ Default VAE updated.")
 
-    @aimage.command(name="adetailer")
+    @arcenciel.command(name="adetailer")
     async def adetailer_cmd(self, ctx: commands.Context):
         """
         Whether to use face adetailer for all images
@@ -231,7 +231,7 @@ class AImageSettings(AImageBase):
         await self.config.adetailer.set(new)
         await ctx.send(f"ADetailer is now {'`disabled`' if not new else '`enabled`'} for basic gens")
 
-    @aimage.command(name="blacklist", aliases=["blocklist"])
+    @arcenciel.command(name="blacklist", aliases=["blocklist"])
     @commands.is_owner()
     async def blacklist_cmd(self, ctx: commands.Context, *, regex: Optional[str]):
         """
@@ -247,7 +247,7 @@ class AImageSettings(AImageBase):
             await self.config.blacklist_regex.set(regex.strip())
             await ctx.send(f"Set regex\n```re\n{regex.strip()}```")
 
-    @aimage.command(name="loading_emoji")
+    @arcenciel.command(name="loading_emoji")
     @commands.is_owner()
     async def loading_emoji_cmd(self, ctx: commands.Context, emoji: str):
         """
@@ -256,7 +256,7 @@ class AImageSettings(AImageBase):
         await self.config.loading_emoji.set(emoji)
         await ctx.tick()
 
-    @aimage.command(name="arcenciel_emoji")
+    @arcenciel.command(name="arcenciel_emoji")
     @commands.is_owner()
     async def arcenciel_emoji_cmd(self, ctx: commands.Context, emoji: str):
         """
@@ -265,7 +265,7 @@ class AImageSettings(AImageBase):
         await self.config.arcenciel_emoji.set(emoji)
         await ctx.tick()
 
-    @aimage.command(name="sync")
+    @arcenciel.command(name="sync")
     @checks.is_owner()
     @checks.bot_in_a_guild()
     async def sync_cmd(self, ctx: commands.Context):
@@ -278,7 +278,7 @@ class AImageSettings(AImageBase):
         await ctx.message.add_reaction("✅")
         await ctx.message.remove_reaction("⏳", ctx.guild.me)
         
-    @aimage.group(name="vip")
+    @arcenciel.group(name="vip")
     @checks.is_owner()
     @checks.bot_in_a_guild()
     async def vip_cmd(self, _: commands.Context):

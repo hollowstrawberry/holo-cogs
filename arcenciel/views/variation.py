@@ -2,7 +2,7 @@ import discord
 import discord.ui as ui
 from copy import deepcopy
 
-from aimage.views.image_actions import ImageActions
+from arcenciel.views.image_actions import ImageActions
 
 
 class VariationModal(ui.Modal):

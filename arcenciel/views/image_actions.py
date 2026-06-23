@@ -3,17 +3,17 @@ import discord
 from copy import deepcopy
 from redbot.core.bot import Red
 
-from aimage.base import AImageBase
-from aimage.comfy import ComfyMetadata
-from aimage.constants import VIEW_TIMEOUT
-from aimage.views.image_info import ImageInfoView
+from arcenciel.base import ArcencielBase
+from arcenciel.comfy import ComfyMetadata
+from arcenciel.constants import VIEW_TIMEOUT
+from arcenciel.views.image_info import ImageInfoView
 
-log = logging.getLogger("red.holo-cogs.aimage")
+log = logging.getLogger("red.holo-cogs.arcenciel")
 
 
 class ImageActions(discord.ui.View):
     def __init__(self,
-                 cog: AImageBase,
+                 cog: ArcencielBase,
                  metadata: ComfyMetadata,
                  payload: dict,
                  author: discord.Member,
@@ -72,17 +72,17 @@ class ImageActions(discord.ui.View):
         await self.generate_image(interaction, payload=payload, message_content=message_content)
 
     async def modify_image(self, interaction: discord.Interaction):
-        from aimage.views.modify import ModifyModal
+        from arcenciel.views.modify import ModifyModal
         modal = ModifyModal(self)
         await interaction.response.send_modal(modal)
 
     async def variation_image(self, interaction: discord.Interaction):
-        from aimage.views.variation import VariationModal
+        from arcenciel.views.variation import VariationModal
         modal = VariationModal(self)
         await interaction.response.send_modal(modal)
 
     async def upscale_image(self, interaction: discord.Interaction):
-        from aimage.views.hi_res import HiresModal
+        from arcenciel.views.hi_res import HiresModal
         if not self.cache.get("upscale"):
             return await interaction.response.send_message(
                 content=":warning: Upscaling is not available at this time. Please contact the bot owner.",
@@ -92,7 +92,7 @@ class ImageActions(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     async def delete_image(self, interaction: discord.Interaction):
-        from aimage.views.delete import DeleteModal
+        from arcenciel.views.delete import DeleteModal
         assert interaction.message
         if not (await self.check_if_can_delete(interaction)):
             return await interaction.response.send_message(

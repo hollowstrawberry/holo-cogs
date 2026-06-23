@@ -48,9 +48,9 @@ class ImageTaggingTool(ToolBase):
         filename: str = arguments.get("image", "")
         if not filename:
             return "<error>No filename provided</error>"
-        aimage: commands.Cog | None = self.ctx.bot.get_cog("AImage")
-        if not aimage:
-            return "<error>`aimage` cog not installed, please notify the bot owner</error>"
+        arcenciel: commands.Cog | None = self.ctx.bot.get_cog("Arcenciel")
+        if not arcenciel:
+            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         image_source = await self.find_image(filename.strip())
         if not image_source:
             return {
@@ -73,7 +73,7 @@ class ImageTaggingTool(ToolBase):
             fp = await asyncio.to_thread(normalize_image, image_bytes, max_resolution**2)
             if not fp:
                 return f"<error>The image appears to be corrupted or invalid</error>"
-            tags = await aimage.api.interrogate(fp, filename.rsplit(".", 1)[0] + ".png")  # type: ignore
+            tags = await arcenciel.api.interrogate(fp, filename.rsplit(".", 1)[0] + ".png")  # type: ignore
             return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")

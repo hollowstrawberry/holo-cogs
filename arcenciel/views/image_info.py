@@ -3,7 +3,7 @@ import json
 import discord
 from discord.ui import View
 
-from aimage.constants import VIEW_TIMEOUT
+from arcenciel.constants import VIEW_TIMEOUT
 
 
 class ImageInfoView(View):

@@ -2,14 +2,14 @@ import asyncio
 import discord
 import discord.ui as ui
 
-from aimage.base import AImageBase
-from aimage.utils import ImageGenError
-from aimage.schema import QueuedImageGen
-from aimage.constants import VIEW_TIMEOUT
+from arcenciel.base import ArcencielBase
+from arcenciel.utils import ImageGenError
+from arcenciel.schema import QueuedImageGen
+from arcenciel.constants import VIEW_TIMEOUT
 
 
 class GeneratingView(ui.View):
-    def __init__(self, cog: AImageBase, gen: QueuedImageGen):
+    def __init__(self, cog: ArcencielBase, gen: QueuedImageGen):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.cog = cog
         self.gen = gen

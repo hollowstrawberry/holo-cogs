@@ -785,8 +785,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 await ctx.message.add_reaction("❌")
             return
         
-        aimage: commands.Cog | None = ctx.bot.get_cog("AImage")
-        if not aimage:
+        arcenciel: commands.Cog | None = ctx.bot.get_cog("Arcenciel")
+        if not arcenciel:
             await ctx.message.add_reaction("❌")
             return
 
@@ -801,7 +801,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             await asyncio.sleep(0)
             self.currently_generating.discard(ctx.message.id)
         self.currently_generating.add(ctx.message.id)
-        generate_image = getattr(aimage, "generate_image")
+        generate_image = getattr(arcenciel, "generate_image")
         asyncio.create_task(generate_image(ctx, params=params, message_content=message_content, callback=callback()))
 
 

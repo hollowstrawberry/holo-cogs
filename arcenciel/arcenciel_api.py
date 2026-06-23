@@ -3,14 +3,14 @@ import logging
 import aiohttp
 from io import BytesIO
 
-from aimage.base import AImageBase
-from aimage.utils import ImageGenError, clean_model, parse_prompts
+from arcenciel.base import ArcencielBase
+from arcenciel.utils import ImageGenError, clean_model, parse_prompts
 
-log = logging.getLogger("red.holo-cogs.aimage")
+log = logging.getLogger("red.holo-cogs.arcenciel")
 
 
 class ArcEnCielAPI:
-    def __init__(self, cog: AImageBase, endpoint: str, api_key: str):
+    def __init__(self, cog: ArcencielBase, endpoint: str, api_key: str):
         self.cog = cog
         self.endpoint = endpoint
         self.session = aiohttp.ClientSession(headers={"x-api-key": api_key})
