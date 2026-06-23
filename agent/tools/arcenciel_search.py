@@ -6,11 +6,11 @@ from agent.utils import parse_arcenciel_model
 from agent.schema import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
-log = logging.getLogger("agent.arcenciel")
+log = logging.getLogger("agent.arcenciel_search")
 
 
 class ArcencielTool(ToolBase):
-    display_name = "arcenciel"
+    display_name = "arcenciel_search"
     settings = {"arcenciel_emoji": "📁"}
     schema = ToolCall(
         Function(
