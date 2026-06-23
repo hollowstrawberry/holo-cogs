@@ -6,7 +6,7 @@
     "hidden": false,
     "install_msg": "📎 __**Arcenciel**__ ```Cog installed. Instructions:\n1. Load it with [p]load arcenciel\n2. I'm not sure why you're using this, good luck!```",
     "required_cogs": {},
-    "requirements": ["expiringdict"],
+    "requirements": [],
     "short": "Generates an image with the Arc en Ciel API. Not really meant for public use but here it is.",
     "end_user_data_statement": "This cog does not store user data.",
     "tags": ["ai", "image", "arcenciel", "stable diffusion"]
