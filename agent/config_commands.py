@@ -11,16 +11,16 @@ from agent.tools.base import get_all_tools
 
 class AgentCogConfigCommands(AgentCogBase):
 
-    @commands.group(name="llm", aliases=["gpt", "agent", "memoryconfig"]) # type: ignore
+    @commands.group(name="agent", aliases=["llm", "gpt"]) # type: ignore
     @commands.is_owner()
     @commands.guild_only()
-    async def memoryconfig(self, _: commands.Context):
+    async def agentconfig(self, _: commands.Context):
         """Base command for configuring the GPT Memory cog."""
         pass
 
 
-    @memoryconfig.command(name="config", aliases=["settings"])
-    async def memoryconfig_config(self, ctx: commands.Context):
+    @agentconfig.command(name="config", aliases=["settings"])
+    async def agentconfig_config(self, ctx: commands.Context):
         """View all settings"""
         config = self.config[ctx.guild]
         functions = []
@@ -114,134 +114,134 @@ class AgentCogConfigCommands(AgentCogBase):
 
 
 
-    @memoryconfig.command(name="logging", aliases=["extended_logging"])
-    async def memoryconfig_logging(self, ctx: commands.Context, value: Optional[bool]):
+    @agentconfig.command(name="logging", aliases=["extended_logging"])
+    async def agentconfig_logging(self, ctx: commands.Context, value: Optional[bool]):
         """Toggles logging mode, for the developer."""
         await self.bool_config_command(ctx, self.config.extended_logging, value)
     
-    @memoryconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
-    async def memoryconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
+    @agentconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
+    async def agentconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
         """Whether the memorizer will run at all, editing memories."""
         await self.bool_config_command(ctx, self.config[ctx.guild].allow_memorizer, value)
 
-    @memoryconfig.command(name="memorizer_user_only")
-    async def memoryconfig_memorizer_user_only(self, ctx: commands.Context, value: Optional[bool]):
+    @agentconfig.command(name="memorizer_user_only")
+    async def agentconfig_memorizer_user_only(self, ctx: commands.Context, value: Optional[bool]):
         """If enabled, only memories of usernames will be passed to the memorizer."""
         await self.bool_config_command(ctx, self.config[ctx.guild].memorizer_user_only, value)
 
-    @memoryconfig.command(name="memorizer_alerts")
-    async def memoryconfig_memorizer_alerts(self, ctx: commands.Context, value: Optional[bool]):
+    @agentconfig.command(name="memorizer_alerts")
+    async def agentconfig_memorizer_alerts(self, ctx: commands.Context, value: Optional[bool]):
         """Whether the memorizer will send a message in chat after editing memories."""
         await self.bool_config_command(ctx, self.config[ctx.guild].memorizer_alerts, value)
 
-    @memoryconfig.command(name="autoresponder_chance")
-    async def memoryconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
+    @agentconfig.command(name="autoresponder_chance")
+    async def agentconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
         """The chance that the autoresponder will trigger, from 0.0 to 100.0"""
         await self.percent_config_command(ctx, self.config[ctx.guild].autoresponder_chance, percent)
 
-    @memoryconfig.command(name="autoreacter_chance")
-    async def memoryconfig_autoreacter_chance(self, ctx: commands.Context, percent: Optional[float]):
+    @agentconfig.command(name="autoreacter_chance")
+    async def agentconfig_autoreacter_chance(self, ctx: commands.Context, percent: Optional[float]):
         """The chance that the autoreacter will trigger, from 0.0 to 100.0"""
         await self.percent_config_command(ctx, self.config[ctx.guild].autoreacter_chance, percent)
 
-    @memoryconfig.command(name="autoreacter_chance_images")
-    async def memoryconfig_autoreacter_chance_images(self, ctx: commands.Context, percent: Optional[float]):
+    @agentconfig.command(name="autoreacter_chance_images")
+    async def agentconfig_autoreacter_chance_images(self, ctx: commands.Context, percent: Optional[float]):
         """The chance that the autoreacter will trigger on an image attachment, from 0.0 to 100.0"""
         await self.percent_config_command(ctx, self.config[ctx.guild].autoreacter_chance_images, percent)
 
-    @memoryconfig.command(name="autoresponder_cooldown", aliases=["autoresponder_cooldown_minutes"])
-    async def memoryconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
+    @agentconfig.command(name="autoresponder_cooldown", aliases=["autoresponder_cooldown_minutes"])
+    async def agentconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
         """The minimum time between 2 autoresponder triggers in a single channel."""
         await self.integer_config_command(ctx, self.config[ctx.guild].autoresponder_cooldown_minutes, 0, None, minutes)
 
-    @memoryconfig.command(name="autoreacter_cooldown", aliases=["autoreacter_cooldown_minutes"])
-    async def memoryconfig_autoreacter_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
+    @agentconfig.command(name="autoreacter_cooldown", aliases=["autoreacter_cooldown_minutes"])
+    async def agentconfig_autoreacter_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
         """The minimum time between 2 autoreacter triggers in a single channel."""
         await self.integer_config_command(ctx, self.config[ctx.guild].autoreacter_cooldown_minutes, 0, None, minutes)
 
-    @memoryconfig.command(name="timeout")
-    async def memoryconfig_timeout(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig.command(name="timeout")
+    async def agentconfig_timeout(self, ctx: commands.Context, value: Optional[int]):
         """Sets how long a response can take before it's cancelled"""
         await self.integer_config_command(ctx, self.config.response_timeout, 10, 3600, value, "seconds")
     
-    @memoryconfig.command(name="slow_timer")
-    async def memoryconfig_slow_timer(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig.command(name="slow_timer")
+    async def agentconfig_slow_timer(self, ctx: commands.Context, value: Optional[int]):
         """Sets how long a response can take before reacting with slow_emoji"""
         await self.integer_config_command(ctx, self.config.slow_timer, 10, 3600, value, "seconds")
     
-    @memoryconfig.command(name="slow_emoji")
-    async def memoryconfig_slow_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+    @agentconfig.command(name="slow_emoji")
+    async def agentconfig_slow_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
         """Sets an emoji to react when the LLM takes too long."""
         await self.emoji_config_command(ctx, self.config.slow_emoji, emoji)
 
-    @memoryconfig.command(name="noresponse_emoji")
-    async def memoryconfig_noresponse_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+    @agentconfig.command(name="noresponse_emoji")
+    async def agentconfig_noresponse_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
         """Sets an emoji for when the LLM doesn't respond."""
         await self.emoji_config_command(ctx, self.config.noresponse_emoji, emoji)
 
-    @memoryconfig.command(name="blocked_emoji")
-    async def memoryconfig_blocked_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
+    @agentconfig.command(name="blocked_emoji")
+    async def agentconfig_blocked_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
         """Sets an emoji for when the LLM response gets blocked."""
         await self.emoji_config_command(ctx, self.config.blocked_emoji, emoji)
 
 
-    @memoryconfig.group(name="limits")
-    async def memoryconfig_limits(self, _: commands.Context):
+    @agentconfig.group(name="limits")
+    async def agentconfig_limits(self, _: commands.Context):
         """Base command for limits intended as cost-saving measures."""
         pass
 
-    @memoryconfig_limits.command(name="response_tokens")
-    async def memoryconfig_response_tokens(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="response_tokens")
+    async def agentconfig_response_tokens(self, ctx: commands.Context, value: Optional[int]):
         """Hard limit on the number of tokens the responder will send."""
         await self.integer_config_command(ctx, self.config[ctx.guild].response_tokens, 500, 20000, value)
 
-    @memoryconfig_limits.command(name="backread_tokens")
-    async def memoryconfig_backread_tokens(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="backread_tokens")
+    async def agentconfig_backread_tokens(self, ctx: commands.Context, value: Optional[int]):
         """Soft limit on the number of tokens the LLM will read from the chat history."""
         await self.integer_config_command(ctx, self.config[ctx.guild].backread_tokens, 500, 20000, value)
 
-    @memoryconfig_limits.command(name="backread_messages")
-    async def memoryconfig_backread_messages(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="backread_messages")
+    async def agentconfig_backread_messages(self, ctx: commands.Context, value: Optional[int]):
         """How many messages in chat the recaller and responder will read."""
         await self.integer_config_command(ctx, self.config[ctx.guild].backread_messages, 0, 100, value)
 
-    @memoryconfig_limits.command(name="backread_short", aliases=["backread_messages_short"])
-    async def memoryconfig_backread_short(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="backread_short", aliases=["backread_messages_short"])
+    async def agentconfig_backread_short(self, ctx: commands.Context, value: Optional[int]):
         """How many messages in chat will read for shorter contexts (memorizer, autoreacter)."""
         await self.integer_config_command(ctx, self.config[ctx.guild].backread_short, 0, 100, value, "messages")
 
-    @memoryconfig_limits.command(name="max_images")
-    async def memoryconfig_max_images(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="max_images")
+    async def agentconfig_max_images(self, ctx: commands.Context, value: Optional[int]):
         """How many images to send to the LLM in full with each response; the rest will be captioned and stored instead."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_images, 0, 100, value)
 
-    @memoryconfig_limits.command(name="max_depth", aliases=["max_tool_depth"])
-    async def memoryconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="max_depth", aliases=["max_tool_depth"])
+    async def agentconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
         """How many tools the AI can use one after the other. Each consecutive tool call is more expensive than the last."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_tool_depth, 1, 10, value, "requests")
 
-    @memoryconfig_limits.command(name="max_tool", aliases=["max_tool_characters"])
-    async def memoryconfig_max_tool(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="max_tool", aliases=["max_tool_characters"])
+    async def agentconfig_max_tool(self, ctx: commands.Context, value: Optional[int]):
         """Character limit for function call results."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_tool, 1000, 20000, value, "characters")
 
-    @memoryconfig_limits.command(name="max_text_file")
-    async def memoryconfig_max_text_file(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="max_text_file")
+    async def agentconfig_max_text_file(self, ctx: commands.Context, value: Optional[int]):
         """Character limit for text files."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_text_file, 1000, 20000, value, "characters")
 
-    @memoryconfig_limits.command(name="max_quote", aliases=["max_quote_characters"])
-    async def memoryconfig_max_quote(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="max_quote", aliases=["max_quote_characters"])
+    async def agentconfig_max_quote(self, ctx: commands.Context, value: Optional[int]):
         """Character limit for message replies."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_quote, 100, 10000, value, "characters")
 
-    @memoryconfig_limits.command(name="max_image_resolution", aliases=["max_resolution"])
-    async def memoryconfig_max_image_resolution(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="max_image_resolution", aliases=["max_resolution"])
+    async def agentconfig_max_image_resolution(self, ctx: commands.Context, value: Optional[int]):
         """Images will be resized to this resolution before being sent to the LLM."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_image_resolution, 512, 2048, value, "on each side")
 
-    @memoryconfig_limits.command(name="max_caption_resolution", aliases=["max_thumbnail_resolution"])
-    async def memoryconfig_max_caption_resolution(self, ctx: commands.Context, value: Optional[int]):
+    @agentconfig_limits.command(name="max_caption_resolution", aliases=["max_thumbnail_resolution"])
+    async def agentconfig_max_caption_resolution(self, ctx: commands.Context, value: Optional[int]):
         """Images will be resized to this resolution before being sent for captioning."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_caption_resolution, 128, 1024, value, "on each side")
 
@@ -250,93 +250,93 @@ class AgentCogConfigCommands(AgentCogBase):
     ChannelMode = Literal["whitelist", "blacklist"]
 
 
-    @memoryconfig.group(name="channels")
-    async def memoryconfig_channels(self, ctx: commands.Context):
+    @agentconfig.group(name="channels")
+    async def agentconfig_channels(self, ctx: commands.Context):
         """Shows or sets the channels the LLM has access to."""
 
-    @memoryconfig_channels.command("list", aliases=["show", "view"])
-    async def memoryconfig_channels_list(self, ctx: commands.Context):
+    @agentconfig_channels.command("list", aliases=["show", "view"])
+    async def agentconfig_channels_list(self, ctx: commands.Context):
         """Shows the LLM whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.channels, config.channel_mode, None, None)
 
-    @memoryconfig_channels.command("set")
-    async def memoryconfig_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_channels.command("set")
+    async def agentconfig_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Sets a new whitelist or blacklist for LLM channels"""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.channels, config.channel_mode, set(c.id for c in channels), mode)
 
-    @memoryconfig_channels.command("add")
-    async def memoryconfig_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_channels.command("add")
+    async def agentconfig_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Adds channels to the LLM whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set([c.id for c in channels] + config.channels.value)
         await self.channels_config_command(ctx, config.channels, config.channel_mode, channel_ids, None)
 
-    @memoryconfig_channels.command("remove")
-    async def memoryconfig_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_channels.command("remove")
+    async def agentconfig_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Removes channels from the LLM whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set(config.channels.value) - set(c.id for c in channels)
         await self.channels_config_command(ctx, config.channels, config.channel_mode, channel_ids, None)
 
 
-    @memoryconfig.group(name="generation_channels")
-    async def memoryconfig_generation_channels(self, ctx: commands.Context):
+    @agentconfig.group(name="generation_channels")
+    async def agentconfig_generation_channels(self, ctx: commands.Context):
         """Shows or sets the channels the LLM can generate images in."""
 
-    @memoryconfig_generation_channels.command("list", aliases=["show", "view"])
-    async def memoryconfig_generation_channels_list(self, ctx: commands.Context):
+    @agentconfig_generation_channels.command("list", aliases=["show", "view"])
+    async def agentconfig_generation_channels_list(self, ctx: commands.Context):
         """Shows the image generation channel whitelist or blacklist of depending on the current setting."""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, None, None)
 
-    @memoryconfig_generation_channels.command("set")
-    async def memoryconfig_generation_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_generation_channels.command("set")
+    async def agentconfig_generation_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Sets a new whitelist or blacklist for image generation channels"""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, set(c.id for c in channels), mode)
 
-    @memoryconfig_generation_channels.command("add")
-    async def memoryconfig_generation_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_generation_channels.command("add")
+    async def agentconfig_generation_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Adds channels to the image generation whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set([c.id for c in channels] + config.generation_channels.value)
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, channel_ids, None)
 
-    @memoryconfig_generation_channels.command("remove")
-    async def memoryconfig_generation_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_generation_channels.command("remove")
+    async def agentconfig_generation_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Removes channels from the image generation whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set(config.generation_channels.value) - set(c.id for c in channels)
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, channel_ids, None)
 
 
-    @memoryconfig.group(name="auto_channels")
-    async def memoryconfig_auto_channels(self, ctx: commands.Context):
+    @agentconfig.group(name="auto_channels")
+    async def agentconfig_auto_channels(self, ctx: commands.Context):
         """Shows or sets the channels the LLM can respond automatically in."""
 
-    @memoryconfig_auto_channels.command("list", aliases=["show", "view"])
-    async def memoryconfig_auto_channels_list(self, ctx: commands.Context):
+    @agentconfig_auto_channels.command("list", aliases=["show", "view"])
+    async def agentconfig_auto_channels_list(self, ctx: commands.Context):
         """Shows the autoresponse channel whitelist or blacklist of depending on the current setting."""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, None, None)
 
-    @memoryconfig_auto_channels.command("set")
-    async def memoryconfig_auto_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_auto_channels.command("set")
+    async def agentconfig_auto_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Sets a new whitelist or blacklist for autoresponse channels"""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, set(c.id for c in channels), mode)
 
-    @memoryconfig_auto_channels.command("add")
-    async def memoryconfig_auto_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_auto_channels.command("add")
+    async def agentconfig_auto_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Adds channels to the autoresponse whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set([c.id for c in channels] + config.auto_channels.value)
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, channel_ids, None)
 
-    @memoryconfig_auto_channels.command("remove")
-    async def memoryconfig_auto_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    @agentconfig_auto_channels.command("remove")
+    async def agentconfig_auto_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Removes channels from the autoresponse whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set(config.auto_channels.value) - set(c.id for c in channels)
@@ -344,13 +344,13 @@ class AgentCogConfigCommands(AgentCogBase):
 
 
 
-    @memoryconfig.group(name="tool", aliases=["function", "functions", "tools"])
-    async def memoryconfig_functions(self, _: commands.Context):
+    @agentconfig.group(name="tool", aliases=["function", "functions", "tools"])
+    async def agentconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
         pass
 
-    @memoryconfig_functions.command(name="list")
-    async def memoryconfig_functions_list(self, ctx: commands.Context):
+    @agentconfig_functions.command(name="list")
+    async def agentconfig_functions_list(self, ctx: commands.Context):
         """Shows all functions and whether they are active."""
         enabled_functions = self.config[ctx.guild].enabled_functions.value
         functions = []
@@ -364,8 +364,8 @@ class AgentCogConfigCommands(AgentCogBase):
             functions.append(s)
         await ctx.send(">>> " + "\n".join(functions))
 
-    @memoryconfig_functions.command(name="toggle")
-    async def memoryconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
+    @agentconfig_functions.command(name="toggle")
+    async def agentconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
         """Enables or disables a function"""
         all_function_names = [f.display_name for f in get_all_tools()]
         if function_name not in all_function_names:
@@ -381,8 +381,8 @@ class AgentCogConfigCommands(AgentCogBase):
         enabled = not enabled
         await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")
 
-    @memoryconfig_functions.command(name="setting", aliases=["settings"])
-    async def memoryconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
+    @agentconfig_functions.command(name="setting", aliases=["settings"])
+    async def agentconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
         """Sets a tool-specific key-value setting."""
         setting_dict = reduce(lambda a, b: a | b, [func.settings for func in get_all_tools()])
         setting_values = self.config.tool_settings.value
@@ -405,9 +405,9 @@ class AgentCogConfigCommands(AgentCogBase):
 
     ModelPromptTypes = Literal["recaller", "responder", "memorizer", "captioner", "autoreacter"]
 
-    @memoryconfig.command("model")
+    @agentconfig.command("model")
     @commands.is_owner()
-    async def memoryconfig_model(self, ctx: commands.Context, module: ModelPromptTypes, model: Optional[str]):
+    async def agentconfig_model(self, ctx: commands.Context, module: ModelPromptTypes, model: Optional[str]):
         """Views or changes the LLM model being used by different modules of this cog."""
         config = self.config[ctx.guild]
         fields = {
@@ -432,9 +432,9 @@ class AgentCogConfigCommands(AgentCogBase):
 
     EffortPromptTypes = Literal["recaller", "responder", "memorizer"]
 
-    @memoryconfig.command("effort")
+    @agentconfig.command("effort")
     @commands.is_owner()
-    async def memoryconfig_effort(self, ctx: commands.Context, module: EffortPromptTypes, effort: Optional[str]):
+    async def agentconfig_effort(self, ctx: commands.Context, module: EffortPromptTypes, effort: Optional[str]):
         """Views or changes the LLM reasoning effort used by different modules of this cog."""
         config = self.config[ctx.guild]
         fields = {
