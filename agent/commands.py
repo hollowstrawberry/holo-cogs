@@ -95,7 +95,7 @@ class AgentCogCommands(AgentCogBase):
     @commands.command(name="forget")
     async def command_forget(self, ctx: commands.Context):
         """Temporarily makes the bot only read messages past a certain point."""
-        await self.config.channel[ctx.channel.id].start.set(ctx.message.created_at)
+        await self.config[ctx.channel].start.set(ctx.message.created_at)
         await ctx.tick(message="✅")
 
     @commands.has_permissions(manage_messages=True)
