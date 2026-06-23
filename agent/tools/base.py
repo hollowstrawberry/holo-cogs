@@ -38,4 +38,4 @@ def get_all_tools() -> list[type[ToolBase]]:
             tool_types.update(subs)
         else:
             tool_types.add(tool)
-    return list(tool_types)
+    return sorted(tool_types, key=lambda t: t.display_name)

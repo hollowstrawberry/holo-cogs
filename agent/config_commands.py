@@ -364,22 +364,31 @@ class AgentCogConfigCommands(AgentCogBase):
             functions.append(s)
         await ctx.send(">>> " + "\n".join(functions))
 
-    @agentconfig_functions.command(name="toggle")
-    async def agentconfig_functions_toggle(self, ctx: commands.Context, function_name: str):
-        """Enables or disables a function"""
-        all_function_names = [f.display_name for f in get_all_tools()]
-        if function_name not in all_function_names:
-            await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_function_names]))
+    @agentconfig_functions.command(name="enable")
+    async def agentconfig_functions_enable(self, ctx: commands.Context, tool_name: str):
+        """Enables a tool call"""
+        all_tool_names = [t.display_name for t in get_all_tools()]
+        if tool_name not in all_tool_names:
+            await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_tool_names]))
             return
-        enabled_functions = self.config[ctx.guild].enabled_functions
-        enabled = function_name in enabled_functions.value
-        if enabled:
-            enabled_functions.value.remove(function_name)
-        else:
-            enabled_functions.value.append(function_name)
-        await enabled_functions.save()
-        enabled = not enabled
-        await ctx.send(f"`{function_name}`: {'enabled' if enabled else 'disabled'}")
+        enabled_tools = self.config[ctx.guild].enabled_functions
+        if tool_name not in enabled_tools.value:
+            enabled_tools.value.append(tool_name)
+            await enabled_tools.save()
+        await ctx.send(f"`{tool_name}`: enabled")
+
+    @agentconfig_functions.command(name="disable")
+    async def agentconfig_functions_disable(self, ctx: commands.Context, tool_name: str):
+        """Enables a tool call"""
+        all_tool_names = [t.display_name for t in get_all_tools()]
+        if tool_name not in all_tool_names:
+            await ctx.send("Function not found, valid values are: " + ", ".join([f"`{name}`" for name in all_tool_names]))
+            return
+        enabled_tools = self.config[ctx.guild].enabled_functions
+        if tool_name in enabled_tools.value:
+            enabled_tools.value.remove(tool_name)
+            await enabled_tools.save()
+        await ctx.send(f"`{tool_name}`: enabled")
 
     @agentconfig_functions.command(name="setting", aliases=["settings"])
     async def agentconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
