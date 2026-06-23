@@ -388,7 +388,7 @@ class AgentCogConfigCommands(AgentCogBase):
         if tool_name in enabled_tools.value:
             enabled_tools.value.remove(tool_name)
             await enabled_tools.save()
-        await ctx.send(f"`{tool_name}`: enabled")
+        await ctx.send(f"`{tool_name}`: disabled")
 
     @agentconfig_functions.command(name="setting", aliases=["settings"])
     async def agentconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
