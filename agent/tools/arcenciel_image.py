@@ -8,14 +8,12 @@ from agent.schema import ToolCall, Function, Parameters, ImageGenParams, ImageRe
 from agent.constants import LORA_PATTERN, SD_IMAGEGEN_RESOLUTIONS, PIPE_SEPARATOR_PATTERN
 from agent.tools.base import ToolBase
 
-log = logging.getLogger("agent.stablediffusion")
+log = logging.getLogger("agent.arcenciel_image")
 
 
-class StableDiffusionTool(ToolBase):
-    display_name="stable_diffusion"
-    settings = {
-        "enable_regional_prompt": "",
-    }
+class ArcencielImageTool(ToolBase):
+    display_name="arcenciel_image"
+    settings = {"enable_regional_prompt": ""}
     schema = ToolCall(
         Function(
             name="generate_stable_diffusion",
