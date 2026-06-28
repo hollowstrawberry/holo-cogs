@@ -4,12 +4,13 @@ import logging
 import asyncio
 import aiohttp
 import discord
+import discord.http
 
 from agent.schema import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 from agent.constants import INCOMPLETE_EMOTE_PATTERN
 
-log = logging.getLogger("agent.searchweb")
+log = logging.getLogger("agent.finevoice")
 
 VOICE_ERROR = "<error>An error occured and voice could not be used.</error>"
 
@@ -87,7 +88,16 @@ class FinevoiceTool(ToolBase):
             log.exception("finevoice tool: Failed to download result.")
             return VOICE_ERROR
         
+        file = discord.File(io.BytesIO(audio_data), filename=f"{self.ctx.me.display_name} speaking.mp3")
+        flags = discord.MessageFlags()
+        flags.voice = True
+        params = discord.http.handle_message_parameters(
+            file=file,
+            flags=flags
+        )
+        await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
+        
         return {
-            "file": discord.File(io.BytesIO(audio_data), filename=f"{self.ctx.me.display_name} speaking.mp3"),
+            #"file": file,
             "message": "A voice message was successfully sent in chat.",
         }
