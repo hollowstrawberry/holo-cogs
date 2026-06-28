@@ -2,6 +2,7 @@ import io
 import re
 import logging
 import asyncio
+import types
 import aiohttp
 import discord
 import discord.http
@@ -88,12 +89,17 @@ class FinevoiceTool(ToolBase):
             log.exception("finevoice tool: Failed to download result.")
             return VOICE_ERROR
         
-        file = discord.File(io.BytesIO(audio_data), filename="voice-message.ogg")#)f"{self.ctx.me.display_name} speaking.mp3")
+        filename = "voice-message.ogg"
+        file = discord.File(io.BytesIO(audio_data), filename=filename)
+        file.to_dict = types.MethodType(lambda: {
+            "id": 0,
+            "filename": filename,
+            "duration_secs": 1,
+            "waveform": "FzYACgAAAAAAACQAAAAAAAA=",
+        }, file)
         flags = discord.MessageFlags()
         flags.voice = True
         params = discord.http.handle_message_parameters(attachments=[file], flags=flags)
-        params.multipart[1]["duration_secs"] = 1
-        params.multipart[1]["waveform"] = "FzYACgAAAAAAACQAAAAAAAA="
         await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
         
         return {
