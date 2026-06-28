@@ -87,7 +87,7 @@ class FinevoiceTool(ToolBase):
                 response.raise_for_status()
                 audio_data = await response.read()
         except aiohttp.ClientError:
-            log.exception("finevoice tool: Failed to download result.")
+            log.exception(f"finevoice tool: Failed to download result from {voice_result_url}")
             return VOICE_ERROR
         
         file = discord.File(io.BytesIO(audio_data), filename="voice-message.ogg")
