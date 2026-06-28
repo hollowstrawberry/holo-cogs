@@ -88,7 +88,7 @@ class FinevoiceTool(ToolBase):
             log.exception("finevoice tool: Failed to download result.")
             return VOICE_ERROR
         
-        file = discord.File(io.BytesIO(audio_data), filename=f"{self.ctx.me.display_name} speaking.mp3")
+        file = discord.File(io.BytesIO(audio_data), filename="voice-message.ogg")#)f"{self.ctx.me.display_name} speaking.mp3")
         flags = discord.MessageFlags()
         flags.voice = True
         params = discord.http.handle_message_parameters(
