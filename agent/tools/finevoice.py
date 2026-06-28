@@ -91,10 +91,9 @@ class FinevoiceTool(ToolBase):
         file = discord.File(io.BytesIO(audio_data), filename="voice-message.ogg")#)f"{self.ctx.me.display_name} speaking.mp3")
         flags = discord.MessageFlags()
         flags.voice = True
-        params = discord.http.handle_message_parameters(
-            file=file,
-            flags=flags
-        )
+        params = discord.http.handle_message_parameters(attachments=[file], flags=flags)
+        params.payload["attachments"][0]["duration_secs"] = 1
+        params.payload["attachments"][0]["waveform"] = "FzYACgAAAAAAACQAAAAAAAA="
         await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
         
         return {
