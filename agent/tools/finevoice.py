@@ -1,4 +1,5 @@
 import io
+import json
 import re
 import logging
 import asyncio
@@ -90,8 +91,20 @@ class FinevoiceTool(ToolBase):
             return VOICE_ERROR
         
         file = discord.File(io.BytesIO(audio_data), filename="voice-message.ogg")
-        params = discord.http.handle_message_parameters(content="This is a voice message, hi friends", attachments=[file])
-        params.multipart[0]["value"] = '{"flags":8192,"attachments":[{"id":0,"filename":"voice-message.ogg","duration_secs":1,"waveform":"FzYACgAAAAAAACQAAAAAAAA="}]}'
-        await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
+        file_params = discord.http.handle_message_parameters(attachments=[file])
+        other_params = discord.http.handle_message_parameters(
+            flags=discord.MessageFlags(voice=True),
+            message_reference=self.ctx.message.to_message_reference_dict(),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+        assert file_params.multipart and other_params.payload
+        other_params.payload["attachments"] = {
+            "id": 0,
+            "filename": "voice-message.ogg",
+            "duration_secs": 1,
+            "waveform": "FzYACgAAAAAAACQAAAAAAAA="
+        }
+        file_params.multipart[0]["value"] = json.dumps(other_params.payload)
+        await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=file_params)
         
         return "A voice message was successfully sent in chat."
