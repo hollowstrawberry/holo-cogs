@@ -88,14 +88,12 @@ class FinevoiceTool(ToolBase):
             log.exception("finevoice tool: Failed to download result.")
             return VOICE_ERROR
         
-        audio_data=b''
         file = discord.File(io.BytesIO(audio_data), filename="voice-message.ogg")#)f"{self.ctx.me.display_name} speaking.mp3")
         flags = discord.MessageFlags()
         flags.voice = True
         params = discord.http.handle_message_parameters(attachments=[file], flags=flags)
-        log.info(params)
-        #params.payload["attachments"][0]["duration_secs"] = 1
-        #params.payload["attachments"][0]["waveform"] = "FzYACgAAAAAAACQAAAAAAAA="
+        params.multipart[1]["duration_secs"] = 1
+        params.multipart[1]["waveform"] = "FzYACgAAAAAAACQAAAAAAAA="
         await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
         
         return {
