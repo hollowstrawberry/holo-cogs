@@ -121,10 +121,3 @@ FAKE_TOOL_CALL = [
         "tool_call_id": "retrieve_data_cmV0cmlldmVfZGF0YQ",
     },
 ]
-
-FAKE_VOICE_ATTACHMENT = {
-    "id": 0,
-    "filename": "voice-message.ogg",
-    "duration_secs": 1,
-    "waveform": "FzYACgAAAAAAACQAAAAAAAA="
-}

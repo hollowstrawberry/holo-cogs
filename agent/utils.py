@@ -1,7 +1,9 @@
 import os
 import re
+import struct
 import logging
 import asyncio
+import mutagen
 import discord
 import contextlib
 import trafilatura
@@ -299,3 +301,49 @@ async def bot_is_typing(channel: discord.abc.Messageable):
         task.cancel()
         with contextlib.suppress(BaseException):
             await task
+
+
+async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000) -> tuple[str, float]:
+    audio = mutagen.File(BytesIO(audio_bytes))
+    if audio is None or audio.info is None or not hasattr(audio.info, "length"):
+        raise ValueError("Could not read audio metadata")
+    duration = getattr(audio.info, "length")
+
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-i", "-",
+        "-f", "s16le",
+        "-ac", "1",
+        "-ar", str(sample_rate),
+        "-loglevel", "quiet",
+        "-",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    raw, _ = await proc.communicate(input=audio_bytes)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg failed with code {proc.returncode}")
+
+    num_samples = len(raw) // 2
+    samples = struct.unpack(f"<{num_samples}h", raw[: num_samples * 2])
+    abs_samples = [abs(s) for s in samples]
+
+    point_count = max(1, min(int(duration * 10), max_points))
+    points_per_bucket = max(1, len(abs_samples) // point_count)
+
+    buckets = []
+    total, count = 0, 0
+    for i, v in enumerate(abs_samples):
+        total += v
+        count += 1
+        if (i + 1) % points_per_bucket == 0:
+            buckets.append(total // count)
+            total, count = 0, 0
+    if count:
+        buckets.append(total // count)
+
+    highest = max(buckets) if buckets else 1
+    mult = 255 / highest if highest else 0
+    waveform_bytes = bytes(min(255, int(b * mult)) for b in buckets)
+
+    return b64encode(waveform_bytes).decode("utf-8"), duration

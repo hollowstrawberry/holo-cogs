@@ -9,8 +9,9 @@ import discord
 import discord.http
 
 from agent.schema import ToolCall, Function, Parameters
+from agent.utils import generate_waveform
 from agent.tools.base import ToolBase
-from agent.constants import INCOMPLETE_EMOTE_PATTERN, FAKE_VOICE_ATTACHMENT
+from agent.constants import INCOMPLETE_EMOTE_PATTERN
 
 log = logging.getLogger("agent.finevoice")
 
@@ -90,6 +91,8 @@ class FinevoiceTool(ToolBase):
             log.exception(f"finevoice tool: Failed to download result from {voice_result_url}")
             return VOICE_ERROR
         
+        waveform, duration = await generate_waveform(audio_data)
+        
         # undocumented discord api
         file = discord.File(io.BytesIO(audio_data))
         params = discord.http.handle_message_parameters(file=file)
@@ -99,7 +102,12 @@ class FinevoiceTool(ToolBase):
             allowed_mentions=discord.AllowedMentions.none(),
         )
         assert params.multipart and extra_params.payload
-        extra_params.payload["attachments"] = [FAKE_VOICE_ATTACHMENT]
+        extra_params.payload["attachments"] = [{
+            "id": 0,
+            "filename": "voice-message.ogg",
+            "duration_secs": duration,
+            "waveform": waveform,
+        }]
         params.multipart[0]["value"] = json.dumps(extra_params.payload)
         await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
         
