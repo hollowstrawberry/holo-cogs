@@ -98,12 +98,12 @@ class FinevoiceTool(ToolBase):
             allowed_mentions=discord.AllowedMentions.none(),
         )
         assert file_params.multipart and other_params.payload
-        other_params.payload["attachments"] = {
+        other_params.payload["attachments"] = [{
             "id": 0,
             "filename": "voice-message.ogg",
             "duration_secs": 1,
             "waveform": "FzYACgAAAAAAACQAAAAAAAA="
-        }
+        }]
         file_params.multipart[0]["value"] = json.dumps(other_params.payload)
         await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=file_params)
         
