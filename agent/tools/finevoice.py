@@ -90,6 +90,7 @@ class FinevoiceTool(ToolBase):
             log.exception(f"finevoice tool: Failed to download result from {voice_result_url}")
             return VOICE_ERROR
         
+        # undocumented discord api
         file = discord.File(io.BytesIO(audio_data))
         file_params = discord.http.handle_message_parameters(attachments=[file])
         other_params = discord.http.handle_message_parameters(
@@ -102,4 +103,7 @@ class FinevoiceTool(ToolBase):
         file_params.multipart[0]["value"] = json.dumps(other_params.payload)
         await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=file_params)
         
-        return "A voice message was successfully sent in chat."
+        return {
+            "noreply": True,
+            "message": "A voice message was successfully sent in chat.",
+        }

@@ -392,13 +392,15 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 
-        past_memory_changes: list[MemoryChangeResult] = []
-        past_tool_calls: list[str] = []
+        tool_call_history: list[str] = []
+        memory_changes: list[MemoryChangeResult] = []
         files: list[discord.File] = []
+        do_reply = True
         for depth in range(config.max_tool_depth.value):
             can_use_tools = depth < config.max_tool_depth.value - 1
             if not can_use_tools and depth > 0:
                 temp_messages.extend(constants.FAKE_TOOL_CALL)  # type: ignore
+                
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),  # type: ignore
@@ -445,23 +447,24 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 try:
                     cls = next(t for t in tools if t.schema.function.name == call.function.name)
                     if cls is UpdateMemoryTool:
-                        if past_memory_changes:  # only allow one memory update per response
-                            changes = []
-                        else:
-                            changes = await self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=False)
-                            past_memory_changes += changes
-                        args = {"changes": changes}
+                        if not memory_changes:
+                            memory_changes = await self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=False)
+                        args = {"changes": memory_changes}
                     else:
                         args = json.loads(call.function.arguments)
+
                     tool_result = await cls(ctx, self).run(args)
+
                 except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                     tool_result = "<error>Unhandled error, please contact the developer</error>"
                     log.exception(f"Calling tool {call.function.name}")
 
-                past_tool_calls.append(call.function.name)
+                tool_call_history.append(call.function.name)
                 if isinstance(tool_result, dict):
                     if (file := tool_result.pop("file", None)) and isinstance(file, discord.File):
                         files.append(file)
+                    if tool_result.pop("noreply", None):
+                        do_reply = False
                     if len(tool_result) == 0:
                         tool_result = {"result": "None"}
                     elif len(tool_result) > 1:
@@ -498,7 +501,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     prompt = utils.undo_xml(m.groups()[-1])
                     completion = pattern.sub("", completion)
                     break
-            if prompt and "generate_stable_diffusion" not in past_tool_calls:
+            if prompt and "generate_stable_diffusion" not in tool_call_history:
                 await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
@@ -509,9 +512,9 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if self.config.extended_logging.value and completion != raw_completion:
                 log.info(f"cleaned_{completion=}")
 
-        view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
+        view = MemoryChangeView(memory_changes, standalone=False) if memory_changes else None
         if completion or view or files:
-            await utils.chunk_and_send(ctx, completion, embed=None, view=view, files=files, do_reply=not auto)
+            await utils.chunk_and_send(ctx, completion, embed=None, view=view, files=files, do_reply=do_reply and not auto)
         else:
             await ctx.message.add_reaction(self.config.noresponse_emoji.value)
 
