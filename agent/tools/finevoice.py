@@ -90,7 +90,7 @@ class FinevoiceTool(ToolBase):
             return VOICE_ERROR
         
         file = discord.File(io.BytesIO(audio_data), filename="voice-message.ogg")
-        params = discord.http.handle_message_parameters(attachments=[file])
+        params = discord.http.handle_message_parameters(content="This is a voice message, hi friends", attachments=[file])
         params.multipart[0]["value"] = '{"flags":8192,"attachments":[{"id":0,"filename":"voice-message.ogg","duration_secs":1,"waveform":"FzYACgAAAAAAACQAAAAAAAA="}]}'
         await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
         
