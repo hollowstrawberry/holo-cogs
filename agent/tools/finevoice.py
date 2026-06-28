@@ -91,8 +91,8 @@ class FinevoiceTool(ToolBase):
         
         filename = "voice-message.ogg"
         file = discord.File(io.BytesIO(audio_data), filename=filename)
-        file.to_dict = types.MethodType(lambda: {
-            "id": 0,
+        file.to_dict = types.MethodType(lambda i: {
+            "id": i,
             "filename": filename,
             "duration_secs": 1,
             "waveform": "FzYACgAAAAAAACQAAAAAAAA=",
