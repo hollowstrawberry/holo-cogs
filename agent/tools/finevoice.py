@@ -92,16 +92,16 @@ class FinevoiceTool(ToolBase):
         
         # undocumented discord api
         file = discord.File(io.BytesIO(audio_data))
-        file_params = discord.http.handle_message_parameters(attachments=[file])
-        other_params = discord.http.handle_message_parameters(
+        params = discord.http.handle_message_parameters(file=file)
+        extra_params = discord.http.handle_message_parameters(
             flags=discord.MessageFlags(voice=True),
             message_reference=self.ctx.message.to_message_reference_dict(),
             allowed_mentions=discord.AllowedMentions.none(),
         )
-        assert file_params.multipart and other_params.payload
-        other_params.payload["attachments"] = [FAKE_VOICE_ATTACHMENT]
-        file_params.multipart[0]["value"] = json.dumps(other_params.payload)
-        await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=file_params)
+        assert params.multipart and extra_params.payload
+        extra_params.payload["attachments"] = [FAKE_VOICE_ATTACHMENT]
+        params.multipart[0]["value"] = json.dumps(extra_params.payload)
+        await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
         
         return {
             "noreply": True,
