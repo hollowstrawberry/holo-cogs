@@ -39,7 +39,7 @@ class ArcencielSettings(ArcencielBase):
             await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
             await ctx.tick(message="✅ Default checkpoint updated.")
 
-    @commands.group(name="arcenciel") # type: ignore
+    @commands.group(name="arcenciel", aliases=["arc", "aec"])  # type: ignore
     @commands.guild_only()
     @checks.bot_has_permissions(embed_links=True, add_reactions=True)
     @checks.admin_or_permissions(manage_guild=True)
@@ -297,7 +297,9 @@ class ArcencielSettings(ArcencielBase):
         """
         assert ctx.guild
         role_configs = await self.config.all_roles()
-        entries = [(role_id, config["quota"]) for role_id, config in role_configs.items() if config.get("quota", 0) > 0]
+        entries = [(role, config["quota"])
+                   for role_id, config in role_configs.items()
+                   if (role := ctx.guild.get_role(role_id)) and config.get("quota", 0) > 0]
 
         embed = discord.Embed(color=await self.bot.get_embed_color(ctx.channel), title="Generation Quotas")
         if not entries:
@@ -306,7 +308,7 @@ class ArcencielSettings(ArcencielBase):
 
         entries.sort(key=lambda entry: entry[1], reverse=True)
         period_str = humanize.precisedelta(QUOTA_PERIOD)
-        lines = [f"<&{role_id}> - {quota} images / {period_str}" for role_id, quota in entries]
+        lines = [f"{role.mention} - {quota} images / {period_str}" for role, quota in entries]
         embed.description = "\n".join(lines)
         await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
