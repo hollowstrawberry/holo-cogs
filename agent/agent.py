@@ -143,7 +143,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         if any(message.content.startswith(prefix) for prefix in prefixes):
             return
         
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(timezone.utc)
         config = await self.config.load_guild(ctx.guild)
         channel_config = await self.config.load_channel(ctx.channel)
 
