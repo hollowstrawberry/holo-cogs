@@ -15,6 +15,7 @@ from agent.constants import INCOMPLETE_EMOTE_PATTERN
 
 log = logging.getLogger("agent.finevoice")
 
+FINEVOICE_ENDPOINT = "https://apis.finevoice.ai/v1/audio/speech-synthesis"
 VOICE_ERROR = "<error>An error occured and voice could not be used.</error>"
 
 
@@ -52,7 +53,7 @@ class FinevoiceTool(ToolBase):
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if not arguments.get("text"):
-            log.error("llm did not provide text for tts")
+            log.warning("llm did not provide text for tts")
             return "<error>You didn't send a text to convert into audio.</error>"
 
         text = arguments["text"]
@@ -71,16 +72,16 @@ class FinevoiceTool(ToolBase):
         }
 
         try:
-            async with self.cog.session.post("https://apis.finevoice.ai/v1/audio/speech-synthesis", json=payload, headers=headers) as response:
+            async with self.cog.session.post(FINEVOICE_ENDPOINT, json=payload, headers=headers) as response:
                 response.raise_for_status()
                 data = await response.json()
         except aiohttp.ClientError:
-            log.exception("finevoice tool: Failed to get response from endpoint.")
+            log.exception("Failed to get finevoice response")
             return VOICE_ERROR
         
-        voice_result_url = data.get("url") or next(iter(data.get("urls")), None)
+        voice_result_url = data.get("url") or next(iter(data.get("urls", [])), None)
         if not voice_result_url:
-            log.error(f"finevoice tool: Response data does not contain necessary 'url' field. Response data:\n{data}")
+            log.error(f"Finevoice response does not contain necessary 'url' field. Response data:\n{data}")
             return VOICE_ERROR
 
         try:
@@ -88,11 +89,15 @@ class FinevoiceTool(ToolBase):
                 response.raise_for_status()
                 audio_data = await response.read()
         except aiohttp.ClientError:
-            log.exception(f"finevoice tool: Failed to download result from {voice_result_url}")
+            log.exception(f"Failed to download result from {voice_result_url}")
             return VOICE_ERROR
-        
-        waveform, duration = await generate_waveform(audio_data)
-        
+
+        try:
+            waveform, duration = await generate_waveform(audio_data)
+        except Exception:
+            log.exception("Generating audio waveform")
+            return VOICE_ERROR
+            
         # undocumented discord api
         file = discord.File(io.BytesIO(audio_data))
         params = discord.http.handle_message_parameters(file=file)
