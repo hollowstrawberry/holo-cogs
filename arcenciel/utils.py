@@ -149,8 +149,6 @@ def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
     for i, prompt in enumerate(prompts):
         prompt = shared_prompt + prompt.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
         prompt = LORA_PATTERN.sub("", prompt).strip()
-        if "masterpiece" not in prompt and "best quality" not in prompt:
-            prompt = "masterpiece, best quality, " + prompt
         edited_prompts[i] = prompt
     final_prompt = " || ".join(edited_prompts)
     return [final_prompt, *edited_prompts]

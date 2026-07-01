@@ -322,7 +322,7 @@ class ArcencielSettings(ArcencielBase):
         else:
             period_str = humanize.precisedelta(QUOTA_PERIOD, suppress=["seconds"], format="%01d")
             embed.description = f"✅ {role.mention} now has a generation quota of **{limit}** images per {period_str}."
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     @quota_cmd.command(name="check", aliases=["user"])
     async def quota_check_cmd(self, ctx: commands.Context, user: discord.Member):
@@ -368,4 +368,4 @@ class ArcencielSettings(ArcencielBase):
         embed = discord.Embed(color=await self.bot.get_embed_color(ctx.channel))
         embed.set_author(name=str(user), icon_url=user.display_avatar.url)
         embed.description = f"✅ {user.mention}'s generation quota has been reset."
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())

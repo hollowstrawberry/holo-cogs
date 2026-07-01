@@ -178,8 +178,6 @@ class Arcenciel(ArcencielCommands):
             await context.edit_original_response(embed=embed, view=view)
     
         try:
-            if "masterpiece" not in prompt and "best quality" not in prompt:
-                payload["prompt"] = "masterpiece, best quality, " + prompt
             if params and params.image:
                 path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
                 payload["imagePath"] = path

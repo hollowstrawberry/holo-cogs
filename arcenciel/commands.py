@@ -113,6 +113,9 @@ class ArcencielCommands(ArcencielSettings):
             prompt = prompt.replace(lora, "").strip()
             loras.append(lora)
 
+        if "masterpiece" not in prompt and "best quality" not in prompt:
+            prompt = "masterpiece, best quality, " + prompt
+
         if "--" in prompt:
             prompt, negative_prompt = [p.strip() for p in prompt.rsplit("--", 1)]
 
@@ -187,6 +190,9 @@ class ArcencielCommands(ArcencielSettings):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
         width, height = tuple(int(x) for x in resolution.split("x"))
+
+        if "masterpiece" not in prompt and "best quality" not in prompt:
+            prompt = "masterpiece, best quality, " + prompt
 
         loras = [lora] if lora else []
         for lora, _, _ in LORA_PATTERN.findall(prompt):
