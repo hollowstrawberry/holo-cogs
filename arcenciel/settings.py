@@ -1,7 +1,7 @@
 import logging
 import discord
 import humanize
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime, timezone
 from redbot.core import checks, commands
 
@@ -307,12 +307,15 @@ class ArcencielSettings(ArcencielBase):
         await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     @quota_cmd.command(name="set", aliases=["add", "role"])
-    async def quota_set_cmd(self, ctx: commands.Context, role: discord.Role, limit: int):
+    async def quota_set_cmd(self, ctx: commands.Context, role: discord.Role | Literal["everyone"], limit: int):
         """
         Set the image generation limit of a server role
         """
+        assert ctx.guild
         if limit < 0:
             return await ctx.send(":warning: The quota limit cannot be negative.")
+        if role == "everyone":
+            role = ctx.guild.default_role
 
         await self.config.role(role).quota.set(limit)
 
