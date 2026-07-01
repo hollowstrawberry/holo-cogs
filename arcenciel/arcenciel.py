@@ -283,7 +283,7 @@ class Arcenciel(ArcencielCommands):
 
         embed = discord.Embed(color=await self.bot.get_embed_color(channel))
         embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
-        if has_ongoing_gen:
+        if has_ongoing_gen and highest_quota < constants.QUOTA_VIP_THRESHOLD:
             embed.description = "🕒 You must wait for your current image to finish generating before you can request a new one."
             await send_response(context, embed=embed, ephemeral=True)
             return False

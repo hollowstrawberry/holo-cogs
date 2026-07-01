@@ -43,6 +43,7 @@ class ArcencielSettings(ArcencielBase):
     @commands.guild_only()
     @checks.bot_has_permissions(embed_links=True, add_reactions=True)
     @checks.admin_or_permissions(manage_guild=True)
+    @checks.bot_in_a_guild()
     async def arcenciel(self, _: commands.Context):
         """ Manage AI Image cog settings. """
         pass
@@ -235,7 +236,6 @@ class ArcencielSettings(ArcencielBase):
         await ctx.send(f"ADetailer is now {'`disabled`' if not new else '`enabled`'} for basic gens")
 
     @arcenciel.command(name="blacklist", aliases=["blocklist"])
-    @commands.is_owner()
     async def blacklist_cmd(self, ctx: commands.Context, *, regex: Optional[str]):
         """
         Sets a blacklist regex for prompts
@@ -251,7 +251,6 @@ class ArcencielSettings(ArcencielBase):
             await ctx.send(f"Set regex\n```re\n{regex.strip()}```")
 
     @arcenciel.command(name="loading_emoji")
-    @commands.is_owner()
     async def loading_emoji_cmd(self, ctx: commands.Context, emoji: str):
         """
         Sets a loading emoji for the progress message
@@ -260,7 +259,6 @@ class ArcencielSettings(ArcencielBase):
         await ctx.tick()
 
     @arcenciel.command(name="arcenciel_emoji")
-    @commands.is_owner()
     async def arcenciel_emoji_cmd(self, ctx: commands.Context, emoji: str):
         """
         Sets the arcenciel emoji for search results
@@ -269,8 +267,6 @@ class ArcencielSettings(ArcencielBase):
         await ctx.tick()
 
     @arcenciel.command(name="sync")
-    @checks.is_owner()
-    @checks.bot_in_a_guild()
     async def sync_cmd(self, ctx: commands.Context):
         """
         Updates the autocomplete cache
@@ -282,8 +278,6 @@ class ArcencielSettings(ArcencielBase):
         await ctx.message.remove_reaction("⏳", ctx.guild.me)
         
     @arcenciel.group(name="quota", aliases=["vip", "limit", "limits"])
-    @checks.is_owner()
-    @checks.bot_in_a_guild()
     async def quota_cmd(self, _: commands.Context):
         """
         Manage image generation limits for various groups
