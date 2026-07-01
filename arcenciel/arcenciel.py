@@ -143,7 +143,6 @@ class Arcenciel(ArcencielCommands):
                              callback: Coroutine | None = None,
                              message_content: str | None = None
                             ):
-        log.info(f"generate_image")
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
@@ -154,7 +153,7 @@ class Arcenciel(ArcencielCommands):
         if not enabled:
             return await send_response(context, content=":warning: The generator is not enabled for this server.")
         
-        if await self.check_quota(context):
+        if not await self.check_quota(context):
             return
 
         prompt = params.prompt if params else payload.get("prompt", "")
