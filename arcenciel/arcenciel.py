@@ -143,6 +143,7 @@ class Arcenciel(ArcencielCommands):
                              callback: Coroutine | None = None,
                              message_content: str | None = None
                             ):
+        log.info(f"generate_image")
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
