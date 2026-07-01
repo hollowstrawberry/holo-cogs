@@ -8,6 +8,7 @@ from redbot.core.bot import Red
 
 from arcenciel.comfy import ComfyMetadata
 from arcenciel.schema import ImageGenParams, QueuedImageGen
+from arcenciel.constants import DISCORD_EPOCH_DATETIME
 
 
 class ArcencielBase(commands.Cog):
@@ -16,18 +17,15 @@ class ArcencielBase(commands.Cog):
         self.bot: Red = bot
         self.autocomplete_cache: dict[str, dict[str, str]] = defaultdict(dict)
         self.queued_images: dict[str, QueuedImageGen] = {}
-        self.gen_count: dict[int, int] = defaultdict(int)
-        self.last_quota = datetime.min
         from arcenciel.arcenciel_api import ArcEnCielAPI
         self.api: ArcEnCielAPI | None = None
         self.resource_cache: dict[str, str] = {}
         self.resource_not_found_cache: dict[str, bool] = ExpiringDict(max_len=100, max_age_seconds=24*60*60)
 
         self.config = Config.get_conf(None, identifier=75567113, cog_name="AImage")
-        default_global = {
+        self.config.register_global(**{
             "resource_cache": {},
             "nsfw": True,
-            "quota": 5,
             "loading_emoji": "⏳",
             "arcenciel_emoji": "🌐",
             "blacklist_regex": "",
@@ -42,18 +40,18 @@ class ArcencielBase(commands.Cog):
             "height": 1024,
             "max_img2img": 2048,
             "scheduler": "normal",
-        }
-        default_guild = {
+        })
+        self.config.register_guild(**{
             "enabled": False,
-            "vip_role": -1,
-        }
-        default_user = {
-            "vip": False,
+        })
+        self.config.register_user(**{
+            "quota_start": DISCORD_EPOCH_DATETIME.isoformat(),
+            "quota_progress": 0,
             "checkpoint": "",
-        }
-        self.config.register_guild(**default_guild)
-        self.config.register_member(**default_user)
-        self.config.register_global(**default_global)
+        })
+        self.config.register_role(**{
+            "quota": 0,
+        })
 
     async def cache_set(self, hint: str, hyperlink: str | None) -> None:
         if hyperlink is None:

@@ -3,6 +3,7 @@ import logging
 import asyncio
 import aiohttp
 import discord
+import humanize
 from io import BytesIO
 from copy import deepcopy
 from typing import Any, Coroutine
@@ -31,7 +32,6 @@ class Arcenciel(ArcencielCommands):
         self.api = ArcEnCielAPI(self, constants.ENDPOINT, api_key)
         asyncio.create_task(self.update_autocomplete_cache())
         self.consume_queue.start()
-        self.clear_quota.start()
         self.resource_cache = await self.config.resource_cache()
     
     async def cog_load(self):
@@ -39,21 +39,12 @@ class Arcenciel(ArcencielCommands):
         
     async def cog_unload(self):
         self.consume_queue.stop()
-        self.clear_quota.stop()
         if self.api:
             await self.api.session.close()
 
     async def update_autocomplete_cache(self):
         assert self.api
         return await self.api.update_autocomplete_cache()
-
-
-    @tasks.loop(hours=1)
-    async def clear_quota(self):
-        self.gen_count.clear()
-        self.last_quota_refresh = datetime.now(timezone.utc)
-        log.info("Refreshed hourly quota")
-
 
     @tasks.loop(seconds=1.5, reconnect=True)
     async def consume_queue(self):
@@ -162,7 +153,7 @@ class Arcenciel(ArcencielCommands):
         if not enabled:
             return await send_response(context, content=":warning: The generator is not enabled for this server.")
         
-        if await self.reject_non_vip(context):
+        if await self.check_quota(context):
             return
 
         prompt = params.prompt if params else payload.get("prompt", "")
@@ -246,7 +237,8 @@ class Arcenciel(ArcencielCommands):
             # send it
             message = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
             view.message = message
-            self.gen_count[gen.user.id] += 1
+            quota_progress = self.config.user(gen.user).quota_progress
+            await quota_progress.set(await quota_progress() + 1)
             imagescanner = self.bot.get_cog("ImageScanner")
             if message and imagescanner and gen.channel.id in getattr(imagescanner, "scan_channels"):
                 getattr(imagescanner, "image_cache")[message.id] = ({0: metadata}, {0: image_bytes})
@@ -269,34 +261,44 @@ class Arcenciel(ArcencielCommands):
         await gather_raise_all(*final_tasks)
 
 
-    async def reject_non_vip(self, context: commands.Context | discord.Interaction) -> bool:
+    async def check_quota(self, context: commands.Context | discord.Interaction) -> bool:
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
         assert context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.abc.Messageable)
 
-        vip_role = await self.config.guild(context.guild).vip_role()
-        is_vip = await self.config.user(user).vip() or any(role.id == vip_role for role in user.roles)
-        quota = await self.config.quota()
+        role_configs = await self.config.all_roles()
+        role_quotas: dict[int, int] = {key: config["quota"] for key, config in role_configs.items()}
+        quota_start = datetime.fromisoformat(await self.config.user(user).quota_start())
+        quota_progress: int = await self.config.user(user).quota_progress()
         has_ongoing_gen = any(gen.user == user for gen in self.queued_images.values())
-        elapsed_last_refresh = (datetime.now(timezone.utc) - self.last_quota_refresh).total_seconds()
+        now = datetime.now(timezone.utc)
+        quota_elapsed = (now - quota_start).total_seconds()
+        role_ids = [role.id for role in user.roles]
+        highest_quota = max([role_quotas.get(rid, 0) for rid in role_ids], default=0)
 
-        if is_vip:
-            return False
+        if quota_elapsed > constants.QUOTA_PERIOD:
+            quota_progress, quota_elapsed = 0, 0
+            await self.config.user(user).quota_start.set(now.isoformat())
+            await self.config.user(user).quota_progress.set(0)
+
         embed = discord.Embed(color=await self.bot.get_embed_color(channel))
         embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if has_ongoing_gen:
             embed.description = "🕒 You must wait for your current image to finish generating before you can request a new one."
             await send_response(context, embed=embed, ephemeral=True)
-            return True
-        if self.gen_count[user.id] >= quota:
-            if quota == 0:
-                embed.description = ":warning: You are not authorized to use the generator at this time. You may be interested in [our web generator](<https://arcenciel.io/generate>)."
-            else:
-                embed.description = "🕒 You have met your hourly quota. You can wait for it to refresh, or try [our web generator](<https://arcenciel.io/generate>)."
-                embed.add_field(name="Time remaining", value=f"{int(60 - (elapsed_last_refresh // 60))} minutes.")
+            return False
+        if highest_quota <= 0:
+            embed.description = ":warning: You are not authorized to use the generator at this time. You may be interested in [our web generator](<https://arcenciel.io/generate>)."
             await send_response(context, embed=embed, ephemeral=True)
-            return True
-        return False
+            return False
+        if quota_progress >= highest_quota:
+            embed.description = "🕒 You have met your generation quota. You can wait for it to refresh, or try [our web generator](<https://arcenciel.io/generate>)."
+            remaining = constants.QUOTA_PERIOD - quota_elapsed
+            remaining_str = humanize.precisedelta(remaining, suppress=["seconds"] if remaining > 3600 else [], format="%02d")
+            embed.add_field(name="Time remaining", value=remaining_str)
+            await send_response(context, embed=embed, ephemeral=True)
+            return False
+        return True
 
 
     async def resolve_arcenciel_resources(self, metadata: ComfyMetadata) -> list[str]:
