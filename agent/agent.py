@@ -559,7 +559,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
         prefixes = await self.bot.get_valid_prefixes(ctx.guild)
         temp_messages = [msg for msg in utils.get_text_contents(messages) if not utils.is_bot_command(msg, prefixes)]
-        num_backread = config.backread_short.value
+        num_backread = config.backread_short.value if config.allow_memorizer.value else config.backread_messages.value
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]
         temp_messages.insert(0, system_prompt)  # type: ignore
