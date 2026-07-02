@@ -1,7 +1,6 @@
 import json
 import logging
 import aiohttp
-from io import BytesIO
 
 from arcenciel.base import ArcencielBase
 from arcenciel.utils import ImageGenError, clean_model, parse_prompts

@@ -4,7 +4,7 @@ from functools import reduce
 from redbot.core import commands
 
 from agent.base import AgentCogBase
-from agent.config import ConfigField
+from agent.config_base import ConfigField
 from agent.constants import EFFORT_VALUES, VISION_MODELS
 from agent.tools.base import get_all_tools
 

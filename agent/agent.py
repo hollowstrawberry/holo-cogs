@@ -13,8 +13,7 @@ from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
 from redbot.core.bot import Red
 
-import agent.utils as utils
-import agent.constants as constants
+from agent import utils, constants
 from agent.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
 from agent.schema import AgentMessage, AgentImageContent, ImageGenParams, MessageReaction, ReactionResult
 from agent.commands import AgentCogCommands

@@ -1,11 +1,10 @@
 import discord
-from discord.ui import View
 
 from agent.schema import MemoryChangeResult
 from agent.constants import VIEW_TIMEOUT, EMPTY, MAX_EMBED_DESCRIPTION, BACKTICK_PATTERN
 
 
-class MemoryChangeView(View):
+class MemoryChangeView(discord.ui.View):
     def __init__(self, memory_changes: list[MemoryChangeResult], standalone: bool):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.standalone = standalone

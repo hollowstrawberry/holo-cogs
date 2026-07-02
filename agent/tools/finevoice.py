@@ -1,15 +1,13 @@
 import io
 import json
-import re
 import logging
 import asyncio
-import types
 import aiohttp
 import discord
 import discord.http
 
-from agent.schema import ToolCall, Function, Parameters
 from agent.utils import generate_waveform
+from agent.schema import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 from agent.constants import INCOMPLETE_EMOTE_PATTERN
 

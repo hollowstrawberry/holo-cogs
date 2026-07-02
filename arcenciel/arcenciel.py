@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from discord.ext import tasks
 from redbot.core import commands
 
-import arcenciel.constants as constants
+from arcenciel import constants
 from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
 from arcenciel.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_raise_all
 from arcenciel.schema import ImageGenParams, QueuedImageGen

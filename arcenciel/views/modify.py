@@ -1,13 +1,11 @@
-import re
 import discord
-import discord.ui as ui
 from copy import deepcopy
 
 from arcenciel.constants import NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN
 from arcenciel.views.image_actions import ImageActions
 
 
-class ModifyModal(ui.Modal):
+class ModifyModal(discord.ui.Modal):
     def __init__(self, parent_view: ImageActions):
         super().__init__(title="Image Generation")
         self.parent_view = parent_view
@@ -16,26 +14,26 @@ class ModifyModal(ui.Modal):
         self.params = self.parent_view.metadata.as_dict()
         self.generate_image = parent_view.generate_image
         
-        self.prompt_edit = ui.Label(
+        self.prompt_edit = discord.ui.Label(
             text="Prompt",
-            component=ui.TextInput(
+            component=discord.ui.TextInput(
                 style=discord.TextStyle.long,
                 default=self.params.get("Prompt") or self.payload["prompt"],
                 min_length=4,
             )
         )
-        self.negative_prompt_edit = ui.Label(
+        self.negative_prompt_edit = discord.ui.Label(
             text="Negative Prompt",
-            component=ui.TextInput(
+            component=discord.ui.TextInput(
                 style=discord.TextStyle.long,
                 default=self.params.get("Negative Prompt") or self.payload["negativePrompt"],
                 min_length=0,
             )
         )
-        self.seed_checkbox = ui.Label(
+        self.seed_checkbox = discord.ui.Label(
             text="Reroll",
             description="You can make a new image or modify the current image.",
-            component=ui.Checkbox(default=False),
+            component=discord.ui.Checkbox(default=False),
         )
 
         self.add_item(self.seed_checkbox)

@@ -1,6 +1,5 @@
 import discord
 from typing import Coroutine
-from datetime import datetime
 from collections import defaultdict
 from expiringdict import ExpiringDict
 from redbot.core import Config, commands
@@ -12,7 +11,9 @@ from arcenciel.constants import DISCORD_EPOCH_DATETIME
 
 
 class ArcencielBase(commands.Cog):
-
+    """
+    Abstract cog to prevent recursive imports
+    """
     def __init__(self, bot: Red):
         self.bot: Red = bot
         self.autocomplete_cache: dict[str, dict[str, str]] = defaultdict(dict)

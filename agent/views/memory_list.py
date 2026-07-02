@@ -1,10 +1,9 @@
 import discord
-from discord.ui import View
 
 from agent.constants import VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
 
 
-class MemoryListView(View):
+class MemoryListView(discord.ui.View):
     def __init__(self, memories: list[str]):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.memories = memories

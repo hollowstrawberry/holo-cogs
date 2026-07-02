@@ -1,19 +1,18 @@
 import discord
-import discord.ui as ui
 
 from arcenciel.views.image_actions import ImageActions
 
 
-class DeleteModal(ui.Modal):
+class DeleteModal(discord.ui.Modal):
     def __init__(self, parent_view: ImageActions, parent_interaction: discord.Interaction):
         super().__init__(title="Delete Image")
         self.parent_view = parent_view
         self.parent_interaction = parent_interaction
 
-        self.silent_checkbox = ui.Label(
+        self.silent_checkbox = discord.ui.Label(
             text="Silent",
             description="Whether to leave a message about the deletion.",
-            component=ui.Checkbox(default=True),
+            component=discord.ui.Checkbox(default=True),
         )
         self.add_item(self.silent_checkbox)
 

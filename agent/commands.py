@@ -4,9 +4,10 @@ from typing import Optional
 from difflib import get_close_matches
 from redbot.core import commands
 
-from agent.base import AgentCogBase, AgentCogGuildConfig
+from agent.base import AgentCogBase
+from agent.config import AgentCogGuildConfig
+from agent.config_base import ConfigField
 from agent.schema import MemoryChangeResult
-from agent.config import ConfigField
 from agent.constants import DISCORD_EPOCH_DATETIME
 from agent.views.memory_info import MemoryInfoView
 from agent.views.memory_list import MemoryListView

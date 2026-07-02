@@ -1,10 +1,9 @@
 import discord
-from discord.ui import View
 
 from agent.constants import BACKTICK_PATTERN, VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
 
 
-class MemoryInfoView(View):
+class MemoryInfoView(discord.ui.View):
     def __init__(self, name: str, content: str):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.name = name

@@ -1,11 +1,11 @@
 import logging
 import aiohttp
-import xml.etree.ElementTree as ElementTree
+from xml.etree import ElementTree
 
-from agent.constants import FARENHEIT_PATTERN
 from agent.utils import farenheit_to_celsius
 from agent.schema import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
+from agent.constants import FARENHEIT_PATTERN
 
 log = logging.getLogger("agent.wolframalpha")
 

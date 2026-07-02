@@ -1,11 +1,10 @@
 import discord
-from discord.ui import View
 from typing import Awaitable, Callable
 
 from agent.constants import VIEW_TIMEOUT, PERMANENT_PROMPT_TYPES
 from agent.views.prompt_edit_modal import PromptEditodal
 
-class PromptsEditView(View):
+class PromptsEditView(discord.ui.View):
     def __init__(self,
                  prompts: dict[str, str],
                  edit_callback: Callable[[str, str], Awaitable],

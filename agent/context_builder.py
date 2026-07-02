@@ -8,9 +8,9 @@ from typing import Any
 from expiringdict import ExpiringDict
 from redbot.core import commands
 
-from agent import utils as utils
-from agent import constants as constants
-from agent.base import AgentCogBase, AgentCogGuildConfig
+from agent import utils, constants
+from agent.base import AgentCogBase
+from agent.config import AgentCogGuildConfig
 from agent.schema import AgentImageContent, CompletionResult, AgentMessage, ImageSource, ParsedMessageResult, StructuredObject
 from agent.schema import DiscordMessageImageCandidates, DiscordMessageResolvedImages
 
@@ -55,9 +55,9 @@ class ChatHistoryContext:
         self.builder = builder
         self.ctx = ctx
         self.backread = backread
+        self.config = config
         self.result = result
         self.encoding = encoding
-        self.config = config
         self.all_candidates: dict[int, DiscordMessageImageCandidates] = {}
         self.first_appearance: dict[int, int] = {}
         self.all_resolved_quotes: dict[int, discord.Message | None] = {}

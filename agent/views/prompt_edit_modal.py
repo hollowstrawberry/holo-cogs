@@ -1,12 +1,11 @@
 import discord
-import discord.ui as ui
 import tiktoken
 from typing import Awaitable, Callable
 
 from agent import constants
 
 
-class PromptEditodal(ui.Modal):
+class PromptEditodal(discord.ui.Modal):
     def __init__(self, name: str | None,
                  prompt: str,
                  check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
@@ -19,17 +18,17 @@ class PromptEditodal(ui.Modal):
         self.check_owner = check_owner
         self.edit_callback = edit_callback
         self.create_callback = create_callback
-        self.prompt_edit = ui.Label(
+        self.prompt_edit = discord.ui.Label(
             text=name or "Prompt Key Value",
-            component=ui.TextInput(
+            component=discord.ui.TextInput(
                 style=discord.TextStyle.long,
                 default=prompt,
                 required=False,
             )
         )
-        self.prompt_name_edit = ui.Label(
+        self.prompt_name_edit = discord.ui.Label(
             text="Prompt Key Name",
-            component=ui.TextInput(
+            component=discord.ui.TextInput(
                 style=discord.TextStyle.short,
                 min_length=3,
             )

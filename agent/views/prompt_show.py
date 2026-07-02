@@ -1,11 +1,10 @@
 import discord
-from discord.ui import View
 from typing import Awaitable, Callable
 
-from agent.constants import BACKTICK_PATTERN, VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
+from agent.constants import VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
 
 
-class PromptView(View):
+class PromptView(discord.ui.View):
     def __init__(self,
                  name: str,
                  prompt: str,
