@@ -1,155 +1,73 @@
-import discord
-from copy import deepcopy
 from datetime import datetime
-from typing import Any, Generic, Self, TypeVar, overload
-from redbot.core import Config
-from redbot.core.bot import Red
-from redbot.core.config import Group
+from agent import constants
+from agent.config_base import ConfigField, CogConfig, CogConfigBase
 
 
-T = TypeVar("T")
-
-class ConfigField(Generic[T]):
-    """
-    Represents a cached config value that may also be saved back to disk asynchronously.
-    Before the parent config is initialized, the value will be the default value for this field.
-    """
-    def __init__(self, default: T):
-        self._value = default
-        self._group: Config | Group | None = None
-        self._name = ""
-        self._loaded = False
-
-    @property
-    def name(self) -> str:
-        """The internal name of this field"""
-        return self._name
-
-    @property
-    def value(self) -> T:
-        """The value of this field in memory."""
-        return self._value
-
-    async def set(self, value: T) -> None:
-        """Changes the value of this field in memory and saves it to disk."""
-        if not self._group or not self._loaded:
-            raise RuntimeError("Config has not been loaded")
-        self._value = value
-        await self._group.__getattr__(self._name).set(self._raw_value())
-
-    async def save(self) -> None:
-        """Saves the value of this field to disk, useful when a mutable value has been recently changed in memory."""
-        if not self._group or not self._loaded:
-            raise RuntimeError("Config has not been loaded")
-        await self._group.__getattr__(self._name).set(self._raw_value())
-
-    def _raw_value(self) -> Any:
-        if isinstance(self.value, datetime):
-            return self.value.isoformat()
-        return self.value
-    
-    def _load_raw_value(self, value: T) -> None:
-        if type(self._value) is datetime and isinstance(value, str):
-            self._value = datetime.fromisoformat(value)
-        else:
-            self._value = value
-
-
-class CogConfigBase:
-    """
-    Base class for a group of config fields.
-    """
-    def __init__(self, values: dict[str, Any], group: Config | Group | None = None):
-        self._init_fields(values, group)
-
-    def _init_fields(self, values: dict[str, Any], group: Config | Group | None = None):
-        for name, field in vars(type(self)).items():
-            if isinstance(field, ConfigField):
-                new_field = deepcopy(field)
-                object.__setattr__(self, name, new_field)
-                new_field._loaded = True
-                new_field._group = group
-                new_field._name = name
-                if name in values:
-                    new_field._load_raw_value(values[name])
-
-    @classmethod
-    async def load(cls, group: Config | Group) -> Self:
-        """Creates an instance of this class, loading its values from disk."""
-        values = await group.all()
-        return cls(values, group)
-
-    @classmethod
-    def defaults(cls) -> dict:
-        """Returns a dictionary of the field names and field default values of this class."""
-        return {
-            name: field._raw_value()
-            for name, field in vars(cls).items()
-            if isinstance(field, ConfigField)
-        }
+class AgentCogGuildConfig(CogConfigBase):
+    # General
+    channel_mode:            ConfigField[str]            = ConfigField("whitelist")
+    channels:                ConfigField[list[int]]      = ConfigField([])
+    generation_channel_mode: ConfigField[str]            = ConfigField("blacklist")
+    generation_channels:     ConfigField[list[int]]      = ConfigField([])
+    auto_channel_mode:       ConfigField[str]            = ConfigField("whitelist")
+    auto_channels:           ConfigField[list[int]]      = ConfigField([])
+    memory:                  ConfigField[dict[str, str]] = ConfigField({})
+    prompt_keys:             ConfigField[dict[str, str]] = ConfigField({})
+    enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])
+    # LLM
+    model_recaller:          ConfigField[str] = ConfigField("gpt-5.4-nano")
+    model_responder:         ConfigField[str] = ConfigField("gpt-5.4-mini")
+    model_memorizer:         ConfigField[str] = ConfigField("gpt-5.4-mini")
+    model_captioner:         ConfigField[str] = ConfigField("gpt-5.4-nano")
+    model_autoreacter:       ConfigField[str] = ConfigField("gpt-5.4-nano")
+    effort_recaller:         ConfigField[str] = ConfigField("minimal")
+    effort_responder:        ConfigField[str] = ConfigField("low")
+    effort_memorizer:        ConfigField[str] = ConfigField("low")
+    prompt_recaller:         ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_RECALLER)
+    prompt_responder:        ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_RESPONDER)
+    prompt_autoresponder:    ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_AUTORESPONDER)
+    prompt_memorizer:        ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_MEMORIZER)
+    prompt_captioner:        ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_CAPTIONER)
+    prompt_autoreacter:      ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_AUTOREACTER)
+    # Limits 
+    response_tokens:         ConfigField[int] = ConfigField(1000)
+    backread_tokens:         ConfigField[int] = ConfigField(2000)
+    backread_messages:       ConfigField[int] = ConfigField(10)
+    backread_short:          ConfigField[int] = ConfigField(5)
+    max_tool_depth:          ConfigField[int] = ConfigField(3)
+    max_images:              ConfigField[int] = ConfigField(1)
+    max_image_resolution:    ConfigField[int] = ConfigField(1020)
+    max_caption_resolution:  ConfigField[int] = ConfigField(380)
+    max_quote:               ConfigField[int] = ConfigField(200)
+    max_tool:                ConfigField[int] = ConfigField(3000)
+    max_text_file:           ConfigField[int] = ConfigField(3000)
+    # Memorizer
+    allow_memorizer:         ConfigField[bool] = ConfigField(False)
+    memorizer_user_only:     ConfigField[bool] = ConfigField(True)
+    memorizer_alerts:        ConfigField[bool] = ConfigField(True)
+    # Autoresponder
+    autoresponder_chance:           ConfigField[float] = ConfigField(0.0)
+    autoreacter_chance:             ConfigField[float] = ConfigField(0.0)
+    autoreacter_chance_images:      ConfigField[float] = ConfigField(0.0)
+    autoresponder_cooldown_minutes: ConfigField[int]   = ConfigField(60)
+    autoreacter_cooldown_minutes:   ConfigField[int]   = ConfigField(5)
 
 
-GuildT = TypeVar("GuildT", bound=CogConfigBase)
-ChannelT = TypeVar("ChannelT", bound=CogConfigBase)
+class AgentCogChannelConfig(CogConfigBase):
+    start: ConfigField[datetime]         = ConfigField(constants.DISCORD_EPOCH_DATETIME)
+    last_response: ConfigField[datetime] = ConfigField(constants.DISCORD_EPOCH_DATETIME)
+    last_reaction: ConfigField[datetime] = ConfigField(constants.DISCORD_EPOCH_DATETIME)
 
-class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
-    """
-    Represents a cached copy of all cog configuration,
-    with dynamically-defined type-hinted fields that may also be saved back to disk asynchronously.
-    """
-    _guild_type: type[GuildT]
-    _channel_type: type[ChannelT]
-    guild: dict[int, GuildT]
-    channel: dict[int, ChannelT]
 
-    def __init__(self, config: Config):
-        self._config = config
-
-    async def load_all(self, bot: Red):
-        """Loads all cog configuration into memory."""
-        self._init_fields(await self._config.all(), self._config)
-        self.guild = {
-            guild_id: self._guild_type(values, self._config.guild(guild))
-            for guild_id, values in (await self._config.all_guilds()).items()
-            if (guild := bot.get_guild(guild_id))
-        }
-        self.channel = {
-            channel_id: self._channel_type(values, self._config.channel(channel))
-            for channel_id, values in (await self._config.all_channels()).items()
-            if (channel := bot.get_channel(channel_id))
-            and isinstance(channel, (discord.TextChannel, discord.Thread))
-        }
-
-    async def load_guild(self, guild: discord.Guild) -> GuildT:
-        """Loads a single guild config into memory."""
-        if guild.id not in self.guild:
-            self.guild[guild.id] = await self._guild_type.load(self._config.guild(guild))
-        return self.guild[guild.id]
-    
-    async def load_channel(self, channel: discord.abc.Messageable) -> ChannelT:
-        """Loads a single channel config into memory."""
-        if not isinstance(channel, (discord.abc.GuildChannel, discord.Thread)):
-            raise ValueError("Invalid channel for config")
-        if channel.id not in self.channel:
-            self.channel[channel.id] = await self._channel_type.load(self._config.channel(channel))
-        return self.channel[channel.id]
-    
-    def register_all(self):
-        """Registers the default values of all config groups in Red's config manager."""
-        self._config.register_global(**self.defaults())
-        self._config.register_guild(**self._guild_type.defaults())
-        self._config.register_channel(**self._channel_type.defaults())
-
-    @overload
-    def __getitem__(self, key: discord.Guild | None) -> GuildT: ...
-
-    @overload
-    def __getitem__(self, key: discord.abc.Messageable | None) -> ChannelT: ...
-
-    def __getitem__(self, key):
-        if isinstance(key, discord.Guild):
-            return self.guild.get(key.id) or self.guild.setdefault(key.id, self._guild_type({}, self._config.guild(key)))
-        if isinstance(key, discord.abc.Messageable):  # messageable is more useful for type checks
-            assert isinstance(key, discord.abc.GuildChannel | discord.Thread)
-            return self.channel.get(key.id) or self.channel.setdefault(key.id, self._channel_type({}, self._config.channel(key)))
-        raise TypeError(f"Invalid key {key}")
+class AgentCogConfig(CogConfig[AgentCogGuildConfig, AgentCogChannelConfig]):
+    _guild_config = AgentCogGuildConfig
+    _channel_config = AgentCogChannelConfig
+    # Global
+    extended_logging: ConfigField[bool]        = ConfigField(True)
+    tool_settings: ConfigField[dict[str, str]] = ConfigField({})
+    response_timeout: ConfigField[int]         = ConfigField(120)
+    slow_timer: ConfigField[int]               = ConfigField(30)
+    slow_emoji: ConfigField[str]               = ConfigField("🤔")
+    noresponse_emoji: ConfigField[str]         = ConfigField("🤐")
+    blocked_emoji: ConfigField[str]            = ConfigField("❌")
+    status: ConfigField[str]                   = ConfigField("")
