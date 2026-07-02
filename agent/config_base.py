@@ -97,8 +97,8 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
     Represents a cached copy of all cog configuration,
     with dynamically-defined type-hinted fields that may also be saved back to disk asynchronously.
     """
-    _guild_type: type[GuildT]
-    _channel_type: type[ChannelT]
+    _guild_config: type[GuildT]
+    _channel_config: type[ChannelT]
     guild: dict[int, GuildT]
     channel: dict[int, ChannelT]
 
@@ -109,12 +109,12 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
         """Loads all cog configuration into memory."""
         self._init_fields(await self._config.all(), self._config)
         self.guild = {
-            guild_id: self._guild_type(values, self._config.guild(guild))
+            guild_id: self._guild_config(values, self._config.guild(guild))
             for guild_id, values in (await self._config.all_guilds()).items()
             if (guild := bot.get_guild(guild_id))
         }
         self.channel = {
-            channel_id: self._channel_type(values, self._config.channel(channel))
+            channel_id: self._channel_config(values, self._config.channel(channel))
             for channel_id, values in (await self._config.all_channels()).items()
             if (channel := bot.get_channel(channel_id))
             and isinstance(channel, (discord.TextChannel, discord.Thread))
@@ -123,7 +123,7 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
     async def load_guild(self, guild: discord.Guild) -> GuildT:
         """Loads a single guild config into memory."""
         if guild.id not in self.guild:
-            self.guild[guild.id] = await self._guild_type.load(self._config.guild(guild))
+            self.guild[guild.id] = await self._guild_config.load(self._config.guild(guild))
         return self.guild[guild.id]
     
     async def load_channel(self, channel: discord.abc.Messageable) -> ChannelT:
@@ -131,14 +131,14 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
         if not isinstance(channel, (discord.abc.GuildChannel, discord.Thread)):
             raise ValueError("Invalid channel for config")
         if channel.id not in self.channel:
-            self.channel[channel.id] = await self._channel_type.load(self._config.channel(channel))
+            self.channel[channel.id] = await self._channel_config.load(self._config.channel(channel))
         return self.channel[channel.id]
     
     def register_all(self):
         """Registers the default values of all config groups in Red's config manager."""
         self._config.register_global(**self.defaults())
-        self._config.register_guild(**self._guild_type.defaults())
-        self._config.register_channel(**self._channel_type.defaults())
+        self._config.register_guild(**self._guild_config.defaults())
+        self._config.register_channel(**self._channel_config.defaults())
 
     @overload
     def __getitem__(self, key: discord.Guild | None) -> GuildT: ...
@@ -148,8 +148,8 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
 
     def __getitem__(self, key):
         if isinstance(key, discord.Guild):
-            return self.guild.get(key.id) or self.guild.setdefault(key.id, self._guild_type({}, self._config.guild(key)))
+            return self.guild.get(key.id) or self.guild.setdefault(key.id, self._guild_config({}, self._config.guild(key)))
         if isinstance(key, discord.abc.Messageable):  # messageable is more useful for type checks
             assert isinstance(key, discord.abc.GuildChannel | discord.Thread)
-            return self.channel.get(key.id) or self.channel.setdefault(key.id, self._channel_type({}, self._config.channel(key)))
+            return self.channel.get(key.id) or self.channel.setdefault(key.id, self._channel_config({}, self._config.channel(key)))
         raise TypeError(f"Invalid key {key}")
