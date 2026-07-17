@@ -54,7 +54,7 @@ class AgentCogGuildConfig(CogConfigBase):
 
 
 class AgentCogChannelConfig(CogConfigBase):
-    start: ConfigField[datetime]         = ConfigField(constants.DISCORD_EPOCH_DATETIME)
+    start:         ConfigField[datetime] = ConfigField(constants.DISCORD_EPOCH_DATETIME)
     last_response: ConfigField[datetime] = ConfigField(constants.DISCORD_EPOCH_DATETIME)
     last_reaction: ConfigField[datetime] = ConfigField(constants.DISCORD_EPOCH_DATETIME)
 
@@ -63,11 +63,11 @@ class AgentCogConfig(CogConfig[AgentCogGuildConfig, AgentCogChannelConfig]):
     _guild_config = AgentCogGuildConfig
     _channel_config = AgentCogChannelConfig
     # Global
-    extended_logging: ConfigField[bool]        = ConfigField(True)
-    tool_settings: ConfigField[dict[str, str]] = ConfigField({})
-    response_timeout: ConfigField[int]         = ConfigField(120)
-    slow_timer: ConfigField[int]               = ConfigField(30)
-    slow_emoji: ConfigField[str]               = ConfigField("🤔")
-    noresponse_emoji: ConfigField[str]         = ConfigField("🤐")
-    blocked_emoji: ConfigField[str]            = ConfigField("❌")
-    status: ConfigField[str]                   = ConfigField("")
+    tool_settings:    ConfigField[dict[str, str]] = ConfigField({})
+    extended_logging: ConfigField[bool] = ConfigField(True)
+    response_timeout: ConfigField[int]  = ConfigField(120)
+    slow_timer:       ConfigField[int]  = ConfigField(30)
+    slow_emoji:       ConfigField[str]  = ConfigField("🤔")
+    noresponse_emoji: ConfigField[str]  = ConfigField("🤐")
+    blocked_emoji:    ConfigField[str]  = ConfigField("❌")
+    status:           ConfigField[str]  = ConfigField("")
