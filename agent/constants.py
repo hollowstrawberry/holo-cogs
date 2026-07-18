@@ -12,6 +12,7 @@ DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
 TOKEN_ENCODING = "o200k_base"
 PERMANENT_PROMPT_TYPES = ("responder", "autoresponder", "autoreacter", "recaller", "captioner", "memorizer")
 MAX_IMAGES_PER_MESSAGE = 4
+TONES = r"(pause?|happy|angry|sad|soft|excited|laugh|whisper|yell|scream|cry|sobb?|moan|sigh|sing|clear(s|ing)?.throat)(ing)?"
 
 RESPONSE_CLEANUP_PATTERNS = [
     #("Opening XML",       re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),
@@ -30,7 +31,8 @@ RESPONSE_CLEANUP_PATTERNS = [
     #("Server emote",      re.compile(r"`?(?:&lt;|<)?(a?:\w+:\d{17,19})(?:&gt;|>)?`?"), r"<\1>"),
     ("Em dash",           re.compile(r"(?<=\w)\s*—\s*(?=\w)"), ", "),
     ("Em dash 2",         re.compile(r"(?<=[.!?)])\s*—\s*"), " "),
-    ("Tone modifier",     re.compile(r"\[(pause?|happy|angry|sad|soft|excited|laugh|whisper|yell|scream|cry|sobb?|moan|sigh|sing|clear(s|ing)?.throat)(ing)?\]", re.IGNORECASE), ""),
+    ("Tone modifier",     re.compile(rf" +\[{TONES}\] +", re.IGNORECASE), "\n"),
+    ("Tone modifier 2",   re.compile(rf" *\[{TONES}\] *", re.IGNORECASE), ""),
 ]
 GENERATE_IMAGE_PATTERNS = [
     ("XML object strict", re.compile(r"<generated_image(?: [^>]+)?>(?:(?!</generated_image>).)*<prompt>(.*?)</prompt>(?:(?!</generated_image>).)*</generated_image>", re.DOTALL | re.IGNORECASE)),
