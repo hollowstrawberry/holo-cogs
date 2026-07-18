@@ -204,8 +204,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if not config:
                 continue
             if before.name in config.memory.value:
-                config.memory.value[after.name] = config.memory.value[before.name]
-                del config.memory.value[before.name]
+                config.memory.value[after.name] = config.memory.value.pop(before.name)
                 await config.memory.save()
                 log.info(f"Moved user memory {before.name=} {after.name=}")
 
