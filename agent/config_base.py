@@ -12,13 +12,12 @@ T = TypeVar("T")
 class ConfigField(Generic[T]):
     """
     Represents a cached config value that may also be saved back to disk asynchronously.
-    Before the parent config is initialized, the value will be the default value for this field.
+    Before the parent config is loaded, the value will be the default value for this field.
     """
     def __init__(self, default: T):
         self._value = default
         self._group: Config | Group | None = None
         self._name = ""
-        self._loaded = False
 
     @property
     def name(self) -> str:
@@ -30,25 +29,38 @@ class ConfigField(Generic[T]):
         """The value of this field in memory."""
         return self._value
 
+    @property
+    def raw_value(self) -> Any:
+        """The value of this field as it is stored on disk."""
+        if isinstance(self.value, datetime):
+            return self.value.isoformat()
+        return self._value
+
     async def set(self, value: T) -> None:
         """Changes the value of this field in memory and saves it to disk."""
-        if not self._group or not self._loaded:
+        if not self._group:
             raise RuntimeError("Config has not been loaded")
         self._value = value
-        await self._group.__getattr__(self._name).set(self._raw_value())
+        await self._group.__getattr__(self._name).set(self.raw_value)
 
     async def save(self) -> None:
         """Saves the value of this field to disk, useful when a mutable value has been recently changed in memory."""
-        if not self._group or not self._loaded:
+        if not self._group:
             raise RuntimeError("Config has not been loaded")
-        await self._group.__getattr__(self._name).set(self._raw_value())
+        await self._group.__getattr__(self._name).set(self.raw_value)
 
-    def _raw_value(self) -> Any:
-        if isinstance(self.value, datetime):
-            return self.value.isoformat()
-        return self.value
+    def load(self, name: str, group: Config | Group, values: dict[str, Any]) -> Self:
+        """Returns a loaded copy of this field."""
+        if self._group:
+            raise RuntimeError("Config has already been loaded")
+        new_field = deepcopy(self)
+        new_field._group = group
+        new_field._name = name
+        if name in values:
+            new_field._set_raw_value(values[name])
+        return new_field
     
-    def _load_raw_value(self, value: T) -> None:
+    def _set_raw_value(self, value: T) -> None:
         if type(self._value) is datetime and isinstance(value, str):
             self._value = datetime.fromisoformat(value)
         else:
@@ -59,19 +71,13 @@ class CogConfigBase:
     """
     Base class for a group of config fields.
     """
-    def __init__(self, values: dict[str, Any], group: Config | Group | None = None):
+    def __init__(self, values: dict[str, Any], group: Config | Group):
         self._init_fields(values, group)
-
-    def _init_fields(self, values: dict[str, Any], group: Config | Group | None = None):
+        
+    def _init_fields(self, values: dict[str, Any], group: Config | Group):
         for name, field in vars(type(self)).items():
             if isinstance(field, ConfigField):
-                new_field = deepcopy(field)
-                object.__setattr__(self, name, new_field)
-                new_field._loaded = True
-                new_field._group = group
-                new_field._name = name
-                if name in values:
-                    new_field._load_raw_value(values[name])
+                object.__setattr__(self, name, field.load(name, group, values))
 
     @classmethod
     async def load(cls, group: Config | Group) -> Self:
@@ -83,7 +89,7 @@ class CogConfigBase:
     def defaults(cls) -> dict:
         """Returns a dictionary of the field names and field default values of this class."""
         return {
-            name: field._raw_value()
+            name: field.raw_value
             for name, field in vars(cls).items()
             if isinstance(field, ConfigField)
         }
