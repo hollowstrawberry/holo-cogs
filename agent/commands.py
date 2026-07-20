@@ -159,10 +159,9 @@ class AgentCogCommands(AgentCogBase):
     @commands.guild_only()
     async def command_deletememory(self, ctx: commands.Context, *, name: str):
         """Delete an LLM memory"""
-        if (memory := self.config[ctx.guild].memory.value) and name in memory:
-            before = memory[name]
-            del memory[name]
-            await self.config[ctx.guild].memory.save()
+        memory = self.config[ctx.guild].memory
+        if before := memory.value.pop(name, None):
+            await memory.save()
             view = MemoryChangeView([MemoryChangeResult(name, before, None)], standalone=True)
             view.message = await ctx.send(view=view)
         else:
@@ -181,10 +180,10 @@ class AgentCogCommands(AgentCogBase):
             return await ctx.send("Invalid name")
         if len(name) > 1000:
             return await ctx.send("Name too long")
-        memory = self.config[ctx.guild].memory.value
-        before = memory.get(name)
-        memory[name] = content
-        await self.config[ctx.guild].memory.save()
+        memory = self.config[ctx.guild].memory
+        before = memory.value.get(name)
+        memory.value[name] = content
+        await memory.save()
         view = MemoryChangeView([MemoryChangeResult(name, before, content)], standalone=True)
         view.message = await ctx.send(view=view)
         assert ctx.guild
