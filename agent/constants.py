@@ -65,6 +65,8 @@ MEDIA_HEADERS =  {
 }
 
 VISION_MODELS = [
+    "gpt-6-sol",
+    "gpt-6-luna",
     "gpt-5.6-sol",
     "gpt-5.6-terra",
     "gpt-5.6-luna",
