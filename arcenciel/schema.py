@@ -27,6 +27,13 @@ class QueuedImageGen:
     last_percent: int = 0
     last_eta: int = 1_000_000
     cancelled: bool = False
+    pending_preview: tuple[bytes, str, int, int] | None = None
+    preview_version: int = 0
+    displayed_preview_version: int = 0
+    preview_filename: str | None = None
+    preview_step: int = 0
+    preview_total_steps: int = 0
+    preview_disabled: bool = False
 
 @dataclass
 class ImageToImageParams:

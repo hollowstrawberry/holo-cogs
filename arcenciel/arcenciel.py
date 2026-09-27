@@ -1,6 +1,8 @@
 import os
 import logging
 import asyncio
+import base64
+import binascii
 import aiohttp
 import discord
 import humanize
@@ -32,6 +34,7 @@ class Arcenciel(ArcencielCommands):
         self.api = ArcEnCielAPI(self, constants.ENDPOINT, api_key)
         asyncio.create_task(self.update_autocomplete_cache())
         self.consume_queue.start()
+        self.preview_task = asyncio.create_task(self.consume_previews())
         self.resource_cache = await self.config.resource_cache()
     
     async def cog_load(self):
@@ -39,12 +42,51 @@ class Arcenciel(ArcencielCommands):
         
     async def cog_unload(self):
         self.consume_queue.stop()
+        preview_task = getattr(self, "preview_task", None)
+        if preview_task:
+            preview_task.cancel()
+            await asyncio.gather(preview_task, return_exceptions=True)
         if self.api:
             await self.api.session.close()
 
     async def update_autocomplete_cache(self):
         assert self.api
         return await self.api.update_autocomplete_cache()
+
+    async def consume_previews(self):
+        assert self.api
+        retry_delay = 2
+        while not self.api.session.closed:
+            try:
+                async for preview in self.api.stream_previews():
+                    retry_delay = 2
+                    gen = self.queued_images.get(preview.get("jobId"))
+                    if not gen or gen.cancelled or gen.preview_disabled or not is_nsfw(gen.channel):
+                        continue
+                    mime_type = preview.get("mimeType")
+                    step = preview.get("step")
+                    total_steps = preview.get("totalSteps")
+                    encoded = preview.get("imageBase64")
+                    if (mime_type not in ("image/jpeg", "image/png") or type(step) is not int
+                            or type(total_steps) is not int or step < 1 or total_steps < step
+                            or not isinstance(encoded, str) or len(encoded) > 700_000):
+                        continue
+                    try:
+                        image = base64.b64decode(encoded, validate=True)
+                    except (binascii.Error, ValueError):
+                        continue
+                    if not image or len(image) > 512 * 1024:
+                        continue
+                    gen.pending_preview = (image, mime_type, step, total_steps)
+                    gen.preview_version += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.warning("Generator preview stream disconnected", exc_info=True)
+            if self.api.session.closed:
+                return
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, 60)
 
     @tasks.loop(seconds=1.5, reconnect=True)
     async def consume_queue(self):
@@ -80,10 +122,12 @@ class Arcenciel(ArcencielCommands):
 
         if (now - created).total_seconds() > constants.JOB_TIMEOUT:
             self.queued_images.pop(gen.id, None)
+            gen.pending_preview = None
             asyncio.create_task(self.finalize_image_generation(gen, False, "Timed out."))
 
         elif job["status"] in ["completed", "failed"]:
             self.queued_images.pop(gen.id, None)
+            gen.pending_preview = None
             ratings = job.get("safety", {}).get("outputs", {}).values()
             nsfw = any(r.get("rating") in ["sensitive", "explicit"] for r in ratings)
             error_message = None
@@ -96,18 +140,24 @@ class Arcenciel(ArcencielCommands):
             current_percent: int = job["progress"]["percent"]
             current_eta: int = job["progress"]["etaMs"] or job["queueEtaMs"] or 0
             current_position: int = job["position"]
+            show_preview = is_nsfw(gen.channel)
+            preview_version = gen.preview_version
+            pending_preview = (gen.pending_preview if show_preview and not gen.preview_disabled
+                               and preview_version != gen.displayed_preview_version else None)
+            clear_preview = not show_preview and gen.preview_filename is not None
             if (now - gen.last_updated).total_seconds() < constants.PROGRESS_UPDATE_INTERVAL:
                 return
-            if abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent and gen.last_position == current_position:
+            if (abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent
+                    and gen.last_position == current_position and not pending_preview and not clear_preview):
                 return
-            gen.last_updated = now  
-            gen.last_percent = current_percent
-            gen.last_eta = current_eta
-            gen.last_position = current_position
             
             embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
             embed.description = f"{await self.config.loading_emoji()} "
             embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
+            if show_preview and not is_nsfw(gen.channel):
+                show_preview = False
+                pending_preview = None
+                clear_preview = gen.preview_filename is not None
             
             if current_phase == "queued":
                 embed.description += "Image request received..."
@@ -130,10 +180,59 @@ class Arcenciel(ArcencielCommands):
             elif current_percent > 0:
                 embed.add_field(name="ETA", value="`soon`")
 
-            if isinstance(gen.context, discord.Interaction):
-                await gen.context.edit_original_response(embed=embed)
-            elif gen.progress_message:
-                await gen.progress_message.edit(embed=embed)
+            preview_filename = gen.preview_filename
+            preview_step = gen.preview_step
+            preview_total_steps = gen.preview_total_steps
+            if pending_preview:
+                image, mime_type, preview_step, preview_total_steps = pending_preview
+                extension = "jpg" if mime_type == "image/jpeg" else "png"
+                preview_filename = f"preview_{gen.id}_{preview_version}.{extension}"
+            if show_preview and preview_filename:
+                embed.set_image(url=f"attachment://{preview_filename}")
+                embed.add_field(name="Preview step", value=f"`{preview_step}/{preview_total_steps}`")
+
+            async def edit_progress(attachments=None):
+                kwargs = {"embed": embed}
+                if attachments is not None:
+                    kwargs["attachments"] = attachments
+                if isinstance(gen.context, discord.Interaction):
+                    await gen.context.edit_original_response(**kwargs)
+                elif gen.progress_message:
+                    await gen.progress_message.edit(**kwargs)
+
+            if pending_preview:
+                try:
+                    await edit_progress([discord.File(BytesIO(image), filename=preview_filename)])
+                except discord.HTTPException:
+                    log.warning("Unable to upload generator preview for job %s", gen.id, exc_info=True)
+                    gen.preview_disabled = True
+                    gen.pending_preview = None
+                    embed.remove_field(len(embed.fields) - 1)
+                    if gen.preview_filename:
+                        embed.set_image(url=f"attachment://{gen.preview_filename}")
+                        embed.add_field(name="Preview step", value=f"`{gen.preview_step}/{gen.preview_total_steps}`")
+                    else:
+                        embed.set_image(url=None)
+                    await edit_progress()
+                else:
+                    gen.preview_filename = preview_filename
+                    gen.preview_step = preview_step
+                    gen.preview_total_steps = preview_total_steps
+                    gen.displayed_preview_version = preview_version
+                    if gen.preview_version == preview_version:
+                        gen.pending_preview = None
+            else:
+                await edit_progress([] if clear_preview else None)
+                if clear_preview:
+                    gen.preview_filename = None
+                    gen.preview_step = 0
+                    gen.preview_total_steps = 0
+                    gen.pending_preview = None
+
+            gen.last_updated = datetime.now(timezone.utc)
+            gen.last_percent = current_percent
+            gen.last_eta = current_eta
+            gen.last_position = current_position
 
 
     async def generate_image(self,
