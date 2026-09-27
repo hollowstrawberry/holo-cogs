@@ -42,6 +42,7 @@ class GeneratingView(discord.ui.View):
             )
         assert self.cog.api and interaction.message
         self.gen.cancelled = True
+        self.gen.pending_preview = None
         self.stop()
         if self.gen.id:
             self.cog.queued_images.pop(self.gen.id, None)
