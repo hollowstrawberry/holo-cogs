@@ -18,7 +18,7 @@ from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
 from arcenciel.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_raise_all
 from arcenciel.schema import ImageGenParams, QueuedImageGen
 from arcenciel.commands import ArcencielCommands
-from arcenciel.views.generating import GeneratingView
+from arcenciel.views.generating import GeneratingView, GeneratingV2View
 from arcenciel.views.image_actions import ImageActions
 from arcenciel.arcenciel_api import ArcEnCielAPI
 
@@ -61,7 +61,8 @@ class Arcenciel(ArcencielCommands):
                 async for preview in self.api.stream_previews():
                     retry_delay = 2
                     gen = self.queued_images.get(preview.get("jobId"))
-                    if not gen or gen.cancelled or gen.preview_disabled or not is_nsfw(gen.channel):
+                    if (not gen or gen.cancelled or gen.preview_disabled or not gen.progress_v2_view
+                            or not is_nsfw(gen.channel)):
                         continue
                     mime_type = preview.get("mimeType")
                     step = preview.get("step")
@@ -140,58 +141,70 @@ class Arcenciel(ArcencielCommands):
             current_percent: int = job["progress"]["percent"]
             current_eta: int = job["progress"]["etaMs"] or job["queueEtaMs"] or 0
             current_position: int = job["position"]
-            show_preview = is_nsfw(gen.channel)
+            show_preview = gen.progress_v2_view is not None and is_nsfw(gen.channel)
             preview_version = gen.preview_version
             pending_preview = (gen.pending_preview if show_preview and not gen.preview_disabled
                                and preview_version != gen.displayed_preview_version else None)
-            clear_preview = not show_preview and gen.preview_filename is not None
+            clear_preview = gen.progress_v2_view is not None and not show_preview and gen.preview_filename is not None
             if (now - gen.last_updated).total_seconds() < constants.PROGRESS_UPDATE_INTERVAL:
                 return
             if (abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent
                     and gen.last_position == current_position and not pending_preview and not clear_preview):
                 return
             
-            embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
-            embed.description = f"{await self.config.loading_emoji()} "
-            embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
-            if show_preview and not is_nsfw(gen.channel):
-                show_preview = False
-                pending_preview = None
-                clear_preview = gen.preview_filename is not None
-            
+            phase_text = "Generating image..."
             if current_phase == "queued":
-                embed.description += "Image request received..."
-                embed.add_field(name="Position in queue", value=f"`{current_position}`")
+                phase_text = "Image request received..."
             elif current_phase == "upscaling":
-                embed.description += "Upscaling image..."
+                phase_text = "Upscaling image..."
             elif current_phase == "refining":
-                embed.description += "Refining image..."
+                phase_text = "Refining image..."
             elif current_phase == "warmup":
-                embed.description += "Preparing generator..."
+                phase_text = "Preparing generator..."
             elif current_phase == "finalizing":
-                embed.description += "Finishing image..."
-            else:
-                embed.description += f"Generating image..."
-            if current_percent > 0:
-                embed.add_field(name="Progress", value=f"`{current_percent}%`")
+                phase_text = "Finishing image..."
+            status = f"{await self.config.loading_emoji()} {phase_text}"
+            if current_phase == "queued" and gen.progress_v2_view:
+                status += f"  ·  Position in queue `{current_position}`"
+            progress_value = f"`{current_percent}%`" if current_percent > 0 else None
+            eta_value = None
             if current_eta > 1000:
                 estimate = now + timedelta(milliseconds=current_eta)
-                embed.add_field(name="ETA", value=f"<t:{int(estimate.timestamp())}:R>")
+                eta_value = f"<t:{int(estimate.timestamp())}:R>"
             elif current_percent > 0:
-                embed.add_field(name="ETA", value="`soon`")
+                eta_value = "`soon`"
 
             preview_filename = gen.preview_filename
             preview_step = gen.preview_step
             preview_total_steps = gen.preview_total_steps
+            preview_file = None
             if pending_preview:
                 image, mime_type, preview_step, preview_total_steps = pending_preview
                 extension = "jpg" if mime_type == "image/jpeg" else "png"
-                preview_filename = f"preview_{gen.id}_{preview_version}.{extension}"
-            if show_preview and preview_filename:
-                embed.add_field(name="Preview step", value=f"`{preview_step}/{preview_total_steps}`")
+                preview_file = discord.File(
+                    BytesIO(image), filename=f"preview_{gen.id}_{preview_version}.{extension}", spoiler=True
+                )
+                preview_filename = preview_file.filename
+            step_value = f"`{preview_step}/{preview_total_steps}`" if show_preview and preview_filename else None
+
+            if gen.progress_v2_view:
+                gen.progress_v2_view.set_progress(status, progress_value, eta_value, step_value,
+                                                  preview_filename if show_preview else None)
+                edit_kwargs = {"view": gen.progress_v2_view, "allowed_mentions": discord.AllowedMentions.none()}
+            else:
+                embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
+                embed.description = status
+                embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
+                if current_phase == "queued":
+                    embed.add_field(name="Position in queue", value=f"`{current_position}`")
+                if progress_value:
+                    embed.add_field(name="Progress", value=progress_value)
+                if eta_value:
+                    embed.add_field(name="ETA", value=eta_value)
+                edit_kwargs = {"embed": embed}
 
             async def edit_progress(attachments=None):
-                kwargs = {"embed": embed}
+                kwargs = dict(edit_kwargs)
                 if attachments is not None:
                     kwargs["attachments"] = attachments
                 if isinstance(gen.context, discord.Interaction):
@@ -201,14 +214,13 @@ class Arcenciel(ArcencielCommands):
 
             if pending_preview:
                 try:
-                    await edit_progress([discord.File(BytesIO(image), filename=preview_filename, spoiler=True)])
+                    await edit_progress([preview_file])
                 except discord.HTTPException:
                     log.warning("Unable to upload generator preview for job %s", gen.id, exc_info=True)
                     gen.preview_disabled = True
                     gen.pending_preview = None
-                    embed.remove_field(len(embed.fields) - 1)
-                    if gen.preview_filename:
-                        embed.add_field(name="Preview step", value=f"`{gen.preview_step}/{gen.preview_total_steps}`")
+                    old_step = f"`{gen.preview_step}/{gen.preview_total_steps}`" if gen.preview_filename else None
+                    gen.progress_v2_view.set_progress(status, progress_value, eta_value, old_step, gen.preview_filename)
                     await edit_progress()
                 else:
                     gen.preview_filename = preview_filename
@@ -262,15 +274,28 @@ class Arcenciel(ArcencielCommands):
             datetime.now(timezone.utc),
         )
         loading = await self.config.loading_emoji()
-        view = GeneratingView(self, gen)
-        embed = discord.Embed(description=f"{loading} Image request sent...")
-        embed.color = await self.bot.get_embed_color(channel)
-        embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
+        color = await self.bot.get_embed_color(channel)
+        if is_nsfw(channel):
+            view = GeneratingV2View(self, gen, color)
+            gen.progress_v2_view = view
+            view.set_progress(f"{loading} Image request sent...")
+        else:
+            view = GeneratingView(self, gen)
+            embed = discord.Embed(description=f"{loading} Image request sent...", color=color)
+            embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
-            gen.progress_message = await context.reply(embed=embed, view=view, mention_author=False)
+            if gen.progress_v2_view:
+                gen.progress_message = await context.reply(view=view, mention_author=False,
+                                                           allowed_mentions=discord.AllowedMentions.none())
+            else:
+                gen.progress_message = await context.reply(embed=embed, view=view, mention_author=False)
             gen.callback = gather_raise_all(callback, gen.progress_message.delete())
         else:
-            await context.edit_original_response(embed=embed, view=view)
+            if gen.progress_v2_view:
+                await context.edit_original_response(embed=None, content=None, attachments=[], view=view,
+                                                     allowed_mentions=discord.AllowedMentions.none())
+            else:
+                await context.edit_original_response(embed=embed, view=view)
     
         try:
             if params and params.image:
@@ -305,7 +330,20 @@ class Arcenciel(ArcencielCommands):
         else:
             return
         # After exception
-        await gather_raise_all(gen.callback, send_response(context, content=error_message))
+        await gather_raise_all(gen.callback, self.send_generation_response(gen, content=error_message))
+
+    async def send_generation_response(self, gen: QueuedImageGen, **kwargs):
+        if gen.progress_v2_view and isinstance(gen.context, discord.Interaction):
+            message = await gen.context.followup.send(**kwargs)
+            try:
+                await gen.context.delete_original_response()
+            except discord.HTTPException:
+                log.warning("Unable to remove completed generator progress for job %s", gen.id, exc_info=True)
+            try:
+                return await gen.channel.fetch_message(message.id)
+            except discord.HTTPException:
+                return message
+        return await send_response(gen.context, **kwargs)
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
@@ -316,7 +354,7 @@ class Arcenciel(ArcencielCommands):
         
         if error_message:
             content = f":warning: Failed to generate image. {error_message}"
-            return await gather_raise_all(gen.callback, send_response(gen.context, content=content))
+            return await gather_raise_all(gen.callback, self.send_generation_response(gen, content=content))
         
         final_tasks = [gen.callback]
         try:
@@ -328,7 +366,8 @@ class Arcenciel(ArcencielCommands):
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
             # send it
-            message = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
+            message = await self.send_generation_response(gen, file=file, view=view, content=content,
+                                                          allowed_mentions=discord.AllowedMentions.none())
             view.message = message
             quota_progress = self.config.user(gen.user).quota_progress
             await quota_progress.set(await quota_progress() + 1)
@@ -349,7 +388,7 @@ class Arcenciel(ArcencielCommands):
             log.exception("Finalizing image")
 
         if error_message:
-            final_tasks.append(send_response(gen.context, content=error_message))
+            final_tasks.append(self.send_generation_response(gen, content=error_message))
             
         await gather_raise_all(*final_tasks)
 
