@@ -188,7 +188,6 @@ class Arcenciel(ArcencielCommands):
                 extension = "jpg" if mime_type == "image/jpeg" else "png"
                 preview_filename = f"preview_{gen.id}_{preview_version}.{extension}"
             if show_preview and preview_filename:
-                embed.set_image(url=f"attachment://{preview_filename}")
                 embed.add_field(name="Preview step", value=f"`{preview_step}/{preview_total_steps}`")
 
             async def edit_progress(attachments=None):
@@ -202,17 +201,14 @@ class Arcenciel(ArcencielCommands):
 
             if pending_preview:
                 try:
-                    await edit_progress([discord.File(BytesIO(image), filename=preview_filename)])
+                    await edit_progress([discord.File(BytesIO(image), filename=preview_filename, spoiler=True)])
                 except discord.HTTPException:
                     log.warning("Unable to upload generator preview for job %s", gen.id, exc_info=True)
                     gen.preview_disabled = True
                     gen.pending_preview = None
                     embed.remove_field(len(embed.fields) - 1)
                     if gen.preview_filename:
-                        embed.set_image(url=f"attachment://{gen.preview_filename}")
                         embed.add_field(name="Preview step", value=f"`{gen.preview_step}/{gen.preview_total_steps}`")
-                    else:
-                        embed.set_image(url=None)
                     await edit_progress()
                 else:
                     gen.preview_filename = preview_filename

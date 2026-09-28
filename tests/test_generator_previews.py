@@ -239,7 +239,9 @@ async def test_nsfw_preview_survives_later_progress_edit(preview_modules):
 
     first = message.edits[-1]
     assert len(first["attachments"]) == 1
-    assert first["embed"].image.url == f"attachment://{gen.preview_filename}"
+    assert first["attachments"][0].spoiler is True
+    assert first["attachments"][0].filename.startswith("SPOILER_")
+    assert first["embed"].image.url is None
     assert {field.name: field.value for field in first["embed"].fields}["Preview step"] == "`4/24`"
 
     gen.last_updated -= timedelta(seconds=10)
@@ -248,7 +250,7 @@ async def test_nsfw_preview_survives_later_progress_edit(preview_modules):
 
     second = message.edits[-1]
     assert "attachments" not in second
-    assert second["embed"].image.url == first["embed"].image.url
+    assert second["embed"].image.url is None
     assert {field.name: field.value for field in second["embed"].fields}["Progress"] == "`27%`"
 
     gen.channel.nsfw = False
@@ -256,8 +258,33 @@ async def test_nsfw_preview_survives_later_progress_edit(preview_modules):
     await cog.update_job(job, gen)
     third = message.edits[-1]
     assert third["attachments"] == []
-    assert not third["embed"].image.url
+    assert third["embed"].image.url is None
     assert {field.name: field.value for field in third["embed"].fields}["Progress"] == "`27%`"
+
+
+@pytest.mark.asyncio
+async def test_new_preview_replaces_old_spoiler_and_keeps_progress(preview_modules):
+    _, cog_module, Context, Member, Channel = preview_modules
+    cog, gen, job, message = make_job(cog_module, Context, Member, Channel, nsfw=True)
+    gen.pending_preview = (b"first", "image/jpeg", 4, 24)
+    gen.preview_version = 1
+    await cog.update_job(job, gen)
+    first_name = message.edits[-1]["attachments"][0].filename
+
+    gen.last_updated -= timedelta(seconds=10)
+    gen.pending_preview = (b"second", "image/jpeg", 8, 24)
+    gen.preview_version = 2
+    job["progress"]["percent"] = 35
+    await cog.update_job(job, gen)
+
+    edit = message.edits[-1]
+    assert len(edit["attachments"]) == 1
+    assert edit["attachments"][0].spoiler is True
+    assert edit["attachments"][0].filename != first_name
+    assert edit["embed"].image.url is None
+    fields = {field.name: field.value for field in edit["embed"].fields}
+    assert fields["Progress"] == "`35%`"
+    assert fields["Preview step"] == "`8/24`"
 
 
 @pytest.mark.asyncio
