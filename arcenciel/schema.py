@@ -1,10 +1,14 @@
-from enum import Enum
-from typing import Coroutine
-from datetime import datetime
+from collections.abc import Coroutine
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import TYPE_CHECKING
 
 import discord
 from redbot.core import commands
+
+if TYPE_CHECKING:
+    from arcenciel.views.generating import GeneratingV2View
 
 
 class SplitType(Enum):
@@ -34,6 +38,7 @@ class QueuedImageGen:
     preview_step: int = 0
     preview_total_steps: int = 0
     preview_disabled: bool = False
+    progress_v2_view: "GeneratingV2View | None" = None
 
 @dataclass
 class ImageToImageParams:
