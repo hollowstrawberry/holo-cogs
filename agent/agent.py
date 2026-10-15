@@ -21,6 +21,7 @@ from agent.config_commands import AgentCogConfigCommands
 from agent.tools.base import get_all_tools
 from agent.tools.update_memory import UpdateMemoryTool
 from agent.context_builder import ContextBuilder
+from agent.mentions import chat_speakers, other_recent_speaker_names, render_user_mentions
 from agent.views.memory_change import MemoryChangeView
 
 log = logging.getLogger("agent")
@@ -252,12 +253,13 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         async with utils.bot_is_typing(ctx.channel):
             backread = await self.fetch_message_history(ctx)
             messages = await self.context_builder.build_context(ctx, backread, config, result, self.encoding)
+            speakers = chat_speakers(backread, ctx.guild)
             participants = list(set([ctx.guild.get_member(msg.author.id) or msg.author for msg in backread]))
             recalled_memories = await self.execute_recaller(ctx, participants, messages, memory_names, result)
             recalled_memories_str = self.build_memory_string(memory_names, recalled_memories, ctx, participants)
             if not auto and config.allow_memorizer.value:
                 mem_task = asyncio.create_task(self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=True))
-            await self.execute_responder(ctx, messages, memory_names, recalled_memories_str, result, auto)
+            await self.execute_responder(ctx, messages, memory_names, recalled_memories_str, result, speakers, auto)
             if mem_task:
                 await mem_task
         result.elapsed_ms = int(1000 * (time.perf_counter() - start))
@@ -344,6 +346,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                                 memory_names: list[str],
                                 recalled_memories_str: str,
                                 result: CompletionResult,
+                                speakers: dict[int, str],
                                 auto: bool = False,
                                 ):
         """
@@ -364,6 +367,13 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             channelname=ctx.channel.name,
             currentdatetime=datetime.now().strftime(constants.DATETIME_FORMATTING),
             memories=recalled_memories_str,
+        )
+        recent_names = other_recent_speaker_names(speakers, ctx.author.id)
+        system_content += (
+            "\nRecent human speakers in this channel other than the requester: "
+            f"{json.dumps(recent_names, ensure_ascii=False)}. "
+            "When asked to choose a recent speaker, use only someone on this list; if it is empty, say so. "
+            "Refer to people by name and do not invent Discord mention IDs."
         )
         result.tokens.memories = len(self.encoding.encode(recalled_memories_str))
         result.tokens.system = len(self.encoding.encode(system_content)) - result.tokens.memories
@@ -507,6 +517,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
             completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
             completion = utils.undo_xml(completion).strip()
+            completion = render_user_mentions(completion, speakers)
             if self.config.extended_logging.value and completion != raw_completion:
                 log.info(f"cleaned_{completion=}")
 
