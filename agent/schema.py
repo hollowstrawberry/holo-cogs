@@ -1,9 +1,10 @@
-import discord
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Literal
-from pydantic import BaseModel
-from dataclasses import dataclass, field
 
+import discord
+from pydantic import BaseModel
 
 StructuredObject = dict[str, Any]
 AgentImageContent = dict[str, (str | dict[str, str])]
@@ -154,7 +155,8 @@ class ImageGenParams:
     subseed_strength: float     = 0.0
     image: None                 = None
     regions: ImageRegionalParams | None = None
-    moss: dict | None = None
+    # Raw options are validated into MossOptions before they reach the API.
+    moss: Mapping[str, object] | None = None
     agent_request: bool = field(default=True, init=False)
 
 class SplitType(Enum):

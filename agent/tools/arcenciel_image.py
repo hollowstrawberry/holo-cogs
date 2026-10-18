@@ -1,9 +1,10 @@
 import asyncio
 import logging
+from collections.abc import Mapping
+from typing import Protocol, runtime_checkable
 
 import aiohttp
 import discord
-from redbot.core import commands
 
 from agent.constants import LORA_PATTERN
 from agent.schema import Function, ImageGenParams, Parameters, ToolCall
@@ -11,6 +12,23 @@ from agent.tools.base import ToolBase
 from agent.utils import add_xml_group, undo_xml
 
 log = logging.getLogger("agent.arcenciel_image")
+
+
+@runtime_checkable
+class MetadataScanner(Protocol):
+    async def grab_metadata_dict(self, message: discord.Message) -> Mapping[str, object]: ...
+
+
+def text_argument(arguments: Mapping[str, object], name: str, default: str = "") -> str:
+    value = arguments.get(name, default)
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be text.")
+    return value
+
+
+def dimensions(value: str) -> tuple[int, int]:
+    width, height = value.split("x")
+    return int(width), int(height)
 
 
 class ArcencielImageTool(ToolBase):
@@ -72,8 +90,9 @@ class ArcencielImageTool(ToolBase):
         )
     )
 
-    async def find_attachment(self, filename: str) -> tuple[bool, (discord.Message | None)]:
-        assert self.ctx.guild
+    async def find_attachment(self, filename: str) -> tuple[bool, discord.Message | None]:
+        assert self.ctx.guild and self.ctx.guild.me
+        assert isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
         limit = self.cog.config[self.ctx.guild].backread_messages.value
         messages = [message async for message in self.ctx.channel.history(limit=limit)]
         if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
@@ -87,14 +106,18 @@ class ArcencielImageTool(ToolBase):
                     return (message.author.id == self.ctx.guild.me.id, message)
         return (False, None)
 
-    async def run(self, arguments: dict) -> dict | str:
+    async def run(self, arguments: dict[str, object]) -> dict[str, object] | str:
         assert (
             self.ctx.guild
             and isinstance(self.ctx.author, discord.Member)
             and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
         )
-        arcenciel: commands.Cog | None = self.ctx.bot.get_cog("Arcenciel")
-        if not arcenciel:
+        arcenciel = self.ctx.bot.get_cog("Arcenciel")
+        if arcenciel is None:
+            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
+        from arcenciel.arcenciel import Arcenciel
+
+        if not isinstance(arcenciel, Arcenciel):
             return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         from arcenciel.moss import agent_settings, layout_from_metadata
         from arcenciel.utils import ImageGenError
@@ -103,17 +126,18 @@ class ArcencielImageTool(ToolBase):
             agent_settings(self.cog, self.ctx)
         except ValueError as error:
             return f"<error>{error}</error>"
-        if not isinstance(arguments.get("prompt"), str) or not arguments["prompt"].strip():
+        try:
+            prompt = undo_xml(text_argument(arguments, "prompt"))
+            negative_prompt = text_argument(arguments, "negative_prompt")
+            aspect = text_argument(arguments, "resolution").lower()
+            existing = text_argument(arguments, "existing")
+        except ValueError as error:
+            return f"<error>{error}</error>"
+        if not prompt.strip():
             return "<error>Provide a natural-language scene prompt.</error>"
-        if any(
-            key in arguments and not isinstance(arguments[key], str)
-            for key in ("negative_prompt", "resolution", "existing")
-        ):
-            return "<error>Prompt, negative prompt, resolution and existing filename must be text.</error>"
-        prompt = undo_xml(arguments["prompt"])
         if len(prompt) > 32768:
             return "<error>The scene prompt is too long.</error>"
-        moss = {}
+        moss: dict[str, object] = {}
         if "boxes" in arguments and arguments["boxes"] != []:
             moss["layout"] = {
                 "version": 1,
@@ -121,17 +145,13 @@ class ArcencielImageTool(ToolBase):
                 "canvas": "single",
                 "items": arguments["boxes"],
             }
-        sizes = {
-            choice.name.lower(): tuple(map(int, choice.value.split("x"))) for choice in arcenciel._resolution_choices
-        }
-        aspect = arguments.get("resolution", "").lower()
+        sizes = {choice.name.lower(): dimensions(choice.value) for choice in arcenciel._resolution_choices}
         if aspect and aspect not in sizes:
             return "<error>Choose square, portrait, landscape or ultrawide.</error>"
         width, height = sizes.get(aspect, (None, None))
-        existing = arguments.get("existing", "")
         sent_by_me, message = await self.find_attachment(existing) if existing else (False, None)
-        metadata = {}
-        warnings = []
+        metadata: Mapping[str, object] = {}
+        warnings: list[str] = []
         if message and sent_by_me:
             from arcenciel.comfy import ComfyMetadataReader
 
@@ -143,30 +163,36 @@ class ArcencielImageTool(ToolBase):
                 warnings.append("Image metadata is unavailable; using a fresh MOSS recipe.")
             if not metadata:
                 scanner = self.ctx.bot.get_cog("ImageScanner")
-                if scanner:
+                if isinstance(scanner, MetadataScanner):
                     metadata = await scanner.grab_metadata_dict(message)
             if "boxes" not in arguments:
-                moss = layout_from_metadata(metadata) or moss
+                recovered = layout_from_metadata(metadata)
+                if recovered:
+                    moss = dict(recovered)
         elif existing:
             warnings.append("The original bot image was not found; a new MOSS image will be made.")
-        if (width is None or height is None) and metadata.get("Size"):
+        size = metadata.get("Size")
+        if (width is None or height is None) and isinstance(size, str):
             try:
-                width, height = map(int, metadata["Size"].split("x"))
+                width, height = dimensions(size)
             except (ValueError, TypeError):
                 width, height = None, None
         try:
-            seed = int(metadata.get("Seed", -1))
-        except (ValueError, TypeError):
+            raw_seed = metadata.get("Seed", -1)
+            seed = int(raw_seed) if isinstance(raw_seed, (str, int, float)) else -1
+        except (ValueError, TypeError, OverflowError):
             seed = -1
-        loras = []
+        loras: list[str] = []
         for lora, _, _ in LORA_PATTERN.findall(prompt):
             prompt = prompt.replace(lora, "").strip()
             loras.append(lora)
+        if "negative_prompt" not in arguments and "layout" in moss:
+            original_negative = metadata.get("Negative Prompt", "")
+            if isinstance(original_negative, str):
+                negative_prompt = original_negative
         params = ImageGenParams(
             prompt=prompt,
-            negative_prompt=undo_xml(
-                arguments.get("negative_prompt", metadata.get("Negative Prompt", "") if "layout" in moss else "")
-            ),
+            negative_prompt=undo_xml(negative_prompt),
             width=width,
             height=height,
             seed=seed,
@@ -179,7 +205,7 @@ class ArcencielImageTool(ToolBase):
             return f"<error>{error}</error>"
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
 
-        async def callback():
+        async def callback() -> None:
             await asyncio.sleep(0)
             self.cog.currently_generating.discard(self.ctx.message.id)
 
@@ -189,6 +215,8 @@ class ArcencielImageTool(ToolBase):
                 self.ctx, params=params, payload=payload, message_content=message_content, callback=callback()
             )
         )
-        result = {"message": "MOSS image generation started. Wait for completion before describing the result."}
+        result: dict[str, object] = {
+            "message": "MOSS image generation started. Wait for completion before describing the result."
+        }
         add_xml_group(result, warnings, "warnings")
         return {"result": result}

@@ -1,27 +1,32 @@
-import os
-import logging
+from __future__ import annotations
+
 import asyncio
 import base64
 import binascii
+import logging
+import os
+from collections.abc import Mapping
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from io import BytesIO
+from typing import Any, Coroutine
+
 import aiohttp
 import discord
 import humanize
-from io import BytesIO
-from copy import deepcopy
-from typing import Any, Coroutine
-from datetime import datetime, timedelta, timezone
 from discord.ext import tasks
 from redbot.core import commands
 
 from arcenciel import constants
-from arcenciel.moss import agent_settings, build_moss_payload, safety_prompt
-from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
-from arcenciel.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_raise_all
-from arcenciel.schema import ImageGenParams, QueuedImageGen
-from arcenciel.commands import ArcencielCommands
-from arcenciel.views.generating import GeneratingView, GeneratingV2View
-from arcenciel.views.image_actions import ImageActions
 from arcenciel.arcenciel_api import ArcEnCielAPI
+from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
+from arcenciel.commands import ArcencielCommands
+from arcenciel.moss import agent_settings, build_moss_payload, is_array, json_object, safety_prompt
+from arcenciel.moss_types import ImageParams, MossLora
+from arcenciel.schema import QueuedImageGen
+from arcenciel.utils import ImageGenError, build_split_masks, gather_raise_all, is_nsfw, send_response
+from arcenciel.views.generating import GeneratingV2View, GeneratingView
+from arcenciel.views.image_actions import ImageActions
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
 
@@ -243,14 +248,14 @@ class Arcenciel(ArcencielCommands):
             gen.last_eta = current_eta
             gen.last_position = current_position
 
-
-    async def generate_image(self,
-                             context: commands.Context | discord.Interaction,
-                             payload: dict | None = None,
-                             params: ImageGenParams | None = None,
-                             callback: Coroutine | None = None,
-                             message_content: str | None = None
-                            ):
+    async def generate_image(
+        self,
+        context: commands.Context | discord.Interaction,
+        payload: dict[str, object] | None = None,
+        params: ImageParams | None = None,
+        callback: Coroutine[object, object, None] | None = None,
+        message_content: str | None = None,
+    ) -> None:
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
@@ -258,17 +263,23 @@ class Arcenciel(ArcencielCommands):
         ready = False
         try:
             if not await self.config.guild(context.guild).enabled():
-                return await send_response(context, content=":warning: The generator is not enabled for this server.")
+                await send_response(context, content=":warning: The generator is not enabled for this server.")
+                return
             if getattr(params, "agent_request", False):
+                assert isinstance(context, commands.Context)
                 agent_settings(self.bot.get_cog("AgentCog"), context)
             if not await self.check_quota(context):
                 return
-            payload = payload or await self.prepare_image_payload(context, params)
+            if not payload:
+                assert params is not None
+                payload = await self.prepare_image_payload(context, params)
             if await self.contains_blacklisted_word(safety_prompt(payload)):
-                return await send_response(context, content=":warning: Blocked prompt.")
+                await send_response(context, content=":warning: Blocked prompt.")
+                return
             ready = True
         except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
-            return await send_response(context, content=f":warning: The image couldn't be prepared. ({error})")
+            await send_response(context, content=f":warning: The image couldn't be prepared. ({error})")
+            return
         finally:
             if not ready and callback is not None:
                 await callback
@@ -308,13 +319,25 @@ class Arcenciel(ArcencielCommands):
                 path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
                 payload["imagePath"] = path
             if params and params.regions and payload.get("attentionCouple"):
-                mask_paths = []
-                masks = build_split_masks(payload["width"], payload["height"], params.regions.split_percent, params.regions.split_type)
+                width, height = payload["width"], payload["height"]
+                if not isinstance(width, int) or not isinstance(height, int):
+                    raise ImageGenError("Regional masks require integer image dimensions.")
+                attention = json_object(payload["attentionCouple"])
+                regions = attention.get("regions")
+                if not is_array(regions):
+                    raise ImageGenError("Regional masks require a list of regions.")
+                masks = build_split_masks(width, height, params.regions.split_percent, params.regions.split_type)
+                mask_paths: list[str] = []
                 for filename, data in masks:
                     mask_paths.append(await self.api.upload_image(data, filename or "image.png"))
-                for i, path in enumerate(mask_paths):
-                    payload["attentionCouple"]["regions"][i]["maskPath"] = path
-                
+                payload["attentionCouple"] = {
+                    **attention,
+                    "regions": [
+                        {**json_object(region), "maskPath": path}
+                        for region, path in zip(regions, mask_paths, strict=True)
+                    ],
+                }
+
             job = await self.api.request_image(payload)
             if gen.cancelled:  # gotta love race conditions
                 await self.api.cancel_request(job["id"])
@@ -474,25 +497,36 @@ class Arcenciel(ArcencielCommands):
                 hyperlinks.add(link)
         return sorted(list(hyperlinks))
 
-    async def prepare_image_payload(self, context, params: ImageGenParams) -> dict:
-        overrides = None
+    async def prepare_image_payload(
+        self, context: commands.Context | discord.Interaction, params: ImageParams
+    ) -> dict[str, object]:
+        overrides: Mapping[str, object] | None = None
         if getattr(params, "agent_request", False):
+            assert isinstance(context, commands.Context)
             overrides = agent_settings(self.bot.get_cog("AgentCog"), context)
         member = context.user if isinstance(context, discord.Interaction) else context.author
+        assert isinstance(member, discord.Member) and isinstance(context.channel, (discord.TextChannel, discord.Thread))
         return await self.build_image_payload(params, member, is_nsfw(context.channel), overrides=overrides)
 
     async def build_image_payload(
-        self, params: ImageGenParams, member: discord.Member, nsfw: bool, *, overrides=None
-    ) -> dict:
+        self,
+        params: ImageParams,
+        member: discord.Member,
+        nsfw: bool,
+        *,
+        overrides: Mapping[str, object] | None = None,
+    ) -> dict[str, object]:
         if getattr(params, "agent_request", False) or getattr(params, "moss", None) is not None:
             assert self.api
             options, catalog = await self.api.refresh_moss_profile()
-            loras = []
+            moss_loras: list[MossLora] = []
             for lora in params.loras:
                 match = constants.LORA_PATTERN.match(lora)
-                name, weight = (match.group(2), float(match.group(3))) if match else (lora, 1.0)
-                loras.append({"name": name.removesuffix(".safetensors") + ".safetensors", "weight": weight})
-            return build_moss_payload(params, options, catalog, nsfw, loras, overrides)
+                moss_name, moss_weight = (match.group(2), float(match.group(3))) if match else (lora, 1.0)
+                moss_loras.append(
+                    {"name": moss_name.removesuffix(".safetensors") + ".safetensors", "weight": moss_weight}
+                )
+            return dict(build_moss_payload(params, options, catalog, nsfw, moss_loras, overrides))
 
         stock_negative_prompt = await self.config.negative_prompt()
         if stock_negative_prompt not in (params.negative_prompt or ""):
@@ -503,7 +537,7 @@ class Arcenciel(ArcencielCommands):
         
         checkpoint = params.checkpoint or await self.config.user(member).checkpoint() or await self.config.checkpoint() or ""
         vae = params.vae or await self.config.vae()
-        loras = []
+        loras: list[dict[str, object]] = []
         for lora in params.loras:
             if m := constants.LORA_PATTERN.match(lora):
                 name, weight = m.group(2), m.group(3)
@@ -512,7 +546,7 @@ class Arcenciel(ArcencielCommands):
             filename = name.replace(".safetensors", "") + ".safetensors"
             loras.append({ "name": filename, "weight": weight })
 
-        payload = {
+        payload: dict[str, object] = {
             "mode": "img2img" if params.image else "txt2img",
             "prompt": params.prompt,
             "negativePrompt": params.negative_prompt or await self.config.negative_prompt(),

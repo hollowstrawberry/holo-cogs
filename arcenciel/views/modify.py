@@ -6,7 +6,7 @@ from arcenciel.views.image_actions import ImageActions
 
 
 class ModifyModal(discord.ui.Modal):
-    def __init__(self, parent_view: ImageActions):
+    def __init__(self, parent_view: ImageActions) -> None:
         super().__init__(title="Image Generation")
         self.parent_view = parent_view
         self.parent_button = parent_view.button_modify
@@ -41,9 +41,8 @@ class ModifyModal(discord.ui.Modal):
         self.add_item(self.seed_checkbox)
         self.add_item(self.prompt_edit)
         self.add_item(self.negative_prompt_edit)
-        
 
-    async def on_submit(self, interaction: discord.Interaction):
+    async def on_submit(self, interaction: discord.Interaction) -> None:
         assert isinstance(self.prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.negative_prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.seed_checkbox.component, discord.ui.Checkbox)
@@ -63,7 +62,8 @@ class ModifyModal(discord.ui.Modal):
             region_prompts = [p.strip() for p in prompt.split("\n")]
             if len(region_prompts) != len(regions):
                 content = ":warning: This image has regional prompts, but your edited prompt didn't result in the same number of regions."
-                return await interaction.response.send_message(content=content, ephemeral=True)
+                await interaction.response.send_message(content=content, ephemeral=True)
+                return
             for i, region_prompt in enumerate(region_prompts):
                 regions[i]["prompt"] = region_prompt
         

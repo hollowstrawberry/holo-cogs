@@ -12,13 +12,15 @@ log = logging.getLogger("red.holo-cogs.arcenciel")
 
 
 class ImageActions(discord.ui.View):
-    def __init__(self,
-                 cog: ArcencielBase,
-                 metadata: ComfyMetadata,
-                 payload: dict,
-                 author: discord.Member,
-                 channel: discord.abc.Messageable,
-                 maxsize: int):
+    def __init__(
+        self,
+        cog: ArcencielBase,
+        metadata: ComfyMetadata,
+        payload: dict,
+        author: discord.Member,
+        channel: discord.abc.Messageable,
+        maxsize: int,
+    ) -> None:
         super().__init__(timeout=VIEW_TIMEOUT)
         self.metadata = metadata
         self.payload = payload
@@ -63,7 +65,7 @@ class ImageActions(discord.ui.View):
         view = ImageInfoView(self.metadata.raw or "")
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
-    async def reroll_image(self, interaction: discord.Interaction):
+    async def reroll_image(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(thinking=True)
         payload = deepcopy(self.payload)
         payload["seed"] = -1

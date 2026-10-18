@@ -1,17 +1,18 @@
-import re
-import logging
 import asyncio
+import logging
+import re
+from copy import copy
+
 import aiohttp
 import discord
-from copy import copy
 from PIL.Image import UnidentifiedImageError
-
 from redbot.core import app_commands, checks, commands
 
-from arcenciel.utils import clean_tag, clean_model, edit_regional_prompts, filter_names, normalize_image
+from arcenciel.constants import EXCLUDE_TAGGER, LORA_PATTERN, MAX_UPLOAD_PIXELS, SUPPORTED_IMAGE_TYPES
+from arcenciel.moss_types import MossBox, MossOptions
 from arcenciel.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
 from arcenciel.settings import ArcencielSettings
-from arcenciel.constants import EXCLUDE_TAGGER, SUPPORTED_IMAGE_TYPES, LORA_PATTERN, MAX_UPLOAD_PIXELS
+from arcenciel.utils import clean_model, clean_tag, edit_regional_prompts, filter_names, normalize_image
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
  
@@ -162,9 +163,9 @@ class ArcencielCommands(ArcencielSettings):
             catalog = self.api.model_catalog
             if not catalog:
                 _, catalog = await self.api.refresh_moss_profile()
-        except (ImageGenError, aiohttp.ClientError, TimeoutError):
+            choices = {clean_model(name): name for name in moss_models(catalog, sft_only=True)}
+        except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError):
             return []
-        choices = {clean_model(name): name for name in moss_models(catalog, sft_only=True)}
         return await self.build_autocomplete_choices(current, choices)
 
     @app_commands.command(name="moss")
@@ -186,22 +187,23 @@ class ArcencielCommands(ArcencielSettings):
         self,
         interaction: discord.Interaction,
         prompt: str,
-        checkpoint: str = None,
-        resolution: str = None,
+        checkpoint: str | None = None,
+        resolution: str | None = None,
         left: str = "",
         right: str = "",
         title: str = "",
         negative_prompt: str = "",
         seed: app_commands.Range[int, -1, None] = -1,
-    ):
+    ) -> None:
         """Generate with MOSS, optionally placing left/right subjects and a title."""
         await interaction.response.defer(thinking=True)
         ctx = await self.bot.get_context(interaction)
         if not await self.can_run_command(ctx, "txt2img"):
-            return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
+            await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
+            return
         width, height = map(int, resolution.split("x")) if resolution else (None, None)
         # Geometry is a UI preset; model settings and the permitted box count come from the API.
-        boxes = []
+        boxes: list[MossBox] = []
         top = 250 if title else 50
         if left:
             boxes.append({"label": "character", "caption": left, "bbox": [top, 20, 950, 480]})
@@ -209,7 +211,7 @@ class ArcencielCommands(ArcencielSettings):
             boxes.append({"label": "character", "caption": right, "bbox": [top, 520, 950, 980]})
         if title:
             boxes.append({"label": "text", "caption": "Large clear title", "text": title, "bbox": [30, 50, 210, 950]})
-        moss = (
+        moss: MossOptions = (
             {"layout": {"version": 1, "coordinateSpace": "normalized_1000", "canvas": "single", "items": boxes}}
             if boxes
             else {}

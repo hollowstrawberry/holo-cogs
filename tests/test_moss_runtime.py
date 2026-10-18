@@ -16,6 +16,8 @@ except ModuleNotFoundError as error:
 # isort: split
 
 import discord
+from test_moss import box, server_profile
+
 from agent.agent import AgentCog
 from agent.schema import ImageGenParams as AgentParams
 from agent.tools.arcenciel_image import ArcencielImageTool
@@ -24,14 +26,13 @@ from arcenciel.arcenciel_api import ArcEnCielAPI
 from arcenciel.comfy import ComfyMetadataReader
 from arcenciel.commands import ArcencielCommands
 from arcenciel.moss import agent_settings, moss_options
-from arcenciel.schema import ImageGenParams
+from arcenciel.schema import ImageGenParams, ImageRegionalParams, SplitType
 from arcenciel.views.image_actions import ImageActions
 from arcenciel.views.modify import ModifyModal
-from test_moss import box, server_profile
 
 
 class MossRuntime(unittest.IsolatedAsyncioTestCase):
-    def setup_request(self):
+    def setup_request(self) -> tuple[commands.Context, AgentCog, Arcenciel, NS]:
         ctx = MagicMock(spec=commands.Context)
         ctx.guild = NS(me=NS(id=99))
         ctx.author = MagicMock(spec=discord.Member)
@@ -56,11 +57,10 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         )
         config.__getitem__.return_value = guild
         config.tool_settings = NS(value={})
-        agent = NS(
-            config=config,
-            currently_generating=set(),
-            find_last_sd_generated_image_resolution=AsyncMock(return_value=(None, None)),
-        )
+        agent = object.__new__(AgentCog)
+        agent.config = config
+        agent.currently_generating = set()
+        agent.find_last_sd_generated_image_resolution = AsyncMock(return_value=(None, None))
         cog = object.__new__(Arcenciel)
         cog.config = MagicMock()
         for key, value in {
@@ -94,7 +94,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         ctx.bot = cog.bot = agent.bot = bot
         return ctx, agent, cog, guild
 
-    async def finish_queued(self, cog):
+    async def finish_queued(self, cog: Arcenciel) -> None:
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         for gen in cog.queued_images.values():
@@ -102,7 +102,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
                 await gen.callback
                 gen.callback = None
 
-    async def test_tool_uses_builtin_prompt_key_and_dynamic_profile(self):
+    async def test_tool_uses_builtin_prompt_key_and_dynamic_profile(self) -> None:
         ctx, agent, cog, guild = self.setup_request()
         result = await ArcencielImageTool(ctx, agent).run({"prompt": "Two friends in a garden", "boxes": [box()]})
         await self.finish_queued(cog)
@@ -117,7 +117,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(guild.prompt_keys.value, {"moss": "Editable guild instructions"})
         cog.config.negative_prompt.assert_not_awaited()
 
-    async def test_actual_legacy_text_fallback_uses_same_profile(self):
+    async def test_actual_legacy_text_fallback_uses_same_profile(self) -> None:
         ctx, agent, cog, _ = self.setup_request()
         await AgentCog.generate_stable_diffusion(agent, ctx, "A cat sleeping in a sunbeam.")
         await self.finish_queued(cog)
@@ -127,7 +127,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(agent.currently_generating)
 
-    async def test_missing_prompt_disabled_tool_and_channel_policy_block_both_paths(self):
+    async def test_missing_prompt_disabled_tool_and_channel_policy_block_both_paths(self) -> None:
         for problem in ("prompt", "disabled", "channel"):
             with self.subTest(problem=problem):
                 ctx, agent, cog, guild = self.setup_request()
@@ -149,7 +149,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         ctx.channel.permissions_for.return_value.manage_messages = True
         self.assertEqual(agent_settings(agent, ctx), {})
 
-    async def test_invalid_models_and_boxes_do_not_queue(self):
+    async def test_invalid_models_and_boxes_do_not_queue(self) -> None:
         for args in [{"prompt": "A cat", "boxes": [box()] * 4}, {"prompt": "A cat", "boxes": None}]:
             ctx, agent, cog, _ = self.setup_request()
             self.assertIn("<error>", await ArcencielImageTool(ctx, agent).run(args))
@@ -160,7 +160,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         self.assertIn("<error>", await ArcencielImageTool(ctx, agent).run({"prompt": "A cat"}))
         cog.api.request_image.assert_not_awaited()
 
-    async def test_early_exits_release_callback_and_moderate_box_text(self):
+    async def test_early_exits_release_callback_and_moderate_box_text(self) -> None:
         for failure in ("guild", "quota", "blacklist", "profile", "timeout"):
             with self.subTest(failure=failure):
                 ctx, _, cog, _ = self.setup_request()
@@ -185,7 +185,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
                 if failure == "blacklist":
                     self.assertIn("A woman in red", cog.contains_blacklisted_word.call_args.args[0])
 
-    async def test_explicit_legacy_commands_keep_settings(self):
+    async def test_explicit_legacy_commands_keep_settings(self) -> None:
         ctx, _, cog, _ = self.setup_request()
         payload = await cog.build_image_payload(ImageGenParams(prompt="legacy prompt"), ctx.author, False)
         self.assertEqual(payload["modelName"], "user-anima.safetensors")
@@ -193,7 +193,45 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         self.assertIn("adetailer", payload)
         cog.api.refresh_moss_profile.assert_not_awaited()
 
-    async def test_slash_command_uses_shared_defaults_and_permissions(self):
+    async def test_legacy_regional_masks_keep_geometry_and_paths(self) -> None:
+        from io import BytesIO
+
+        from PIL import Image
+
+        ctx, _, cog, _ = self.setup_request()
+        cog.api.upload_image = AsyncMock(side_effect=["left.png", "right.png"])
+        await cog.generate_image(
+            ctx,
+            params=ImageGenParams(
+                prompt="Two people",
+                width=64,
+                height=64,
+                regions=ImageRegionalParams("Woman in red", "Man in blue", SplitType.HORIZONTAL.value, 50),
+            ),
+        )
+        await self.finish_queued(cog)
+        payload = cog.api.request_image.call_args.args[0]
+        self.assertEqual(payload["modelName"], "user-anima.safetensors")
+        regions = payload["attentionCouple"]["regions"]
+        self.assertEqual([region["maskPath"] for region in regions], ["left.png", "right.png"])
+        self.assertEqual([region["prompt"] for region in regions], ["Woman in red", "Man in blue"])
+        masks = [Image.open(BytesIO(call.args[0])).getchannel("A") for call in cog.api.upload_image.call_args_list]
+        self.assertEqual([image.size for image in masks], [(64, 64), (64, 64)])
+        self.assertEqual([image.getpixel((16, 32)) for image in masks], [0, 255])
+        self.assertEqual([image.getpixel((48, 32)) for image in masks], [255, 0])
+        cog.api.refresh_moss_profile.assert_not_awaited()
+
+    async def test_missing_cog_and_nontext_arguments_fail_without_queueing(self) -> None:
+        ctx, agent, cog, _ = self.setup_request()
+        for argument in ("prompt", "negative_prompt", "resolution", "existing"):
+            with self.subTest(argument=argument):
+                result = await ArcencielImageTool(ctx, agent).run({"prompt": "A cat", argument: []})
+                self.assertIn("<error>", result)
+        ctx.bot.get_cog = lambda name: None
+        self.assertIn("cog not installed", await ArcencielImageTool(ctx, agent).run({"prompt": "A cat"}))
+        cog.api.request_image.assert_not_awaited()
+
+    async def test_slash_command_uses_shared_defaults_and_permissions(self) -> None:
         interaction = NS(response=NS(defer=AsyncMock()), followup=NS(send=AsyncMock()))
         cog = NS(
             bot=NS(get_context=AsyncMock()), can_run_command=AsyncMock(return_value=True), generate_image=AsyncMock()
@@ -212,7 +250,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         await ArcencielCommands.moss_app.callback(cog, interaction, "Cafe")
         cog.generate_image.assert_not_awaited()
 
-    async def test_actions_preserve_layout_and_hide_unsupported_buttons(self):
+    async def test_actions_preserve_layout_and_hide_unsupported_buttons(self) -> None:
         ctx, _, cog, _ = self.setup_request()
         cog.generate_image = AsyncMock()
         cog.autocomplete_cache = {}
@@ -240,7 +278,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(modified["moss"], payload["moss"])
         self.assertNotIn("extraSeedStrength", modified)
 
-    async def test_existing_png_recovers_layout_and_explicit_empty_boxes_clear_it(self):
+    async def test_existing_png_recovers_layout_and_explicit_empty_boxes_clear_it(self) -> None:
         from io import BytesIO
 
         from PIL import Image, PngImagePlugin
@@ -295,7 +333,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(recovered["text"], "HELLO\nMOSS")
                 self.assertEqual(recovered["bbox"], [0, 0, 250, 1000])
 
-    async def test_autocomplete_reuses_discovered_sft_choices(self):
+    async def test_autocomplete_reuses_discovered_sft_choices(self) -> None:
         _, catalog = server_profile()
         cog = NS(
             api=NS(model_catalog=catalog, refresh_moss_profile=AsyncMock()),
@@ -306,13 +344,13 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(list(choices.values()), ["renamed-sft.safetensors"])
         cog.api.refresh_moss_profile.assert_not_awaited()
 
-    async def test_api_snapshot_and_compression(self):
+    async def test_api_snapshot_and_compression(self) -> None:
         client = ArcEnCielAPI(NS(), "https://example.test/api", "test-key")
         self.assertEqual(client.session.headers["Accept-Encoding"], "gzip, deflate")
         await client.session.close()
         options, catalog = server_profile()
 
-        def response(data, status=200):
+        def response(data: object, status: int = 200) -> MagicMock:
             item = MagicMock()
             item.status = status
             item.json = AsyncMock(return_value=data)
@@ -325,8 +363,12 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(Exception, "Unavailable"):
             await client.refresh_moss_profile()
         self.assertEqual((client.generator_options, client.model_catalog), (options, catalog))
+        client.session.get.side_effect = [response(options), response([])]
+        with self.assertRaisesRegex(ValueError, "JSON object"):
+            await client.refresh_moss_profile()
+        self.assertEqual((client.generator_options, client.model_catalog), (options, catalog))
 
-    def test_comfy_layout_is_not_mistaken_for_negative_prompt(self):
+    def test_comfy_layout_is_not_mistaken_for_negative_prompt(self) -> None:
         layout = json.dumps(
             {
                 "summary": {"caption": "A worst quality sign"},

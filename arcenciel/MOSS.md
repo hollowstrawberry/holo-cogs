@@ -91,6 +91,27 @@ via the agent request marker, without adding a second LLM image option or editin
 The API session advertises `gzip, deflate`, the decoders available in the bot's
 installed runtime, including for preview events.
 
+## Type boundaries
+
+MOSS helpers and the agent tool annotate parameters and return values. Validated
+model profiles, boxes, options and outgoing payloads use the `TypedDict` records
+in `moss_types.py`. Untrusted JSON and tool input remain `object` until runtime
+checks establish their shape; malformed data fails before an image is queued.
+Optional cog lookups are narrowed before accessing cog-specific methods.
+
+The scoped strict check below covers the MOSS types, helpers and agent tool with
+the installed bot dependencies. Imported legacy modules are resolved but their
+existing diagnostics are outside this check; it is not a repository-wide clean
+typecheck. Run it from the repository root, without suppressing missing imports.
+
+```bash
+PYTHONPATH=.:/path/to/installed/cogs:/path/to/Downloader/lib \
+  /path/to/bot/python -m mypy --config-file mypy-moss.ini
+```
+
+Verification used mypy 2.0.0 in an isolated checker directory. This is a development
+tool, not a new bot runtime dependency.
+
 ## Focused verification
 
 ```bash

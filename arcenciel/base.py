@@ -1,13 +1,17 @@
-import discord
-from typing import Coroutine
+from __future__ import annotations
+
 from collections import defaultdict
+from typing import Coroutine
+
+import discord
 from expiringdict import ExpiringDict
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 
 from arcenciel.comfy import ComfyMetadata
-from arcenciel.schema import ImageGenParams, QueuedImageGen
 from arcenciel.constants import DISCORD_EPOCH_DATETIME
+from arcenciel.moss_types import ImageParams
+from arcenciel.schema import QueuedImageGen
 
 
 class ArcencielBase(commands.Cog):
@@ -62,16 +66,19 @@ class ArcencielBase(commands.Cog):
             async with self.config.resource_cache() as cache:
                 cache[hint] = hyperlink
 
-    async def generate_image(self,
-                             context: commands.Context | discord.Interaction,
-                             payload: dict | None = None,
-                             params: ImageGenParams | None = None,
-                             callback: Coroutine | None = None,
-                             message_content: str | None = None
-                             ) -> None:
+    async def generate_image(
+        self,
+        context: commands.Context | discord.Interaction,
+        payload: dict[str, object] | None = None,
+        params: ImageParams | None = None,
+        callback: Coroutine[object, object, None] | None = None,
+        message_content: str | None = None,
+    ) -> None:
         raise NotImplementedError
 
-    async def prepare_image_payload(self, context, params: ImageGenParams) -> dict:
+    async def prepare_image_payload(
+        self, context: commands.Context | discord.Interaction, params: ImageParams
+    ) -> dict[str, object]:
         raise NotImplementedError
 
     async def resolve_arcenciel_resources(self, metadata: ComfyMetadata) -> list[str]:

@@ -2,19 +2,25 @@
 
 import importlib.util
 import json
+import sys
+import types
 import unittest
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace as NS
+from typing import Any
 
+package = types.ModuleType("moss_contract")
+package.__path__ = [str(Path(__file__).resolve().parents[1] / "arcenciel")]
+sys.modules[package.__name__] = package
 spec = importlib.util.spec_from_file_location(
-    "moss_contract", Path(__file__).resolve().parents[1] / "arcenciel/moss.py"
+    "moss_contract.moss", Path(__file__).resolve().parents[1] / "arcenciel/moss.py"
 )
 moss = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(moss)
 
 
-def server_profile():
+def server_profile() -> tuple[dict[str, Any], dict[str, Any]]:
     return (
         {
             "limits": {
@@ -55,7 +61,7 @@ def server_profile():
     )
 
 
-def params(**kwargs):
+def params(**kwargs: object) -> NS:
     values = dict(
         prompt="A painted seaside village.",
         negative_prompt=None,
@@ -78,12 +84,12 @@ def params(**kwargs):
     return NS(**values)
 
 
-def box():
+def box() -> dict[str, Any]:
     return dict(label="character", caption="A woman in red", bbox=[10, 10, 900, 480])
 
 
 class MossContract(unittest.TestCase):
-    def test_discovery_follows_changed_models_and_server_defaults(self):
+    def test_discovery_follows_changed_models_and_server_defaults(self) -> None:
         options, catalog = server_profile()
         for name, steps, cfg, shift, width in [
             ("renamed-sft.safetensors", 26, 3.5, 6, 768),
@@ -100,7 +106,7 @@ class MossContract(unittest.TestCase):
             self.assertEqual(result["negativePrompt"], "")
             self.assertFalse({"vaeName", "attentionCouple", "adetailer", "extraSeedStrength"} & result.keys())
 
-    def test_no_silent_model_or_profile_fallback(self):
+    def test_no_silent_model_or_profile_fallback(self) -> None:
         options, catalog = server_profile()
         for checkpoint in ["anima.safetensors", "removed.safetensors"]:
             with self.subTest(checkpoint=checkpoint), self.assertRaisesRegex(ValueError, "not an available MOSS"):
@@ -115,7 +121,7 @@ class MossContract(unittest.TestCase):
             moss.resolve_profile(options, catalog)
         self.assertEqual(moss.resolve_profile(options, catalog, "research-base")[0], "research-base.safetensors")
 
-    def test_overrides_and_validation(self):
+    def test_overrides_and_validation(self) -> None:
         options, catalog = server_profile()
         result = moss.build_moss_payload(
             params(cfg=4.5), options, catalog, True, [], {"steps": "29", "cfg": "5.5", "shift": "7", "sampler": "heun"}
@@ -132,11 +138,26 @@ class MossContract(unittest.TestCase):
             {"sampler": "removed"},
             {"shift": "nan"},
             {"shift": "bad"},
+            {"shift": True},
+            {"cfg": []},
+            {"steps": float("inf")},
+            {"sampler": ["euler"]},
         ]:
             with self.subTest(setting=setting), self.assertRaises(ValueError):
                 moss.build_moss_payload(params(), options, catalog, False, [], setting)
 
-    def test_dynamic_box_limit_and_geometry(self):
+    def test_malformed_discovery_is_rejected_before_payload_construction(self) -> None:
+        options, catalog = server_profile()
+        for invalid in ([], {"defaults": []}, {"defaults": {"steps": True}}):
+            bad = deepcopy(options)
+            bad["limits"]["moss"] = invalid
+            with self.subTest(profile=invalid), self.assertRaises(ValueError):
+                moss.build_moss_payload(params(), bad, catalog, False, [])
+        for checkpoints in ({}, [None], [{"modelCapabilities": "moss_sft"}]):
+            with self.subTest(checkpoints=checkpoints), self.assertRaises(ValueError):
+                moss.build_moss_payload(params(), options, {"checkpoints": checkpoints}, False, [])
+
+    def test_dynamic_box_limit_and_geometry(self) -> None:
         for count in [1, 2, 4]:
             self.assertEqual(len(moss.moss_options([box()] * count, max_boxes=count)["layout"]["items"]), count)
             with self.assertRaisesRegex(ValueError, str(count)):
@@ -153,7 +174,7 @@ class MossContract(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 moss.validate_options(recipe, max_boxes=3)
 
-    def test_metadata_preserves_geometry_and_multiline_text(self):
+    def test_metadata_preserves_geometry_and_multiline_text(self) -> None:
         raw = {
             "summary": {"caption": "Poster"},
             "items": [{"label": "text", "caption": "Title", "text": "HELLO\nMOSS", "bbox": [-512, -512, -256, 512]}],
@@ -165,7 +186,7 @@ class MossContract(unittest.TestCase):
         self.assertIn("HELLO\nMOSS", moss.safety_prompt({"prompt": "Scene", "moss": recipe}))
         self.assertIsNone(moss.layout_from_metadata({"Prompt": "ordinary prompt"}))
 
-    def test_unsupported_legacy_features_rejected(self):
+    def test_unsupported_legacy_features_rejected(self) -> None:
         options, catalog = server_profile()
         for field in ["image", "regions", "variation", "subseed_strength", "vae"]:
             with self.subTest(field=field), self.assertRaises(ValueError):
