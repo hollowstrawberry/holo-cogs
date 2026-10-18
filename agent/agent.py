@@ -360,9 +360,6 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             currentdatetime=datetime.now().strftime(constants.DATETIME_FORMATTING),
             memories=recalled_memories_str,
         )
-        if "arcenciel_image" in config.enabled_functions.value:
-            from agent.tools.arcenciel_image import MOSS_INSTRUCTIONS
-            system_content += "\n\n" + MOSS_INSTRUCTIONS
         result.tokens.memories = len(self.encoding.encode(recalled_memories_str))
         result.tokens.system = len(self.encoding.encode(system_content)) - result.tokens.memories
 
@@ -494,7 +491,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     prompt = utils.undo_xml(m.groups()[-1])
                     completion = pattern.sub("", completion)
                     break
-            if prompt and "generate_moss_image" not in past_tool_calls and "generate_stable_diffusion" not in past_tool_calls and "arcenciel_image" in config.enabled_functions.value:
+            if prompt and "generate_stable_diffusion" not in past_tool_calls:
                 await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
@@ -780,9 +777,32 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
 
     async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
-        # Legacy text fallback uses exactly the same MOSS tool and channel checks.
-        from agent.tools.arcenciel_image import ArcencielImageTool
-        await ArcencielImageTool(ctx, self).run({"prompt": prompt})
+        assert ctx.guild and self.bot.user
+        config = self.config[ctx.guild]
+        if config.channel_mode.value == "blacklist" and ctx.channel.id in config.channels.value \
+                or config.channel_mode.value == "whitelist" and ctx.channel.id not in config.channels.value:
+            if ctx.bot_permissions.add_reactions:
+                await ctx.message.add_reaction("❌")
+            return
+        
+        arcenciel: commands.Cog | None = ctx.bot.get_cog("Arcenciel")
+        if not arcenciel:
+            await ctx.message.add_reaction("❌")
+            return
+
+        width, height = await self.find_last_sd_generated_image_resolution(ctx)                
+        params = ImageGenParams(
+            prompt=prompt,
+            width=width,
+            height=height,
+        )
+        message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
+        async def callback():
+            await asyncio.sleep(0)
+            self.currently_generating.discard(ctx.message.id)
+        self.currently_generating.add(ctx.message.id)
+        generate_image = getattr(arcenciel, "generate_image")
+        asyncio.create_task(generate_image(ctx, params=params, message_content=message_content, callback=callback()))
 
 
     async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:

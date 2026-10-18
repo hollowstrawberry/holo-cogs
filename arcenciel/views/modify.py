@@ -1,4 +1,3 @@
-from arcenciel.moss import is_moss
 import re
 import discord
 import discord.ui as ui
@@ -15,10 +14,6 @@ class ModifyModal(ui.Modal):
         self.parent_button = parent_view.button_modify
         self.payload = deepcopy(parent_view.payload)
         self.params = self.parent_view.metadata.as_dict()
-        self.is_moss = is_moss(self.payload.get("modelName"))
-        if self.is_moss:
-            self.params["Prompt"] = self.payload["prompt"]
-            self.params["Negative Prompt"] = self.payload.get("negativePrompt", "")
         self.generate_image = parent_view.generate_image
         
         self.prompt_edit = ui.Label(
@@ -55,7 +50,7 @@ class ModifyModal(ui.Modal):
         
         prompt = self.prompt_edit.component.value
         negative_prompt = self.negative_prompt_edit.component.value
-        is_prompt_unchanged = prompt == self.params.get("Prompt", "") and negative_prompt == self.params.get("Negative Prompt", "")
+        is_prompt_unchanged = prompt == self.params["Prompt"] and negative_prompt == self.params["Negative Prompt"]
         reroll = self.seed_checkbox.component.value
         
         if not is_prompt_unchanged and self.payload.get("attentionCouple"):  # parse regional prompt
@@ -83,10 +78,6 @@ class ModifyModal(ui.Modal):
             self.payload["seed"] = int(self.params.get("Seed", -1))
             self.payload["extraSeed"] = int(self.params.get("Extra Seed", -1))
             self.payload["extraSeedStrength"] = float(self.params.get("Extra Seed Strength", 0.0))
-
-        if self.is_moss:
-            self.payload.pop("extraSeed", None)
-            self.payload.pop("extraSeedStrength", None)
 
         await interaction.response.defer(thinking=True)
         message_content = f"Reroll requested by {interaction.user.mention}" if is_prompt_unchanged else f"Change requested by {interaction.user.mention}"

@@ -154,7 +154,6 @@ class ImageGenParams:
     subseed_strength: float     = 0.0
     image: None                 = None
     regions: ImageRegionalParams | None = None
-    moss: dict | None = None
 
 class SplitType(Enum):
     HORIZONTAL = "split-horizontal-2"

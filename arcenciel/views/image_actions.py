@@ -1,4 +1,3 @@
-from arcenciel.moss import is_moss
 import logging
 import discord
 from copy import deepcopy
@@ -50,9 +49,8 @@ class ImageActions(discord.ui.View):
         if not payload.get("upscaleProfiles", False):
             self.add_item(self.button_reroll)
             self.add_item(self.button_modify)
-            if not is_moss(payload.get("modelName")):
-                self.add_item(self.button_variation)
-            if not is_moss(payload.get("modelName")) and self.payload["width"]*self.payload["height"]*1.1 < maxsize*maxsize:
+            self.add_item(self.button_variation)
+            if self.payload["width"]*self.payload["height"]*1.1 < maxsize*maxsize:
                 self.add_item(self.button_upscale)
         self.add_item(self.button_delete)
 
@@ -68,9 +66,8 @@ class ImageActions(discord.ui.View):
         await interaction.response.defer(thinking=True)
         payload = deepcopy(self.payload)
         payload["seed"] = -1
-        if not is_moss(payload.get("modelName")):
-            payload["extraSeed"] = -1
-            payload["extraSeedStrength"] = 0
+        payload["extraSeed"] = -1
+        payload["extraSeedStrength"] = 0
         message_content = f"Reroll requested by {interaction.user.mention}"
         await self.generate_image(interaction, payload=payload, message_content=message_content)
 
@@ -108,11 +105,6 @@ class ImageActions(discord.ui.View):
 
     async def get_params_embed(self) -> discord.Embed | None:
         params = self.metadata.as_dict()
-        if is_moss(self.payload.get("modelName")):
-            params["Prompt"] = self.payload["prompt"]
-            layout = self.payload.get("moss", {}).get("layout", {})
-            if layout.get("items"):
-                params["Regional Boxes"] = str(len(layout["items"]))
         if not params:
             return None
         

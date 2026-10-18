@@ -40,7 +40,7 @@ class AgentCogConfigCommands(AgentCogBase):
         response += " ".join([f"<#{cid}>" for cid in config.channels.value])
         response += "\n`[whitelisted_auto_channels:]` " if config.auto_channel_mode.value == "whitelist" else "\n`[blacklisted_auto_channels:]` " 
         response += " ".join([f"<#{cid}>" for cid in config.auto_channels.value])
-        if "arcenciel_image" in functions:
+        if "generate_stable_diffusion" in functions:
             response += "\n`[whitelisted_generation_channels:]` " if config.generation_channel_mode.value == "whitelist" else "\n`[blacklisted_generation_channels:]` " 
             response += " ".join([f"<#{cid}>" for cid in config.generation_channels.value])
         response += f"\n`[model_recaller:]` {config.model_recaller.value} `[effort_recaller:]` {config.effort_recaller.value}"

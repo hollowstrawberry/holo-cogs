@@ -1,4 +1,3 @@
-from arcenciel.moss import is_moss, build_moss_payload, safety_prompt
 import os
 import logging
 import asyncio
@@ -157,28 +156,17 @@ class Arcenciel(ArcencielCommands):
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
         assert payload or params
-        try:
-            payload = payload or await self.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
-        except ValueError as error:
-            if callback:
-                await callback
-            return await send_response(context, content=f":warning: {error}")
+        payload = payload or await self.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
 
         enabled = await self.config.guild(context.guild).enabled()
         if not enabled:
-            if callback:
-                await callback
             return await send_response(context, content=":warning: The generator is not enabled for this server.")
         
         if await self.reject_non_vip(context):
-            if callback:
-                await callback
             return
 
         prompt = params.prompt if params else payload.get("prompt", "")
-        if await self.contains_blacklisted_word(safety_prompt(payload)):
-            if callback:
-                await callback
+        if await self.contains_blacklisted_word(prompt):
             return await send_response(context, content=":warning: Blocked prompt.")
         
         gen = QueuedImageGen(
@@ -199,7 +187,7 @@ class Arcenciel(ArcencielCommands):
             await context.edit_original_response(embed=embed, view=view)
     
         try:
-            if not is_moss(payload.get("modelName")) and "masterpiece" not in prompt and "best quality" not in prompt:
+            if "masterpiece" not in prompt and "best quality" not in prompt:
                 payload["prompt"] = "masterpiece, best quality, " + prompt
             if params and params.image:
                 path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
@@ -348,6 +336,13 @@ class Arcenciel(ArcencielCommands):
 
 
     async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
+        stock_negative_prompt = await self.config.negative_prompt()
+        if stock_negative_prompt not in (params.negative_prompt or ""):
+            if params.negative_prompt:
+                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
+            else:
+                params.negative_prompt = stock_negative_prompt
+        
         checkpoint = params.checkpoint or await self.config.user(member).checkpoint() or await self.config.checkpoint() or ""
         vae = params.vae or await self.config.vae()
         loras = []
@@ -358,16 +353,6 @@ class Arcenciel(ArcencielCommands):
                 name, weight = lora, 1.0
             filename = name.replace(".safetensors", "") + ".safetensors"
             loras.append({ "name": filename, "weight": weight })
-
-        if is_moss(checkpoint):
-            return build_moss_payload(params, checkpoint, nsfw, loras)
-
-        stock_negative_prompt = await self.config.negative_prompt()
-        if stock_negative_prompt not in (params.negative_prompt or ""):
-            if params.negative_prompt:
-                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
-            else:
-                params.negative_prompt = stock_negative_prompt
 
         payload = {
             "mode": "img2img" if params.image else "txt2img",
