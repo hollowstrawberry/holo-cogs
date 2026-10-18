@@ -48,6 +48,9 @@ MOSS currently supports text-to-image. Variation, image-to-image, legacy region
 masks and hires are not enabled; unsupported buttons are hidden for MOSS results.
 The complete generated PNG workflow remains available in image information.
 
+The API client advertises gzip/deflate compression to remain compatible with
+Redbot installations whose optional Brotli binding cannot decode newer aiohttp responses.
+
 ## Verification
 
 Pure recipe, legacy payload and PNG metadata tests (Pillow required):

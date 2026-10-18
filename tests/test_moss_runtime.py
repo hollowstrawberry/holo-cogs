@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import discord
 from agent.tools.arcenciel_image import ArcencielImageTool
+from arcenciel.arcenciel_api import ArcEnCielAPI
 from arcenciel.commands import ArcencielCommands
 from arcenciel.moss import MOSS_SFT, moss_options
 from arcenciel.views.image_actions import ImageActions
@@ -14,6 +15,14 @@ from arcenciel.views.modify import ModifyModal
 
 
 class MossRuntime(unittest.IsolatedAsyncioTestCase):
+    async def test_api_advertises_builtin_compression_decoders(self):
+        client = ArcEnCielAPI(NS(), "https://example.test/api", "test-key")
+        try:
+            self.assertEqual(client.session.headers["Accept-Encoding"], "gzip, deflate")
+            self.assertEqual(client.session.headers["x-api-key"], "test-key")
+        finally:
+            await client.session.close()
+
     def context(self, blocked=False):
         guild = NS(me=NS(id=99))
         channel = MagicMock(spec=discord.TextChannel)
