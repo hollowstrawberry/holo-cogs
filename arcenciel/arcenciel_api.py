@@ -13,7 +13,9 @@ class ArcEnCielAPI:
     def __init__(self, cog: ArcencielBase, endpoint: str, api_key: str):
         self.cog = cog
         self.endpoint = endpoint
-        self.session = aiohttp.ClientSession(headers={"x-api-key": api_key})
+        # Some Redbot installations combine aiohttp with an older Brotli binding.
+        # Advertise only built-in decoders so compressed API responses remain readable.
+        self.session = aiohttp.ClientSession(headers={"x-api-key": api_key, "Accept-Encoding": "gzip, deflate"})
 
     async def update_autocomplete_cache(self) -> None:
         url = self.endpoint + "/generator/options"
