@@ -57,6 +57,7 @@ PROMPT_NODE_TYPES = {
     "cliptextencodesdxlrefiner",
     "cliptextencodesd3",
     "pclazytextencode",
+    "arcencielmosstextencode",
     "clip text encode (shinsplat)",
     "clip text encode alt (shinsplat)",
     "fooocus positive",
@@ -744,6 +745,8 @@ class ComfyMetadataReader:
 
     @staticmethod
     def looks_negative(text: str) -> bool:
+        if ComfyMetadataReader.is_moss_layout(text):
+            return False
         lower = text.lower()
         return any(hint in lower for hint in NEGATIVE_HINTS)
 
@@ -817,6 +820,21 @@ class ComfyMetadataReader:
         return None
 
     @staticmethod
+    def is_moss_layout(text: str) -> bool:
+        try:
+            value = json.loads(text)
+            return (
+                isinstance(value, dict)
+                and value.get("bbox_coord_space") == "abs_centralized"
+                and value.get("bbox_format") == "yxyx"
+                and isinstance(value.get("summary"), dict)
+                and isinstance(value["summary"].get("caption"), str)
+                and isinstance(value.get("items"), list)
+            )
+        except (ValueError, TypeError):
+            return False
+
+    @staticmethod
     def is_useful_text_candidate(text: str) -> bool:
         stripped = text.strip()
         if not stripped:
@@ -824,7 +842,7 @@ class ComfyMetadataReader:
         if stripped.lower() in TEXT_NOISE_VALUES:
             return False
         if stripped.startswith("{") and stripped.endswith("}"):
-            return False
+            return ComfyMetadataReader.is_moss_layout(stripped)
         return any(char.isalnum() for char in stripped)
 
     @staticmethod

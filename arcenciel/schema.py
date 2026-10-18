@@ -75,3 +75,4 @@ class ImageGenParams:
     subseed_strength: float     = 0.0
     image: ImageToImageParams | None = None
     regions: ImageRegionalParams | None = None
+    moss: dict | None = None

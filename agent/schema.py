@@ -154,6 +154,8 @@ class ImageGenParams:
     subseed_strength: float     = 0.0
     image: None                 = None
     regions: ImageRegionalParams | None = None
+    moss: dict | None = None
+    agent_request: bool = field(default=True, init=False)
 
 class SplitType(Enum):
     HORIZONTAL = "split-horizontal-2"

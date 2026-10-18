@@ -70,7 +70,10 @@ class ArcencielBase(commands.Cog):
                              message_content: str | None = None
                              ) -> None:
         raise NotImplementedError
-    
+
+    async def prepare_image_payload(self, context, params: ImageGenParams) -> dict:
+        raise NotImplementedError
+
     async def resolve_arcenciel_resources(self, metadata: ComfyMetadata) -> list[str]:
         raise NotImplementedError
 

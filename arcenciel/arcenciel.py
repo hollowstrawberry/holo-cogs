@@ -14,6 +14,7 @@ from discord.ext import tasks
 from redbot.core import commands
 
 from arcenciel import constants
+from arcenciel.moss import agent_settings, build_moss_payload, safety_prompt
 from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
 from arcenciel.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_raise_all
 from arcenciel.schema import ImageGenParams, QueuedImageGen
@@ -254,19 +255,24 @@ class Arcenciel(ArcencielCommands):
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
         assert payload or params
-        payload = payload or await self.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
+        ready = False
+        try:
+            if not await self.config.guild(context.guild).enabled():
+                return await send_response(context, content=":warning: The generator is not enabled for this server.")
+            if getattr(params, "agent_request", False):
+                agent_settings(self.bot.get_cog("AgentCog"), context)
+            if not await self.check_quota(context):
+                return
+            payload = payload or await self.prepare_image_payload(context, params)
+            if await self.contains_blacklisted_word(safety_prompt(payload)):
+                return await send_response(context, content=":warning: Blocked prompt.")
+            ready = True
+        except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
+            return await send_response(context, content=f":warning: The image couldn't be prepared. ({error})")
+        finally:
+            if not ready and callback is not None:
+                await callback
 
-        enabled = await self.config.guild(context.guild).enabled()
-        if not enabled:
-            return await send_response(context, content=":warning: The generator is not enabled for this server.")
-        
-        if not await self.check_quota(context):
-            return
-
-        prompt = params.prompt if params else payload.get("prompt", "")
-        if await self.contains_blacklisted_word(prompt):
-            return await send_response(context, content=":warning: Blocked prompt.")
-        
         gen = QueuedImageGen(
             "", payload,
             user, channel, context,
@@ -468,8 +474,26 @@ class Arcenciel(ArcencielCommands):
                 hyperlinks.add(link)
         return sorted(list(hyperlinks))
 
+    async def prepare_image_payload(self, context, params: ImageGenParams) -> dict:
+        overrides = None
+        if getattr(params, "agent_request", False):
+            overrides = agent_settings(self.bot.get_cog("AgentCog"), context)
+        member = context.user if isinstance(context, discord.Interaction) else context.author
+        return await self.build_image_payload(params, member, is_nsfw(context.channel), overrides=overrides)
 
-    async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
+    async def build_image_payload(
+        self, params: ImageGenParams, member: discord.Member, nsfw: bool, *, overrides=None
+    ) -> dict:
+        if getattr(params, "agent_request", False) or getattr(params, "moss", None) is not None:
+            assert self.api
+            options, catalog = await self.api.refresh_moss_profile()
+            loras = []
+            for lora in params.loras:
+                match = constants.LORA_PATTERN.match(lora)
+                name, weight = (match.group(2), float(match.group(3))) if match else (lora, 1.0)
+                loras.append({"name": name.removesuffix(".safetensors") + ".safetensors", "weight": weight})
+            return build_moss_payload(params, options, catalog, nsfw, loras, overrides)
+
         stock_negative_prompt = await self.config.negative_prompt()
         if stock_negative_prompt not in (params.negative_prompt or ""):
             if params.negative_prompt:

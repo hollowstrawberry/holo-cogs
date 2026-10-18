@@ -14,7 +14,9 @@ class ArcEnCielAPI:
     def __init__(self, cog: ArcencielBase, endpoint: str, api_key: str):
         self.cog = cog
         self.endpoint = endpoint
-        self.session = aiohttp.ClientSession(headers={"x-api-key": api_key})
+        self.session = aiohttp.ClientSession(headers={"x-api-key": api_key, "Accept-Encoding": "gzip, deflate"})
+        self.generator_options: dict = {}
+        self.model_catalog: dict = {}
 
     async def update_autocomplete_cache(self) -> None:
         url = self.endpoint + "/generator/options"
@@ -26,6 +28,17 @@ class ArcEnCielAPI:
             self.cog.autocomplete_cache[key] = {clean_model(name): name for name in model_names}
         for key in ["samplers", "schedulers"]:
             self.cog.autocomplete_cache[key] = {name: name for name in data.get("limits", {}).get(key, [])}
+
+    async def refresh_moss_profile(self) -> tuple[dict, dict]:
+        # Refresh on each new recipe so server changes never leave a stale local default.
+        snapshot = []
+        for route in ("/generator/options", "/generator/models"):
+            async with self.session.get(self.endpoint + route) as response:
+                if response.status >= 400:
+                    raise ImageGenError(await self._extract_error(response))
+                snapshot.append(await response.json())
+        self.generator_options, self.model_catalog = snapshot
+        return self.generator_options, self.model_catalog
 
     async def request_image(self, payload: dict) -> dict:
         parse_prompts(payload)
