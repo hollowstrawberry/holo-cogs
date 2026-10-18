@@ -19,6 +19,7 @@ from agent.schema import AgentMessage, AgentImageContent, ImageGenParams, Messag
 from agent.commands import AgentCogCommands
 from agent.config_commands import AgentCogConfigCommands
 from agent.tools.base import get_all_tools
+from agent.tools.arcenciel_images import spoiler_adult_image_links
 from agent.tools.update_memory import UpdateMemoryTool
 from agent.context_builder import ContextBuilder
 from agent.views.memory_change import MemoryChangeView
@@ -391,6 +392,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 
         tool_call_history: list[str] = []
+        adult_image_ids: set[int] = set()
         memory_changes: list[MemoryChangeResult] = []
         files: list[discord.File] = []
         do_reply = True
@@ -452,6 +454,10 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                         args = json.loads(call.function.arguments)
 
                     tool_result = await cls(ctx, self).run(args)
+                    if call.function.name == "search_images_arcenciel" and isinstance(tool_result, dict):
+                        for image in tool_result.get("results", {}).get("image", []):
+                            if image.get("rating") in ("sensitive", "explicit"):
+                                adult_image_ids.add(image["@id"])
 
                 except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                     tool_result = "<error>Unhandled error, please contact the developer</error>"
@@ -506,6 +512,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 completion = pattern.sub(repl, completion)
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
             completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
+            completion = spoiler_adult_image_links(completion, adult_image_ids)
             completion = utils.undo_xml(completion).strip()
             if self.config.extended_logging.value and completion != raw_completion:
                 log.info(f"cleaned_{completion=}")
