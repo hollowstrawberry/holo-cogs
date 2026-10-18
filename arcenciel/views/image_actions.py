@@ -12,13 +12,15 @@ log = logging.getLogger("red.holo-cogs.arcenciel")
 
 
 class ImageActions(discord.ui.View):
-    def __init__(self,
-                 cog: ArcencielBase,
-                 metadata: ComfyMetadata,
-                 payload: dict,
-                 author: discord.Member,
-                 channel: discord.abc.Messageable,
-                 maxsize: int):
+    def __init__(
+        self,
+        cog: ArcencielBase,
+        metadata: ComfyMetadata,
+        payload: dict,
+        author: discord.Member,
+        channel: discord.abc.Messageable,
+        maxsize: int,
+    ) -> None:
         super().__init__(timeout=VIEW_TIMEOUT)
         self.metadata = metadata
         self.payload = payload
@@ -49,8 +51,9 @@ class ImageActions(discord.ui.View):
         if not payload.get("upscaleProfiles", False):
             self.add_item(self.button_reroll)
             self.add_item(self.button_modify)
-            self.add_item(self.button_variation)
-            if self.payload["width"]*self.payload["height"]*1.1 < maxsize*maxsize:
+            if "moss" not in payload:
+                self.add_item(self.button_variation)
+            if "moss" not in payload and self.payload["width"] * self.payload["height"] * 1.1 < maxsize * maxsize:
                 self.add_item(self.button_upscale)
         self.add_item(self.button_delete)
 
@@ -62,12 +65,13 @@ class ImageActions(discord.ui.View):
         view = ImageInfoView(self.metadata.raw or "")
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
-    async def reroll_image(self, interaction: discord.Interaction):
+    async def reroll_image(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(thinking=True)
         payload = deepcopy(self.payload)
         payload["seed"] = -1
-        payload["extraSeed"] = -1
-        payload["extraSeedStrength"] = 0
+        if "moss" not in payload:
+            payload["extraSeed"] = -1
+            payload["extraSeedStrength"] = 0
         message_content = f"Reroll requested by {interaction.user.mention}"
         await self.generate_image(interaction, payload=payload, message_content=message_content)
 

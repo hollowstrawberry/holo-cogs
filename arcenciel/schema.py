@@ -1,4 +1,4 @@
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -75,3 +75,5 @@ class ImageGenParams:
     subseed_strength: float     = 0.0
     image: ImageToImageParams | None = None
     regions: ImageRegionalParams | None = None
+    # Raw options are validated into MossOptions before they reach the API.
+    moss: Mapping[str, object] | None = None
