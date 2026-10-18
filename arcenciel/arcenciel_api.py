@@ -1,6 +1,7 @@
 import json
 import logging
 import aiohttp
+from typing import Any
 from collections.abc import AsyncIterator
 
 from arcenciel.base import ArcencielBase
@@ -59,7 +60,7 @@ class ArcEnCielAPI:
             r = await response.json()
         return r["jobs"]
 
-    async def stream_previews(self) -> AsyncIterator[dict]:
+    async def stream_previews(self) -> AsyncIterator[dict[str, Any]]:
         url = self.endpoint + "/generator/events"
         timeout = aiohttp.ClientTimeout(total=None, sock_read=45)
         async with self.session.get(url, headers={"Accept": "text/event-stream"}, timeout=timeout) as response:

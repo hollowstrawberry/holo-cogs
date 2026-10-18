@@ -60,7 +60,7 @@ class Arcenciel(ArcencielCommands):
             try:
                 async for preview in self.api.stream_previews():
                     retry_delay = 2
-                    gen = self.queued_images.get(preview.get("jobId"))
+                    gen = self.queued_images.get(preview.get("jobId") or "")
                     if (not gen or gen.cancelled or gen.preview_disabled or not gen.progress_v2_view
                             or not is_nsfw(gen.channel)):
                         continue
@@ -208,11 +208,11 @@ class Arcenciel(ArcencielCommands):
                 if attachments is not None:
                     kwargs["attachments"] = attachments
                 if isinstance(gen.context, discord.Interaction):
-                    await gen.context.edit_original_response(**kwargs)
+                    await gen.context.edit_original_response(**kwargs)  # type: ignore
                 elif gen.progress_message:
-                    await gen.progress_message.edit(**kwargs)
+                    await gen.progress_message.edit(**kwargs)  # type: ignore
 
-            if pending_preview:
+            if pending_preview and gen.progress_v2_view:
                 try:
                     await edit_progress([preview_file])
                 except discord.HTTPException:
@@ -284,7 +284,7 @@ class Arcenciel(ArcencielCommands):
             embed = discord.Embed(description=f"{loading} Image request sent...", color=color)
             embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
-            if gen.progress_v2_view:
+            if isinstance(view, discord.ui.LayoutView):
                 gen.progress_message = await context.reply(view=view, mention_author=False,
                                                            allowed_mentions=discord.AllowedMentions.none())
             else:

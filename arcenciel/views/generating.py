@@ -7,7 +7,7 @@ from arcenciel.schema import QueuedImageGen
 from arcenciel.utils import ImageGenError
 
 
-class _GeneratingControls:
+class _GeneratingControls(discord.ui.view.BaseView):
     def _setup_controls(self, cog: ArcencielBase, gen: QueuedImageGen):
         self.cog = cog
         self.gen = gen
