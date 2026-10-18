@@ -148,6 +148,62 @@ class ArcencielCommands(ArcencielSettings):
         await self.generate_image(ctx, params=params, message_content=message_content)
 
 
+    @app_commands.command(name="moss")
+    @app_commands.guild_only()
+    @app_commands.checks.bot_has_permissions(attach_files=True, embed_links=True)
+    @app_commands.choices(resolution=_resolution_choices, variant=[
+        app_commands.Choice(name="Moss SFT", value="sft"),
+        app_commands.Choice(name="Moss Base", value="base"),
+    ])
+    @app_commands.describe(
+        prompt="Describe the complete scene in natural language.",
+        variant="Moss SFT is the default; Moss Base is available for comparison.",
+        resolution="Image dimensions.",
+        left="Optional character or subject on the left.",
+        right="Optional character or subject on the right.",
+        title="Optional exact lettering across the top.",
+        negative_prompt="Optional unwanted visual details.",
+        seed="Use -1 for a new random seed.",
+    )
+    async def moss_app(
+        self,
+        interaction: discord.Interaction,
+        prompt: str,
+        variant: str = "sft",
+        resolution: str = "1024x1024",
+        left: str = "",
+        right: str = "",
+        title: str = "",
+        negative_prompt: str = "",
+        seed: app_commands.Range[int, -1, None] = -1,
+    ):
+        """Generate with MOSS, optionally placing left/right subjects and a title."""
+        from arcenciel.moss import MOSS_SFT, MOSS_BASE, moss_options
+        await interaction.response.defer(thinking=True)
+        ctx = await self.bot.get_context(interaction)
+        if not await self.can_run_command(ctx, "txt2img"):
+            return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
+        width, height = map(int, resolution.split("x"))
+        boxes = []
+        top = 250 if title else 50
+        if left:
+            boxes.append({"label": "character", "caption": left, "bbox": [top, 20, 950, 480]})
+        if right:
+            boxes.append({"label": "character", "caption": right, "bbox": [top, 520, 950, 980]})
+        if title:
+            boxes.append({"label": "text", "caption": "Large clear title", "text": title, "bbox": [30, 50, 210, 950]})
+        try:
+            options = moss_options(boxes)
+        except ValueError as error:
+            return await interaction.followup.send(str(error), ephemeral=True)
+        params = ImageGenParams(
+            prompt=prompt, negative_prompt=negative_prompt, width=width, height=height,
+            checkpoint=MOSS_BASE if variant == "base" else MOSS_SFT,
+            steps=28, cfg=4, sampler="euler", scheduler="moss", seed=seed, moss=options,
+        )
+        await self.generate_image(interaction, params=params)
+
+
     @app_commands.command(name="txt2img")
     @app_commands.guild_only()
     @app_commands.checks.bot_has_permissions(attach_files=True, embed_links=True)
