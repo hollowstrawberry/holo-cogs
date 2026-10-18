@@ -19,7 +19,8 @@ from redbot.core.bot import Red
 from openai import Omit
 
 from agent.schema import AgentImageContent, AgentMessage, StructuredObject
-from agent.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN
+from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING
+from agent.constants import NEWLINE_SEPARATOR_PATTERN, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN, MENTION_PATTERN
 
 log = logging.getLogger("agent.utils")
 
@@ -172,6 +173,14 @@ def adjusted_effort(model: str, effort: str) -> str | Omit:
    
 def clean_model(model: str) -> str:
     return model.replace("$", "")  # identifies openwebui model
+
+def parse_mentions(guild: discord.Guild, text: str) -> str:
+    def replace(match: re.Match) -> str:
+        prefix, name = match.groups()
+        group = guild.members if prefix == "@" else guild.channels
+        obj = discord.utils.find(lambda o: name == o.name, group)
+        return obj.mention if obj else match.group(0)
+    return MENTION_PATTERN.sub(replace, text)
    
 def parse_prompt(prompt: str) -> str:
     prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)

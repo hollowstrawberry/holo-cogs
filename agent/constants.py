@@ -1,5 +1,4 @@
 import re
-from typing import OrderedDict
 from datetime import datetime, timezone
 from discord.utils import DISCORD_EPOCH
 
@@ -51,6 +50,7 @@ NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
 PIPE_SEPARATOR_PATTERN = re.compile(r"\s*\|\|\s*")
 UNCLOSED_XML_TAG_PATTERN = re.compile(r"<[^>]*$")
 XML_TAG_PATTERN = re.compile(r"<(/)?(\w+)[^>]*?(/)?>")
+MENTION_PATTERN = re.compile(r"(?<!\w)([@#])(\w[\w.-]*\w)")
 
 URL_PATTERN = re.compile(r"(https?://\S+)")
 GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")

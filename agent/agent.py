@@ -514,6 +514,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
             completion = spoiler_adult_image_links(completion, adult_image_ids)
             completion = utils.undo_xml(completion).strip()
+            completion = utils.parse_mentions(ctx, completion)
+            
             if self.config.extended_logging.value and completion != raw_completion:
                 log.info(f"cleaned_{completion=}")
 
