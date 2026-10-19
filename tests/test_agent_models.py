@@ -86,6 +86,16 @@ def profile():
 
 
 class AgentModelSelection(unittest.TestCase):
+    def test_lora_catalog_response_requires_object_entries(self):
+        self.assertEqual(
+            models.parse_lora_entries({"entries": [{"name": "one.safetensors"}]}),
+            [{"name": "one.safetensors"}],
+        )
+        with self.assertRaisesRegex(ValueError, "Invalid generator LoRA catalog"):
+            models.parse_lora_entries({"entries": "not a list"})
+        with self.assertRaisesRegex(ValueError, "Invalid generator LoRA catalog entry"):
+            models.parse_lora_entries({"entries": [None]})
+
     def test_configured_default_explicit_switch_and_inherited_recipe(self):
         options, catalog = profile()
         self.assertEqual(models.choose_model(options, catalog).name, "moss.safetensors")

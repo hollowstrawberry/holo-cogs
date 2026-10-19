@@ -412,14 +412,15 @@ class AgentCogConfigCommands(AgentCogBase):
         await self.config.tool_settings.save()
         await ctx.tick()
 
-    @agentconfig.command(name="image_default")
-    async def agentconfig_image_default(self, ctx: commands.Context, *, selection: str = ""):
+    @agentconfig.command(name="image_default")  # type: ignore[untyped-decorator]
+    async def agentconfig_image_default(self, ctx: commands.Context, *, selection: str = "") -> None:
         """Set the guild's default image family or an exact available checkpoint."""
         assert ctx.guild
         field = self.config[ctx.guild].image_model_default
         selection = selection.strip()
         if not selection:
-            return await ctx.reply(f"Default image model: `{field.value}`", mention_author=False)
+            await ctx.reply(f"Default image model: `{field.value}`", mention_author=False)
+            return
         if selection.lower() == "reset":
             selection = "moss"
         import aiohttp
@@ -429,12 +430,14 @@ class AgentCogConfigCommands(AgentCogBase):
 
         arcenciel = self.bot.get_cog("Arcenciel")
         if not isinstance(arcenciel, Arcenciel) or arcenciel.api is None:
-            return await ctx.reply("The Arc en Ciel generator is unavailable.", mention_author=False)
+            await ctx.reply("The Arc en Ciel generator is unavailable.", mention_author=False)
+            return
         try:
             options, catalog = await arcenciel.api.refresh_moss_profile()
             choice = choose_model(options, catalog, default=selection)
         except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
-            return await ctx.reply(f"Invalid image default: {error}", mention_author=False)
+            await ctx.reply(f"Invalid image default: {error}", mention_author=False)
+            return
         stored = selection.lower() if selection.lower() in FAMILIES else choice.name
         await field.set(stored)
         await ctx.reply(f"Default image model: `{stored}`", mention_author=False)

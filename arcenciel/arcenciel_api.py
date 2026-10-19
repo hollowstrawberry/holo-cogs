@@ -5,6 +5,7 @@ from typing import Any
 
 import aiohttp
 
+from arcenciel.agent_models import parse_lora_entries
 from arcenciel.base import ArcencielBase
 from arcenciel.moss import json_object
 from arcenciel.utils import ImageGenError, clean_model, parse_prompts
@@ -57,15 +58,14 @@ class ArcEnCielAPI:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
 
-    async def find_lora_entries(self, query: str) -> list[dict[str, object]]:
+    async def find_lora_entries(self, query: str) -> list[Mapping[str, object]]:
         if query.lower().endswith(".safetensors"):
             async with self.session.get(
                 self.endpoint + "/generator/models/loras/resolve", params={"name": query}
             ) as response:
                 if response.status >= 400:
                     raise ImageGenError(await self._extract_error(response))
-                resolved = await response.json()
-            entries = resolved.get("entries", [])
+                entries = parse_lora_entries(await response.json())
             if entries:
                 return entries
         async with self.session.get(
@@ -73,8 +73,7 @@ class ArcEnCielAPI:
         ) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
-            found = await response.json()
-        return found.get("entries", [])
+            return parse_lora_entries(await response.json())
 
     async def cancel_request(self, id: str):
         url = f"{self.endpoint}/generator/jobs/{id}/cancel"

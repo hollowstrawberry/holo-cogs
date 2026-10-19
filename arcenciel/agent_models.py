@@ -7,10 +7,22 @@ import re
 from collections.abc import Mapping
 from typing import NamedTuple
 
-from .moss import is_array, is_object, is_strings, resolve_profile
+from .moss import is_array, is_object, is_strings, json_object, resolve_profile
 from .moss_types import ImageParams, MossLora
 
 FAMILIES = ("moss", "anima", "illustrious", "noobai")
+
+
+def parse_lora_entries(data: object) -> list[Mapping[str, object]]:
+    entries = json_object(data).get("entries")
+    if not is_array(entries):
+        raise ValueError("Invalid generator LoRA catalog.")
+    result: list[Mapping[str, object]] = []
+    for entry in entries:
+        if not is_object(entry):
+            raise ValueError("Invalid generator LoRA catalog entry.")
+        result.append(entry)
+    return result
 
 
 class ModelChoice(NamedTuple):
