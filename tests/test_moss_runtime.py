@@ -49,6 +49,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         guild = NS(
             enabled_functions=NS(value=["arcenciel_image"]),
             prompt_keys=NS(value={"moss": "Editable guild instructions"}),
+            image_prompt_key=NS(value="moss"),
             image_model_default=NS(value="moss"),
             generation_channel_mode=NS(value="blacklist"),
             generation_channels=NS(value=[]),
@@ -129,6 +130,21 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
             (payload["modelName"], payload["width"], payload["cfg"]), ("renamed-sft.safetensors", 768, 3.5)
         )
         self.assertFalse(agent.currently_generating)
+
+    async def test_selected_custom_prompt_key_enables_both_agent_paths(self) -> None:
+        ctx, agent, cog, guild = self.setup_request()
+        guild.prompt_keys.value = {"imagegen": "Creator instructions"}
+        guild.image_prompt_key.value = "imagegen"
+        self.assertIn("result", await ArcencielImageTool(ctx, agent).run({"prompt": "A cat"}))
+        await self.finish_queued(cog)
+        cog.api.request_image.assert_awaited_once()
+
+        ctx, agent, cog, guild = self.setup_request()
+        guild.prompt_keys.value = {"imagegen": "Creator instructions"}
+        guild.image_prompt_key.value = "imagegen"
+        await AgentCog.generate_stable_diffusion(agent, ctx, "A cat")
+        await self.finish_queued(cog)
+        cog.api.request_image.assert_awaited_once()
 
     async def test_agent_default_and_explicit_checkpoint_switch(self) -> None:
         ctx, agent, cog, guild = self.setup_request()

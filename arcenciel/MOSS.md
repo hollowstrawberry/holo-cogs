@@ -14,10 +14,12 @@ When a family has several available checkpoints and no matching generator
 default, set an exact filename. An explicit model in the request overrides this
 default; a referenced bot image otherwise supplies its original checkpoint.
 
-Create an editable `image_generation` prompt key and include
-`{image_generation}` in both responder and autoresponder prompts. The old `moss`
-key is still accepted, but its instructions should be updated to mention all
-supported families. Suggested key contents:
+Create an editable prompt key with any name the owner prefers. For example,
+create `imagegen`, then select it with `[p]agent image_prompt_key imagegen` and
+include `{imagegen}` in the responder prompt (and the autoresponder prompt if
+it should generate images). The selected key defaults to `moss` for existing
+guilds. It must contain nonempty instructions before agent image generation is
+allowed. Suggested contents, editable by the creator:
 
 ```text
 Use the Arc en Ciel image tool for image requests. Its internal function name is
@@ -46,7 +48,8 @@ prompts, defaults or the running bot configuration.
 
 ## Previous MOSS rollout notes
 
-The `arcenciel_image` agent tool and the agent's legacy text fallback now use MOSS.
+The initial MOSS rollout added MOSS to the `arcenciel_image` agent tool and its
+legacy text fallback.
 `/moss` is the explicit command. Existing `/txt2img`, `/regional` and other model
 commands keep their existing settings. This change targets `testing2026` and keeps
 its previews, image search and spoiler handling. `agent/agent.py` is unchanged.
@@ -56,11 +59,14 @@ its previews, image search and spoiler handling. `agent/agent.py` is unchanged.
 Review and install the PR before activating it. There is no automatic prompt or
 configuration migration. For each guild that uses the image tool:
 
-1. Open the existing `[p]prompt` editor and create a custom key named `moss`.
+1. Open the existing `[p]prompt` editor and create a custom key with the owner's
+   preferred name, such as `imagegen`. Select it using
+   `[p]agent image_prompt_key imagegen`; existing guilds default to `moss`.
    `[p]` means the bot's configured command prefix. The instructions below are a
    starting point to edit, not a prompt injected by the code.
-2. Add `{moss}` to the existing responder and autoresponder prompts using
-   `[p]prompt responder` and `[p]prompt autoresponder`. Remove conflicting Anima,
+2. Add `{imagegen}` (or the chosen key name) to the existing responder prompt
+   using `[p]prompt responder`, and to `[p]prompt autoresponder` if automatic
+   responses should generate images. Remove conflicting Anima,
    booru-only and `||` image-generation instructions from those prompts. Create the
    key **before** referencing it: the built-in formatter rejects missing keys.
 3. Check `[p]prompt full` and the autoresponder editor. The key is expanded by the
@@ -73,13 +79,13 @@ configuration migration. For each guild that uses the image tool:
    existing tool settings are global, while the prompt key is per guild.
 5. Keep `arcenciel_image` enabled only where wanted. Existing generation-channel
    restrictions, moderator exceptions, server enablement, quotas, SFW mode and
-   prompt filtering apply. A missing/empty `moss` key blocks agent generation,
+   prompt filtering apply. A missing/empty selected key blocks agent generation,
    including the old text fallback; explicit `/moss` does not require an LLM key.
 6. Test a normal scene, a left/right scene, exact lettering, reroll and modify in
    the intended Discord channel. Check the normal and automatic responders before
    broad use. The PR tests do not send Discord messages or alter live bot config.
 
-Suggested editable `moss` key:
+Suggested editable prompt key for MOSS:
 
 ```text
 Use the Arc en Ciel image tool for image requests. Its internal function name is

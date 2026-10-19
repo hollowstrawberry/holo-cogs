@@ -49,6 +49,7 @@ class AgentCogConfigCommands(AgentCogBase):
         response += f"\n`[model_memorizer:]` {config.model_memorizer.value} `[effort_memorizer:]` {config.effort_memorizer.value}"
         response += f"\n`[allow_memorizer:]` {config.allow_memorizer.value} `[memorizer_alerts:]` {config.memorizer_alerts.value} `[memorizer_user_only:]` {config.memorizer_user_only.value}"
         response += f"\n`[tools:]` {' / '.join(functions)}" 
+        response += f"\n`[image_prompt_key:]` {config.image_prompt_key.value}"
         response += f"\n`[image_model_default:]` {config.image_model_default.value}"
         response += "\n## Limits"
         response += f"\n`[response_tokens:]` {config.response_tokens.value} `[backread_tokens:]` {config.backread_tokens.value}"
@@ -411,6 +412,25 @@ class AgentCogConfigCommands(AgentCogBase):
         setting_values[key] = value
         await self.config.tool_settings.save()
         await ctx.tick()
+
+    @agentconfig.command(name="image_prompt_key")  # type: ignore[untyped-decorator]
+    async def agentconfig_image_prompt_key(self, ctx: commands.Context, *, key: str = "") -> None:
+        """Select an existing guild prompt key that enables agent image generation."""
+        assert ctx.guild
+        config = self.config[ctx.guild]
+        key = key.strip()
+        if not key:
+            await ctx.reply(f"Image prompt key: `{config.image_prompt_key.value}`", mention_author=False)
+            return
+        from arcenciel.moss import configured_image_prompt
+
+        try:
+            configured_image_prompt(config.prompt_keys.value or {}, key)
+        except ValueError as error:
+            await ctx.reply(str(error), mention_author=False)
+            return
+        await config.image_prompt_key.set(key)
+        await ctx.reply(f"Image prompt key: `{key}`", mention_author=False)
 
     @agentconfig.command(name="image_default")  # type: ignore[untyped-decorator]
     async def agentconfig_image_default(self, ctx: commands.Context, *, selection: str = "") -> None:
