@@ -51,6 +51,31 @@ class ArcEnCielAPI:
             r = await response.json()
         return r["job"]
 
+    async def preflight_image(self, payload: dict[str, object]) -> None:
+        url = self.endpoint + "/generator/preflight"
+        async with self.session.post(url, json=payload) as response:
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
+
+    async def find_lora_entries(self, query: str) -> list[dict[str, object]]:
+        if query.lower().endswith(".safetensors"):
+            async with self.session.get(
+                self.endpoint + "/generator/models/loras/resolve", params={"name": query}
+            ) as response:
+                if response.status >= 400:
+                    raise ImageGenError(await self._extract_error(response))
+                resolved = await response.json()
+            entries = resolved.get("entries", [])
+            if entries:
+                return entries
+        async with self.session.get(
+            self.endpoint + "/generator/models/loras", params={"q": query, "limit": 25}
+        ) as response:
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
+            found = await response.json()
+        return found.get("entries", [])
+
     async def cancel_request(self, id: str):
         url = f"{self.endpoint}/generator/jobs/{id}/cancel"
         async with self.session.post(url) as response:

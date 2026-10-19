@@ -1,4 +1,50 @@
-# MOSS on testing2026
+# Agent image models on testing2026
+
+The conversational Arc en Ciel tool now accepts MOSS, Anima and the
+Illustrious/NoobAI family. GPT image generation and editing remain separate.
+Illustrious and NoobAI LoRAs work with either checkpoint base; an exact base match
+is preferred when several catalog results match a LoRA name.
+
+## Configure the conversational default
+
+`[p]agent image_default` shows the current per-guild default. The owner can set
+`[p]agent image_default moss`, `anima`, `illustrious`, `noobai`, or an exact
+accessible checkpoint filename. `[p]agent image_default reset` restores MOSS.
+When a family has several available checkpoints and no matching generator
+default, set an exact filename. An explicit model in the request overrides this
+default; a referenced bot image otherwise supplies its original checkpoint.
+
+Create an editable `image_generation` prompt key and include
+`{image_generation}` in both responder and autoresponder prompts. The old `moss`
+key is still accepted, but its instructions should be updated to mention all
+supported families. Suggested key contents:
+
+```text
+Use the Arc en Ciel image tool for image requests. Its internal function name is
+generate_stable_diffusion. Set model_family only when the user asks for MOSS,
+Anima, Illustrious or NoobAI; otherwise let the tool use a referenced image,
+compatible LoRA or configured default. Set checkpoint when the user names a
+specific available model. Pass requested LoRAs in the loras field by catalog
+title or filename and weight. Never invent a filename. Describe the complete
+scene and respect the requested composition. Only MOSS supports boxes for
+placement and exact lettering. Coordinates are [top, left, bottom, right] in
+0..1000. Do not put layout JSON or legacy || separators in the prompt. A
+referenced bot image reuses its seed, size, checkpoint and LoRAs unless
+overridden; it is rendered again, not edited at the pixel level. Wait for the
+generated result before describing it. Explain model and LoRA errors rather
+than silently changing the requested model.
+```
+
+The tool resolves available model names through `/generator/models`, searches
+requested LoRAs through `/generator/models/loras`, and calls
+`/generator/preflight` before queueing. Anima's defaults come from
+`/generator/options` after the matching API change is deployed. Existing
+channel restrictions, quota, SFW mode, filtering and spoiler handling apply.
+The existing internal function name also prevents the legacy text fallback
+from starting a duplicate job. Installing this PR does not rewrite guild
+prompts, defaults or the running bot configuration.
+
+## Previous MOSS rollout notes
 
 The `arcenciel_image` agent tool and the agent's legacy text fallback now use MOSS.
 `/moss` is the explicit command. Existing `/txt2img`, `/regional` and other model

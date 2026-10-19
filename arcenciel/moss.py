@@ -281,11 +281,12 @@ def agent_settings(agent: object, context: commands.Context) -> dict[str, str]:
     config = agent.config[context.guild]
     if "arcenciel_image" not in config.enabled_functions.value:
         raise ValueError("The image tool is not enabled for this server.")
-    prompt = (config.prompt_keys.value or {}).get("moss")
+    keys = config.prompt_keys.value or {}
+    prompt = keys.get("image_generation") or keys.get("moss")
     if not isinstance(prompt, str) or not prompt.strip():
         raise ValueError(
-            "The bot owner must configure the moss prompt key and include {moss} "
-            "in the responder prompts before using MOSS."
+            "The bot owner must configure the image_generation or moss prompt key "
+            "and include it in the responder prompts before using image generation."
         )
     mode, channels = config.generation_channel_mode.value, config.generation_channels.value
     if (

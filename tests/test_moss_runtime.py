@@ -49,6 +49,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         guild = NS(
             enabled_functions=NS(value=["arcenciel_image"]),
             prompt_keys=NS(value={"moss": "Editable guild instructions"}),
+            image_model_default=NS(value="moss"),
             generation_channel_mode=NS(value="blacklist"),
             generation_channels=NS(value=[]),
             channel_mode=NS(value="blacklist"),
@@ -81,6 +82,8 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         cog.config.guild.return_value.enabled = AsyncMock(return_value=True)
         cog.api = NS(
             refresh_moss_profile=AsyncMock(return_value=server_profile()),
+            preflight_image=AsyncMock(),
+            find_lora_entries=AsyncMock(return_value=[]),
             request_image=AsyncMock(return_value={"id": "test-job"}),
         )
         cog.queued_images = {}
@@ -127,6 +130,61 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(agent.currently_generating)
 
+    async def test_agent_default_and_explicit_checkpoint_switch(self) -> None:
+        ctx, agent, cog, guild = self.setup_request()
+        guild.image_model_default.value = "anima"
+        result = await ArcencielImageTool(ctx, agent).run({"prompt": "A traveler in a forest"})
+        self.assertIn("result", result)
+        await self.finish_queued(cog)
+        payload = cog.api.request_image.call_args.args[0]
+        self.assertEqual((payload["modelName"], payload["steps"], payload["cfg"]), ("anima.safetensors", 30, 4))
+        self.assertNotIn("moss", payload)
+        cog.api.preflight_image.assert_awaited()
+
+        ctx, agent, cog, guild = self.setup_request()
+        guild.image_model_default.value = "moss"
+        result = await ArcencielImageTool(ctx, agent).run({
+            "prompt": "A traveler in a forest", "model_family": "illustrious", "checkpoint": "noob.safetensors",
+        })
+        self.assertIn("result", result)
+        await self.finish_queued(cog)
+        payload = cog.api.request_image.call_args.args[0]
+        self.assertEqual(payload["modelName"], "noob.safetensors")
+        self.assertNotIn("moss", payload)
+
+    async def test_lora_infers_base_and_cross_base_is_accepted(self) -> None:
+        ctx, agent, cog, _ = self.setup_request()
+        cog.api.find_lora_entries.return_value = [
+            {"name": "character.safetensors", "baseModel": "NoobAI Eps", "modelTitle": "Character"}
+        ]
+        result = await ArcencielImageTool(ctx, agent).run({
+            "prompt": "A character", "loras": [{"name": "Character", "weight": 0.8}],
+        })
+        self.assertIn("result", result)
+        await self.finish_queued(cog)
+        payload = cog.api.request_image.call_args.args[0]
+        self.assertEqual(payload["modelName"], "noob.safetensors")
+        self.assertEqual(payload["loras"], [{"name": "character.safetensors", "weight": 0.8}])
+
+        ctx, agent, cog, _ = self.setup_request()
+        cog.api.find_lora_entries.return_value = [
+            {"name": "illus-character.safetensors", "baseModel": "Illustrious 1.0", "modelTitle": "Character"}
+        ]
+        result = await ArcencielImageTool(ctx, agent).run({
+            "prompt": "A character", "checkpoint": "noob.safetensors", "loras": [{"name": "Character"}],
+        })
+        self.assertIn("result", result)
+        await self.finish_queued(cog)
+        self.assertEqual(cog.api.request_image.call_args.args[0]["loras"][0]["name"], "illus-character.safetensors")
+
+    async def test_preflight_failure_never_queues(self) -> None:
+        ctx, agent, cog, _ = self.setup_request()
+        cog.api.preflight_image.side_effect = ValueError("Incompatible LoRA")
+        result = await ArcencielImageTool(ctx, agent).run({"prompt": "A cat"})
+        self.assertIn("Incompatible LoRA", result)
+        cog.api.request_image.assert_not_awaited()
+        self.assertFalse(agent.currently_generating)
+
     async def test_missing_prompt_disabled_tool_and_channel_policy_block_both_paths(self) -> None:
         for problem in ("prompt", "disabled", "channel"):
             with self.subTest(problem=problem):
@@ -156,7 +214,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
             cog.api.request_image.assert_not_awaited()
             self.assertFalse(agent.currently_generating)
         ctx, agent, cog, _ = self.setup_request()
-        agent.config.tool_settings.value = {"checkpoint": "anima.safetensors"}
+        agent.config.tool_settings.value = {"checkpoint": "removed.safetensors"}
         self.assertIn("<error>", await ArcencielImageTool(ctx, agent).run({"prompt": "A cat"}))
         cog.api.request_image.assert_not_awaited()
 

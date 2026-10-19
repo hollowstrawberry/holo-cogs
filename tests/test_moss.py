@@ -41,6 +41,13 @@ def server_profile() -> tuple[dict[str, Any], dict[str, Any]]:
                 },
                 "samplers": ["euler", "heun"],
                 "schedulers": ["moss"],
+                "anima": {
+                    "defaults": {
+                        "modelName": "anima.safetensors",
+                        "steps": 30, "cfg": 4, "samplerName": "euler_ancestral",
+                        "scheduler": "beta", "width": 1024, "height": 1024,
+                    }
+                },
             }
         },
         {
@@ -56,6 +63,8 @@ def server_profile() -> tuple[dict[str, Any], dict[str, Any]]:
                     "storageState": "loaded",
                 },
                 {"name": "anima.safetensors", "modelCapabilities": ["anima"], "storageState": "loaded"},
+                {"name": "illus.safetensors", "baseModel": "Illustrious 1.0", "modelCapabilities": [], "storageState": "loaded"},
+                {"name": "noob.safetensors", "baseModel": "NoobAI Eps", "modelCapabilities": [], "storageState": "loaded"},
             ]
         },
     )
