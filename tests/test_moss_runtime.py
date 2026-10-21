@@ -49,7 +49,6 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         guild = NS(
             enabled_functions=NS(value=["arcenciel_image"]),
             prompt_keys=NS(value={"moss": "Editable guild instructions"}),
-            image_prompt_key=NS(value="moss"),
             image_model_default=NS(value="moss"),
             generation_channel_mode=NS(value="blacklist"),
             generation_channels=NS(value=[]),
@@ -106,7 +105,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
                 await gen.callback
                 gen.callback = None
 
-    async def test_tool_uses_builtin_prompt_key_and_dynamic_profile(self) -> None:
+    async def test_tool_uses_dynamic_profile(self) -> None:
         ctx, agent, cog, guild = self.setup_request()
         result = await ArcencielImageTool(ctx, agent).run({"prompt": "Two friends in a garden", "boxes": [box()]})
         await self.finish_queued(cog)
@@ -131,17 +130,15 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(agent.currently_generating)
 
-    async def test_selected_custom_prompt_key_enables_both_agent_paths(self) -> None:
+    async def test_prompt_keys_do_not_gate_either_agent_path(self) -> None:
         ctx, agent, cog, guild = self.setup_request()
-        guild.prompt_keys.value = {"imagegen": "Creator instructions"}
-        guild.image_prompt_key.value = "imagegen"
+        guild.prompt_keys.value = {}
         self.assertIn("result", await ArcencielImageTool(ctx, agent).run({"prompt": "A cat"}))
         await self.finish_queued(cog)
         cog.api.request_image.assert_awaited_once()
 
         ctx, agent, cog, guild = self.setup_request()
-        guild.prompt_keys.value = {"imagegen": "Creator instructions"}
-        guild.image_prompt_key.value = "imagegen"
+        guild.prompt_keys.value = {}
         await AgentCog.generate_stable_diffusion(agent, ctx, "A cat")
         await self.finish_queued(cog)
         cog.api.request_image.assert_awaited_once()
@@ -160,7 +157,17 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         ctx, agent, cog, guild = self.setup_request()
         guild.image_model_default.value = "moss"
         result = await ArcencielImageTool(ctx, agent).run({
-            "prompt": "A traveler in a forest", "model_family": "illustrious", "checkpoint": "noob.safetensors",
+            "prompt": "A traveler in a forest", "checkpoint": "Illustrious",
+        })
+        self.assertIn("result", result)
+        await self.finish_queued(cog)
+        payload = cog.api.request_image.call_args.args[0]
+        self.assertEqual(payload["modelName"], "illus.safetensors")
+        self.assertNotIn("moss", payload)
+
+        ctx, agent, cog, _ = self.setup_request()
+        result = await ArcencielImageTool(ctx, agent).run({
+            "prompt": "A traveler in a forest", "checkpoint": "noob.safetensors",
         })
         self.assertIn("result", result)
         await self.finish_queued(cog)
@@ -174,7 +181,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
             {"name": "character.safetensors", "baseModel": "NoobAI Eps", "modelTitle": "Character"}
         ]
         result = await ArcencielImageTool(ctx, agent).run({
-            "prompt": "A character", "loras": [{"name": "Character", "weight": 0.8}],
+            "prompt": "A character <lora:character:0.8>",
         })
         self.assertIn("result", result)
         await self.finish_queued(cog)
@@ -187,7 +194,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
             {"name": "illus-character.safetensors", "baseModel": "Illustrious 1.0", "modelTitle": "Character"}
         ]
         result = await ArcencielImageTool(ctx, agent).run({
-            "prompt": "A character", "checkpoint": "noob.safetensors", "loras": [{"name": "Character"}],
+            "prompt": "A character <lora:illus-character:1.0>", "checkpoint": "noob.safetensors",
         })
         self.assertIn("result", result)
         await self.finish_queued(cog)
@@ -201,13 +208,11 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         cog.api.request_image.assert_not_awaited()
         self.assertFalse(agent.currently_generating)
 
-    async def test_missing_prompt_disabled_tool_and_channel_policy_block_both_paths(self) -> None:
-        for problem in ("prompt", "disabled", "channel"):
+    async def test_disabled_tool_and_channel_policy_block_both_paths(self) -> None:
+        for problem in ("disabled", "channel"):
             with self.subTest(problem=problem):
                 ctx, agent, cog, guild = self.setup_request()
-                if problem == "prompt":
-                    guild.prompt_keys.value = {}
-                elif problem == "disabled":
+                if problem == "disabled":
                     guild.enabled_functions.value = []
                 else:
                     guild.generation_channels.value = [ctx.channel.id]

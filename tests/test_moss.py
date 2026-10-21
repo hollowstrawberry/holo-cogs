@@ -98,16 +98,6 @@ def box() -> dict[str, Any]:
 
 
 class MossContract(unittest.TestCase):
-    def test_selected_image_prompt_key_is_required(self) -> None:
-        keys = {"imagegen": "Creator instructions", "moss": " "}
-        self.assertEqual(moss.configured_image_prompt(keys, "imagegen"), "Creator instructions")
-        with self.assertRaisesRegex(ValueError, "`moss`"):
-            moss.configured_image_prompt(keys, "moss")
-        with self.assertRaisesRegex(ValueError, "`missing`"):
-            moss.configured_image_prompt(keys, "missing")
-        with self.assertRaisesRegex(ValueError, "select an image prompt key"):
-            moss.configured_image_prompt(keys, "")
-
     def test_discovery_follows_changed_models_and_server_defaults(self) -> None:
         options, catalog = server_profile()
         for name, steps, cfg, shift, width in [

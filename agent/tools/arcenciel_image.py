@@ -38,47 +38,27 @@ class ArcencielImageTool(ToolBase):
     schema = ToolCall(
         Function(
             name="generate_stable_diffusion",
-            description="Generate on Arc en Ciel with MOSS, Anima or Illustrious/NoobAI. "
-            "MOSS alone supports Regional Boxes. Can make a new rendition of a bot image recipe.",
+            description="Generate with MOSS, Anima or Illustrious/NoobAI. "
+            "MOSS supports boxes; can rerender a bot image.",
             parameters=Parameters(
                 properties={
                     "existing": {
                         "type": "string",
-                        "description": "Bot image filename: reuse its seed, size and MOSS layout for a new rendition.",
+                        "description": "Bot image filename: reuse seed, size and MOSS layout.",
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "Use prose for subjects, relationships, setting, style and details. "
-                        "Do not put layout JSON or || separators here.",
+                        "description": "Scene prose; optional <lora:filename:weight> tags. No layout JSON or ||.",
                     },
                     "negative_prompt": {"type": "string", "description": "Optional unwanted visual details."},
-                    "model_family": {
-                        "type": "string",
-                        "enum": ["moss", "anima", "illustrious", "noobai"],
-                        "description": "Choose a requested family. Omit to use a prior image, LoRA or default.",
-                    },
                     "checkpoint": {
                         "type": "string",
-                        "description": "Available checkpoint filename or title when requested; otherwise omit.",
-                    },
-                    "loras": {
-                        "type": "array",
-                        "maxItems": 4,
-                        "description": "Requested LoRAs by file or catalog title. Never invent filenames.",
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "properties": {
-                                "name": {"type": "string"},
-                                "weight": {"type": "number", "minimum": 0, "maximum": 2},
-                            },
-                            "required": ["name"],
-                        },
+                        "description": "moss/anima/illustrious/noobai or exact checkpoint; omit for default.",
                     },
                     "resolution": {"type": "string", "enum": ["square", "portrait", "landscape", "ultrawide"]},
                     "boxes": {
                         "type": "array",
-                        "description": "Placement boxes. Omit for ordinary scenes; [] clears an existing layout.",
+                        "description": "MOSS placement; [] clears inherited layout.",
                         "items": {
                             "type": "object",
                             "additionalProperties": False,
@@ -88,20 +68,19 @@ class ArcencielImageTool(ToolBase):
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 2048,
-                                    "description": "Appearance, pose and visual details for this region.",
                                 },
                                 "bbox": {
                                     "type": "array",
                                     "items": {"type": "integer", "minimum": 0, "maximum": 1000},
                                     "minItems": 4,
                                     "maxItems": 4,
-                                    "description": "[top,left,bottom,right]; top < bottom and left < right.",
+                                    "description": "[top,left,bottom,right], 0..1000.",
                                 },
                                 "text": {
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 1024,
-                                    "description": "Only for label=text: exact lettering and line breaks.",
+                                    "description": "Exact lettering for text boxes.",
                                 },
                             },
                             "required": ["label", "caption", "bbox"],
@@ -142,7 +121,7 @@ class ArcencielImageTool(ToolBase):
 
         if not isinstance(arcenciel, Arcenciel):
             return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
-        from arcenciel.agent_models import choose_lora, choose_model, lora_family_hint, lora_weight
+        from arcenciel.agent_models import FAMILIES, choose_lora, choose_model, lora_family_hint, lora_weight
         from arcenciel.moss import agent_settings, layout_from_metadata
         from arcenciel.utils import ImageGenError
 
@@ -155,8 +134,9 @@ class ArcencielImageTool(ToolBase):
             negative_prompt = text_argument(arguments, "negative_prompt") if "negative_prompt" in arguments else None
             aspect = text_argument(arguments, "resolution").lower()
             existing = text_argument(arguments, "existing")
-            family = text_argument(arguments, "model_family").lower()
-            checkpoint = text_argument(arguments, "checkpoint")
+            checkpoint = text_argument(arguments, "checkpoint").strip()
+            if checkpoint.lower() in FAMILIES:
+                checkpoint = checkpoint.lower()
         except ValueError as error:
             return f"<error>{error}</error>"
         if not prompt.strip():
@@ -213,18 +193,7 @@ class ArcencielImageTool(ToolBase):
                 requested_loras.append((name, lora_weight(float(weight))))
         except ValueError as error:
             return f"<error>{error}</error>"
-        if "loras" in arguments:
-            raw_loras = arguments["loras"]
-            if not isinstance(raw_loras, list) or len(raw_loras) > 4:
-                return "<error>Provide at most four LoRAs.</error>"
-            for entry in raw_loras:
-                if not isinstance(entry, dict) or not isinstance(entry.get("name"), str) or not entry["name"].strip():
-                    return "<error>Each LoRA needs a name.</error>"
-                try:
-                    requested_loras.append((entry["name"].strip(), lora_weight(entry.get("weight", 1))))
-                except ValueError as error:
-                    return f"<error>{error}</error>"
-        if not requested_loras and "loras" not in arguments and sent_by_me:
+        if not requested_loras and sent_by_me:
             original_prompt = metadata.get("Prompt")
             if isinstance(original_prompt, str):
                 try:
@@ -253,11 +222,11 @@ class ArcencielImageTool(ToolBase):
             hints = {hint for name, _, entries in lora_candidates if (hint := lora_family_hint(entries, name))}
             if hints <= {"noobai", "illustrious"} and len(hints) > 1:
                 hints = {"illustrious"}
-            if len(hints) > 1 and not (family or checkpoint or inherited):
+            if len(hints) > 1 and not (checkpoint or inherited):
                 raise ValueError("The requested LoRAs target different model families. Choose a checkpoint explicitly.")
-            inferred_family = next(iter(hints), "") if not (family or checkpoint or inherited) else ""
+            inferred_family = next(iter(hints), "") if not (checkpoint or inherited) else ""
             choice = choose_model(
-                options, catalog, family=family or inferred_family, checkpoint=checkpoint,
+                options, catalog, family=inferred_family, checkpoint=checkpoint,
                 inherited=inherited, default=default,
             )
             if choice.family != "moss" and moss:

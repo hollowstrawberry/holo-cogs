@@ -14,20 +14,18 @@ When a family has several available checkpoints and no matching generator
 default, set an exact filename. An explicit model in the request overrides this
 default; a referenced bot image otherwise supplies its original checkpoint.
 
-Create an editable prompt key with any name the owner prefers. For example,
-create `imagegen`, then select it with `[p]agent image_prompt_key imagegen` and
-include `{imagegen}` in the responder prompt (and the autoresponder prompt if
-it should generate images). The selected key defaults to `moss` for existing
-guilds. It must contain nonempty instructions before agent image generation is
-allowed. Suggested contents, editable by the creator:
+The existing modular prompt editor accepts any key name. For example, create
+`imagegen` and include `{imagegen}` in the responder prompt (and the
+autoresponder prompt if it should generate images). No separate image prompt
+setting is needed. Suggested contents, editable by the creator:
 
 ```text
 Use the Arc en Ciel image tool for image requests. Its internal function name is
-generate_stable_diffusion. Set model_family only when the user asks for MOSS,
-Anima, Illustrious or NoobAI; otherwise let the tool use a referenced image,
-compatible LoRA or configured default. Set checkpoint when the user names a
-specific available model. Pass requested LoRAs in the loras field by catalog
-title or filename and weight. Never invent a filename. Describe the complete
+generate_stable_diffusion. Set checkpoint to moss, anima, illustrious or noobai
+when the user requests a family, or to a specific available filename when they
+request a model; otherwise let the tool use a referenced image, compatible LoRA
+or configured default. Search for requested LoRAs and put their returned
+<lora:filename:weight> tags in prompt. Never invent a filename. Describe the complete
 scene and respect the requested composition. Only MOSS supports boxes for
 placement and exact lettering. Coordinates are [top, left, bottom, right] in
 0..1000. Do not put layout JSON or legacy || separators in the prompt. A
@@ -60,10 +58,9 @@ Review and install the PR before activating it. There is no automatic prompt or
 configuration migration. For each guild that uses the image tool:
 
 1. Open the existing `[p]prompt` editor and create a custom key with the owner's
-   preferred name, such as `imagegen`. Select it using
-   `[p]agent image_prompt_key imagegen`; existing guilds default to `moss`.
-   `[p]` means the bot's configured command prefix. The instructions below are a
-   starting point to edit, not a prompt injected by the code.
+   preferred name, such as `imagegen`. `[p]` means the bot's configured command
+   prefix. The instructions below are a starting point to edit, not a prompt
+   injected by the code. No separate image prompt selection is required.
 2. Add `{imagegen}` (or the chosen key name) to the existing responder prompt
    using `[p]prompt responder`, and to `[p]prompt autoresponder` if automatic
    responses should generate images. Remove conflicting Anima,
@@ -76,11 +73,11 @@ configuration migration. For each guild that uses the image tool:
    `scheduler`, `steps`, `cfg` and `shift` settings are explicit agent overrides.
    Clear an old override by sending `[p]agent tool setting checkpoint` (likewise
    for each other key). Empty values use the current server profile. These
-   existing tool settings are global, while the prompt key is per guild.
+   existing tool settings are global, while prompt keys are per guild.
 5. Keep `arcenciel_image` enabled only where wanted. Existing generation-channel
    restrictions, moderator exceptions, server enablement, quotas, SFW mode and
-   prompt filtering apply. A missing/empty selected key blocks agent generation,
-   including the old text fallback; explicit `/moss` does not require an LLM key.
+   prompt filtering apply. The owner controls image instructions through the
+   existing modular prompts; image generation has no separate prompt-key gate.
 6. Test a normal scene, a left/right scene, exact lettering, reroll and modify in
    the intended Discord channel. Check the normal and automatic responders before
    broad use. The PR tests do not send Discord messages or alter live bot config.

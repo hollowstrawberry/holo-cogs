@@ -268,20 +268,8 @@ def build_moss_payload(
     }
 
 
-def configured_image_prompt(keys: Mapping[str, object], selected_key: object) -> str:
-    """Require the guild's selected, editable prompt key before agent image generation."""
-    if not isinstance(selected_key, str) or not selected_key.strip():
-        raise ValueError("The bot owner must select an image prompt key for this server.")
-    prompt = keys.get(selected_key)
-    if not isinstance(prompt, str) or not prompt.strip():
-        raise ValueError(
-            f"The bot owner must configure the `{selected_key}` image prompt key before using image generation."
-        )
-    return prompt
-
-
 def agent_settings(agent: object, context: commands.Context) -> dict[str, str]:
-    """Narrow the optional cog lookup before reading guild prompt keys and permissions."""
+    """Narrow the optional cog lookup before reading guild permissions."""
     import discord
 
     from agent.base import AgentCogBase
@@ -293,8 +281,6 @@ def agent_settings(agent: object, context: commands.Context) -> dict[str, str]:
     config = agent.config[context.guild]
     if "arcenciel_image" not in config.enabled_functions.value:
         raise ValueError("The image tool is not enabled for this server.")
-    keys = config.prompt_keys.value or {}
-    configured_image_prompt(keys, config.image_prompt_key.value)
     mode, channels = config.generation_channel_mode.value, config.generation_channels.value
     if (
         mode == "blacklist"
