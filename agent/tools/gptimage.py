@@ -103,7 +103,7 @@ class GptImageGenTool(GptImageToolBase):
     display_name="gptimage_gen"
     schema = ToolCall(
         Function(
-            name="generate_image",
+            name="generate_image_gpt",
             description="Generate an image with GPT, suitable for general/generic content.",
             parameters=Parameters(
                 properties={
