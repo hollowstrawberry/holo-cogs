@@ -1,6 +1,7 @@
-import discord
-from typing import Literal, Optional
 from functools import reduce
+from typing import Literal, Optional
+
+import discord
 from redbot.core import commands
 
 from agent.base import AgentCogBase
@@ -48,6 +49,7 @@ class AgentCogConfigCommands(AgentCogBase):
         response += f"\n`[model_memorizer:]` {config.model_memorizer.value} `[effort_memorizer:]` {config.effort_memorizer.value}"
         response += f"\n`[allow_memorizer:]` {config.allow_memorizer.value} `[memorizer_alerts:]` {config.memorizer_alerts.value} `[memorizer_user_only:]` {config.memorizer_user_only.value}"
         response += f"\n`[tools:]` {' / '.join(functions)}" 
+        response += f"\n`[image_model_default:]` {config.image_model_default.value}"
         response += "\n## Limits"
         response += f"\n`[response_tokens:]` {config.response_tokens.value} `[backread_tokens:]` {config.backread_tokens.value}"
         response += f"\n`[backread_messages:]` {config.backread_messages.value} `[backread_short:]` {config.backread_short.value}"
@@ -409,6 +411,36 @@ class AgentCogConfigCommands(AgentCogBase):
         setting_values[key] = value
         await self.config.tool_settings.save()
         await ctx.tick()
+
+    @agentconfig.command(name="image_default")  # type: ignore[untyped-decorator]
+    async def agentconfig_image_default(self, ctx: commands.Context, *, selection: str = "") -> None:
+        """Set the guild's default image family or an exact available checkpoint."""
+        assert ctx.guild
+        field = self.config[ctx.guild].image_model_default
+        selection = selection.strip()
+        if not selection:
+            await ctx.reply(f"Default image model: `{field.value}`", mention_author=False)
+            return
+        if selection.lower() == "reset":
+            selection = "moss"
+        import aiohttp
+        from arcenciel.agent_models import FAMILIES, choose_model
+        from arcenciel.arcenciel import Arcenciel
+        from arcenciel.utils import ImageGenError
+
+        arcenciel = self.bot.get_cog("Arcenciel")
+        if not isinstance(arcenciel, Arcenciel) or arcenciel.api is None:
+            await ctx.reply("The Arc en Ciel generator is unavailable.", mention_author=False)
+            return
+        try:
+            options, catalog = await arcenciel.api.refresh_moss_profile()
+            choice = choose_model(options, catalog, default=selection)
+        except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
+            await ctx.reply(f"Invalid image default: {error}", mention_author=False)
+            return
+        stored = selection.lower() if selection.lower() in FAMILIES else choice.name
+        await field.set(stored)
+        await ctx.reply(f"Default image model: `{stored}`", mention_author=False)
 
 
 

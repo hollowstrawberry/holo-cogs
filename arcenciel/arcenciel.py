@@ -18,6 +18,7 @@ from discord.ext import tasks
 from redbot.core import commands
 
 from arcenciel import constants
+from arcenciel.agent_models import build_standard_agent_payload, choose_model
 from arcenciel.arcenciel_api import ArcEnCielAPI
 from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
 from arcenciel.commands import ArcencielCommands
@@ -501,12 +502,24 @@ class Arcenciel(ArcencielCommands):
         self, context: commands.Context | discord.Interaction, params: ImageParams
     ) -> dict[str, object]:
         overrides: Mapping[str, object] | None = None
+        agent_default = "moss"
         if getattr(params, "agent_request", False):
             assert isinstance(context, commands.Context)
-            overrides = agent_settings(self.bot.get_cog("AgentCog"), context)
+            from agent.base import AgentCogBase
+
+            agent = self.bot.get_cog("AgentCog")
+            overrides = agent_settings(agent, context)
+            assert isinstance(agent, AgentCogBase) and context.guild
+            agent_default = agent.config[context.guild].image_model_default.value
         member = context.user if isinstance(context, discord.Interaction) else context.author
         assert isinstance(member, discord.Member) and isinstance(context.channel, (discord.TextChannel, discord.Thread))
-        return await self.build_image_payload(params, member, is_nsfw(context.channel), overrides=overrides)
+        payload = await self.build_image_payload(
+            params, member, is_nsfw(context.channel), overrides=overrides, agent_default=agent_default
+        )
+        if getattr(params, "agent_request", False):
+            assert self.api
+            await self.api.preflight_image(payload)
+        return payload
 
     async def build_image_payload(
         self,
@@ -515,6 +528,7 @@ class Arcenciel(ArcencielCommands):
         nsfw: bool,
         *,
         overrides: Mapping[str, object] | None = None,
+        agent_default: str = "moss",
     ) -> dict[str, object]:
         if getattr(params, "agent_request", False) or getattr(params, "moss", None) is not None:
             assert self.api
@@ -526,6 +540,15 @@ class Arcenciel(ArcencielCommands):
                 moss_loras.append(
                     {"name": moss_name.removesuffix(".safetensors") + ".safetensors", "weight": moss_weight}
                 )
+            if getattr(params, "agent_request", False):
+                default = agent_default
+                old_checkpoint = overrides.get("checkpoint") if overrides else None
+                if default == "moss" and isinstance(old_checkpoint, str) and old_checkpoint:
+                    default = old_checkpoint
+                choice = choose_model(options, catalog, checkpoint=params.checkpoint or "", default=default)
+                params.checkpoint = choice.name
+                if choice.family != "moss":
+                    return build_standard_agent_payload(params, options, choice, nsfw, moss_loras)
             return dict(build_moss_payload(params, options, catalog, nsfw, moss_loras, overrides))
 
         stock_negative_prompt = await self.config.negative_prompt()
