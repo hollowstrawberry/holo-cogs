@@ -32,14 +32,12 @@ def dimensions(value: str) -> tuple[int, int]:
 
 
 class ArcencielImageTool(ToolBase):
-    # Keep the display name so existing enabled_functions configuration still works.
     display_name = "arcenciel_image"
     settings = {key: "" for key in ("checkpoint", "sampler", "scheduler", "steps", "cfg", "shift")}
     schema = ToolCall(
         Function(
-            name="generate_stable_diffusion",
-            description="Generate with MOSS, Anima or Illustrious/NoobAI. "
-            "MOSS supports boxes; can rerender a bot image.",
+            name="generate_image",
+            description="Generate with open models including MOSS, Anima, and Illustrious/NoobAI. May also revise a previous image. Only MOSS supports boxes.",
             parameters=Parameters(
                 properties={
                     "existing": {
@@ -48,17 +46,23 @@ class ArcencielImageTool(ToolBase):
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "Scene prose; optional <lora:filename:weight> tags. No layout JSON or ||.",
+                        "description": "Raw text prompt. Supports the format <lora:filename:weight>",
                     },
-                    "negative_prompt": {"type": "string", "description": "Optional unwanted visual details."},
+                    "negative_prompt": {
+                        "type": "string",
+                        "description": "Optional unwanted visual details."
+                    },
                     "checkpoint": {
                         "type": "string",
-                        "description": "moss/anima/illustrious/noobai or exact checkpoint; omit for default.",
+                        "description": "Supported values are moss/anima/illustrious/noobai or an exact checkpoint. Omit for default.",
                     },
-                    "resolution": {"type": "string", "enum": ["square", "portrait", "landscape", "ultrawide"]},
+                    "resolution": {
+                        "type": "string",
+                        "enum": ["square", "portrait", "landscape", "ultrawide"]
+                    },
                     "boxes": {
                         "type": "array",
-                        "description": "MOSS placement; [] clears inherited layout.",
+                        "description": "Optional MOSS placement; [] clears inherited layout.",
                         "items": {
                             "type": "object",
                             "additionalProperties": False,
