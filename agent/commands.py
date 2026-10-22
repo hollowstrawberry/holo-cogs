@@ -157,7 +157,10 @@ class AgentCogCommands(AgentCogBase):
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            await ctx.message.delete()
+            try:
+                await ctx.message.delete()
+            except discord.DiscordException:
+                pass
 
     @commands.command(name="deletememory", aliases=["delmemory"]) # type: ignore
     @commands.has_permissions(manage_guild=True)
@@ -173,7 +176,10 @@ class AgentCogCommands(AgentCogBase):
             await ctx.send(f"No memory of `{name}`", delete_after=60)
         assert ctx.guild
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            await ctx.message.delete()
+            try:
+                await ctx.message.delete()
+            except discord.DiscordException:
+                pass
 
     @commands.command(name="setmemory") # type: ignore
     @commands.has_permissions(manage_guild=True)
@@ -193,4 +199,7 @@ class AgentCogCommands(AgentCogBase):
         view.message = await ctx.send(view=view)
         assert ctx.guild
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            await ctx.message.delete()
+            try:
+                await ctx.message.delete()
+            except discord.DiscordException:
+                pass
