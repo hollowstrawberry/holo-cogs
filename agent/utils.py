@@ -3,6 +3,7 @@ import re
 import struct
 import logging
 import asyncio
+import aiohttp
 import mutagen
 import discord
 import contextlib
@@ -225,6 +226,17 @@ def parse_arcenciel_model(data: dict) -> StructuredObject:
         versions_obj.append(ver_obj)
     obj["versions"] = {"version": versions_obj}
     return obj
+
+
+async def is_valid_openrouter_model(session: aiohttp.ClientSession, model: str) -> bool:
+    if model.count("/") != 1:
+        return False
+    author, slug = model.split("/")
+    async with session.get(f"https://openrouter.ai/api/v1/models/{author}/{slug}/endpoints") as resp:
+        if resp.status == 404:
+            return False
+        resp.raise_for_status()
+    return True
 
 
 async def chunk_and_send(ctx: commands.Context,

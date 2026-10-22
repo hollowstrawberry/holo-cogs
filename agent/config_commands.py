@@ -1,3 +1,4 @@
+import logging
 from functools import reduce
 from typing import Literal, Optional
 
@@ -5,9 +6,12 @@ import discord
 from redbot.core import commands
 
 from agent.base import AgentCogBase
+from agent.utils import is_valid_openrouter_model
 from agent.config_base import ConfigField
 from agent.constants import EFFORT_VALUES, VISION_MODELS
 from agent.tools.base import get_all_tools
+
+log = logging.getLogger("agent.utils")
 
 
 class AgentCogConfigCommands(AgentCogBase):
@@ -40,7 +44,6 @@ class AgentCogConfigCommands(AgentCogBase):
         color = await ctx.embed_color()
 
         code = lambda s: f"`{s}`"
-        two_code = lambda s1, s2: f"{code(s1)} ({code(s2)})"
         list_code = lambda lst: ", ".join([code(s) for s in lst])
         chance = lambda f: f"{f * 100:.2f}%"
 
@@ -54,12 +57,16 @@ class AgentCogConfigCommands(AgentCogBase):
         # embed 1
         settings = discord.Embed(title="Agent Cog Settings", color=color)
  
-        settings.add_field(name="Recaller", value=two_code(config.model_recaller.value, config.effort_recaller.value))
-        settings.add_field(name="Responder", value=two_code(config.model_responder.value, config.effort_responder.value))
-        settings.add_field(name="Memorizer", value=two_code(config.model_memorizer.value, config.effort_memorizer.value))
+        settings.add_field(name="Recaller Model", value=code(config.model_recaller.value))
+        settings.add_field(name="Responder Model", value=code(config.model_responder.value))
+        settings.add_field(name="Memorizer Model", value=code(config.model_memorizer.value))
+
+        settings.add_field(name="Recaller Effort", value=code(config.effort_recaller.value))
+        settings.add_field(name="Responder Effort", value=code(config.effort_responder.value))
+        settings.add_field(name="Memorizer Effort", value=code(config.effort_memorizer.value))
  
-        settings.add_field(name="Captioner", value=code(config.model_captioner.value))
-        settings.add_field(name="Autoreacter", value=code(config.model_autoreacter.value))
+        settings.add_field(name="Captioner Model", value=code(config.model_captioner.value))
+        settings.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
         settings.add_field(name="Default Image Model", value=code(config.image_model_default.value))
  
         settings.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
@@ -71,8 +78,8 @@ class AgentCogConfigCommands(AgentCogBase):
         if "generate_stable_diffusion" in tools:
             channel_field("Generation Channels", config.generation_channel_mode.value, config.generation_channels.value)
 
-        settings.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} s"))
-        settings.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} s"))
+        settings.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
+        settings.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
         settings.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
 
         settings.add_field(name="Tools", value=list_code(tools), inline=False)
@@ -82,11 +89,11 @@ class AgentCogConfigCommands(AgentCogBase):
         misc = discord.Embed(color=color)
  
         misc.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
-        misc.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} min"))
+        misc.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes"))
  
         misc.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
         misc.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
-        misc.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} min"))
+        misc.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
  
         misc.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
         misc.add_field(name="No-Response Emoji", value=self.config.noresponse_emoji.value)
@@ -512,18 +519,25 @@ class AgentCogConfigCommands(AgentCogBase):
             "captioner":   config.model_captioner,
             "autoreacter": config.model_autoreacter,
         }
+        
         if not model or not model.strip():
-            await ctx.reply(f"Current model for the {module} is {fields[module].value}")
-        elif "/" not in model and "$" not in model and model.strip().lower() not in VISION_MODELS:
-            await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
-        else:
-            await fields[module].set(model.strip().lower())
-            if "$" in model:
-                await ctx.reply("Model changed. Note that this model will be used through OpenWebui, and things may break unexpectedly.")
-            elif "/" in model:
-                await ctx.reply("Model changed. Note that this model will be used through OpenRouter, and things may break unexpectedly.")
-            else:
-                await ctx.tick(message="Model changed")
+            return await ctx.reply(f"Current model for the {module} is {fields[module].value}")
+
+        if "$" in model:
+            await ctx.reply("This model will be used through OpenWebui, and things may break unexpectedly.")
+        elif "/" in model:
+            try:
+                is_valid = await is_valid_openrouter_model(self.session, model)
+            except Exception as error:
+                log.error(f"Failed to contact OpenRouter. {type(error).__name__}: {error}")
+                await ctx.reply("There was an error trying to contact OpenRouter, but the model will be changed anyway.")
+            if not is_valid:
+                return await ctx.reply("That is not a valid OpenRouter model! You may browse models [here](<https://openrouter.ai/discover>).")
+        elif model.strip().lower() not in VISION_MODELS:
+            return await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
+        
+        await fields[module].set(model.strip().lower())
+        await ctx.tick(message="Model changed.")
 
     EffortPromptTypes = Literal["recaller", "responder", "memorizer"]
 
