@@ -113,12 +113,37 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         payload = cog.api.request_image.call_args.args[0]
         self.assertEqual(payload["modelName"], "renamed-sft.safetensors")
         self.assertEqual((payload["steps"], payload["cfg"], payload["moss"]["shift"]), (26, 3.5, 6))
-        self.assertEqual(payload["negativePrompt"], "")
+        self.assertEqual(payload["negativePrompt"], "old booru tags")
         self.assertNotIn("adetailer", payload)
         self.assertFalse(agent.currently_generating)
-        self.assertEqual(ArcencielImageTool.schema.function.name, "generate_stable_diffusion")
+        self.assertEqual(ArcencielImageTool.schema.function.name, "generate_image")
         self.assertEqual(guild.prompt_keys.value, {"moss": "Editable guild instructions"})
-        cog.config.negative_prompt.assert_not_awaited()
+        cog.config.negative_prompt.assert_awaited_once()
+
+    async def test_agent_negative_prompt_extends_default_without_duplication(self) -> None:
+        for checkpoint in ("moss", "anima"):
+            for requested, expected in (
+                ("blurry details", "old booru tags, blurry details"),
+                ("old booru tags, blurry details", "old booru tags, blurry details"),
+            ):
+                with self.subTest(checkpoint=checkpoint, requested=requested):
+                    ctx, agent, cog, _ = self.setup_request()
+                    result = await ArcencielImageTool(ctx, agent).run({
+                        "prompt": "A cat", "checkpoint": checkpoint, "negative_prompt": requested,
+                    })
+                    self.assertIn("result", result)
+                    await self.finish_queued(cog)
+                    payload = cog.api.request_image.call_args.args[0]
+                    self.assertEqual(payload["negativePrompt"], expected)
+                    self.assertEqual(cog.api.preflight_image.call_args.args[0]["negativePrompt"], expected)
+
+    async def test_empty_cog_negative_prompt_is_sent_explicitly(self) -> None:
+        ctx, agent, cog, guild = self.setup_request()
+        guild.image_model_default.value = "anima"
+        cog.config.negative_prompt.return_value = ""
+        self.assertIn("result", await ArcencielImageTool(ctx, agent).run({"prompt": "A cat"}))
+        await self.finish_queued(cog)
+        self.assertEqual(cog.api.request_image.call_args.args[0]["negativePrompt"], "")
 
     async def test_actual_legacy_text_fallback_uses_same_profile(self) -> None:
         ctx, agent, cog, _ = self.setup_request()
@@ -151,6 +176,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         await self.finish_queued(cog)
         payload = cog.api.request_image.call_args.args[0]
         self.assertEqual((payload["modelName"], payload["steps"], payload["cfg"]), ("anima.safetensors", 30, 4))
+        self.assertEqual(payload["negativePrompt"], "old booru tags")
         self.assertNotIn("moss", payload)
         cog.api.preflight_image.assert_awaited()
 
@@ -163,6 +189,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         await self.finish_queued(cog)
         payload = cog.api.request_image.call_args.args[0]
         self.assertEqual(payload["modelName"], "illus.safetensors")
+        self.assertEqual(payload["negativePrompt"], "old booru tags")
         self.assertNotIn("moss", payload)
 
         ctx, agent, cog, _ = self.setup_request()
@@ -173,6 +200,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         await self.finish_queued(cog)
         payload = cog.api.request_image.call_args.args[0]
         self.assertEqual(payload["modelName"], "noob.safetensors")
+        self.assertEqual(payload["negativePrompt"], "old booru tags")
         self.assertNotIn("moss", payload)
 
     async def test_lora_infers_base_and_cross_base_is_accepted(self) -> None:
@@ -269,8 +297,13 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         payload = await cog.build_image_payload(ImageGenParams(prompt="legacy prompt"), ctx.author, False)
         self.assertEqual(payload["modelName"], "user-anima.safetensors")
         self.assertEqual(payload["cfg"], 5)
+        self.assertEqual(payload["negativePrompt"], "old booru tags")
         self.assertIn("adetailer", payload)
         cog.api.refresh_moss_profile.assert_not_awaited()
+        extra = await cog.build_image_payload(
+            ImageGenParams(prompt="legacy prompt", negative_prompt="blurry details"), ctx.author, False
+        )
+        self.assertEqual(extra["negativePrompt"], "old booru tags, blurry details")
 
     async def test_legacy_regional_masks_keep_geometry_and_paths(self) -> None:
         from io import BytesIO
@@ -336,6 +369,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
         payload = await cog.build_image_payload(
             ImageGenParams(prompt="Natural scene", moss=moss_options([box()], max_boxes=3)), ctx.author, False
         )
+        self.assertEqual(payload["negativePrompt"], "old booru tags")
         metadata = NS(as_dict=lambda: {"Prompt": '{"summary":{}}', "Negative Prompt": "", "Seed": "42"}, raw="{}")
         view = ImageActions(cog, metadata, payload, ctx.author, ctx.channel, 2048)
         self.assertNotIn(view.button_variation, view.children)
@@ -405,6 +439,7 @@ class MossRuntime(unittest.IsolatedAsyncioTestCase):
             await self.finish_queued(cog)
             payload = cog.api.request_image.call_args.args[0]
             self.assertEqual(payload["seed"], 42)
+            self.assertEqual(payload["negativePrompt"], "old booru tags, low quality")
             if overrides:
                 self.assertNotIn("layout", payload["moss"])
             else:

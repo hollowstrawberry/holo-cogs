@@ -530,6 +530,14 @@ class Arcenciel(ArcencielCommands):
         overrides: Mapping[str, object] | None = None,
         agent_default: str = "moss",
     ) -> dict[str, object]:
+        stock_negative_prompt = await self.config.negative_prompt()
+        if stock_negative_prompt not in (params.negative_prompt or ""):
+            if params.negative_prompt:
+                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
+            else:
+                params.negative_prompt = stock_negative_prompt
+        params.negative_prompt = params.negative_prompt or stock_negative_prompt
+
         if getattr(params, "agent_request", False) or getattr(params, "moss", None) is not None:
             assert self.api
             options, catalog = await self.api.refresh_moss_profile()
@@ -551,13 +559,6 @@ class Arcenciel(ArcencielCommands):
                     return build_standard_agent_payload(params, options, choice, nsfw, moss_loras)
             return dict(build_moss_payload(params, options, catalog, nsfw, moss_loras, overrides))
 
-        stock_negative_prompt = await self.config.negative_prompt()
-        if stock_negative_prompt not in (params.negative_prompt or ""):
-            if params.negative_prompt:
-                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
-            else:
-                params.negative_prompt = stock_negative_prompt
-        
         checkpoint = params.checkpoint or await self.config.user(member).checkpoint() or await self.config.checkpoint() or ""
         vae = params.vae or await self.config.vae()
         loras: list[dict[str, object]] = []
@@ -572,7 +573,7 @@ class Arcenciel(ArcencielCommands):
         payload: dict[str, object] = {
             "mode": "img2img" if params.image else "txt2img",
             "prompt": params.prompt,
-            "negativePrompt": params.negative_prompt or await self.config.negative_prompt(),
+            "negativePrompt": params.negative_prompt,
             "modelName": checkpoint.replace(".safetensors", "") + ".safetensors",
             "vaeName": vae.replace(".safetensors", "") + ".safetensors" if vae else None,
             "seed": params.seed,
