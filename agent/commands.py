@@ -152,7 +152,7 @@ class AgentCogCommands(AgentCogBase):
                         await self.command_deletememory(ctx, name)
                     else:
                         await self.command_setmemory(ctx, name, content)
-                view = MemoryInfoView(name, memory[name], edit_memory)
+                view = MemoryInfoView(name, memory[name], edit_memory, self.bot.is_owner)
                 view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
