@@ -19,13 +19,6 @@ class MetadataScanner(Protocol):
     async def grab_metadata_dict(self, message: discord.Message) -> Mapping[str, object]: ...
 
 
-def text_argument(arguments: Mapping[str, object], name: str, default: str = "") -> str:
-    value = arguments.get(name, default)
-    if not isinstance(value, str):
-        raise ValueError(f"{name} must be text.")
-    return value
-
-
 def dimensions(value: str) -> tuple[int, int]:
     width, height = value.split("x")
     return int(width), int(height)
@@ -118,37 +111,41 @@ class ArcencielImageTool(ToolBase):
             and isinstance(self.ctx.author, discord.Member)
             and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
         )
+
         arcenciel = self.ctx.bot.get_cog("Arcenciel")
         if arcenciel is None:
             return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         from arcenciel.arcenciel import Arcenciel
-
         if not isinstance(arcenciel, Arcenciel):
             return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
+        
         from arcenciel.agent_models import FAMILIES, choose_lora, choose_model, lora_family_hint, lora_weight
         from arcenciel.moss import agent_settings, layout_from_metadata
-        from arcenciel.utils import ImageGenError
+        from arcenciel.utils import ImageGenError, extend_negative_prompt
 
         try:
             agent_settings(self.cog, self.ctx)
         except ValueError as error:
             return f"<error>{error}</error>"
+        
         try:
-            prompt = undo_xml(text_argument(arguments, "prompt"))
-            negative_prompt = text_argument(arguments, "negative_prompt") if "negative_prompt" in arguments else None
-            aspect = text_argument(arguments, "resolution").lower()
-            existing = text_argument(arguments, "existing")
-            checkpoint = text_argument(arguments, "checkpoint").strip()
+            prompt = undo_xml(str(arguments.get("prompt", "")))
+            negative_prompt = str(arguments.get("negative_prompt", ""))
+            aspect = str(arguments.get("resolution", "")).lower().strip()
+            existing = str(arguments.get("existing", ""))
+            checkpoint = str(arguments.get("checkpoint", "")).strip()
             if checkpoint.lower() in FAMILIES:
                 checkpoint = checkpoint.lower()
         except ValueError as error:
             return f"<error>{error}</error>"
+        
         if not prompt.strip():
-            return "<error>Provide a natural-language scene prompt.</error>"
+            return "<error>The prompt is missing.</error>"
         if len(prompt) > 32768:
-            return "<error>The scene prompt is too long.</error>"
+            return "<error>The prompt is too long.</error>"
         if arcenciel.api is None:
             return "<error>The Arc en Ciel generator is unavailable.</error>"
+        
         moss: dict[str, object] = {}
         if "boxes" in arguments and arguments["boxes"] != []:
             moss["layout"] = {
@@ -157,13 +154,16 @@ class ArcencielImageTool(ToolBase):
                 "canvas": "single",
                 "items": arguments["boxes"],
             }
+
         sizes = {choice.name.lower(): dimensions(choice.value) for choice in arcenciel._resolution_choices}
         if aspect and aspect not in sizes:
             return "<error>Choose square, portrait, landscape or ultrawide.</error>"
         width, height = sizes.get(aspect, (None, None))
+
         sent_by_me, message = await self.find_attachment(existing) if existing else (False, None)
         metadata: Mapping[str, object] = {}
         warnings: list[str] = []
+
         if message and sent_by_me:
             from arcenciel.comfy import ComfyMetadataReader
 
@@ -179,39 +179,37 @@ class ArcencielImageTool(ToolBase):
                     metadata = await scanner.grab_metadata_dict(message)
         elif existing:
             warnings.append("The original bot image was not found; a new image will be made.")
+
         size = metadata.get("Size")
         if (width is None or height is None) and isinstance(size, str):
             try:
                 width, height = dimensions(size)
             except (ValueError, TypeError):
                 width, height = None, None
+
         try:
             raw_seed = metadata.get("Seed", -1)
             seed = int(raw_seed) if isinstance(raw_seed, (str, int, float)) else -1
         except (ValueError, TypeError, OverflowError):
             seed = -1
+
         requested_loras: list[tuple[str, float]] = []
-        try:
-            for lora, name, weight in LORA_PATTERN.findall(prompt):
-                prompt = prompt.replace(lora, "").strip()
-                requested_loras.append((name, lora_weight(float(weight))))
-        except ValueError as error:
-            return f"<error>{error}</error>"
+        for lora, name, weight in LORA_PATTERN.findall(prompt):
+            prompt = prompt.replace(lora, "").strip()
+            requested_loras.append((name, lora_weight(float(weight))))
+        
         if not requested_loras and sent_by_me:
-            original_prompt = metadata.get("Prompt")
-            if isinstance(original_prompt, str):
-                try:
-                    requested_loras.extend(
-                        (name, lora_weight(float(weight))) for _, name, weight in LORA_PATTERN.findall(original_prompt)
-                    )
-                except ValueError as error:
-                    return f"<error>{error}</error>"
+            original_prompt = str(metadata.get("Prompt", ""))
+            requested_loras.extend(
+                (name, lora_weight(float(weight))) for _, name, weight in LORA_PATTERN.findall(original_prompt)
+            )
+                
         if len(requested_loras) > 4:
             return "<error>Provide at most four LoRAs.</error>"
-        if negative_prompt is None:
-            original_negative = metadata.get("Negative Prompt", "")
-            if isinstance(original_negative, str) and original_negative:
-                negative_prompt = original_negative
+
+        original_negative = str(metadata.get("Negative Prompt", ""))
+        negative_prompt = extend_negative_prompt(original_negative, negative_prompt)
+
         try:
             options, catalog = await arcenciel.api.refresh_moss_profile()
             lora_candidates = [
@@ -245,6 +243,7 @@ class ArcencielImageTool(ToolBase):
             ]
         except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
             return f"<error>{error}</error>"
+        
         params = ImageGenParams(
             prompt=prompt,
             negative_prompt=undo_xml(negative_prompt) if negative_prompt is not None else None,
@@ -255,23 +254,24 @@ class ArcencielImageTool(ToolBase):
             moss=moss if choice.family == "moss" else None,
             loras=resolved_loras,
         )
+
         try:
             payload = await arcenciel.prepare_image_payload(self.ctx, params)
         except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
             return f"<error>{error}</error>"
-        message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
-
+        
         async def callback() -> None:
             await asyncio.sleep(0)
             self.cog.currently_generating.discard(self.ctx.message.id)
 
         self.cog.currently_generating.add(self.ctx.message.id)
+        message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
         asyncio.create_task(
             arcenciel.generate_image(
                 self.ctx, params=params, payload=payload, message_content=message_content, callback=callback()
             )
         )
-        result: dict[str, object] = {
+        result = {
             "message": f"{choice.name} image generation started. Wait for completion before describing the result."
         }
         add_xml_group(result, warnings, "warnings")

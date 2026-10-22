@@ -25,7 +25,7 @@ from arcenciel.commands import ArcencielCommands
 from arcenciel.moss import agent_settings, build_moss_payload, is_array, json_object, safety_prompt
 from arcenciel.moss_types import ImageParams, MossLora
 from arcenciel.schema import QueuedImageGen
-from arcenciel.utils import ImageGenError, build_split_masks, gather_raise_all, is_nsfw, send_response
+from arcenciel.utils import ImageGenError, build_split_masks, gather_raise_all, is_nsfw, send_response, extend_negative_prompt
 from arcenciel.views.generating import GeneratingV2View, GeneratingView
 from arcenciel.views.image_actions import ImageActions
 
@@ -498,9 +498,7 @@ class Arcenciel(ArcencielCommands):
                 hyperlinks.add(link)
         return sorted(list(hyperlinks))
 
-    async def prepare_image_payload(
-        self, context: commands.Context | discord.Interaction, params: ImageParams
-    ) -> dict[str, object]:
+    async def prepare_image_payload(self, context: commands.Context | discord.Interaction, params: ImageParams) -> dict[str, object]:
         overrides: Mapping[str, object] | None = None
         agent_default = "moss"
         if getattr(params, "agent_request", False):
@@ -530,14 +528,10 @@ class Arcenciel(ArcencielCommands):
         overrides: Mapping[str, object] | None = None,
         agent_default: str = "moss",
     ) -> dict[str, object]:
-        stock_negative_prompt = await self.config.negative_prompt()
-        if stock_negative_prompt not in (params.negative_prompt or ""):
-            if params.negative_prompt:
-                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
-            else:
-                params.negative_prompt = stock_negative_prompt
-        params.negative_prompt = params.negative_prompt or stock_negative_prompt
 
+        default_negative_prompt: str = await self.config.negative_prompt()
+        params.negative_prompt = extend_negative_prompt(default_negative_prompt, params.negative_prompt or "")
+                
         if getattr(params, "agent_request", False) or getattr(params, "moss", None) is not None:
             assert self.api
             options, catalog = await self.api.refresh_moss_profile()
