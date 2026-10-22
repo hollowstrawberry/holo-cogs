@@ -14,12 +14,8 @@ class PromptView(discord.ui.View):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.name = name
         self.prompt = prompt
-        async def edit_callback_wrapper(prompt: str):
-            self.prompt = prompt
-            await edit_callback(prompt)
-        self.edit_callback = edit_callback_wrapper
+        self.edit_callback = edit_callback
         self.check_owner = check_owner
-        
         self.message: discord.Message | None = None
         self.show_button = discord.ui.Button(emoji="🔎", style=discord.ButtonStyle.gray)
         self.show_button.callback = self.show_prompt
@@ -29,7 +25,7 @@ class PromptView(discord.ui.View):
         self.add_item(self.edit_button)
         self.delete_button = discord.ui.Button(emoji="✖️", style=discord.ButtonStyle.red)
         self.delete_button.callback = self.delete
-        self.add_item(self.delete_button)
+        #self.add_item(self.delete_button)
 
     async def show_prompt(self, interaction: discord.Interaction):
         embed = discord.Embed()
@@ -39,8 +35,8 @@ class PromptView(discord.ui.View):
     async def edit_prompt(self, interaction: discord.Interaction):
         if not await self.check_owner(interaction.user):
             return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
-        from agent.views.prompt_edit_modal import PromptEditodal
-        modal = PromptEditodal(self.name, self.prompt, self.check_owner, self.edit_callback)
+        from agent.views.prompt_edit_modal import PromptEditModal
+        modal = PromptEditModal(self.name, self.prompt, self.check_owner, self.edit_callback_wrapper)
         await interaction.response.send_modal(modal)
 
     async def delete(self, interaction: discord.Interaction):
@@ -48,6 +44,10 @@ class PromptView(discord.ui.View):
         if not interaction.permissions.manage_messages and not await self.check_owner(interaction.user):
             return await interaction.response.send_message("You don't have permission to delete this.", ephemeral=True)
         await interaction.message.delete()
+
+    async def edit_callback_wrapper(self, prompt: str):
+        self.prompt = prompt
+        await self.edit_callback(prompt)
 
     async def on_timeout(self) -> None:
         await super().on_timeout()

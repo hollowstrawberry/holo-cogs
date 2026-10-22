@@ -147,7 +147,12 @@ class AgentCogCommands(AgentCogBase):
                 if matches:
                     name = matches[0]
             if name in memory:
-                view = MemoryInfoView(name, memory[name])
+                async def edit_memory(content: str):
+                    if not content:
+                        await self.command_deletememory(ctx, name)
+                    else:
+                        await self.command_setmemory(ctx, name, content)
+                view = MemoryInfoView(name, memory[name], edit_memory)
                 view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)

@@ -5,8 +5,9 @@ from typing import Awaitable, Callable
 from agent import constants
 
 
-class PromptEditodal(discord.ui.Modal):
-    def __init__(self, name: str | None,
+class PromptEditModal(discord.ui.Modal):
+    def __init__(self,
+                 name: str | None,
                  prompt: str,
                  check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
                  edit_callback: Callable[[str], Awaitable] | None = None,
