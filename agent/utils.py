@@ -196,22 +196,27 @@ def parse_arcenciel_model(data: dict) -> StructuredObject:
         "description": trafilatura.extract(data["description"]) or data["description"] or "(Empty)",
     }
     versions_obj = []
-    versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
+    versions: list[dict] = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
     for i, version in enumerate(versions):
         ver_obj = {
             "@name": version["versionName"],
             "@base_model": version["baseModel"],
             "@published": datetime.fromisoformat(version["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING)
         }
-        if i <= 1 and data["type"] == "LORA":
-            filename = version.get("filePath", "").split("/")[-1].replace(".safetensors", "").strip()
-            if filename:
-                ver_obj["lora"] = f"<lora:{filename}:1.0>"
-            if version.get("aboutThisVersion"):
+        filename = str(version.get("filePath", "")).split("/")[-1].replace(".safetensors", "").strip()
+        if not filename:
+            ver_obj["filename"] = "(unknown)"
+        elif data["type"] == "LORA":
+            ver_obj["lora"] = f"<lora:{filename}:1.0>"
+        else:
+            ver_obj["filename"] = filename
+        if i <= 1:
+            if "aboutThisVersion" in version:
                 ver_obj["description"] = version["aboutThisVersion"]
-            if version.get("activationTags", []):
+            if "activationTags" in version:
                 tags_obj = []
-                for tags in version["activationTags"]:
+                all_tags: list[str] = version["activationTags"]
+                for tags in all_tags:
                     t_obj = {}
                     if tags.count("|") == 1:
                         name, tags = [t.strip() for t in tags.split("|")]
@@ -222,7 +227,7 @@ def parse_arcenciel_model(data: dict) -> StructuredObject:
                     tags_obj.append(t_obj)
                 ver_obj["activation_tags"] = {"prompt": tags_obj}
         else:
-            ver_obj["#text"] = "Incomplete data"
+            ver_obj["#text"] = "..."
         versions_obj.append(ver_obj)
     obj["versions"] = {"version": versions_obj}
     return obj
