@@ -149,9 +149,9 @@ class AgentCogCommands(AgentCogBase):
             if name in memory:
                 async def edit_memory(content: str):
                     if not content:
-                        await self.command_deletememory(ctx, name)
+                        await self.command_deletememory(ctx, name=name)
                     else:
-                        await self.command_setmemory(ctx, name, content)
+                        await self.command_setmemory(ctx, name=name, content=content)
                 view = MemoryInfoView(name, memory[name], edit_memory, self.bot.is_owner)
                 view.message = await ctx.send(view=view)
         else:
