@@ -1,4 +1,5 @@
 import logging
+import aiohttp
 import discord
 import humanize
 from typing import Literal, Optional
@@ -6,8 +7,9 @@ from datetime import datetime, timezone
 from redbot.core import checks, commands
 
 from arcenciel.base import ArcencielBase
-from arcenciel.utils import make_batches, chunk_and_send
+from arcenciel.utils import ImageGenError, clean_model, make_batches, chunk_and_send
 from arcenciel.constants import QUOTA_PERIOD
+from arcenciel.views.checkpoint_select import CheckpointSelectView, checkpoints_from_catalog, exact_checkpoint
 
 log = logging.getLogger("red.bz_cogs.arcenciel")
 
@@ -15,29 +17,39 @@ log = logging.getLogger("red.bz_cogs.arcenciel")
 class ArcencielSettings(ArcencielBase):
 
     @commands.command(name="ckpt") # type: ignore
-    async def member_checkpoint(self, ctx: commands.Context, *, checkpoint: Optional[str]):
+    @checks.bot_has_permissions(embed_links=True)
+    async def member_checkpoint(self, ctx: commands.Context, *, checkpoint: Optional[str] = None):
         """
-        Set the default image generation checkpoint for yourself
+        Browse or search checkpoints and set your personal image generation default.
         """
-        if checkpoint is None:
-            current_checkpoint = await self.config.user(ctx.author).checkpoint()
-            await ctx.send(f"Your current default checkpoint is `{current_checkpoint or '(None)'}`")
-
-        elif checkpoint.lower().strip() in ("clear", "reset", "default", "none"):
+        query = (checkpoint or "").strip()
+        if query.lower() in ("clear", "reset", "default", "none"):
             await self.config.user(ctx.author).checkpoint.set("")
-            return await ctx.send(f"Checkpoint reset")
-        
-        ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
-        if checkpoint not in ckpt_names.keys():
-            names = [f"`{name}`" for name in ckpt_names.keys()]
-            log.info(names)
-            batches = make_batches(names, 10)
-            content = f":warning: Checkpoint must be one of:\n" + ",\n".join([", ".join(batch) for batch in batches])
-            return await chunk_and_send(ctx, content, do_reply=True)
+            default = clean_model(await self.config.checkpoint() or "") or "automatic"
+            return await ctx.send(
+                f"Personal checkpoint reset. Commands: {discord.utils.escape_markdown(default)}. "
+                "The agent uses its configured default.", allowed_mentions=discord.AllowedMentions.none(),
+            )
 
-        if checkpoint:
-            await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
-            await ctx.tick(message="✅ Default checkpoint updated.")
+        if not self.api:
+            return await ctx.send("The generator is unavailable. Please try again later.")
+        try:
+            _, catalog = await self.api.refresh_moss_profile()
+            entries = checkpoints_from_catalog(catalog)
+        except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError):
+            return await ctx.send("Could not load checkpoints. Your default was not changed; try again later.")
+        selected = exact_checkpoint(entries, query) if query else None
+        if selected:
+            await self.config.user(ctx.author).checkpoint.set(selected.name)
+            return await ctx.send(
+                f"✅ Default checkpoint: {discord.utils.escape_markdown(selected.name)} · {selected.base}",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        view = CheckpointSelectView(
+            self, ctx.author, entries, await self.config.user(ctx.author).checkpoint() or "",
+            await self.config.checkpoint() or "", await self.bot.get_embed_color(ctx.channel), query,
+        )
+        view.message = await ctx.send(embed=view.embed(), view=view, allowed_mentions=discord.AllowedMentions.none())
 
     @commands.group(name="arcenciel", aliases=["arc", "aec"])  # type: ignore
     @commands.guild_only()
