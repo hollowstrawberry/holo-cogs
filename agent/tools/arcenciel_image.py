@@ -241,6 +241,7 @@ class ArcencielImageTool(ToolBase):
             checkpoint=choice.name,
             moss=moss if choice.family == "moss" else None,
             loras=resolved_loras,
+            agent_request=True,
         )
 
         try:
