@@ -31,6 +31,7 @@ class AgentCogConfigCommands(AgentCogBase):
  
         tools = []
         imagegen = False
+        tool_settings = []
         for tool in get_all_tools():
             name = tool.display_name
             if name not in config.enabled_functions.value:
@@ -41,6 +42,7 @@ class AgentCogConfigCommands(AgentCogBase):
                     break
             else:
                 tools.append(name)
+                tool_settings.extend(tool.settings.keys())
                 imagegen = imagegen or tool.imagegen
  
         color = await ctx.embed_color()
@@ -64,11 +66,7 @@ class AgentCogConfigCommands(AgentCogBase):
             channel_field("Generation Channels", config.generation_channel_mode.value, config.generation_channels.value)
 
         embed1.add_field(name="Tools", value=list_code(tools), inline=False)
-        embed1.add_field(name="Tool Settings", value=f"{len(self.config.tool_settings.value)} keys set", inline=False)
-
-        embed1.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
-        embed1.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
-        embed1.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
+        embed1.add_field(name="Tool Settings", value=f"{len(tool_settings)} keys set", inline=False)
 
         embed2 = discord.Embed(title="⚙️ Agent Module Settings", color=color)
 
@@ -114,6 +112,10 @@ class AgentCogConfigCommands(AgentCogBase):
         embed4 = discord.Embed(title="🌐 Agent Global Settings", color=color)
 
         embed4.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
+
+        embed1.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
+        embed1.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
+        embed1.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
 
         embed4.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
         embed4.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
