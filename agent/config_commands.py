@@ -56,7 +56,7 @@ class AgentCogConfigCommands(AgentCogBase):
                 inline=False,
             )
  
-        embed1 = discord.Embed(title="Agent Cog Settings", color=color)
+        embed1 = discord.Embed(title="🤖 Agent Settings", color=color)
   
         channel_field("Channels", config.channel_mode.value, config.channels.value)
         channel_field("Auto Channels", config.auto_channel_mode.value, config.auto_channels.value)
@@ -70,7 +70,7 @@ class AgentCogConfigCommands(AgentCogBase):
         embed1.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
         embed1.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
 
-        embed2 = discord.Embed(color=color)
+        embed2 = discord.Embed(title="⚙️ Agent Module Settings", color=color)
 
         embed2.add_field(name="Recaller Model", value=code(config.model_recaller.value))
         embed2.add_field(name="Responder Model", value=code(config.model_responder.value))
@@ -88,22 +88,14 @@ class AgentCogConfigCommands(AgentCogBase):
         embed2.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
         embed2.add_field(name="Memorizer User Only", value=code(config.memorizer_user_only.value))
 
-        embed3 = discord.Embed(color=color)
-
-        embed3.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
-        embed3.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
-        embed3.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
+        embed2.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
+        embed2.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
+        embed2.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
  
-        embed3.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes")) 
-        embed3.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
- 
-        embed3.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
+        embed2.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes")) 
+        embed2.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
 
-        embed3.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
-        embed3.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
-        embed3.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
-
-        embed4 = discord.Embed(title="Agent Cog Limits", color=color)
+        embed3 = discord.Embed(title="📊 Agent Limits", color=color)
         for name, field in (
             ("Response Tokens", config.response_tokens),
             ("Max Images", config.max_images),
@@ -117,7 +109,15 @@ class AgentCogConfigCommands(AgentCogBase):
             ("Max Image Resolution", config.max_image_resolution),
             ("Max Caption Resolution", config.max_caption_resolution),
         ):
-            embed4.add_field(name=name, value=code(field.value))
+            embed3.add_field(name=name, value=code(field.value))
+
+        embed4 = discord.Embed(title="🌐 Agent Global Settings", color=color)
+
+        embed4.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
+
+        embed4.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
+        embed4.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
+        embed4.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
  
         await ctx.send(embeds=[embed1, embed2, embed3, embed4])
 
