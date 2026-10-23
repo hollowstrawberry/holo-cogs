@@ -28,6 +28,8 @@ I have found that the more context you provide to an LLM, the more natural its r
 
 ⚠️ **User data:** This cog sends recent messages in a channel to chosen LLM providers. It may also store text-based memories containing information about users and past conversations, in certain conditions defined by the bot owner. The bot owner becomes wholly responsible for the data of its users.
 
+⚠️ The `agent` cog currently needs better documentation.
+
 &nbsp;
 
 ## 🖼️ Arcenciel
