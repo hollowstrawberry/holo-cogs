@@ -48,62 +48,61 @@ class AgentCogConfigCommands(AgentCogBase):
         chance = lambda f: f"{f * 100:.2f}%"
 
         def channel_field(label: str, mode: str, ids: list[int]):
-            settings.add_field(
+            embed1.add_field(
                 name=f"{'Whitelisted' if mode == 'whitelist' else 'Blacklisted'} {label}",
                 value=" ".join([f"<#{cid}>" for cid in ids]) or "*None*",
                 inline=False,
             )
  
-        # embed 1
-        settings = discord.Embed(title="Agent Cog Settings", color=color)
- 
-        settings.add_field(name="Recaller Model", value=code(config.model_recaller.value))
-        settings.add_field(name="Responder Model", value=code(config.model_responder.value))
-        settings.add_field(name="Memorizer Model", value=code(config.model_memorizer.value))
-
-        settings.add_field(name="Recaller Effort", value=code(config.effort_recaller.value))
-        settings.add_field(name="Responder Effort", value=code(config.effort_responder.value))
-        settings.add_field(name="Memorizer Effort", value=code(config.effort_memorizer.value))
- 
-        settings.add_field(name="Captioner Model", value=code(config.model_captioner.value))
-        settings.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
-        settings.add_field(name="Default Image Model", value=code(config.image_model_default.value))
- 
-        settings.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
-        settings.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
-        settings.add_field(name="Memorizer User Only", value=code(config.memorizer_user_only.value))
- 
+        embed1 = discord.Embed(title="Agent Cog Settings", color=color)
+  
         channel_field("Channels", config.channel_mode.value, config.channels.value)
         channel_field("Auto Channels", config.auto_channel_mode.value, config.auto_channels.value)
-        if "generate_stable_diffusion" in tools:
+        if any("generate_image" in name for name in tools):
             channel_field("Generation Channels", config.generation_channel_mode.value, config.generation_channels.value)
 
-        settings.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
-        settings.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
-        settings.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
+        embed1.add_field(name="Tools", value=list_code(tools), inline=False)
+        embed1.add_field(name="Tool Settings", value=f"{len(self.config.tool_settings.value)} keys set", inline=False)
 
-        settings.add_field(name="Tools", value=list_code(tools), inline=False)
-        settings.add_field(name="Tool Settings", value=f"{len(self.config.tool_settings.value)} keys set", inline=False)
+        embed1.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
+        embed1.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
+        embed1.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
 
-        # embed 2
-        misc = discord.Embed(color=color)
+        embed2 = discord.Embed(color=color)
+
+        embed2.add_field(name="Recaller Model", value=code(config.model_recaller.value))
+        embed2.add_field(name="Responder Model", value=code(config.model_responder.value))
+        embed2.add_field(name="Memorizer Model", value=code(config.model_memorizer.value))
+
+        embed2.add_field(name="Recaller Effort", value=code(config.effort_recaller.value))
+        embed2.add_field(name="Responder Effort", value=code(config.effort_responder.value))
+        embed2.add_field(name="Memorizer Effort", value=code(config.effort_memorizer.value))
  
-        misc.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
-        misc.add_field(name=EMPTY, value=EMPTY)
-        misc.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes"))
+        embed2.add_field(name="Captioner Model", value=code(config.model_captioner.value))
+        embed2.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
+        embed2.add_field(name="Default Image Model", value=code(config.image_model_default.value))
  
-        misc.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
-        misc.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
-        misc.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
+        embed2.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
+        embed2.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
+        embed2.add_field(name="Memorizer User Only", value=code(config.memorizer_user_only.value))
+
+        embed3 = discord.Embed(color=color)
  
-        misc.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
-        misc.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
-        misc.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
+        embed3.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
+        embed3.add_field(name=EMPTY, value=EMPTY)
+        embed3.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes"))
+ 
+        embed3.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
+        embed3.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
+        embed3.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
+ 
+        embed3.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
+        embed3.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
+        embed3.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
 
-        misc.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
+        embed3.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
 
-        # embed 3
-        limits = discord.Embed(title="Agent Cog Limits", color=color)
+        embed4 = discord.Embed(title="Agent Cog Limits", color=color)
         for name, field in (
             ("Response Tokens", config.response_tokens),
             ("Backread Tokens", config.backread_tokens),
@@ -117,9 +116,9 @@ class AgentCogConfigCommands(AgentCogBase):
             ("Max Text File Length", config.max_text_file),
             ("Max Tool Depth", config.max_tool_depth),
         ):
-            limits.add_field(name=name, value=code(field.value))
+            embed4.add_field(name=name, value=code(field.value))
  
-        await ctx.send(embeds=[settings, misc, limits])
+        await ctx.send(embeds=[embed1, embed2, embed3, embed4])
 
 
     @staticmethod
