@@ -117,7 +117,8 @@ class ArcencielImageTool(ToolBase):
             from arcenciel.moss import layout_from_metadata
             from arcenciel.utils import ImageGenError, extend_negative_prompt
             from arcenciel.schema import ImageGenParams
-            from arcenciel.agent_utils import MODEL_FAMILIES, choose_lora, choose_model, lora_family_hint, lora_weight
+            from arcenciel.constants import MODEL_FAMILIES
+            from arcenciel.agent_utils import available_models, choose_lora, choose_model, lora_family_hint, lora_weight
         except ImportError:
            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         
@@ -218,6 +219,23 @@ class ArcencielImageTool(ToolBase):
             if len(hints) > 1 and not (checkpoint or inherited):
                 raise ValueError("The requested LoRAs target different model families. Choose a checkpoint explicitly.")
             inferred_family = next(iter(hints), "") if not (checkpoint or inherited) else ""
+            if not (checkpoint or inherited):
+                personal: str = await arcenciel.config.user(self.ctx.author).checkpoint() or ""
+                if personal:
+                    try:
+                        if personal not in available_models(catalog):
+                            raise ValueError("The saved checkpoint is unavailable or unsupported by this tool.")
+                        preferred = choose_model(options, catalog, checkpoint=personal)
+                        if moss and preferred.family != "moss":
+                            raise ValueError("MOSS boxes require a MOSS checkpoint.")
+                        for name, _, entries in lora_candidates:
+                            choose_lora(entries, name, preferred)
+                    except ValueError as error:
+                        warnings.append(
+                            f"Your personal checkpoint was not used: {error} Using normal model selection."
+                        )
+                    else:
+                        default, inferred_family = preferred.name, ""
             choice = choose_model(options, catalog, family=inferred_family, checkpoint=checkpoint, inherited=inherited, default=default)
             if choice.family != "moss" and moss:
                 raise ValueError("Regional Boxes are available only with MOSS.")
