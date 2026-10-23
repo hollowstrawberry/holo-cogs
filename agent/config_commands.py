@@ -8,7 +8,7 @@ from redbot.core import commands
 from agent.base import AgentCogBase
 from agent.utils import is_valid_openrouter_model
 from agent.config_base import ConfigField
-from agent.constants import EFFORT_VALUES, VISION_MODELS, EMPTY
+from agent.constants import EFFORT_VALUES, VISION_MODELS
 from agent.tools.base import get_all_tools
 
 log = logging.getLogger("agent.utils")
@@ -104,16 +104,16 @@ class AgentCogConfigCommands(AgentCogBase):
         embed4 = discord.Embed(title="Agent Cog Limits", color=color)
         for name, field in (
             ("Response Tokens", config.response_tokens),
+            ("Max Images", config.max_images),
+            ("Max Tool Depth", config.max_tool_depth),
             ("Backread Tokens", config.backread_tokens),
             ("Backread Messages", config.backread_messages),
             ("Backread Short", config.backread_short),
-            ("Max Images", config.max_images),
-            ("Max Image Resolution", config.max_image_resolution),
-            ("Max Caption Resolution", config.max_caption_resolution),
             ("Max Tool Length", config.max_tool),
             ("Max Quote Length", config.max_quote),
             ("Max Text File Length", config.max_text_file),
-            ("Max Tool Depth", config.max_tool_depth),
+            ("Max Image Resolution", config.max_image_resolution),
+            ("Max Caption Resolution", config.max_caption_resolution),
         ):
             embed4.add_field(name=name, value=code(field.value))
  
