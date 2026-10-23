@@ -1,7 +1,10 @@
 import os
 import re
+import struct
 import logging
 import asyncio
+import aiohttp
+import mutagen
 import discord
 import contextlib
 import trafilatura
@@ -17,7 +20,8 @@ from redbot.core.bot import Red
 from openai import Omit
 
 from agent.schema import AgentImageContent, AgentMessage, StructuredObject
-from agent.constants import MAX_MESSAGE_LENGTH, NEWLINE_SEPARATOR_PATTERN, DATETIME_FORMATTING, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN
+from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING
+from agent.constants import NEWLINE_SEPARATOR_PATTERN, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN, MENTION_PATTERN
 
 log = logging.getLogger("agent.utils")
 
@@ -170,6 +174,14 @@ def adjusted_effort(model: str, effort: str) -> str | Omit:
    
 def clean_model(model: str) -> str:
     return model.replace("$", "")  # identifies openwebui model
+
+def parse_mentions(guild: discord.Guild, text: str) -> str:
+    def replace(match: re.Match) -> str:
+        prefix, name = match.groups()
+        group = guild.members if prefix == "@" else guild.channels
+        obj = discord.utils.find(lambda o: name == o.name, group)
+        return obj.mention if obj else match.group(0)
+    return MENTION_PATTERN.sub(replace, text)
    
 def parse_prompt(prompt: str) -> str:
     prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)
@@ -184,22 +196,27 @@ def parse_arcenciel_model(data: dict) -> StructuredObject:
         "description": trafilatura.extract(data["description"]) or data["description"] or "(Empty)",
     }
     versions_obj = []
-    versions = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
+    versions: list[dict] = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
     for i, version in enumerate(versions):
         ver_obj = {
             "@name": version["versionName"],
             "@base_model": version["baseModel"],
             "@published": datetime.fromisoformat(version["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING)
         }
-        if i <= 1 and data["type"] == "LORA":
-            filename = version.get("filePath", "").split("/")[-1].replace(".safetensors", "").strip()
-            if filename:
-                ver_obj["lora"] = f"<lora:{filename}:1.0>"
-            if version.get("aboutThisVersion"):
+        filename = str(version.get("filePath", "")).split("/")[-1].replace(".safetensors", "").strip()
+        if not filename:
+            ver_obj["filename"] = "(unknown)"
+        elif data["type"] == "LORA":
+            ver_obj["lora"] = f"<lora:{filename}:1.0>"
+        else:
+            ver_obj["filename"] = filename
+        if i <= 1:
+            if "aboutThisVersion" in version:
                 ver_obj["description"] = version["aboutThisVersion"]
-            if version.get("activationTags", []):
+            if "activationTags" in version:
                 tags_obj = []
-                for tags in version["activationTags"]:
+                all_tags: list[str] = version["activationTags"]
+                for tags in all_tags:
                     t_obj = {}
                     if tags.count("|") == 1:
                         name, tags = [t.strip() for t in tags.split("|")]
@@ -210,10 +227,21 @@ def parse_arcenciel_model(data: dict) -> StructuredObject:
                     tags_obj.append(t_obj)
                 ver_obj["activation_tags"] = {"prompt": tags_obj}
         else:
-            ver_obj["#text"] = "Incomplete data"
+            ver_obj["#text"] = "..."
         versions_obj.append(ver_obj)
     obj["versions"] = {"version": versions_obj}
     return obj
+
+
+async def is_valid_openrouter_model(session: aiohttp.ClientSession, model: str) -> bool:
+    if model.count("/") != 1:
+        return False
+    author, slug = model.split("/")
+    async with session.get(f"https://openrouter.ai/api/v1/models/{author}/{slug}/endpoints") as resp:
+        if resp.status == 404:
+            return False
+        resp.raise_for_status()
+    return True
 
 
 async def chunk_and_send(ctx: commands.Context,
@@ -289,7 +317,7 @@ async def bot_is_typing(channel: discord.abc.Messageable):
     """Like channel.typing but doesn't stop execution if typing fails."""
     async def keep_typing():
         while True:
-            await asyncio.wait_for(channel.typing(), timeout=2.0)
+            await asyncio.wait_for(channel._state.http.send_typing(getattr(channel, "id")), timeout=2.0)
             await asyncio.sleep(5.0)
             
     task = asyncio.create_task(keep_typing())
@@ -299,3 +327,49 @@ async def bot_is_typing(channel: discord.abc.Messageable):
         task.cancel()
         with contextlib.suppress(BaseException):
             await task
+
+
+async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000) -> tuple[str, float]:
+    audio = mutagen.File(BytesIO(audio_bytes))
+    if audio is None or audio.info is None or not hasattr(audio.info, "length"):
+        raise ValueError("Could not read audio metadata")
+    duration = getattr(audio.info, "length")
+
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-i", "-",
+        "-f", "s16le",
+        "-ac", "1",
+        "-ar", str(sample_rate),
+        "-loglevel", "quiet",
+        "-",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    raw, _ = await proc.communicate(input=audio_bytes)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg failed with code {proc.returncode}")
+
+    num_samples = len(raw) // 2
+    samples = struct.unpack(f"<{num_samples}h", raw[: num_samples * 2])
+    abs_samples = [abs(s) for s in samples]
+
+    point_count = max(1, min(int(duration * 10), max_points))
+    points_per_bucket = max(1, len(abs_samples) // point_count)
+
+    buckets = []
+    total, count = 0, 0
+    for i, v in enumerate(abs_samples):
+        total += v
+        count += 1
+        if (i + 1) % points_per_bucket == 0:
+            buckets.append(total // count)
+            total, count = 0, 0
+    if count:
+        buckets.append(total // count)
+
+    highest = max(buckets) if buckets else 1
+    mult = 255 / highest if highest else 0
+    waveform_bytes = bytes(min(255, int(b * mult)) for b in buckets)
+
+    return b64encode(waveform_bytes).decode("utf-8"), duration

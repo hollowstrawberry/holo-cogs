@@ -1,19 +1,24 @@
 import json
 import logging
 import aiohttp
-from io import BytesIO
+from typing import Any
+from collections.abc import AsyncIterator, Mapping
 
 from arcenciel.base import ArcencielBase
+from arcenciel.moss import json_object
 from arcenciel.utils import ImageGenError, clean_model, parse_prompts
+from arcenciel.agent_utils import parse_lora_entries
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
 
 
 class ArcEnCielAPI:
-    def __init__(self, cog: ArcencielBase, endpoint: str, api_key: str):
+    def __init__(self, cog: ArcencielBase, endpoint: str, api_key: str) -> None:
         self.cog = cog
         self.endpoint = endpoint
-        self.session = aiohttp.ClientSession(headers={"x-api-key": api_key})
+        self.session = aiohttp.ClientSession(headers={"x-api-key": api_key, "Accept-Encoding": "gzip, deflate"})
+        self.generator_options: Mapping[str, object] = {}
+        self.model_catalog: Mapping[str, object] = {}
 
     async def update_autocomplete_cache(self) -> None:
         url = self.endpoint + "/generator/options"
@@ -26,6 +31,17 @@ class ArcEnCielAPI:
         for key in ["samplers", "schedulers"]:
             self.cog.autocomplete_cache[key] = {name: name for name in data.get("limits", {}).get(key, [])}
 
+    async def refresh_moss_profile(self) -> tuple[Mapping[str, object], Mapping[str, object]]:
+        # Refresh on each new recipe so server changes never leave a stale local default.
+        snapshot: list[Mapping[str, object]] = []
+        for route in ("/generator/options", "/generator/models"):
+            async with self.session.get(self.endpoint + route) as response:
+                if response.status >= 400:
+                    raise ImageGenError(await self._extract_error(response))
+                snapshot.append(json_object(await response.json()))
+        self.generator_options, self.model_catalog = snapshot
+        return self.generator_options, self.model_catalog
+
     async def request_image(self, payload: dict) -> dict:
         parse_prompts(payload)
         url = self.endpoint + "/generator/jobs"
@@ -34,6 +50,29 @@ class ArcEnCielAPI:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
         return r["job"]
+
+    async def preflight_image(self, payload: dict[str, object]) -> None:
+        url = self.endpoint + "/generator/preflight"
+        async with self.session.post(url, json=payload) as response:
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
+
+    async def find_lora_entries(self, query: str) -> list[Mapping[str, object]]:
+        if query.lower().endswith(".safetensors"):
+            async with self.session.get(
+                self.endpoint + "/generator/models/loras/resolve", params={"name": query}
+            ) as response:
+                if response.status >= 400:
+                    raise ImageGenError(await self._extract_error(response))
+                entries = parse_lora_entries(await response.json())
+            if entries:
+                return entries
+        async with self.session.get(
+            self.endpoint + "/generator/models/loras", params={"q": query, "limit": 25}
+        ) as response:
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
+            return parse_lora_entries(await response.json())
 
     async def cancel_request(self, id: str):
         url = f"{self.endpoint}/generator/jobs/{id}/cancel"
@@ -58,6 +97,47 @@ class ArcEnCielAPI:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
         return r["jobs"]
+
+    async def stream_previews(self) -> AsyncIterator[dict[str, Any]]:
+        url = self.endpoint + "/generator/events"
+        timeout = aiohttp.ClientTimeout(total=None, sock_read=45)
+        async with self.session.get(url, headers={"Accept": "text/event-stream"}, timeout=timeout) as response:
+            if response.status >= 400:
+                raise ImageGenError(await self._extract_error(response))
+
+            event = ""
+            data = []
+            line_buffer = bytearray()
+            discard_line = False
+            # aiohttp's default readline limit is smaller than a base64 preview.
+            async for chunk in response.content.iter_chunked(64 * 1024):
+                line_buffer.extend(chunk)
+                while (newline := line_buffer.find(b"\n")) >= 0:
+                    raw_line = bytes(line_buffer[:newline])
+                    del line_buffer[:newline + 1]
+                    if discard_line or len(raw_line) > 1024 * 1024:
+                        event, data = "", []
+                        discard_line = False
+                        continue
+                    line = raw_line.decode("utf-8", "replace").rstrip("\r")
+                    if not line:
+                        if event == "preview" and data:
+                            try:
+                                payload = json.loads("\n".join(data))
+                            except json.JSONDecodeError:
+                                pass
+                            else:
+                                if isinstance(payload, dict):
+                                    yield payload
+                        event, data = "", []
+                    elif line.startswith("event:"):
+                        event = line[6:].strip()
+                    elif line.startswith("data:"):
+                        data.append(line[5:].lstrip())
+                if len(line_buffer) > 1024 * 1024:
+                    line_buffer.clear()
+                    discard_line = True
+                    event, data = "", []
 
     async def search_loras(self, query: str) -> list[str]:
         url = self.endpoint + "/generator/models/loras"

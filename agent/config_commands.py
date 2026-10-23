@@ -1,12 +1,16 @@
+import logging
 import discord
 from typing import Literal, Optional
 from functools import reduce
 from redbot.core import commands
 
 from agent.base import AgentCogBase
-from agent.config import ConfigField
-from agent.constants import EFFORT_VALUES, VISION_MODELS
+from agent.utils import is_valid_openrouter_model
+from agent.config_base import ConfigField
+from agent.constants import EFFORT_VALUES, VISION_MODELS, EMPTY
 from agent.tools.base import get_all_tools
+
+log = logging.getLogger("agent.utils")
 
 
 class AgentCogConfigCommands(AgentCogBase):
@@ -17,13 +21,16 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig(self, _: commands.Context):
         """Base command for configuring the GPT Memory cog."""
         pass
-
-
+ 
     @agentconfig.command(name="config", aliases=["settings"])
     async def agentconfig_config(self, ctx: commands.Context):
         """View all settings"""
+        assert ctx.guild
         config = self.config[ctx.guild]
-        functions = []
+ 
+        tools = []
+        imagegen = False
+        tool_settings = []
         for tool in get_all_tools():
             name = tool.display_name
             if name not in config.enabled_functions.value:
@@ -33,29 +40,87 @@ class AgentCogConfigCommands(AgentCogBase):
                 if not secret:
                     break
             else:
-                functions.append(name)
+                tools.append(name)
+                tool_settings.extend(tool.settings.keys())
+                imagegen = imagegen or tool.imagegen
+ 
+        color = await ctx.embed_color()
 
-        response = ">>> # Agent Cog Settings"
-        response += "\n`[whitelisted_channels:]` " if config.channel_mode.value == "whitelist" else "\n`[blacklisted_channels:]` " 
-        response += " ".join([f"<#{cid}>" for cid in config.channels.value])
-        response += "\n`[whitelisted_auto_channels:]` " if config.auto_channel_mode.value == "whitelist" else "\n`[blacklisted_auto_channels:]` " 
-        response += " ".join([f"<#{cid}>" for cid in config.auto_channels.value])
-        if "generate_stable_diffusion" in functions:
-            response += "\n`[whitelisted_generation_channels:]` " if config.generation_channel_mode.value == "whitelist" else "\n`[blacklisted_generation_channels:]` " 
-            response += " ".join([f"<#{cid}>" for cid in config.generation_channels.value])
-        response += f"\n`[model_recaller:]` {config.model_recaller.value} `[effort_recaller:]` {config.effort_recaller.value}"
-        response += f"\n`[model_responder:]` {config.model_responder.value} `[effort_responder:]` {config.effort_responder.value}"
-        response += f"\n`[model_memorizer:]` {config.model_memorizer.value} `[effort_memorizer:]` {config.effort_memorizer.value}"
-        response += f"\n`[allow_memorizer:]` {config.allow_memorizer.value} `[memorizer_alerts:]` {config.memorizer_alerts.value} `[memorizer_user_only:]` {config.memorizer_user_only.value}"
-        response += f"\n`[tools:]` {' / '.join(functions)}" 
-        response += "\n## Limits"
-        response += f"\n`[response_tokens:]` {config.response_tokens.value} `[backread_tokens:]` {config.backread_tokens.value}"
-        response += f"\n`[backread_messages:]` {config.backread_messages.value} `[backread_short:]` {config.backread_short.value}"
-        response += f"\n`[max_images:]` {config.max_images.value} `[max_image_resolution:]` {config.max_image_resolution.value}"
-        response += f"\n`[max_tool:]` {config.max_tool.value} `[max_tool_depth:]` {config.max_tool_depth.value}"
-        response += f"\n`[max_quote:]` {config.max_quote.value} `[max_text_file:]` {config.max_text_file.value}"
+        code = lambda s: f"`{s}`"
+        list_code = lambda lst: ", ".join([code(s) for s in lst]) or "*None*"
+        chance = lambda f: f"{f * 100:.2f}%"
 
-        await ctx.send(response)
+        def channel_field(label: str, mode: str, ids: list[int]):
+            embed1.add_field(
+                name=f"{'Whitelisted' if mode == 'whitelist' else 'Blacklisted'} {label}",
+                value=" ".join([f"<#{cid}>" for cid in ids]) or "*None*",
+                inline=False,
+            )
+ 
+        embed1 = discord.Embed(title="🤖 Agent Settings", color=color)
+  
+        channel_field("Channels", config.channel_mode.value, config.channels.value)
+        channel_field("Auto Channels", config.auto_channel_mode.value, config.auto_channels.value)
+        if imagegen:
+            channel_field("Generation Channels", config.generation_channel_mode.value, config.generation_channels.value)
+
+        embed1.add_field(name="Tools", value=list_code(tools), inline=False)
+        embed1.add_field(name="Tool Settings", value=f"{len(tool_settings)} keys set", inline=False)
+
+        embed2 = discord.Embed(title="⚙️ Agent Module Settings", color=color)
+
+        embed2.add_field(name="Recaller Model", value=code(config.model_recaller.value))
+        embed2.add_field(name="Responder Model", value=code(config.model_responder.value))
+        embed2.add_field(name="Memorizer Model", value=code(config.model_memorizer.value))
+
+        embed2.add_field(name="Recaller Effort", value=code(config.effort_recaller.value))
+        embed2.add_field(name="Responder Effort", value=code(config.effort_responder.value))
+        embed2.add_field(name="Memorizer Effort", value=code(config.effort_memorizer.value))
+ 
+        embed2.add_field(name="Captioner Model", value=code(config.model_captioner.value))
+        embed2.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
+        embed2.add_field(name=EMPTY, value=EMPTY)  # placeholder
+ 
+        embed2.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
+        embed2.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
+        embed2.add_field(name="Memorizer User Only", value=code(config.memorizer_user_only.value))
+
+        embed2.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
+        embed2.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
+        embed2.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
+ 
+        embed2.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes")) 
+        embed2.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
+
+        embed3 = discord.Embed(title="📊 Agent Limits", color=color)
+        for name, field in (
+            ("Response Tokens", config.response_tokens),
+            ("Max Images", config.max_images),
+            ("Max Tool Depth", config.max_tool_depth),
+            ("Backread Tokens", config.backread_tokens),
+            ("Backread Messages", config.backread_messages),
+            ("Backread Short", config.backread_short),
+            ("Max Tool Length", config.max_tool),
+            ("Max Quote Length", config.max_quote),
+            ("Max Text File Length", config.max_text_file),
+            ("Max Image Resolution", config.max_image_resolution),
+            ("Max Caption Resolution", config.max_caption_resolution),
+        ):
+            embed3.add_field(name=name, value=code(field.value))
+
+        embed4 = discord.Embed(title="🌐 Agent Global Settings", color=color)
+
+        embed4.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
+
+        embed4.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
+        embed4.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
+        embed4.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
+
+        embed4.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
+        embed4.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
+        embed4.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
+ 
+        await ctx.send(embeds=[embed1, embed2, embed3, embed4])
 
 
     @staticmethod
@@ -396,7 +461,7 @@ class AgentCogConfigCommands(AgentCogBase):
         setting_dict = reduce(lambda a, b: a | b, [func.settings for func in get_all_tools()])
         setting_values = self.config.tool_settings.value
         if not key:
-            lines = [f"`{key}`: `{setting_values.get(key, default or '(empty)')}`" for key, default in setting_dict.items()]
+            lines = [f"`{key}`: `{setting_values.get(key, default) or '(empty)'}`" for key, default in setting_dict.items()]
             return await ctx.send(">>> " + "\n".join(lines))
         if key not in setting_dict:
             return await ctx.send("Invalid setting name. Options are: " + ", ".join([f"`{k}`" for k in setting_dict]))
@@ -409,7 +474,6 @@ class AgentCogConfigCommands(AgentCogBase):
         setting_values[key] = value
         await self.config.tool_settings.save()
         await ctx.tick()
-
 
 
     ModelPromptTypes = Literal["recaller", "responder", "memorizer", "captioner", "autoreacter"]
@@ -426,18 +490,25 @@ class AgentCogConfigCommands(AgentCogBase):
             "captioner":   config.model_captioner,
             "autoreacter": config.model_autoreacter,
         }
+        
         if not model or not model.strip():
-            await ctx.reply(f"Current model for the {module} is {fields[module].value}")
-        elif "/" not in model and "$" not in model and model.strip().lower() not in VISION_MODELS:
-            await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
-        else:
-            await fields[module].set(model.strip().lower())
-            if "$" in model:
-                await ctx.reply("Model changed. Note that this model will be used through OpenWebui, and things may break unexpectedly.")
-            elif "/" in model:
-                await ctx.reply("Model changed. Note that this model will be used through OpenRouter, and things may break unexpectedly.")
-            else:
-                await ctx.tick(message="Model changed")
+            return await ctx.reply(f"Current model for the {module} is {fields[module].value}")
+
+        if "$" in model:
+            await ctx.reply("This model will be used through OpenWebui, and things may break unexpectedly.")
+        elif "/" in model:
+            try:
+                is_valid = await is_valid_openrouter_model(self.session, model)
+            except Exception as error:
+                log.error(f"Failed to contact OpenRouter. {type(error).__name__}: {error}")
+                await ctx.reply("There was an error trying to contact OpenRouter, but the model will be changed anyway.")
+            if not is_valid:
+                return await ctx.reply("That is not a valid OpenRouter model! You may browse models [here](<https://openrouter.ai/discover>).")
+        elif model.strip().lower() not in VISION_MODELS:
+            return await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
+        
+        await fields[module].set(model.strip().lower())
+        await ctx.tick(message="Model changed.")
 
     EffortPromptTypes = Literal["recaller", "responder", "memorizer"]
 
@@ -458,3 +529,17 @@ class AgentCogConfigCommands(AgentCogBase):
         else:
             await fields[module].set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
+
+    @agentconfig.command("status")
+    @commands.is_owner()
+    async def agentconfig_status(self, ctx: commands.Context, *, status: Optional[str]):
+        """Little feature to preset a status on bot startup"""
+        if not status:
+            await self.config.status.set("")
+            await self.bot.change_presence(activity=None)
+            await ctx.reply("The bot's status will not be set on startup.")
+        else:
+            status = status[:128].replace("\n", " ")
+            await self.config.status.set(status)
+            await self.bot.change_presence(activity=discord.CustomActivity(name=status))
+            await ctx.reply(f"The bot's status will be set to `{status}` on startup.")

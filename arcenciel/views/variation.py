@@ -1,11 +1,10 @@
 import discord
-import discord.ui as ui
 from copy import deepcopy
 
 from arcenciel.views.image_actions import ImageActions
 
 
-class VariationModal(ui.Modal):
+class VariationModal(discord.ui.Modal):
     def __init__(self, parent_view: ImageActions):
         super().__init__(title="Make image variation")
         self.parent_view = parent_view
@@ -19,15 +18,15 @@ class VariationModal(ui.Modal):
         if previous_strength > 0:
             default_strength_percent = round(previous_strength * 100)
 
-        self.subseed_checkbox = ui.Label(
+        self.subseed_checkbox = discord.ui.Label(
             text="Reroll subseed",
             description="Keeping the subseed while changing the strength may offer finer tuning.",
-            component=ui.Checkbox(default=True),
+            component=discord.ui.Checkbox(default=True),
         )
-        self.variation_select = ui.Label(
+        self.variation_select = discord.ui.Label(
             text="Strength",
             description="How strong the change should be compared to the original image.",
-            component=ui.Select(options=[
+            component=discord.ui.Select(options=[
                 discord.SelectOption(label=f"{num}%", value=str(num), default=num==default_strength_percent)
                 for num in range(1, 26)
             ]),

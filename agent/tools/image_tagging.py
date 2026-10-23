@@ -48,7 +48,7 @@ class ImageTaggingTool(ToolBase):
         filename: str = arguments.get("image", "")
         if not filename:
             return "<error>No filename provided</error>"
-        arcenciel: commands.Cog | None = self.ctx.bot.get_cog("Arcenciel")
+        arcenciel: commands.Cog | None = self.cog.bot.get_cog("Arcenciel")
         if not arcenciel:
             return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         image_source = await self.find_image(filename.strip())

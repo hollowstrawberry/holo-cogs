@@ -1,15 +1,20 @@
+import discord
+from abc import ABC
 from enum import Enum
-from typing import Coroutine
 from datetime import datetime
 from dataclasses import dataclass, field
-
-import discord
+from collections.abc import Coroutine, Mapping
 from redbot.core import commands
 
 
 class SplitType(Enum):
     HORIZONTAL = "split-horizontal-2"
     VERTICAL = "split-vertical-2"
+
+
+class GeneratingV2ViewBase(discord.ui.LayoutView, ABC):
+    def set_progress(self, status: str, progress: str | None = None, eta: str | None = None, step: str | None = None, preview_filename: str | None = None):
+        raise NotImplementedError
 
 
 @dataclass
@@ -27,6 +32,14 @@ class QueuedImageGen:
     last_percent: int = 0
     last_eta: int = 1_000_000
     cancelled: bool = False
+    pending_preview: tuple[bytes, str, int, int] | None = None
+    preview_version: int = 0
+    displayed_preview_version: int = 0
+    preview_filename: str | None = None
+    preview_step: int = 0
+    preview_total_steps: int = 0
+    preview_disabled: bool = False
+    progress_v2_view: GeneratingV2ViewBase | None = None
 
 @dataclass
 class ImageToImageParams:
@@ -61,5 +74,8 @@ class ImageGenParams:
     loras: list[str]            = field(default_factory=list)
     subseed: int                = -1
     subseed_strength: float     = 0.0
+    agent_request: bool         = False
     image: ImageToImageParams | None = None
     regions: ImageRegionalParams | None = None
+    # Raw options are validated into MossOptions before they reach the API.
+    moss: Mapping[str, object] | None = None

@@ -1,23 +1,30 @@
 import os
+import base64
 import logging
 import asyncio
 import aiohttp
 import discord
+import humanize
+import binascii
 from io import BytesIO
 from copy import deepcopy
 from typing import Any, Coroutine
 from datetime import datetime, timedelta, timezone
+from collections.abc import Mapping
 from discord.ext import tasks
 from redbot.core import commands
 
-import arcenciel.constants as constants
-from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
-from arcenciel.utils import ImageGenError, build_split_masks, is_nsfw, send_response, gather_raise_all
+from arcenciel import constants
 from arcenciel.schema import ImageGenParams, QueuedImageGen
 from arcenciel.commands import ArcencielCommands
-from arcenciel.views.generating import GeneratingView
-from arcenciel.views.image_actions import ImageActions
+from arcenciel.agent_utils import build_standard_agent_payload, choose_model
 from arcenciel.arcenciel_api import ArcEnCielAPI
+from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
+from arcenciel.moss import build_moss_payload, is_array, json_object, safety_prompt
+from arcenciel.moss_schema import MossLora
+from arcenciel.utils import ImageGenError, build_split_masks, gather_raise_all, is_nsfw, send_response, extend_negative_prompt
+from arcenciel.views.generating import GeneratingV2View, GeneratingView
+from arcenciel.views.image_actions import ImageActions
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
 
@@ -31,7 +38,7 @@ class Arcenciel(ArcencielCommands):
         self.api = ArcEnCielAPI(self, constants.ENDPOINT, api_key)
         asyncio.create_task(self.update_autocomplete_cache())
         self.consume_queue.start()
-        self.clear_quota.start()
+        self.preview_task = asyncio.create_task(self.consume_previews())
         self.resource_cache = await self.config.resource_cache()
     
     async def cog_load(self):
@@ -39,7 +46,9 @@ class Arcenciel(ArcencielCommands):
         
     async def cog_unload(self):
         self.consume_queue.stop()
-        self.clear_quota.stop()
+        if self.preview_task:
+            self.preview_task.cancel()
+            await asyncio.gather(self.preview_task, return_exceptions=True)
         if self.api:
             await self.api.session.close()
 
@@ -47,13 +56,41 @@ class Arcenciel(ArcencielCommands):
         assert self.api
         return await self.api.update_autocomplete_cache()
 
-
-    @tasks.loop(hours=1)
-    async def clear_quota(self):
-        self.gen_count.clear()
-        self.last_quota_refresh = datetime.now(timezone.utc)
-        log.info("Refreshed hourly quota")
-
+    async def consume_previews(self):
+        assert self.api
+        retry_delay = 2
+        while not self.api.session.closed:
+            try:
+                async for preview in self.api.stream_previews():
+                    retry_delay = 2
+                    gen = self.queued_images.get(preview.get("jobId") or "")
+                    if (not gen or gen.cancelled or gen.preview_disabled or not gen.progress_v2_view
+                            or not is_nsfw(gen.channel)):
+                        continue
+                    mime_type = preview.get("mimeType")
+                    step = preview.get("step")
+                    total_steps = preview.get("totalSteps")
+                    encoded = preview.get("imageBase64")
+                    if (mime_type not in ("image/jpeg", "image/png") or type(step) is not int
+                            or type(total_steps) is not int or step < 1 or total_steps < step
+                            or not isinstance(encoded, str) or len(encoded) > 700_000):
+                        continue
+                    try:
+                        image = base64.b64decode(encoded, validate=True)
+                    except (binascii.Error, ValueError):
+                        continue
+                    if not image or len(image) > 512 * 1024:
+                        continue
+                    gen.pending_preview = (image, mime_type, step, total_steps)
+                    gen.preview_version += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.warning("Generator preview stream disconnected", exc_info=True)
+            if self.api.session.closed:
+                return
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, 60)
 
     @tasks.loop(seconds=1.5, reconnect=True)
     async def consume_queue(self):
@@ -89,10 +126,12 @@ class Arcenciel(ArcencielCommands):
 
         if (now - created).total_seconds() > constants.JOB_TIMEOUT:
             self.queued_images.pop(gen.id, None)
+            gen.pending_preview = None
             asyncio.create_task(self.finalize_image_generation(gen, False, "Timed out."))
 
         elif job["status"] in ["completed", "failed"]:
             self.queued_images.pop(gen.id, None)
+            gen.pending_preview = None
             ratings = job.get("safety", {}).get("outputs", {}).values()
             nsfw = any(r.get("rating") in ["sensitive", "explicit"] for r in ratings)
             error_message = None
@@ -105,70 +144,140 @@ class Arcenciel(ArcencielCommands):
             current_percent: int = job["progress"]["percent"]
             current_eta: int = job["progress"]["etaMs"] or job["queueEtaMs"] or 0
             current_position: int = job["position"]
+            show_preview = gen.progress_v2_view is not None and is_nsfw(gen.channel)
+            preview_version = gen.preview_version
+            pending_preview = (gen.pending_preview if show_preview and not gen.preview_disabled
+                               and preview_version != gen.displayed_preview_version else None)
+            clear_preview = gen.progress_v2_view is not None and not show_preview and gen.preview_filename is not None
             if (now - gen.last_updated).total_seconds() < constants.PROGRESS_UPDATE_INTERVAL:
                 return
-            if abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent and gen.last_position == current_position:
+            if (abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent
+                    and gen.last_position == current_position and not pending_preview and not clear_preview):
                 return
-            gen.last_updated = now  
+            
+            phase_text = "Generating image..."
+            if current_phase == "queued":
+                phase_text = "Image request received..."
+            elif current_phase == "upscaling":
+                phase_text = "Upscaling image..."
+            elif current_phase == "refining":
+                phase_text = "Refining image..."
+            elif current_phase == "warmup":
+                phase_text = "Preparing generator..."
+            elif current_phase == "finalizing":
+                phase_text = "Finishing image..."
+            status = f"{await self.config.loading_emoji()} {phase_text}"
+            if current_phase == "queued" and gen.progress_v2_view:
+                status += f"  ·  Position in queue `{current_position}`"
+            progress_value = f"`{current_percent}%`" if current_percent > 0 else None
+            eta_value = None
+            if current_eta > 1000:
+                estimate = now + timedelta(milliseconds=current_eta)
+                eta_value = f"<t:{int(estimate.timestamp())}:R>"
+            elif current_percent > 0:
+                eta_value = "`soon`"
+
+            preview_filename = gen.preview_filename
+            preview_step = gen.preview_step
+            preview_total_steps = gen.preview_total_steps
+            preview_file = None
+            if pending_preview:
+                image, mime_type, preview_step, preview_total_steps = pending_preview
+                extension = "jpg" if mime_type == "image/jpeg" else "png"
+                preview_file = discord.File(
+                    BytesIO(image), filename=f"preview_{gen.id}_{preview_version}.{extension}", spoiler=True
+                )
+                preview_filename = preview_file.filename
+            step_value = f"`{preview_step}/{preview_total_steps}`" if show_preview and preview_filename else None
+
+            if gen.progress_v2_view:
+                gen.progress_v2_view.set_progress(status, progress_value, eta_value, step_value,
+                                                  preview_filename if show_preview else None)
+                edit_kwargs = {"view": gen.progress_v2_view, "allowed_mentions": discord.AllowedMentions.none()}
+            else:
+                embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
+                embed.description = status
+                embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
+                if current_phase == "queued":
+                    embed.add_field(name="Position in queue", value=f"`{current_position}`")
+                if progress_value:
+                    embed.add_field(name="Progress", value=progress_value)
+                if eta_value:
+                    embed.add_field(name="ETA", value=eta_value)
+                edit_kwargs = {"embed": embed}
+
+            async def edit_progress(attachments=None):
+                kwargs = dict(edit_kwargs)
+                if attachments is not None:
+                    kwargs["attachments"] = attachments
+                if isinstance(gen.context, discord.Interaction):
+                    await gen.context.edit_original_response(**kwargs)  # type: ignore
+                elif gen.progress_message:
+                    await gen.progress_message.edit(**kwargs)  # type: ignore
+
+            if pending_preview and gen.progress_v2_view:
+                try:
+                    await edit_progress([preview_file])
+                except discord.HTTPException:
+                    log.warning("Unable to upload generator preview for job %s", gen.id, exc_info=True)
+                    gen.preview_disabled = True
+                    gen.pending_preview = None
+                    old_step = f"`{gen.preview_step}/{gen.preview_total_steps}`" if gen.preview_filename else None
+                    gen.progress_v2_view.set_progress(status, progress_value, eta_value, old_step, gen.preview_filename)
+                    await edit_progress()
+                else:
+                    gen.preview_filename = preview_filename
+                    gen.preview_step = preview_step
+                    gen.preview_total_steps = preview_total_steps
+                    gen.displayed_preview_version = preview_version
+                    if gen.preview_version == preview_version:
+                        gen.pending_preview = None
+            else:
+                await edit_progress([] if clear_preview else None)
+                if clear_preview:
+                    gen.preview_filename = None
+                    gen.preview_step = 0
+                    gen.preview_total_steps = 0
+                    gen.pending_preview = None
+
+            gen.last_updated = datetime.now(timezone.utc)
             gen.last_percent = current_percent
             gen.last_eta = current_eta
             gen.last_position = current_position
-            
-            embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
-            embed.description = f"{await self.config.loading_emoji()} "
-            embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
-            
-            if current_phase == "queued":
-                embed.description += "Image request received..."
-                embed.add_field(name="Position in queue", value=f"`{current_position}`")
-            elif current_phase == "upscaling":
-                embed.description += "Upscaling image..."
-            elif current_phase == "refining":
-                embed.description += "Refining image..."
-            elif current_phase == "warmup":
-                embed.description += "Preparing generator..."
-            elif current_phase == "finalizing":
-                embed.description += "Finishing image..."
-            else:
-                embed.description += f"Generating image..."
-            if current_percent > 0:
-                embed.add_field(name="Progress", value=f"`{current_percent}%`")
-            if current_eta > 1000:
-                estimate = now + timedelta(milliseconds=current_eta)
-                embed.add_field(name="ETA", value=f"<t:{int(estimate.timestamp())}:R>")
-            elif current_percent > 0:
-                embed.add_field(name="ETA", value="`soon`")
 
-            if isinstance(gen.context, discord.Interaction):
-                await gen.context.edit_original_response(embed=embed)
-            elif gen.progress_message:
-                await gen.progress_message.edit(embed=embed)
-
-
-    async def generate_image(self,
-                             context: commands.Context | discord.Interaction,
-                             payload: dict | None = None,
-                             params: ImageGenParams | None = None,
-                             callback: Coroutine | None = None,
-                             message_content: str | None = None
-                            ):
+    async def generate_image(
+        self,
+        context: commands.Context | discord.Interaction,
+        payload: dict[str, object] | None = None,
+        params: ImageGenParams | None = None,
+        callback: Coroutine[object, object, None] | None = None,
+        message_content: str | None = None,
+    ) -> None:
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
         assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
         assert payload or params
-        payload = payload or await self.build_image_payload(params, user, is_nsfw(channel))  # type: ignore
-
-        enabled = await self.config.guild(context.guild).enabled()
-        if not enabled:
-            return await send_response(context, content=":warning: The generator is not enabled for this server.")
-        
-        if await self.reject_non_vip(context):
+        ready = False
+        try:
+            if not await self.config.guild(context.guild).enabled():
+                await send_response(context, content=":warning: The generator is not enabled for this server.")
+                return
+            if not await self.check_quota(context):
+                return
+            if not payload:
+                assert params is not None
+                payload = await self.prepare_image_payload(context, params)
+            if await self.contains_blacklisted_word(safety_prompt(payload)):
+                await send_response(context, content=":warning: Blocked prompt.")
+                return
+            ready = True
+        except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
+            await send_response(context, content=f":warning: The image couldn't be prepared. ({error})")
             return
+        finally:
+            if not ready and callback is not None:
+                await callback
 
-        prompt = params.prompt if params else payload.get("prompt", "")
-        if await self.contains_blacklisted_word(prompt):
-            return await send_response(context, content=":warning: Blocked prompt.")
-        
         gen = QueuedImageGen(
             "", payload,
             user, channel, context,
@@ -176,30 +285,53 @@ class Arcenciel(ArcencielCommands):
             datetime.now(timezone.utc),
         )
         loading = await self.config.loading_emoji()
-        view = GeneratingView(self, gen)
-        embed = discord.Embed(description=f"{loading} Image request sent...")
-        embed.color = await self.bot.get_embed_color(channel)
-        embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
+        color = await self.bot.get_embed_color(channel)
+        if is_nsfw(channel):
+            view = GeneratingV2View(self, gen, color)
+            gen.progress_v2_view = view
+            view.set_progress(f"{loading} Image request sent...")
+        else:
+            view = GeneratingView(self, gen)
+            embed = discord.Embed(description=f"{loading} Image request sent...", color=color)
+            embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
-            gen.progress_message = await context.reply(embed=embed, view=view, mention_author=False)
+            if isinstance(view, discord.ui.LayoutView):
+                gen.progress_message = await context.reply(view=view, mention_author=False,
+                                                           allowed_mentions=discord.AllowedMentions.none())
+            else:
+                gen.progress_message = await context.reply(embed=embed, view=view, mention_author=False)
             gen.callback = gather_raise_all(callback, gen.progress_message.delete())
         else:
-            await context.edit_original_response(embed=embed, view=view)
+            if gen.progress_v2_view:
+                await context.edit_original_response(embed=None, content=None, attachments=[], view=view,
+                                                     allowed_mentions=discord.AllowedMentions.none())
+            else:
+                await context.edit_original_response(embed=embed, view=view)
     
         try:
-            if "masterpiece" not in prompt and "best quality" not in prompt:
-                payload["prompt"] = "masterpiece, best quality, " + prompt
             if params and params.image:
                 path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
                 payload["imagePath"] = path
             if params and params.regions and payload.get("attentionCouple"):
-                mask_paths = []
-                masks = build_split_masks(payload["width"], payload["height"], params.regions.split_percent, params.regions.split_type)
+                width, height = payload["width"], payload["height"]
+                if not isinstance(width, int) or not isinstance(height, int):
+                    raise ImageGenError("Regional masks require integer image dimensions.")
+                attention = json_object(payload["attentionCouple"])
+                regions = attention.get("regions")
+                if not is_array(regions):
+                    raise ImageGenError("Regional masks require a list of regions.")
+                masks = build_split_masks(width, height, params.regions.split_percent, params.regions.split_type)
+                mask_paths: list[str] = []
                 for filename, data in masks:
                     mask_paths.append(await self.api.upload_image(data, filename or "image.png"))
-                for i, path in enumerate(mask_paths):
-                    payload["attentionCouple"]["regions"][i]["maskPath"] = path
-                
+                payload["attentionCouple"] = {
+                    **attention,
+                    "regions": [
+                        {**json_object(region), "maskPath": path}
+                        for region, path in zip(regions, mask_paths, strict=True)
+                    ],
+                }
+
             job = await self.api.request_image(payload)
             if gen.cancelled:  # gotta love race conditions
                 await self.api.cancel_request(job["id"])
@@ -221,7 +353,20 @@ class Arcenciel(ArcencielCommands):
         else:
             return
         # After exception
-        await gather_raise_all(gen.callback, send_response(context, content=error_message))
+        await gather_raise_all(gen.callback, self.send_generation_response(gen, content=error_message))
+
+    async def send_generation_response(self, gen: QueuedImageGen, **kwargs):
+        if gen.progress_v2_view and isinstance(gen.context, discord.Interaction):
+            message = await gen.context.followup.send(**kwargs)
+            try:
+                await gen.context.delete_original_response()
+            except discord.HTTPException:
+                log.warning("Unable to remove completed generator progress for job %s", gen.id, exc_info=True)
+            try:
+                return await gen.channel.fetch_message(message.id)
+            except discord.HTTPException:
+                return message
+        return await send_response(gen.context, **kwargs)
 
 
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
@@ -232,7 +377,7 @@ class Arcenciel(ArcencielCommands):
         
         if error_message:
             content = f":warning: Failed to generate image. {error_message}"
-            return await gather_raise_all(gen.callback, send_response(gen.context, content=content))
+            return await gather_raise_all(gen.callback, self.send_generation_response(gen, content=content))
         
         final_tasks = [gen.callback]
         try:
@@ -244,9 +389,11 @@ class Arcenciel(ArcencielCommands):
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
             # send it
-            message = await send_response(gen.context, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none())
+            message = await self.send_generation_response(gen, file=file, view=view, content=content,
+                                                          allowed_mentions=discord.AllowedMentions.none())
             view.message = message
-            self.gen_count[gen.user.id] += 1
+            quota_progress = self.config.user(gen.user).quota_progress
+            await quota_progress.set(await quota_progress() + 1)
             imagescanner = self.bot.get_cog("ImageScanner")
             if message and imagescanner and gen.channel.id in getattr(imagescanner, "scan_channels"):
                 getattr(imagescanner, "image_cache")[message.id] = ({0: metadata}, {0: image_bytes})
@@ -264,39 +411,49 @@ class Arcenciel(ArcencielCommands):
             log.exception("Finalizing image")
 
         if error_message:
-            final_tasks.append(send_response(gen.context, content=error_message))
+            final_tasks.append(self.send_generation_response(gen, content=error_message))
             
         await gather_raise_all(*final_tasks)
 
 
-    async def reject_non_vip(self, context: commands.Context | discord.Interaction) -> bool:
+    async def check_quota(self, context: commands.Context | discord.Interaction) -> bool:
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
         assert context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.abc.Messageable)
 
-        vip_role = await self.config.guild(context.guild).vip_role()
-        is_vip = await self.config.user(user).vip() or any(role.id == vip_role for role in user.roles)
-        quota = await self.config.quota()
+        role_configs = await self.config.all_roles()
+        role_quotas: dict[int, int] = {key: config["quota"] for key, config in role_configs.items()}
+        quota_start = datetime.fromisoformat(await self.config.user(user).quota_start())
+        quota_progress: int = await self.config.user(user).quota_progress()
         has_ongoing_gen = any(gen.user == user for gen in self.queued_images.values())
-        elapsed_last_refresh = (datetime.now(timezone.utc) - self.last_quota_refresh).total_seconds()
+        now = datetime.now(timezone.utc)
+        quota_elapsed = (now - quota_start).total_seconds()
+        role_ids = [role.id for role in user.roles]
+        highest_quota = max([role_quotas.get(rid, 0) for rid in role_ids], default=0)
 
-        if is_vip:
-            return False
+        if quota_elapsed > constants.QUOTA_PERIOD:
+            quota_progress, quota_elapsed = 0, 0
+            await self.config.user(user).quota_start.set(now.isoformat())
+            await self.config.user(user).quota_progress.set(0)
+
         embed = discord.Embed(color=await self.bot.get_embed_color(channel))
         embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
-        if has_ongoing_gen:
+        if has_ongoing_gen and highest_quota < constants.QUOTA_VIP_THRESHOLD:
             embed.description = "🕒 You must wait for your current image to finish generating before you can request a new one."
             await send_response(context, embed=embed, ephemeral=True)
-            return True
-        if self.gen_count[user.id] >= quota:
-            if quota == 0:
-                embed.description = ":warning: You are not authorized to use the generator at this time. You may be interested in [our web generator](<https://arcenciel.io/generate>)."
-            else:
-                embed.description = "🕒 You have met your hourly quota. You can wait for it to refresh, or try [our web generator](<https://arcenciel.io/generate>)."
-                embed.add_field(name="Time remaining", value=f"{int(60 - (elapsed_last_refresh // 60))} minutes.")
+            return False
+        if highest_quota <= 0:
+            embed.description = ":warning: You are not authorized to use the generator at this time. You may be interested in [our web generator](<https://arcenciel.io/generate>)."
             await send_response(context, embed=embed, ephemeral=True)
-            return True
-        return False
+            return False
+        if quota_progress >= highest_quota:
+            embed.description = "🕒 You have met your generation quota. You can wait for it to refresh, or try [our web generator](<https://arcenciel.io/generate>)."
+            remaining = constants.QUOTA_PERIOD - quota_elapsed
+            remaining_str = humanize.precisedelta(remaining, suppress=["seconds"] if remaining > 3600 else [], format="%02d")
+            embed.add_field(name="Time remaining", value=remaining_str)
+            await send_response(context, embed=embed, ephemeral=True)
+            return False
+        return True
 
 
     async def resolve_arcenciel_resources(self, metadata: ComfyMetadata) -> list[str]:
@@ -334,18 +491,53 @@ class Arcenciel(ArcencielCommands):
                 hyperlinks.add(link)
         return sorted(list(hyperlinks))
 
+    async def prepare_image_payload(self, context: commands.Context | discord.Interaction, params: ImageGenParams) -> dict[str, object]:
+        overrides: Mapping[str, object] | None = None
+        member = context.user if isinstance(context, discord.Interaction) else context.author
+        assert isinstance(member, discord.Member) and isinstance(context.channel, (discord.TextChannel, discord.Thread))
+        payload = await self.build_image_payload(params, member, is_nsfw(context.channel), overrides=overrides)
+        if params.agent_request:
+            assert self.api
+            await self.api.preflight_image(payload)
+        return payload
 
-    async def build_image_payload(self, params: ImageGenParams, member: discord.Member, nsfw: bool) -> dict:
-        stock_negative_prompt = await self.config.negative_prompt()
-        if stock_negative_prompt not in (params.negative_prompt or ""):
-            if params.negative_prompt:
-                params.negative_prompt = f"{stock_negative_prompt}, {params.negative_prompt}"
-            else:
-                params.negative_prompt = stock_negative_prompt
-        
+    async def build_image_payload(
+        self,
+        params: ImageGenParams,
+        member: discord.Member,
+        nsfw: bool,
+        *,
+        overrides: Mapping[str, object] | None = None,
+        agent_default: str = "moss",
+    ) -> dict[str, object]:
+
+        default_negative_prompt: str = await self.config.negative_prompt()
+        params.negative_prompt = extend_negative_prompt(default_negative_prompt, params.negative_prompt or "")
+                
+        if params.agent_request or params.moss is not None:
+            assert self.api
+            options, catalog = await self.api.refresh_moss_profile()
+            moss_loras: list[MossLora] = []
+            for lora in params.loras:
+                match = constants.LORA_PATTERN.match(lora)
+                moss_name, moss_weight = (match.group(2), float(match.group(3))) if match else (lora, 1.0)
+                moss_loras.append(
+                    {"name": moss_name.removesuffix(".safetensors") + ".safetensors", "weight": moss_weight}
+                )
+            if params.agent_request:
+                default = agent_default
+                old_checkpoint = overrides.get("checkpoint") if overrides else None
+                if default == "moss" and isinstance(old_checkpoint, str) and old_checkpoint:
+                    default = old_checkpoint
+                choice = choose_model(options, catalog, checkpoint=params.checkpoint or "", default=default)
+                params.checkpoint = choice.name
+                if choice.family != "moss":
+                    return build_standard_agent_payload(params, options, choice, nsfw, moss_loras)
+            return dict(build_moss_payload(params, options, catalog, nsfw, moss_loras, overrides))
+
         checkpoint = params.checkpoint or await self.config.user(member).checkpoint() or await self.config.checkpoint() or ""
         vae = params.vae or await self.config.vae()
-        loras = []
+        loras: list[dict[str, object]] = []
         for lora in params.loras:
             if m := constants.LORA_PATTERN.match(lora):
                 name, weight = m.group(2), m.group(3)
@@ -354,10 +546,10 @@ class Arcenciel(ArcencielCommands):
             filename = name.replace(".safetensors", "") + ".safetensors"
             loras.append({ "name": filename, "weight": weight })
 
-        payload = {
+        payload: dict[str, object] = {
             "mode": "img2img" if params.image else "txt2img",
             "prompt": params.prompt,
-            "negativePrompt": params.negative_prompt or await self.config.negative_prompt(),
+            "negativePrompt": params.negative_prompt,
             "modelName": checkpoint.replace(".safetensors", "") + ".safetensors",
             "vaeName": vae.replace(".safetensors", "") + ".safetensors" if vae else None,
             "seed": params.seed,

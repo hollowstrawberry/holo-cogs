@@ -8,6 +8,8 @@ from agent.tools.base import ToolBase
 
 
 class GptImageToolBase(ToolBase):
+    imagegen = True
+
     async def find_attachment(self, filename: str, messages: list[discord.Message], consumed: list[discord.Attachment]) -> discord.Attachment | None:
         assert self.ctx.guild
         for message in messages:
@@ -18,7 +20,7 @@ class GptImageToolBase(ToolBase):
     
     async def run(self, arguments: dict) -> dict | str:
         assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
-        gptimage: commands.Cog | None = self.ctx.bot.get_cog("GptImage")
+        gptimage: commands.Cog | None = self.cog.bot.get_cog("GptImage")
         if not gptimage:
             return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
         
@@ -103,7 +105,7 @@ class GptImageGenTool(GptImageToolBase):
     display_name="gptimage_gen"
     schema = ToolCall(
         Function(
-            name="generate_image",
+            name="generate_image_gpt",
             description="Generate an image with GPT, suitable for general/generic content.",
             parameters=Parameters(
                 properties={

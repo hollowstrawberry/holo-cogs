@@ -1,11 +1,10 @@
 import discord
-from discord.ui import View
 from typing import Awaitable, Callable
 
 from agent.constants import VIEW_TIMEOUT, PERMANENT_PROMPT_TYPES
-from agent.views.prompt_edit_modal import PromptEditodal
+from agent.views.prompt_edit_modal import PromptEditModal
 
-class PromptsEditView(View):
+class PromptsEditView(discord.ui.View):
     def __init__(self,
                  prompts: dict[str, str],
                  edit_callback: Callable[[str, str], Awaitable],
@@ -64,13 +63,13 @@ class PromptsEditView(View):
         # checked in the modal instead
         #if not await self.check_owner(interaction.user):
         #    return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
-        modal = PromptEditodal(name, prompt, self.check_owner, edit_callback=self.prompt_edit_callback_selector(name))
+        modal = PromptEditModal(name, prompt, self.check_owner, edit_callback=self.prompt_edit_callback_selector(name))
         await interaction.response.send_modal(modal)
 
     async def create_prompt(self, interaction: discord.Interaction):
         if not await self.check_owner(interaction.user):
             return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
-        modal = PromptEditodal(None, "", self.check_owner, create_callback=self.prompt_create_callback)
+        modal = PromptEditModal(None, "", self.check_owner, create_callback=self.prompt_create_callback)
         await interaction.response.send_modal(modal)
 
     async def delete(self, interaction: discord.Interaction):

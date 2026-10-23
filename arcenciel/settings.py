@@ -1,10 +1,13 @@
 import logging
 import discord
-from typing import Optional
+import humanize
+from typing import Literal, Optional
+from datetime import datetime, timezone
 from redbot.core import checks, commands
 
 from arcenciel.base import ArcencielBase
 from arcenciel.utils import make_batches, chunk_and_send
+from arcenciel.constants import QUOTA_PERIOD
 
 log = logging.getLogger("red.bz_cogs.arcenciel")
 
@@ -36,10 +39,11 @@ class ArcencielSettings(ArcencielBase):
             await self.config.user(ctx.author).checkpoint.set(ckpt_names[checkpoint])
             await ctx.tick(message="✅ Default checkpoint updated.")
 
-    @commands.group(name="arcenciel") # type: ignore
+    @commands.group(name="arcenciel", aliases=["arc", "aec"])  # type: ignore
     @commands.guild_only()
     @checks.bot_has_permissions(embed_links=True, add_reactions=True)
     @checks.admin_or_permissions(manage_guild=True)
+    @checks.bot_in_a_guild()
     async def arcenciel(self, _: commands.Context):
         """ Manage AI Image cog settings. """
         pass
@@ -96,7 +100,7 @@ class ArcencielSettings(ArcencielBase):
         await self.config.nsfw.set(not nsfw)
         await ctx.send(f"NSFW filtering is now {'`disabled`' if not nsfw else '`enabled`'}")
 
-    @arcenciel.command(name="negative_prompt")
+    @arcenciel.command(name="negative_prompt", aliases=["negative"])
     async def negative_prompt_cmd(self, ctx: commands.Context, *, negative_prompt: Optional[str]):
         """
         Set the default negative prompt
@@ -189,7 +193,7 @@ class ArcencielSettings(ArcencielBase):
         await self.config.max_img2img.set(resolution)
         await ctx.tick(message="✅ Maximum img2img size updated.")
 
-    @arcenciel.command(name="checkpoint", aliases=["model"])
+    @arcenciel.command(name="checkpoint", aliases=["model", "ckpt"])
     async def checkpoint_cmd(self, ctx: commands.Context, *, checkpoint: Optional[str]):
         """
         Set the default checkpoint / model used for generating images
@@ -232,7 +236,6 @@ class ArcencielSettings(ArcencielBase):
         await ctx.send(f"ADetailer is now {'`disabled`' if not new else '`enabled`'} for basic gens")
 
     @arcenciel.command(name="blacklist", aliases=["blocklist"])
-    @commands.is_owner()
     async def blacklist_cmd(self, ctx: commands.Context, *, regex: Optional[str]):
         """
         Sets a blacklist regex for prompts
@@ -248,7 +251,6 @@ class ArcencielSettings(ArcencielBase):
             await ctx.send(f"Set regex\n```re\n{regex.strip()}```")
 
     @arcenciel.command(name="loading_emoji")
-    @commands.is_owner()
     async def loading_emoji_cmd(self, ctx: commands.Context, emoji: str):
         """
         Sets a loading emoji for the progress message
@@ -257,7 +259,6 @@ class ArcencielSettings(ArcencielBase):
         await ctx.tick()
 
     @arcenciel.command(name="arcenciel_emoji")
-    @commands.is_owner()
     async def arcenciel_emoji_cmd(self, ctx: commands.Context, emoji: str):
         """
         Sets the arcenciel emoji for search results
@@ -266,8 +267,6 @@ class ArcencielSettings(ArcencielBase):
         await ctx.tick()
 
     @arcenciel.command(name="sync")
-    @checks.is_owner()
-    @checks.bot_in_a_guild()
     async def sync_cmd(self, ctx: commands.Context):
         """
         Updates the autocomplete cache
@@ -278,52 +277,98 @@ class ArcencielSettings(ArcencielBase):
         await ctx.message.add_reaction("✅")
         await ctx.message.remove_reaction("⏳", ctx.guild.me)
         
-    @arcenciel.group(name="vip")
-    @checks.is_owner()
-    @checks.bot_in_a_guild()
-    async def vip_cmd(self, _: commands.Context):
+    @arcenciel.group(name="quota", aliases=["vip", "limit", "limits"])
+    async def quota_cmd(self, _: commands.Context):
         """
-        Manage the VIP role for image generation, which can generate as many images as they want
+        Manage image generation limits for various groups
         """
         pass
 
-    @vip_cmd.command(name="quota")
-    async def vip_quota(self, ctx: commands.Context, gens: int):
+    @quota_cmd.command(name="list", aliases=["show", "roles", "limit", "limits", "all"])
+    async def quota_list_cmd(self, ctx: commands.Context):
         """
-        Sets the number of gens a user can do per hour
-        """
-        if gens < 0 or gens > 1000:
-            return await ctx.send("Valid quota values range from 0 to 1000")
-        await self.config.quota.set(gens)
-        await ctx.send(f"Hourly quota set to {gens}")
-
-    @vip_cmd.command(name="view")
-    async def vip_view(self, ctx: commands.Context):
-        """
-        View the VIP role
+        Lists all image generation limits
         """
         assert ctx.guild
-        role_id = await self.config.guild(ctx.guild).vip_role()
-        all_users = await self.config.all_users()
-        users = [f"<@{uid}>" for uid, config in all_users.items() if config.get("vip")]
-        content = "`VIP role for this guild:` " + (f"<@&{role_id}>" if role_id and role_id >= 0 else "*none*")
-        content += "\n`VIP users globally:` " + (" ".join(users) if users else "*none*")
-        await ctx.send(content, allowed_mentions=discord.AllowedMentions.none())
+        role_configs = await self.config.all_roles()
+        entries = [(role, config["quota"])
+                   for role_id, config in role_configs.items()
+                   if (role := ctx.guild.get_role(role_id)) and config.get("quota", 0) > 0]
 
-    @vip_cmd.command(name="role")
-    async def vip_role(self, ctx: commands.Context, *, role: discord.Role):
+        embed = discord.Embed(color=await self.bot.get_embed_color(ctx.channel), title="Generation Quotas")
+        if not entries:
+            embed.description = "No roles currently have a generation quota configured."
+            return await ctx.send(embed=embed)
+
+        entries.sort(key=lambda entry: entry[1], reverse=True)
+        period_str = humanize.precisedelta(QUOTA_PERIOD)
+        lines = [f"{role.mention} - {quota} images / {period_str}" for role, quota in entries]
+        embed.description = "\n".join(lines)
+        await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+
+    @quota_cmd.command(name="set", aliases=["add", "role"])
+    async def quota_set_cmd(self, ctx: commands.Context, role: discord.Role | Literal["everyone"], limit: int):
         """
-        Sets a VIP role for this server
+        Set the image generation limit of a server role
         """
         assert ctx.guild
-        await self.config.guild(ctx.guild).vip_role.set(role.id)
-        await ctx.send(f"VIP role set to {role.mention}", allowed_mentions=discord.AllowedMentions.none())
+        if limit < 0:
+            return await ctx.send(":warning: The quota limit cannot be negative.")
+        if role == "everyone":
+            role = ctx.guild.default_role
 
-    @vip_cmd.command(name="user")
-    async def vip_user(self, ctx: commands.Context, *, user: discord.User):
+        await self.config.role(role).quota.set(limit)
+
+        embed = discord.Embed(color=await self.bot.get_embed_color(ctx.channel))
+        if limit == 0:
+            embed.description = f"✅ {role.mention} no longer has a generation quota (limit set to 0)."
+        else:
+            period_str = humanize.precisedelta(QUOTA_PERIOD, suppress=["seconds"], format="%01d")
+            embed.description = f"✅ {role.mention} now has a generation quota of **{limit}** images per {period_str}."
+        await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+
+    @quota_cmd.command(name="check", aliases=["user"])
+    async def quota_check_cmd(self, ctx: commands.Context, user: discord.Member):
         """
-        Toggles whether a user is VIP
+        Check the current progress and limit of a user's quota
         """
-        new = not await self.config.user(user).vip() 
-        await self.config.user(user).vip.set(new)
-        await ctx.send(f"User {user.mention} is {'now VIP' if new else 'no longer VIP'}", allowed_mentions=discord.AllowedMentions.none())
+        assert ctx.guild
+        role_configs = await self.config.all_roles()
+        role_quotas: dict[int, int] = {role_id: config["quota"] for role_id, config in role_configs.items()}
+
+        embed = discord.Embed(color=await self.bot.get_embed_color(ctx.channel))
+        embed.set_author(name=str(user), icon_url=user.display_avatar.url)
+
+        highest_quota = max([role_quotas.get(role.id, 0) for role in user.roles], default=0)
+        if highest_quota <= 0:
+            embed.description = f"{user.mention} is not currently authorized to use the generator."
+            return await ctx.send(embed=embed)
+
+        quota_progress: int = await self.config.user(user).quota_progress()
+        quota_start = datetime.fromisoformat(await self.config.user(user).quota_start())
+        now = datetime.now(timezone.utc)
+        quota_elapsed = (now - quota_start).total_seconds()
+        if quota_elapsed > QUOTA_PERIOD:
+            quota_progress = 0
+            remaining_str = "Refreshes on next use"
+        else:
+            remaining = QUOTA_PERIOD - quota_elapsed
+            remaining_str = humanize.precisedelta(remaining, suppress=["seconds"] if remaining > 3600 else [], format="%02d")
+
+        embed.add_field(name="Progress", value=f"{quota_progress} / {highest_quota}")
+        embed.add_field(name="Time remaining", value=remaining_str)
+        await ctx.send(embed=embed)
+
+    @quota_cmd.command(name="reset", aliases=["clear"])
+    async def quota_reset_cmd(self, ctx: commands.Context, user: discord.User):
+        """
+        Reset a user's image generation quota progress
+        """
+        now = datetime.now(timezone.utc)
+        await self.config.user(user).quota_progress.set(0)
+        await self.config.user(user).quota_start.set(now.isoformat())
+
+        embed = discord.Embed(color=await self.bot.get_embed_color(ctx.channel))
+        embed.set_author(name=str(user), icon_url=user.display_avatar.url)
+        embed.description = f"✅ {user.mention}'s generation quota has been reset."
+        await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())

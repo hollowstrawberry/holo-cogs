@@ -1,12 +1,11 @@
 import io
 import json
 import discord
-from discord.ui import View
 
 from arcenciel.constants import VIEW_TIMEOUT
 
 
-class ImageInfoView(View):
+class ImageInfoView(discord.ui.View):
     def __init__(self, raw_metadata: str):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.raw_metadata = raw_metadata

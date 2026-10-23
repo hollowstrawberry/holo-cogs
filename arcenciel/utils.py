@@ -106,6 +106,15 @@ def parse_prompts(payload: dict) -> None:
     for region in payload.get("attentionCouple", {}).get("regions", []):
         region["prompt"] = LORA_PATTERN.sub("", region["prompt"]).replace(", ,", ",").strip()
 
+def extend_negative_prompt(base_prompt: str, extra_prompt: str) -> str:
+    """Adds unique comma-separated terms"""
+    if base_prompt and extra_prompt:
+        base_tags = [tag.strip() for tag in base_prompt.split(",")]
+        extra_tags = [tag.strip() for tag in extra_prompt.split(",")]
+        base_tags += [tag for tag in extra_tags if tag not in base_tags]
+        return ", ".join([tag for tag in base_tags if tag])
+    return base_prompt or extra_prompt
+
 def clamp(value: int, min_value: int, max_value: int) -> int:
     return max(min_value, min(max_value, value))
 
@@ -149,8 +158,6 @@ def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
     for i, prompt in enumerate(prompts):
         prompt = shared_prompt + prompt.replace("||", "").replace("[R1]", "").replace("[R2]", "").strip()
         prompt = LORA_PATTERN.sub("", prompt).strip()
-        if "masterpiece" not in prompt and "best quality" not in prompt:
-            prompt = "masterpiece, best quality, " + prompt
         edited_prompts[i] = prompt
     final_prompt = " || ".join(edited_prompts)
     return [final_prompt, *edited_prompts]

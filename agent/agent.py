@@ -13,13 +13,13 @@ from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
 from redbot.core.bot import Red
 
-import agent.utils as utils
-import agent.constants as constants
+from agent import utils, constants
 from agent.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
-from agent.schema import AgentMessage, AgentImageContent, ImageGenParams, MessageReaction, ReactionResult
+from agent.schema import AgentMessage, AgentImageContent, MessageReaction, ReactionResult
 from agent.commands import AgentCogCommands
 from agent.config_commands import AgentCogConfigCommands
 from agent.tools.base import get_all_tools
+from agent.tools.arcenciel_images import spoiler_adult_image_links
 from agent.tools.update_memory import UpdateMemoryTool
 from agent.context_builder import ContextBuilder
 from agent.views.memory_change import MemoryChangeView
@@ -43,6 +43,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         await self.config.load_all(self.bot)
         await self.initialize_function_calls()
         await self.initialize_openai_client()
+        if self.config.status.value:
+            asyncio.create_task(self.set_custom_status())
 
 
     async def cog_unload(self):
@@ -90,6 +92,11 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 },
             )
 
+    
+    async def set_custom_status(self):
+        await self.bot.wait_until_red_ready()
+        await self.bot.change_presence(activity=discord.CustomActivity(name=self.config.status.value))
+
 
     def get_client(self, model: str) -> AsyncOpenAI:
         if "$" in model:
@@ -136,7 +143,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         if any(message.content.startswith(prefix) for prefix in prefixes):
             return
         
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(timezone.utc)
         config = await self.config.load_guild(ctx.guild)
         channel_config = await self.config.load_channel(ctx.channel)
 
@@ -198,8 +205,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if not config:
                 continue
             if before.name in config.memory.value:
-                config.memory.value[after.name] = config.memory.value[before.name]
-                del config.memory.value[before.name]
+                config.memory.value[after.name] = config.memory.value.pop(before.name)
                 await config.memory.save()
                 log.info(f"Moved user memory {before.name=} {after.name=}")
 
@@ -385,13 +391,16 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 
-        past_memory_changes: list[MemoryChangeResult] = []
-        past_tool_calls: list[str] = []
+        tool_call_history: list[str] = []
+        adult_image_ids: set[int] = set()
+        memory_changes: list[MemoryChangeResult] = []
         files: list[discord.File] = []
+        do_reply = True
         for depth in range(config.max_tool_depth.value):
             can_use_tools = depth < config.max_tool_depth.value - 1
             if not can_use_tools and depth > 0:
                 temp_messages.extend(constants.FAKE_TOOL_CALL)  # type: ignore
+                
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),  # type: ignore
@@ -438,23 +447,28 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 try:
                     cls = next(t for t in tools if t.schema.function.name == call.function.name)
                     if cls is UpdateMemoryTool:
-                        if past_memory_changes:  # only allow one memory update per response
-                            changes = []
-                        else:
-                            changes = await self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=False)
-                            past_memory_changes += changes
-                        args = {"changes": changes}
+                        if not memory_changes:
+                            memory_changes = await self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=False)
+                        args = {"changes": memory_changes}
                     else:
                         args = json.loads(call.function.arguments)
+
                     tool_result = await cls(ctx, self).run(args)
+                    if call.function.name == "search_images_arcenciel" and isinstance(tool_result, dict):
+                        for image in tool_result.get("results", {}).get("image", []):
+                            if image.get("rating") in ("sensitive", "explicit"):
+                                adult_image_ids.add(image["@id"])
+
                 except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                     tool_result = "<error>Unhandled error, please contact the developer</error>"
                     log.exception(f"Calling tool {call.function.name}")
 
-                past_tool_calls.append(call.function.name)
+                tool_call_history.append(call.function.name)
                 if isinstance(tool_result, dict):
                     if (file := tool_result.pop("file", None)) and isinstance(file, discord.File):
                         files.append(file)
+                    if tool_result.pop("noreply", None):
+                        do_reply = False
                     if len(tool_result) == 0:
                         tool_result = {"result": "None"}
                     elif len(tool_result) > 1:
@@ -491,20 +505,23 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     prompt = utils.undo_xml(m.groups()[-1])
                     completion = pattern.sub("", completion)
                     break
-            if prompt and "generate_stable_diffusion" not in past_tool_calls:
+            if prompt and "generate_stable_diffusion" not in tool_call_history:
                 await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
-            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
+            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(self.bot), completion)
             completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
+            completion = spoiler_adult_image_links(completion, adult_image_ids)
             completion = utils.undo_xml(completion).strip()
+            completion = utils.parse_mentions(ctx.guild, completion)
+            
             if self.config.extended_logging.value and completion != raw_completion:
                 log.info(f"cleaned_{completion=}")
 
-        view = MemoryChangeView(past_memory_changes, standalone=False) if past_memory_changes else None
+        view = MemoryChangeView(memory_changes, standalone=False) if memory_changes else None
         if completion or view or files:
-            await utils.chunk_and_send(ctx, completion, embed=None, view=view, files=files, do_reply=not auto)
+            await utils.chunk_and_send(ctx, completion, embed=None, view=view, files=files, do_reply=do_reply and not auto)
         else:
             await ctx.message.add_reaction(self.config.noresponse_emoji.value)
 
@@ -550,7 +567,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
         prefixes = await self.bot.get_valid_prefixes(ctx.guild)
         temp_messages = [msg for msg in utils.get_text_contents(messages) if not utils.is_bot_command(msg, prefixes)]
-        num_backread = config.backread_short.value
+        num_backread = config.backread_short.value if config.allow_memorizer.value else config.backread_messages.value
         if len(temp_messages) > num_backread:
             temp_messages = temp_messages[-num_backread:]
         temp_messages.insert(0, system_prompt)  # type: ignore
@@ -784,24 +801,25 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if ctx.bot_permissions.add_reactions:
                 await ctx.message.add_reaction("❌")
             return
+
+        try:
+            from arcenciel.arcenciel import Arcenciel
+            from arcenciel.schema import ImageGenParams
+        except ImportError:
+            return await ctx.message.add_reaction("❌")
         
-        arcenciel: commands.Cog | None = ctx.bot.get_cog("Arcenciel")
-        if not arcenciel:
-            await ctx.message.add_reaction("❌")
-            return
+        arcenciel = self.bot.get_cog("Arcenciel")
+        if not isinstance(arcenciel, Arcenciel):
+            return await ctx.message.add_reaction("❌")
 
         width, height = await self.find_last_sd_generated_image_resolution(ctx)                
-        params = ImageGenParams(
-            prompt=prompt,
-            width=width,
-            height=height,
-        )
+        params = ImageGenParams(prompt=prompt, width=width, height=height)
         message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
         async def callback():
             await asyncio.sleep(0)
             self.currently_generating.discard(ctx.message.id)
         self.currently_generating.add(ctx.message.id)
-        generate_image = getattr(arcenciel, "generate_image")
+        generate_image = arcenciel.generate_image
         asyncio.create_task(generate_image(ctx, params=params, message_content=message_content, callback=callback()))
 
 

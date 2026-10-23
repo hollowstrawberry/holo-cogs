@@ -4,9 +4,10 @@ from typing import Optional
 from difflib import get_close_matches
 from redbot.core import commands
 
-from agent.base import AgentCogBase, AgentCogGuildConfig
+from agent.base import AgentCogBase
+from agent.config import AgentCogGuildConfig
+from agent.config_base import ConfigField
 from agent.schema import MemoryChangeResult
-from agent.config import ConfigField
 from agent.constants import DISCORD_EPOCH_DATETIME
 from agent.views.memory_info import MemoryInfoView
 from agent.views.memory_list import MemoryListView
@@ -146,29 +147,39 @@ class AgentCogCommands(AgentCogBase):
                 if matches:
                     name = matches[0]
             if name in memory:
-                view = MemoryInfoView(name, memory[name])
+                async def edit_memory(content: str):
+                    if not content:
+                        await self.command_deletememory(ctx, name=name)
+                    else:
+                        await self.command_setmemory(ctx, name=name, content=content)
+                view = MemoryInfoView(name, memory[name], edit_memory, self.bot.is_owner)
                 view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            await ctx.message.delete()
+            try:
+                await ctx.message.delete()
+            except discord.DiscordException:
+                pass
 
     @commands.command(name="deletememory", aliases=["delmemory"]) # type: ignore
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
     async def command_deletememory(self, ctx: commands.Context, *, name: str):
         """Delete an LLM memory"""
-        if (memory := self.config[ctx.guild].memory.value) and name in memory:
-            before = memory[name]
-            del memory[name]
-            await self.config[ctx.guild].memory.save()
+        memory = self.config[ctx.guild].memory
+        if before := memory.value.pop(name, None):
+            await memory.save()
             view = MemoryChangeView([MemoryChangeResult(name, before, None)], standalone=True)
             view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
         assert ctx.guild
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            await ctx.message.delete()
+            try:
+                await ctx.message.delete()
+            except discord.DiscordException:
+                pass
 
     @commands.command(name="setmemory") # type: ignore
     @commands.has_permissions(manage_guild=True)
@@ -180,12 +191,15 @@ class AgentCogCommands(AgentCogBase):
             return await ctx.send("Invalid name")
         if len(name) > 1000:
             return await ctx.send("Name too long")
-        memory = self.config[ctx.guild].memory.value
-        before = memory.get(name)
-        memory[name] = content
-        await self.config[ctx.guild].memory.save()
+        memory = self.config[ctx.guild].memory
+        before = memory.value.get(name)
+        memory.value[name] = content
+        await memory.save()
         view = MemoryChangeView([MemoryChangeResult(name, before, content)], standalone=True)
         view.message = await ctx.send(view=view)
         assert ctx.guild
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            await ctx.message.delete()
+            try:
+                await ctx.message.delete()
+            except discord.DiscordException:
+                pass
