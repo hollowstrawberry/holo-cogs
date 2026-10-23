@@ -113,9 +113,9 @@ class AgentCogConfigCommands(AgentCogBase):
 
         embed4.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
 
-        embed1.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
-        embed1.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
-        embed1.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
+        embed4.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
+        embed4.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
+        embed4.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
 
         embed4.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
         embed4.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
