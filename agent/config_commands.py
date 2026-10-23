@@ -87,20 +87,19 @@ class AgentCogConfigCommands(AgentCogBase):
         embed2.add_field(name="Memorizer User Only", value=code(config.memorizer_user_only.value))
 
         embed3 = discord.Embed(color=color)
- 
-        embed3.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
-        embed3.add_field(name=EMPTY, value=EMPTY)
-        embed3.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes"))
- 
+
+        embed3.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
         embed3.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
         embed3.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
-        embed3.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
  
+        embed3.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes")) 
+        embed3.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
+ 
+        embed3.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
+
         embed3.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
         embed3.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
         embed3.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
-
-        embed3.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
 
         embed4 = discord.Embed(title="Agent Cog Limits", color=color)
         for name, field in (
