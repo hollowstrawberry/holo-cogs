@@ -30,6 +30,7 @@ class AgentCogConfigCommands(AgentCogBase):
         config = self.config[ctx.guild]
  
         tools = []
+        imagegen = False
         for tool in get_all_tools():
             name = tool.display_name
             if name not in config.enabled_functions.value:
@@ -40,6 +41,7 @@ class AgentCogConfigCommands(AgentCogBase):
                     break
             else:
                 tools.append(name)
+                imagegen = imagegen or tool.imagegen
  
         color = await ctx.embed_color()
 
@@ -58,7 +60,7 @@ class AgentCogConfigCommands(AgentCogBase):
   
         channel_field("Channels", config.channel_mode.value, config.channels.value)
         channel_field("Auto Channels", config.auto_channel_mode.value, config.auto_channels.value)
-        if any("generate_image" in name for name in tools):
+        if imagegen:
             channel_field("Generation Channels", config.generation_channel_mode.value, config.generation_channels.value)
 
         embed1.add_field(name="Tools", value=list_code(tools), inline=False)

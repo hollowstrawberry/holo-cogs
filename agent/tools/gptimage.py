@@ -8,6 +8,8 @@ from agent.tools.base import ToolBase
 
 
 class GptImageToolBase(ToolBase):
+    imagegen = True
+
     async def find_attachment(self, filename: str, messages: list[discord.Message], consumed: list[discord.Attachment]) -> discord.Attachment | None:
         assert self.ctx.guild
         for message in messages:

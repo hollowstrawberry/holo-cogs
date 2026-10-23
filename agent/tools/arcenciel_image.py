@@ -27,6 +27,7 @@ def dimensions(value: str) -> tuple[int, int]:
 class ArcencielImageTool(ToolBase):
     display_name = "arcenciel_image"
     settings = {key: "" for key in ("checkpoint", "sampler", "scheduler", "steps", "cfg", "shift")}
+    imagegen = True
     schema = ToolCall(
         Function(
             name="generate_image",

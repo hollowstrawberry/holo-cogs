@@ -11,6 +11,7 @@ class ToolBase(ABC):
     schema: ToolCall
     apis: list[tuple[str, str]] = []  # [(service_name, key),]
     settings: dict[str, str] = {}  # key and default value
+    imagegen: bool = False
 
     def __init__(self, ctx: commands.Context, cog: AgentCogBase):
         self.ctx = ctx
