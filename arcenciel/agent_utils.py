@@ -1,16 +1,12 @@
-"""Model and LoRA selection for conversational Arc en Ciel generation."""
-
-from __future__ import annotations
-
-import math
 import re
-from collections.abc import Mapping
+import math
 from typing import NamedTuple
+from collections.abc import Mapping
 
-from .moss import is_array, is_object, is_strings, json_object, resolve_profile
-from .moss_types import ImageParams, MossLora
-
-FAMILIES = ("moss", "anima", "illustrious", "noobai")
+from arcenciel.schema import ImageGenParams
+from arcenciel.constants import MODEL_FAMILIES
+from arcenciel.moss import is_array, is_object, is_strings, json_object, resolve_profile
+from arcenciel.moss_schema import MossLora
 
 
 def parse_lora_entries(data: object) -> list[Mapping[str, object]]:
@@ -114,12 +110,12 @@ def choose_model(
 ) -> ModelChoice:
     """Resolve only accessible loaded models; never infer a checkpoint from prompt text."""
     family = family.strip().lower()
-    if family and family not in FAMILIES:
+    if family and family not in MODEL_FAMILIES:
         raise ValueError("Choose moss, anima, illustrious or noobai as the model family.")
     models = available_models(catalog)
     selected = checkpoint.strip() or ("" if family else inherited.strip()) or (family or default.strip() or "moss")
-    requested_family = family or (selected if selected in FAMILIES else "")
-    if selected in FAMILIES:
+    requested_family = family or (selected if selected in MODEL_FAMILIES else "")
+    if selected in MODEL_FAMILIES:
         candidates = [choice for choice in models.values() if _matches(choice, selected)]
         if selected == "moss":
             name, _ = resolve_profile(options, catalog)
@@ -263,7 +259,11 @@ def anima_defaults(options: Mapping[str, object]) -> Mapping[str, object]:
 
 
 def build_standard_agent_payload(
-    params: ImageParams, options: Mapping[str, object], choice: ModelChoice, nsfw: bool, loras: list[MossLora]
+    params: ImageGenParams,
+    options: Mapping[str, object],
+    choice: ModelChoice,
+    nsfw: bool,
+    loras: list[MossLora]
 ) -> dict[str, object]:
     if choice.family == "moss":
         raise ValueError("MOSS must use its own generation profile.")

@@ -1,27 +1,20 @@
-import asyncio
-import logging
 import re
-
+import logging
+import asyncio
 import aiohttp
 
 from agent.schema import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
-
+from arcenciel.utils import is_nsfw
 
 log = logging.getLogger("agent.arcenciel_images")
+
 ADULT_RATINGS = {"sensitive", "explicit"}
 IMAGE_MARKDOWN_LINK = re.compile(
     r"(?<!\|)(?:\|\|)?\[([^\]\n]+)\]\((?:\|\|)?<?https://arcenciel\.io/images/([1-9]\d*)>?(?:\|\|)?\)(?:\|\|)?"
 )
 IMAGE_ANGLE_LINK = re.compile(r"(?<!\|)<https://arcenciel\.io/images/([1-9]\d*)>(?!\|)")
 IMAGE_URL = re.compile(r"(?<![\|<])https://arcenciel\.io/images/([1-9]\d*)(?!\d|\|)")
-
-
-def channel_is_nsfw(channel) -> bool:
-    return bool(
-        getattr(channel, "nsfw", False)
-        or getattr(getattr(channel, "parent", None), "nsfw", False)
-    )
 
 
 def spoiler_adult_image_links(text: str, image_ids: set[int]) -> str:
@@ -86,10 +79,14 @@ class ArcencielImagesTool(ToolBase):
     )
 
     async def run(self, arguments: dict) -> dict | str:
-        arcenciel = self.ctx.bot.get_cog("Arcenciel")
-        api = getattr(arcenciel, "api", None)
-        if api is None or not api.session.headers.get("x-api-key"):
-            return "<error>Arc en Ciel image search is not configured</error>"
+        try:
+            from arcenciel.arcenciel import Arcenciel
+        except ImportError:
+            return "<error>Arc en Ciel cog not installed, please notify the bot owner</error>"
+
+        arcenciel = self.cog.bot.get_cog("Arcenciel")
+        if not isinstance(arcenciel, Arcenciel) or not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
+            return "<error>Arc en Ciel cog not configured, please notify the bot owner</error>"
 
         query = str(arguments.get("query") or "").strip()[:200]
         user = str(arguments.get("user") or "").strip()[:100]
@@ -102,7 +99,7 @@ class ArcencielImagesTool(ToolBase):
             page = 1
 
         ratings = {"safe", "questionable"}
-        if channel_is_nsfw(self.ctx.channel):
+        if is_nsfw(self.ctx.channel):
             ratings.update(("sensitive", "explicit"))
         params = {
             "search": query,
@@ -115,45 +112,29 @@ class ArcencielImagesTool(ToolBase):
 
         try:
             if user:
-                async with api.session.get(
-                    f"{api.endpoint}/users/search", params={"q": user}, timeout=timeout
-                ) as response:
+                async with arcenciel.api.session.get(f"{arcenciel.api.endpoint}/users/search", params={"q": user}, timeout=timeout) as response:
                     response.raise_for_status()
                     users = await response.json()
-                match = next(
-                    (
-                        item
-                        for item in users
-                        if item.get("username", "").casefold() == user.casefold()
-                    ),
-                    None,
-                )
+                match = next((item for item in users if item.get("username", "").casefold() == user.casefold()), None,)
                 if match is None:
                     return "No Arc en Ciel user with that exact username"
                 params["userId"] = match["id"]
 
-            async with api.session.get(
-                f"{api.endpoint}/images/search", params=params, timeout=timeout
-            ) as response:
+            async with arcenciel.api.session.get(f"{arcenciel.api.endpoint}/images/search", params=params, timeout=timeout) as response:
                 response.raise_for_status()
-                data = await response.json()
-        except (
-            aiohttp.ClientError,
-            asyncio.TimeoutError,
-            ValueError,
-            TypeError,
-        ) as error:
-            log.warning(
-                "Searching Arc en Ciel images: %s: %s", type(error).__name__, error
-            )
+                data: dict = await response.json()
+
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError) as error:
+            log.warning("Searching Arc en Ciel images: %s: %s", type(error).__name__, error)
             return "<error>Failed to search Arc en Ciel images</error>"
 
         results = []
-        for image in data.get("data", []):
+        images: list[dict] = data.get("data", [])
+        for image in images:
             if image.get("rating") not in ratings or image.get("status") != "PUBLISHED":
                 continue
             image_id = image.get("id")
-            if type(image_id) is not int or image_id <= 0:
+            if not isinstance(image_id, int) or image_id <= 0:
                 continue
             uploader = image.get("uploader") or {}
             url = f"https://arcenciel.io/images/{image_id}"

@@ -1,14 +1,13 @@
 import logging
-from functools import reduce
-from typing import Literal, Optional
-
 import discord
+from typing import Literal, Optional
+from functools import reduce
 from redbot.core import commands
 
 from agent.base import AgentCogBase
 from agent.utils import is_valid_openrouter_model
 from agent.config_base import ConfigField
-from agent.constants import EFFORT_VALUES, VISION_MODELS
+from agent.constants import EFFORT_VALUES, VISION_MODELS, EMPTY
 from agent.tools.base import get_all_tools
 
 log = logging.getLogger("agent.utils")
@@ -80,7 +79,7 @@ class AgentCogConfigCommands(AgentCogBase):
  
         embed2.add_field(name="Captioner Model", value=code(config.model_captioner.value))
         embed2.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
-        embed2.add_field(name="Default Image Model", value=code(config.image_model_default.value))
+        embed2.add_field(name=EMPTY, value=EMPTY)  # placeholder
  
         embed2.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
         embed2.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
@@ -117,8 +116,8 @@ class AgentCogConfigCommands(AgentCogBase):
         embed4.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
         embed4.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
 
-        embed4.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
         embed4.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
+        embed4.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
         embed4.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
  
         await ctx.send(embeds=[embed1, embed2, embed3, embed4])
@@ -475,37 +474,6 @@ class AgentCogConfigCommands(AgentCogBase):
         setting_values[key] = value
         await self.config.tool_settings.save()
         await ctx.tick()
-
-    @agentconfig.command(name="image_default")  # type: ignore[untyped-decorator]
-    async def agentconfig_image_default(self, ctx: commands.Context, *, selection: str = "") -> None:
-        """Set the guild's default image family or an exact available checkpoint."""
-        assert ctx.guild
-        field = self.config[ctx.guild].image_model_default
-        selection = selection.strip()
-        if not selection:
-            await ctx.reply(f"Default image model: `{field.value}`", mention_author=False)
-            return
-        if selection.lower() == "reset":
-            selection = "moss"
-        import aiohttp
-        from arcenciel.agent_models import FAMILIES, choose_model
-        from arcenciel.arcenciel import Arcenciel
-        from arcenciel.utils import ImageGenError
-
-        arcenciel = self.bot.get_cog("Arcenciel")
-        if not isinstance(arcenciel, Arcenciel) or arcenciel.api is None:
-            await ctx.reply("The Arc en Ciel generator is unavailable.", mention_author=False)
-            return
-        try:
-            options, catalog = await arcenciel.api.refresh_moss_profile()
-            choice = choose_model(options, catalog, default=selection)
-        except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
-            await ctx.reply(f"Invalid image default: {error}", mention_author=False)
-            return
-        stored = selection.lower() if selection.lower() in FAMILIES else choice.name
-        await field.set(stored)
-        await ctx.reply(f"Default image model: `{stored}`", mention_author=False)
-
 
 
     ModelPromptTypes = Literal["recaller", "responder", "memorizer", "captioner", "autoreacter"]

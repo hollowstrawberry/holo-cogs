@@ -1,15 +1,15 @@
-import asyncio
 import logging
+import asyncio
+import aiohttp
+import discord
 from collections.abc import Mapping
 from typing import Protocol, runtime_checkable
 
-import aiohttp
-import discord
 
-from agent.constants import LORA_PATTERN
-from agent.schema import Function, ImageGenParams, Parameters, ToolCall
-from agent.tools.base import ToolBase
 from agent.utils import add_xml_group, undo_xml
+from agent.schema import Function, Parameters, ToolCall
+from agent.constants import LORA_PATTERN
+from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.arcenciel_image")
 
@@ -26,7 +26,7 @@ def dimensions(value: str) -> tuple[int, int]:
 
 class ArcencielImageTool(ToolBase):
     display_name = "arcenciel_image"
-    settings = {key: "" for key in ("checkpoint", "sampler", "scheduler", "steps", "cfg", "shift")}
+    settings = {"checkpoint": "moss"}
     imagegen = True
     schema = ToolCall(
         Function(
@@ -113,32 +113,26 @@ class ArcencielImageTool(ToolBase):
             and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
         )
 
-        arcenciel = self.ctx.bot.get_cog("Arcenciel")
-        if arcenciel is None:
-            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
-        from arcenciel.arcenciel import Arcenciel
+        try:
+            from arcenciel.arcenciel import Arcenciel
+            from arcenciel.moss import layout_from_metadata
+            from arcenciel.utils import ImageGenError, extend_negative_prompt
+            from arcenciel.schema import ImageGenParams
+            from arcenciel.agent_utils import MODEL_FAMILIES, choose_lora, choose_model, lora_family_hint, lora_weight
+        except ImportError:
+           return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
+        
+        arcenciel = self.cog.bot.get_cog("Arcenciel")
         if not isinstance(arcenciel, Arcenciel):
             return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         
-        from arcenciel.agent_models import FAMILIES, choose_lora, choose_model, lora_family_hint, lora_weight
-        from arcenciel.moss import agent_settings, layout_from_metadata
-        from arcenciel.utils import ImageGenError, extend_negative_prompt
-
-        try:
-            agent_settings(self.cog, self.ctx)
-        except ValueError as error:
-            return f"<error>{error}</error>"
-        
-        try:
-            prompt = undo_xml(str(arguments.get("prompt", "")))
-            negative_prompt = str(arguments.get("negative_prompt", ""))
-            aspect = str(arguments.get("resolution", "")).lower().strip()
-            existing = str(arguments.get("existing", ""))
-            checkpoint = str(arguments.get("checkpoint", "")).strip()
-            if checkpoint.lower() in FAMILIES:
-                checkpoint = checkpoint.lower()
-        except ValueError as error:
-            return f"<error>{error}</error>"
+        prompt = undo_xml(str(arguments.get("prompt", "")))
+        negative_prompt = str(arguments.get("negative_prompt", ""))
+        aspect = str(arguments.get("resolution", "")).lower().strip()
+        existing = str(arguments.get("existing", ""))
+        checkpoint = str(arguments.get("checkpoint", "")).strip()
+        if checkpoint.lower() in MODEL_FAMILIES:
+            checkpoint = checkpoint.lower()
         
         if not prompt.strip():
             return "<error>The prompt is missing.</error>"
@@ -175,7 +169,7 @@ class ArcencielImageTool(ToolBase):
             except (discord.HTTPException, OSError, ValueError):
                 warnings.append("Image metadata is unavailable; using a fresh image recipe.")
             if not metadata:
-                scanner = self.ctx.bot.get_cog("ImageScanner")
+                scanner = self.cog.bot.get_cog("ImageScanner")
                 if isinstance(scanner, MetadataScanner):
                     metadata = await scanner.grab_metadata_dict(message)
         elif existing:
@@ -216,22 +210,16 @@ class ArcencielImageTool(ToolBase):
             lora_candidates = [
                 (name, weight, await arcenciel.api.find_lora_entries(name)) for name, weight in requested_loras
             ]
-            inherited = metadata.get("Checkpoint") if sent_by_me else None
+            inherited = metadata.get("Checkpoint", None) if sent_by_me else None
             inherited = inherited if isinstance(inherited, str) else ""
-            default = self.cog.config[self.ctx.guild].image_model_default.value
-            old_checkpoint = (self.cog.config.tool_settings.value or {}).get("checkpoint")
-            if default == "moss" and isinstance(old_checkpoint, str) and old_checkpoint:
-                default = old_checkpoint
+            default = self.get_setting("checkpoint").strip()
             hints = {hint for name, _, entries in lora_candidates if (hint := lora_family_hint(entries, name))}
             if hints <= {"noobai", "illustrious"} and len(hints) > 1:
                 hints = {"illustrious"}
             if len(hints) > 1 and not (checkpoint or inherited):
                 raise ValueError("The requested LoRAs target different model families. Choose a checkpoint explicitly.")
             inferred_family = next(iter(hints), "") if not (checkpoint or inherited) else ""
-            choice = choose_model(
-                options, catalog, family=inferred_family, checkpoint=checkpoint,
-                inherited=inherited, default=default,
-            )
+            choice = choose_model(options, catalog, family=inferred_family, checkpoint=checkpoint, inherited=inherited, default=default)
             if choice.family != "moss" and moss:
                 raise ValueError("Regional Boxes are available only with MOSS.")
             if choice.family == "moss" and "boxes" not in arguments and sent_by_me:
@@ -268,9 +256,7 @@ class ArcencielImageTool(ToolBase):
         self.cog.currently_generating.add(self.ctx.message.id)
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
         asyncio.create_task(
-            arcenciel.generate_image(
-                self.ctx, params=params, payload=payload, message_content=message_content, callback=callback()
-            )
+            arcenciel.generate_image(self.ctx, params=params, payload=payload, message_content=message_content, callback=callback())
         )
         result = {
             "message": f"{choice.name} image generation started. Wait for completion before describing the result."

@@ -1,14 +1,12 @@
-from collections.abc import Coroutine, Mapping
-from dataclasses import dataclass, field
-from datetime import datetime
+import discord
 from enum import Enum
 from typing import TYPE_CHECKING
-
-import discord
+from datetime import datetime
+from dataclasses import dataclass, field
+from collections.abc import Coroutine, Mapping
 from redbot.core import commands
 
-if TYPE_CHECKING:
-    from arcenciel.views.generating import GeneratingV2View
+from arcenciel.views.generating import GeneratingV2View
 
 
 class SplitType(Enum):
@@ -38,7 +36,7 @@ class QueuedImageGen:
     preview_step: int = 0
     preview_total_steps: int = 0
     preview_disabled: bool = False
-    progress_v2_view: "GeneratingV2View | None" = None
+    progress_v2_view: GeneratingV2View | None = None
 
 @dataclass
 class ImageToImageParams:
@@ -73,6 +71,7 @@ class ImageGenParams:
     loras: list[str]            = field(default_factory=list)
     subseed: int                = -1
     subseed_strength: float     = 0.0
+    agent_request: bool         = False
     image: ImageToImageParams | None = None
     regions: ImageRegionalParams | None = None
     # Raw options are validated into MossOptions before they reach the API.

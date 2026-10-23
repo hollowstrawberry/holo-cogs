@@ -1,14 +1,13 @@
 import json
 import logging
-from collections.abc import AsyncIterator, Mapping
-from typing import Any
-
 import aiohttp
+from typing import Any
+from collections.abc import AsyncIterator, Mapping
 
-from arcenciel.agent_models import parse_lora_entries
 from arcenciel.base import ArcencielBase
 from arcenciel.moss import json_object
 from arcenciel.utils import ImageGenError, clean_model, parse_prompts
+from arcenciel.agent_utils import parse_lora_entries
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
 

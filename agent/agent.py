@@ -15,7 +15,7 @@ from redbot.core.bot import Red
 
 from agent import utils, constants
 from agent.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
-from agent.schema import AgentMessage, AgentImageContent, ImageGenParams, MessageReaction, ReactionResult
+from agent.schema import AgentMessage, AgentImageContent, MessageReaction, ReactionResult
 from agent.commands import AgentCogCommands
 from agent.config_commands import AgentCogConfigCommands
 from agent.tools.base import get_all_tools
@@ -510,7 +510,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
-            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(ctx.bot), completion)
+            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(self.bot), completion)
             completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
             completion = spoiler_adult_image_links(completion, adult_image_ids)
             completion = utils.undo_xml(completion).strip()
@@ -801,24 +801,25 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if ctx.bot_permissions.add_reactions:
                 await ctx.message.add_reaction("❌")
             return
+
+        try:
+            from arcenciel.arcenciel import Arcenciel
+            from arcenciel.schema import ImageGenParams
+        except ImportError:
+            return await ctx.message.add_reaction("❌")
         
-        arcenciel: commands.Cog | None = ctx.bot.get_cog("Arcenciel")
-        if not arcenciel:
-            await ctx.message.add_reaction("❌")
-            return
+        arcenciel = self.bot.get_cog("Arcenciel")
+        if not isinstance(arcenciel, Arcenciel):
+            return await ctx.message.add_reaction("❌")
 
         width, height = await self.find_last_sd_generated_image_resolution(ctx)                
-        params = ImageGenParams(
-            prompt=prompt,
-            width=width,
-            height=height,
-        )
+        params = ImageGenParams(prompt=prompt, width=width, height=height)
         message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
         async def callback():
             await asyncio.sleep(0)
             self.currently_generating.discard(ctx.message.id)
         self.currently_generating.add(ctx.message.id)
-        generate_image = getattr(arcenciel, "generate_image")
+        generate_image = arcenciel.generate_image
         asyncio.create_task(generate_image(ctx, params=params, message_content=message_content, callback=callback()))
 
 

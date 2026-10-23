@@ -1,15 +1,5 @@
-"""Validated MOSS wire types; raw JSON is kept as object until checked."""
+from typing import Literal, NotRequired, TypeAlias, TypedDict
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Literal, NotRequired, TypeAlias, TypedDict
-
-if TYPE_CHECKING:
-    from agent.schema import ImageGenParams as AgentImageParams
-    from arcenciel.schema import ImageGenParams as CommandImageParams
-
-# Both existing entry points expose the same generation fields.
-ImageParams: TypeAlias = "AgentImageParams | CommandImageParams"
 BoxLabel: TypeAlias = Literal["character", "object", "text"]
 
 

@@ -20,7 +20,7 @@ class GptImageToolBase(ToolBase):
     
     async def run(self, arguments: dict) -> dict | str:
         assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
-        gptimage: commands.Cog | None = self.ctx.bot.get_cog("GptImage")
+        gptimage: commands.Cog | None = self.cog.bot.get_cog("GptImage")
         if not gptimage:
             return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
         

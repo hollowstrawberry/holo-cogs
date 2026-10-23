@@ -1,17 +1,13 @@
-from __future__ import annotations
-
-from collections import defaultdict
-from typing import Coroutine
-
 import discord
+from typing import Coroutine
+from collections import defaultdict
 from expiringdict import ExpiringDict
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 
 from arcenciel.comfy import ComfyMetadata
+from arcenciel.schema import QueuedImageGen, ImageGenParams
 from arcenciel.constants import DISCORD_EPOCH_DATETIME
-from arcenciel.moss_types import ImageParams
-from arcenciel.schema import QueuedImageGen
 
 
 class ArcencielBase(commands.Cog):
@@ -70,14 +66,14 @@ class ArcencielBase(commands.Cog):
         self,
         context: commands.Context | discord.Interaction,
         payload: dict[str, object] | None = None,
-        params: ImageParams | None = None,
+        params: ImageGenParams | None = None,
         callback: Coroutine[object, object, None] | None = None,
         message_content: str | None = None,
     ) -> None:
         raise NotImplementedError
 
     async def prepare_image_payload(
-        self, context: commands.Context | discord.Interaction, params: ImageParams
+        self, context: commands.Context | discord.Interaction, params: ImageGenParams
     ) -> dict[str, object]:
         raise NotImplementedError
 

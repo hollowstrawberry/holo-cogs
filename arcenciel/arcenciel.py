@@ -1,30 +1,27 @@
-from __future__ import annotations
-
-import asyncio
-import base64
-import binascii
-import logging
 import os
-from collections.abc import Mapping
-from copy import deepcopy
-from datetime import datetime, timedelta, timezone
-from io import BytesIO
-from typing import Any, Coroutine
-
+import base64
+import logging
+import asyncio
 import aiohttp
 import discord
 import humanize
+import binascii
+from io import BytesIO
+from copy import deepcopy
+from typing import Any, Coroutine
+from datetime import datetime, timedelta, timezone
+from collections.abc import Mapping
 from discord.ext import tasks
 from redbot.core import commands
 
 from arcenciel import constants
-from arcenciel.agent_models import build_standard_agent_payload, choose_model
+from arcenciel.schema import ImageGenParams, QueuedImageGen
+from arcenciel.commands import ArcencielCommands
+from arcenciel.agent_utils import build_standard_agent_payload, choose_model
 from arcenciel.arcenciel_api import ArcEnCielAPI
 from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
-from arcenciel.commands import ArcencielCommands
-from arcenciel.moss import agent_settings, build_moss_payload, is_array, json_object, safety_prompt
-from arcenciel.moss_types import ImageParams, MossLora
-from arcenciel.schema import QueuedImageGen
+from arcenciel.moss import build_moss_payload, is_array, json_object, safety_prompt
+from arcenciel.moss_schema import MossLora
 from arcenciel.utils import ImageGenError, build_split_masks, gather_raise_all, is_nsfw, send_response, extend_negative_prompt
 from arcenciel.views.generating import GeneratingV2View, GeneratingView
 from arcenciel.views.image_actions import ImageActions
@@ -49,10 +46,9 @@ class Arcenciel(ArcencielCommands):
         
     async def cog_unload(self):
         self.consume_queue.stop()
-        preview_task = getattr(self, "preview_task", None)
-        if preview_task:
-            preview_task.cancel()
-            await asyncio.gather(preview_task, return_exceptions=True)
+        if self.preview_task:
+            self.preview_task.cancel()
+            await asyncio.gather(self.preview_task, return_exceptions=True)
         if self.api:
             await self.api.session.close()
 
@@ -253,7 +249,7 @@ class Arcenciel(ArcencielCommands):
         self,
         context: commands.Context | discord.Interaction,
         payload: dict[str, object] | None = None,
-        params: ImageParams | None = None,
+        params: ImageGenParams | None = None,
         callback: Coroutine[object, object, None] | None = None,
         message_content: str | None = None,
     ) -> None:
@@ -266,9 +262,6 @@ class Arcenciel(ArcencielCommands):
             if not await self.config.guild(context.guild).enabled():
                 await send_response(context, content=":warning: The generator is not enabled for this server.")
                 return
-            if getattr(params, "agent_request", False):
-                assert isinstance(context, commands.Context)
-                agent_settings(self.bot.get_cog("AgentCog"), context)
             if not await self.check_quota(context):
                 return
             if not payload:
@@ -498,30 +491,19 @@ class Arcenciel(ArcencielCommands):
                 hyperlinks.add(link)
         return sorted(list(hyperlinks))
 
-    async def prepare_image_payload(self, context: commands.Context | discord.Interaction, params: ImageParams) -> dict[str, object]:
+    async def prepare_image_payload(self, context: commands.Context | discord.Interaction, params: ImageGenParams) -> dict[str, object]:
         overrides: Mapping[str, object] | None = None
-        agent_default = "moss"
-        if getattr(params, "agent_request", False):
-            assert isinstance(context, commands.Context)
-            from agent.base import AgentCogBase
-
-            agent = self.bot.get_cog("AgentCog")
-            overrides = agent_settings(agent, context)
-            assert isinstance(agent, AgentCogBase) and context.guild
-            agent_default = agent.config[context.guild].image_model_default.value
         member = context.user if isinstance(context, discord.Interaction) else context.author
         assert isinstance(member, discord.Member) and isinstance(context.channel, (discord.TextChannel, discord.Thread))
-        payload = await self.build_image_payload(
-            params, member, is_nsfw(context.channel), overrides=overrides, agent_default=agent_default
-        )
-        if getattr(params, "agent_request", False):
+        payload = await self.build_image_payload(params, member, is_nsfw(context.channel), overrides=overrides)
+        if params.agent_request:
             assert self.api
             await self.api.preflight_image(payload)
         return payload
 
     async def build_image_payload(
         self,
-        params: ImageParams,
+        params: ImageGenParams,
         member: discord.Member,
         nsfw: bool,
         *,
@@ -532,7 +514,7 @@ class Arcenciel(ArcencielCommands):
         default_negative_prompt: str = await self.config.negative_prompt()
         params.negative_prompt = extend_negative_prompt(default_negative_prompt, params.negative_prompt or "")
                 
-        if getattr(params, "agent_request", False) or getattr(params, "moss", None) is not None:
+        if params.agent_request or params.moss is not None:
             assert self.api
             options, catalog = await self.api.refresh_moss_profile()
             moss_loras: list[MossLora] = []
@@ -542,7 +524,7 @@ class Arcenciel(ArcencielCommands):
                 moss_loras.append(
                     {"name": moss_name.removesuffix(".safetensors") + ".safetensors", "weight": moss_weight}
                 )
-            if getattr(params, "agent_request", False):
+            if params.agent_request:
                 default = agent_default
                 old_checkpoint = overrides.get("checkpoint") if overrides else None
                 if default == "moss" and isinstance(old_checkpoint, str) and old_checkpoint:

@@ -16,6 +16,8 @@ DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezon
 
 SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg"]
 
+MODEL_FAMILIES = ("moss", "anima", "illustrious", "noobai")
+
 LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
 RESOURCE_FILE_PATTERN = re.compile(r"\"[^\"]+\.(?:safetensors|ckpt|pth|pt|bin)\"", re.IGNORECASE)
 RESOURCE_HASH_PATTERN = re.compile(r"\b(?:0x)?[0-9a-f]{10,64}\b", re.IGNORECASE)

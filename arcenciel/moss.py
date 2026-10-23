@@ -1,24 +1,11 @@
-"""MOSS API contract helpers. Models, defaults and box limits come from the API."""
-
-from __future__ import annotations
-
-import json
-import math
 import re
-from collections.abc import Mapping
+import math
+import json
 from typing import TYPE_CHECKING, TypeGuard
+from collections.abc import Mapping
 
-from .moss_types import (
-    BoxLabel,
-    ImageParams,
-    MossBox,
-    MossDefaults,
-    MossLora,
-    MossModel,
-    MossOptions,
-    MossPayload,
-    MossProfile,
-)
+from arcenciel.schema import ImageGenParams
+from arcenciel.moss_schema import *
 
 if TYPE_CHECKING:
     from redbot.core import commands
@@ -195,7 +182,7 @@ def validate_options(options: object, *, max_boxes: int) -> MossOptions:
     if layout is not None and not is_object(layout):
         raise ValueError("Invalid MOSS layout format.")
     result = moss_options(None if layout is None else layout.get("items"), options.get("shift"), max_boxes=max_boxes)
-    if layout is not None:
+    if layout and "layout" in result:
         if (
             set(layout) - {"version", "coordinateSpace", "canvas", "items", "meta"}
             or layout.get("version") != 1
@@ -217,7 +204,7 @@ def setting(value: object, overrides: Mapping[str, object], name: str, default: 
 
 
 def build_moss_payload(
-    params: ImageParams,
+    params: ImageGenParams,
     options: Mapping[str, object],
     catalog: Mapping[str, object],
     nsfw: bool,

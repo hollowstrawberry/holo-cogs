@@ -13,7 +13,6 @@ class AgentCogGuildConfig(CogConfigBase):
     auto_channels:           ConfigField[list[int]]      = ConfigField([])
     memory:                  ConfigField[dict[str, str]] = ConfigField({})
     prompt_keys:             ConfigField[dict[str, str]] = ConfigField({})
-    image_model_default:     ConfigField[str]            = ConfigField("moss")
     enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])
     # LLM
     model_recaller:          ConfigField[str] = ConfigField("gpt-6-luna")
