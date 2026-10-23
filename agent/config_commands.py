@@ -8,7 +8,7 @@ from redbot.core import commands
 from agent.base import AgentCogBase
 from agent.utils import is_valid_openrouter_model
 from agent.config_base import ConfigField
-from agent.constants import EFFORT_VALUES, VISION_MODELS
+from agent.constants import EFFORT_VALUES, VISION_MODELS, EMPTY
 from agent.tools.base import get_all_tools
 
 log = logging.getLogger("agent.utils")
@@ -44,13 +44,13 @@ class AgentCogConfigCommands(AgentCogBase):
         color = await ctx.embed_color()
 
         code = lambda s: f"`{s}`"
-        list_code = lambda lst: ", ".join([code(s) for s in lst])
+        list_code = lambda lst: ", ".join([code(s) for s in lst]) or "*None*"
         chance = lambda f: f"{f * 100:.2f}%"
 
         def channel_field(label: str, mode: str, ids: list[int]):
             settings.add_field(
                 name=f"{'Whitelisted' if mode == 'whitelist' else 'Blacklisted'} {label}",
-                value=" ".join([f"<#{cid}>" for cid in ids]),
+                value=" ".join([f"<#{cid}>" for cid in ids]) or "*None*",
                 inline=False,
             )
  
@@ -89,6 +89,7 @@ class AgentCogConfigCommands(AgentCogBase):
         misc = discord.Embed(color=color)
  
         misc.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
+        misc.add_field(name=EMPTY, value=EMPTY)
         misc.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes"))
  
         misc.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
@@ -96,7 +97,7 @@ class AgentCogConfigCommands(AgentCogBase):
         misc.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
  
         misc.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
-        misc.add_field(name="No-Response Emoji", value=self.config.noresponse_emoji.value)
+        misc.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
         misc.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
 
         misc.add_field(name="Startup Status", value=code(self.config.status.value), inline=False)
