@@ -1,9 +1,8 @@
 import asyncio
-
 import discord
 from arcenciel.base import ArcencielBase
 from arcenciel.constants import VIEW_TIMEOUT
-from arcenciel.schema import QueuedImageGen
+from arcenciel.schema import QueuedImageGen, GeneratingV2ViewBase
 from arcenciel.utils import ImageGenError
 
 
@@ -87,7 +86,7 @@ class GeneratingView(discord.ui.View, _GeneratingControls):
         self.add_item(self.button_cancel)
 
 
-class GeneratingV2View(discord.ui.LayoutView, _GeneratingControls):
+class GeneratingV2View(GeneratingV2ViewBase, _GeneratingControls):
     def __init__(self, cog: ArcencielBase, gen: QueuedImageGen, color: discord.Color):
         super().__init__(timeout=VIEW_TIMEOUT)
         self._setup_controls(cog, gen)

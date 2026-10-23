@@ -1,17 +1,20 @@
 import discord
+from abc import ABC
 from enum import Enum
-from typing import TYPE_CHECKING
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections.abc import Coroutine, Mapping
 from redbot.core import commands
 
-from arcenciel.views.generating import GeneratingV2View
-
 
 class SplitType(Enum):
     HORIZONTAL = "split-horizontal-2"
     VERTICAL = "split-vertical-2"
+
+
+class GeneratingV2ViewBase(discord.ui.LayoutView, ABC):
+    def set_progress(self, status: str, progress: str | None = None, eta: str | None = None, step: str | None = None, preview_filename: str | None = None):
+        raise NotImplementedError
 
 
 @dataclass
@@ -36,7 +39,7 @@ class QueuedImageGen:
     preview_step: int = 0
     preview_total_steps: int = 0
     preview_disabled: bool = False
-    progress_v2_view: GeneratingV2View | None = None
+    progress_v2_view: GeneratingV2ViewBase | None = None
 
 @dataclass
 class ImageToImageParams:

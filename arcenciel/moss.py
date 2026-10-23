@@ -1,14 +1,12 @@
 import re
 import math
 import json
-from typing import TYPE_CHECKING, TypeGuard
+from typing import TypeGuard
 from collections.abc import Mapping
+from redbot.core import commands
 
 from arcenciel.schema import ImageGenParams
 from arcenciel.moss_schema import *
-
-if TYPE_CHECKING:
-    from redbot.core import commands
 
 
 def is_object(value: object) -> TypeGuard[Mapping[str, object]]:
