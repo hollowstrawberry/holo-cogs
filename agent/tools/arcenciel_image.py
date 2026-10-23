@@ -2,9 +2,8 @@ import logging
 import asyncio
 import aiohttp
 import discord
-from collections.abc import Mapping
 from typing import Protocol, runtime_checkable
-
+from collections.abc import Mapping
 
 from agent.utils import add_xml_group, undo_xml
 from agent.schema import Function, Parameters, ToolCall

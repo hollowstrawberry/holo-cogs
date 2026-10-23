@@ -1,8 +1,8 @@
 import json
 import logging
-import itertools
 import asyncio
 import aiofiles
+import itertools
 from typing import Any
 from rapidfuzz import process, fuzz
 from redbot.core.data_manager import bundled_data_path

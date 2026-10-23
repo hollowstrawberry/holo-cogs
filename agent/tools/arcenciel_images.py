@@ -5,7 +5,6 @@ import aiohttp
 
 from agent.schema import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
-from arcenciel.utils import is_nsfw
 
 log = logging.getLogger("agent.arcenciel_images")
 
@@ -81,6 +80,7 @@ class ArcencielImagesTool(ToolBase):
     async def run(self, arguments: dict) -> dict | str:
         try:
             from arcenciel.arcenciel import Arcenciel
+            from arcenciel.utils import is_nsfw
         except ImportError:
             return "<error>Arc en Ciel cog not installed, please notify the bot owner</error>"
 

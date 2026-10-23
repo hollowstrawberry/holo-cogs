@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict
 from redbot.core import commands
 
-from agent.schema import StructuredObject, ToolCall
 from agent.base import AgentCogBase
+from agent.schema import StructuredObject, ToolCall
 
 
 class ToolBase(ABC):
