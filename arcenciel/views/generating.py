@@ -26,6 +26,7 @@ class _GeneratingControls(discord.ui.view.BaseView):
             negative_prompt = negative_prompt[:997] + "..."
         embed.add_field(name="Prompt", value=prompt, inline=False)
         embed.add_field(name="Negative Prompt", value=negative_prompt, inline=False)
+        embed.add_field(name="Checkpoint", value=self.gen.payload.get("modelName", "*unknown*"))
         embed.set_footer(text=self.gen.user.display_name, icon_url=self.gen.user.display_avatar.url)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
