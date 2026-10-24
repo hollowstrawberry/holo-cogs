@@ -60,8 +60,8 @@ class PromptPanelView(discord.ui.LayoutView):
 
     def build(self):
         self.clear_items()
-        module_prompts = {name: content for name, content in self.prompts if name in PERMANENT_PROMPT_TYPES}
-        custom_prompts = {name: content for name, content in self.prompts if name not in PERMANENT_PROMPT_TYPES and content}
+        module_prompts = {name: content for name, content in self.prompts.items() if name in PERMANENT_PROMPT_TYPES}
+        custom_prompts = {name: content for name, content in self.prompts.items() if name not in PERMANENT_PROMPT_TYPES and content}
 
         container = discord.ui.Container(accent_color=self.color)
 
