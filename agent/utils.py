@@ -254,18 +254,21 @@ async def is_valid_openrouter_model(session: aiohttp.ClientSession, model: str) 
     return True
 
 
-async def get_bot_avatar_emote(bot: discord.Client) -> discord.Emoji:
-    """Crop the bot's avatar into a circle and upload it as an application emoji."""
-    assert bot.user
-    NAME = "bot_avatar"
-    emojis = await bot.fetch_application_emojis()
-    avatar_emote = discord.utils.find(lambda a: a.name == NAME, emojis)
-    if avatar_emote:
-        return avatar_emote
-    data = await bot.user.display_avatar.replace(size=128, format="png").read()
-    result = await asyncio.to_thread(make_circle, data)
-    return await bot.create_application_emoji(name=NAME, image=result)
+AVATAR_EMOTE: discord.Emoji | None = None
 
+async def get_bot_avatar_emote(bot: discord.Client) -> discord.Emoji:
+    """Use the bot's avatar cropped into a circle as an application emoji"""
+    global AVATAR_EMOTE
+    NAME = "bot_avatar"
+    if not AVATAR_EMOTE:
+        emojis = await bot.fetch_application_emojis()
+        AVATAR_EMOTE = discord.utils.find(lambda a: a.name == NAME, emojis)
+    if not AVATAR_EMOTE:
+        assert bot.user
+        data = await bot.user.display_avatar.replace(size=128, format="png").read()
+        result = await asyncio.to_thread(make_circle, data)
+        AVATAR_EMOTE = await bot.create_application_emoji(name=NAME, image=result)
+    return AVATAR_EMOTE
 
 async def chunk_and_send(ctx: commands.Context,
                          full_text: str,
