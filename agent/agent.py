@@ -374,6 +374,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         system_prompt = {
             "role": system_role,
             "content": system_content,
+            "cache_control": {"type": "ephemeral"},
         }
         temp_messages.insert(0, system_prompt)  # type: ignore
         if prompt_keys.get("end", "").strip():
@@ -381,6 +382,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 "role": "system",
                 "content": prompt_keys["end"],
             })
+        temp_messages[-1]["cache_control"] = {"type": "ephemeral"}
         if prompt_keys.get("prefill", "").strip():
             temp_messages.append({
                 "role": "assistant",
@@ -488,6 +490,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     "role": "tool",
                     "content": tool_text,
                     "tool_call_id": call.id,
+                    "cache_control": {"type": "ephemeral"},
                 })
 
             if response.choices[0].message.content:
