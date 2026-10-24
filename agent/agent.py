@@ -17,6 +17,7 @@ from agent import utils, constants
 from agent.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
 from agent.schema import AgentMessage, AgentImageContent, MessageReaction, ReactionResult
 from agent.commands import AgentCogCommands
+from agent.constants import CACHE_CONTROL
 from agent.config_commands import AgentCogConfigCommands
 from agent.tools.base import get_all_tools
 from agent.tools.arcenciel_images import spoiler_adult_image_links
@@ -374,7 +375,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         system_prompt = {
             "role": system_role,
             "content": system_content,
-            "cache_control": {"type": "ephemeral"},
+            "cache_control": CACHE_CONTROL,
         }
         temp_messages.insert(0, system_prompt)  # type: ignore
         if prompt_keys.get("end", "").strip():
@@ -382,7 +383,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 "role": "system",
                 "content": prompt_keys["end"],
             })
-        temp_messages[-1]["cache_control"] = {"type": "ephemeral"}
+        temp_messages[-1]["cache_control"] = CACHE_CONTROL
         if prompt_keys.get("prefill", "").strip():
             temp_messages.append({
                 "role": "assistant",
@@ -490,7 +491,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     "role": "tool",
                     "content": tool_text,
                     "tool_call_id": call.id,
-                    "cache_control": {"type": "ephemeral"},
+                    "cache_control": CACHE_CONTROL,
                 })
 
             if response.choices[0].message.content:
