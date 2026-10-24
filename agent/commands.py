@@ -13,7 +13,7 @@ from agent.views.memory_info import MemoryInfoView
 from agent.views.memory_list import MemoryListView
 from agent.views.memory_change import MemoryChangeView
 from agent.views.prompt_show import PromptView
-from agent.views.prompts_edit import PromptsEditView
+from agent.views.prompt_panel import PromptPanelView
 from agent.views.prompt_store import PromptRef, PromptStore
 
 
@@ -67,10 +67,10 @@ class AgentCogCommands(AgentCogBase):
             return None
         return PromptView(store, ref, self.bot.is_owner, await ctx.embed_color())
 
-    async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptsEditView:
+    async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptPanelView:
         assert ctx.guild
         config = self.config[ctx.guild]
-        return PromptsEditView(
+        return PromptPanelView(
             PromptStore(self.prompt_fields(config), config.prompt_keys), self.bot.is_owner,
             f"{ctx.guild.me.name} Prompt Panel", await ctx.embed_color(),
         )

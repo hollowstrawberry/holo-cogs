@@ -1,23 +1,15 @@
+import discord
 from hashlib import sha256
 
-import discord
 from agent.constants import PERMANENT_PROMPT_TYPES
 from agent.views.prompt_edit_modal import PromptEditModal
 from agent.views.prompt_show import PromptView
-from agent.views.prompt_store import (
-    OwnerCheck,
-    PromptButton,
-    PromptKind,
-    PromptMessageView,
-    PromptRef,
-    PromptStore,
-    display_name,
-)
+from agent.views.prompt_store import *
 
 PAGE_SIZE = 25
 
 
-class PromptSelect(discord.ui.Select["PromptsEditView"]):
+class PromptSelect(discord.ui.Select["PromptPanelView"]):
     def __init__(self, kind: PromptKind, values: dict[str, str], names: list[str]):
         self.refs = {sha256(name.encode()).hexdigest(): PromptRef(kind, name) for name in names}
         options = [
@@ -43,7 +35,7 @@ class PromptSelect(discord.ui.Select["PromptsEditView"]):
         await PromptView.send_private(interaction, self.view.store, ref, self.view.check_owner, self.view.color)
 
 
-class PromptsEditView(PromptMessageView):
+class PromptPanelView(PromptMessageView):
     def __init__(self, store: PromptStore, check_owner: OwnerCheck, title: str, color: discord.Color):
         super().__init__()
         self.store, self.check_owner = store, check_owner
@@ -61,7 +53,7 @@ class PromptsEditView(PromptMessageView):
             "module", modules, [name for name in PERMANENT_PROMPT_TYPES if name in modules]
         )
         self.key_select = PromptSelect("key", keys, names[self.page * PAGE_SIZE : (self.page + 1) * PAGE_SIZE])
-        container: discord.ui.Container[PromptsEditView] = discord.ui.Container(accent_color=self.color)
+        container: discord.ui.Container[PromptPanelView] = discord.ui.Container(accent_color=self.color)
         container.add_item(
             discord.ui.TextDisplay(
                 f"## {display_name(self.title)}\n{len(modules)} modules · {len(keys)} custom keys "

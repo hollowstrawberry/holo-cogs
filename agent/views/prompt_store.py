@@ -1,12 +1,11 @@
-"""Typed access to the existing module prompts and freely named prompt keys."""
-
-from collections.abc import Awaitable, Callable
-from contextlib import suppress
-from dataclasses import dataclass
-from typing import Literal
 
 import discord
 import tiktoken
+from contextlib import suppress
+from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
+from typing import Literal
+
 from agent.config_base import ConfigField
 from agent.constants import TOKEN_ENCODING, VIEW_TIMEOUT
 

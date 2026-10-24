@@ -13,7 +13,7 @@ from agent.constants import PERMANENT_PROMPT_TYPES
 from agent.views.prompt_edit_modal import PromptEditModal
 from agent.views.prompt_show import PromptView
 from agent.views.prompt_store import PromptRef, PromptStore
-from agent.views.prompts_edit import PromptsEditView
+from agent.views.prompt_panel import PromptPanelView
 from redbot.core import commands
 
 
@@ -48,7 +48,7 @@ async def is_owner(user):
 
 class PromptPanelTests(unittest.IsolatedAsyncioTestCase):
     def panel(self, data=None):
-        view = PromptsEditView(data or store(), is_owner, "Fubuki Prompt Panel", discord.Color.blue())
+        view = PromptPanelView(data or store(), is_owner, "Fubuki Prompt Panel", discord.Color.blue())
         self.addCleanup(view.stop)
         return view
 
