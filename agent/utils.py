@@ -21,7 +21,7 @@ from redbot.core.bot import Red
 from openai import Omit
 
 from agent.schema import AgentContent, AgentMessage, StructuredObject
-from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING, CACHE_CONTROL
+from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING
 from agent.constants import NEWLINE_SEPARATOR_PATTERN, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN, MENTION_PATTERN
 
 log = logging.getLogger("agent.utils")
@@ -93,7 +93,6 @@ def make_text_content(content: str) -> AgentContent:
     return {
         "type": "text",
         "text": content,
-        "cache_control": CACHE_CONTROL,
     }
 
 def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentContent:
@@ -161,7 +160,7 @@ def get_text_contents(messages: list[AgentMessage]) -> list[AgentMessage]:
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.
     """
-    temp_messages = []
+    temp_messages: list[AgentMessage] = []
     for msg in deepcopy(messages):
         if isinstance(msg["content"], str):
             temp_messages.append({
@@ -169,13 +168,16 @@ def get_text_contents(messages: list[AgentMessage]) -> list[AgentMessage]:
                 "content": msg["content"]
             })
         else:
+            text_parts: list[str] = []
             for cnt in msg["content"]:
-                if "text" in cnt:
-                    temp_messages.append({
-                        "role": "user",
-                        "content": cnt["text"]
-                    })
-                break
+                text = cnt.get("text")
+                if isinstance(text, str):
+                    text_parts.append(text)
+            if text_parts:
+                temp_messages.append({
+                    "role": "user",
+                    "content": "\n".join(text_parts)
+                })
     return temp_messages
 
 def adjusted_effort(model: str, effort: str) -> str | Omit:

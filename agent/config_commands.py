@@ -9,6 +9,7 @@ from agent.utils import is_valid_openrouter_model
 from agent.config_base import ConfigField
 from agent.constants import EFFORT_VALUES, VISION_MODELS, EMPTY
 from agent.tools.base import get_all_tools
+from agent.cache_policy import CacheMode
 
 log = logging.getLogger("agent.utils")
 
@@ -80,6 +81,7 @@ class AgentCogConfigCommands(AgentCogBase):
         embed2.add_field(name="Captioner Model", value=code(config.model_captioner.value))
         embed2.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
         embed2.add_field(name="Force Captioner", value=code(config.force_captioner.value))
+        embed2.add_field(name="Cache Mode", value=code(config.cache_mode.value))
  
         embed2.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
         embed2.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
@@ -203,6 +205,15 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_force_captioner(self, ctx: commands.Context, value: Optional[bool]):
         """Whether the captioner will be used even on images that will already be sent to the responder as images."""
         await self.bool_config_command(ctx, self.config[ctx.guild].force_captioner, value)
+
+    @agentconfig.command(name="cache_mode")
+    async def agentconfig_cache_mode(self, ctx: commands.Context, mode: Optional[CacheMode] = None):
+        """OpenRouter: implicit caching or a fixed boundary after the initial context."""
+        assert ctx.guild
+        field = self.config[ctx.guild].cache_mode
+        if mode is not None:
+            await field.set(mode)
+        await ctx.reply(f"`[cache_mode:]` {field.value}", mention_author=False)
     
     @agentconfig.command(name="autoresponder_chance")
     async def agentconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
