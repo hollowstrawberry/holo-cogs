@@ -13,7 +13,7 @@ from agent.views.memory_info import MemoryInfoView
 from agent.views.memory_list import MemoryListView
 from agent.views.memory_change import MemoryChangeView
 from agent.views.prompt_show import PromptView
-from agent.views.prompts_edit import PromptsEditView
+from agent.views.prompt_panel import PromptPanelView
 
 
 class AgentCogCommands(AgentCogBase):
@@ -53,8 +53,10 @@ class AgentCogCommands(AgentCogBase):
             return
         view = await self.prompt_cmd_show(ctx, module) if module else await self.prompt_cmd_edit(ctx)
         if view:
-            embed = discord.Embed(color=await ctx.embed_color())
-            embed.set_author(name=f"{ctx.guild.me.name} Prompt Panel", icon_url=ctx.guild.me.display_avatar.url)
+            embed = None
+            if module:
+                embed = discord.Embed(color=await ctx.embed_color())
+                embed.set_author(name=f"{ctx.guild.me.name} Prompt Panel", icon_url=ctx.guild.me.display_avatar.url)
             view.message = await ctx.send(embed=embed, view=view)
         if ctx.bot_permissions.manage_messages:
             await ctx.message.delete()
@@ -76,7 +78,7 @@ class AgentCogCommands(AgentCogBase):
             prompt = config.prompt_keys.value[module]
         return PromptView(module, prompt, edit, self.bot.is_owner)
 
-    async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptsEditView:
+    async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptPanelView:
         assert ctx.guild
         config = self.config[ctx.guild]
         async def edit_callback(name: str, prompt: str):
@@ -90,7 +92,13 @@ class AgentCogCommands(AgentCogBase):
             **config.prompt_keys.value,
             **{name: field.value for name, field in self.prompt_fields(config).items()}
         }
-        return PromptsEditView(prompts, edit_callback, self.bot.is_owner)
+        return PromptPanelView(
+            prompts,
+            edit_callback,
+            self.bot.is_owner,
+            f"{ctx.me.name} Prompt Panel",
+            await ctx.embed_color()
+        )
 
 
     @commands.command(name="forget")
