@@ -231,7 +231,9 @@ class ChatHistoryContext:
                 if not data:
                     log.warning(f"image data is None for {src}")
                     return None
-            if not caption and not generated_image:
+            if not self.config.force_captioner.value:
+                caption = "(Omitted)"
+            elif not caption and not generated_image:
                 data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, self.config.max_caption_resolution.value)
                 image_content = utils.make_image_content(data_thumbnail or b'', low_detail=True)
                 caption = await self.builder.execute_captioner(self.ctx, image_content, self.result)

@@ -79,7 +79,7 @@ class AgentCogConfigCommands(AgentCogBase):
  
         embed2.add_field(name="Captioner Model", value=code(config.model_captioner.value))
         embed2.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
-        embed2.add_field(name=EMPTY, value=EMPTY)  # placeholder
+        embed2.add_field(name="Force Captioner", value=code(config.force_captioner.value))
  
         embed2.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
         embed2.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
@@ -199,6 +199,11 @@ class AgentCogConfigCommands(AgentCogBase):
         """Whether the memorizer will send a message in chat after editing memories."""
         await self.bool_config_command(ctx, self.config[ctx.guild].memorizer_alerts, value)
 
+    @agentconfig.command(name="force_captioner")
+    async def agentconfig_force_captioner(self, ctx: commands.Context, value: Optional[bool]):
+        """Whether the captioner will be used even on images that will already be sent to the responder as images."""
+        await self.bool_config_command(ctx, self.config[ctx.guild].force_captioner, value)
+    
     @agentconfig.command(name="autoresponder_chance")
     async def agentconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
         """The chance that the autoresponder will trigger, from 0.0 to 100.0"""
