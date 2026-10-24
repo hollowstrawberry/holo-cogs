@@ -9,6 +9,7 @@ from pydantic import BaseModel
 StructuredObject = dict[str, Any]
 AgentContent = dict[str, (str | dict[str, str])]
 AgentMessage = dict[str, (str | list[AgentContent])]
+CacheMode = Literal["implicit", "fixed_prefix"]
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,7 @@
 from datetime import datetime
 from agent import constants
 from agent.config_base import ConfigField, CogConfig, CogConfigBase
+from agent.schema import CacheMode
 
 
 class AgentCogGuildConfig(CogConfigBase):
@@ -23,6 +24,7 @@ class AgentCogGuildConfig(CogConfigBase):
     effort_recaller:         ConfigField[str] = ConfigField("none")
     effort_responder:        ConfigField[str] = ConfigField("low")
     effort_memorizer:        ConfigField[str] = ConfigField("low")
+    cache_mode:              ConfigField[CacheMode] = ConfigField("fixed_prefix")
     prompt_recaller:         ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_RECALLER)
     prompt_responder:        ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_RESPONDER)
     prompt_autoresponder:    ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_AUTORESPONDER)

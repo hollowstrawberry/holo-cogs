@@ -1,6 +1,8 @@
 import io
 import os
 import re
+import json
+import hashlib
 import struct
 import logging
 import asyncio
@@ -19,9 +21,10 @@ from PIL import Image, ImageDraw, UnidentifiedImageError
 from redbot.core import commands
 from redbot.core.bot import Red
 from openai import Omit
+from pydantic import BaseModel
 
-from agent.schema import AgentContent, AgentMessage, StructuredObject
-from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING, CACHE_CONTROL
+from agent.schema import AgentContent, AgentMessage, CacheMode, StructuredObject
+from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING
 from agent.constants import NEWLINE_SEPARATOR_PATTERN, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN, MENTION_PATTERN
 
 log = logging.getLogger("agent.utils")
@@ -89,11 +92,48 @@ def farenheit_to_celsius(match: re.Match) -> str:
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
 
+def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[AgentMessage]:
+    """Copy the initial context; a fixed boundary never advances with tool results."""
+    if mode not in ("implicit", "fixed_prefix"):
+        raise ValueError("Unknown cache mode")
+    prepared = deepcopy(messages)
+    for message in prepared:
+        message.pop("cache_control", None)
+        content = message["content"]
+        if isinstance(content, list):
+            for part in content:
+                part.pop("cache_control", None)
+    if mode == "fixed_prefix":
+        # A trailing system message may be folded into systemInstruction by gateways.
+        # Prefer the last user message so the boundary includes conversation history.
+        candidates = [message for message in prepared if message["role"] == "user"]
+        if not candidates:
+            candidates = prepared[:1]
+        for message in reversed(candidates):
+            content = message["content"]
+            if isinstance(content, str):
+                content = [{"type": "text", "text": content}]
+                message["content"] = content
+            for part in reversed(content):
+                if part.get("type") == "text" and part.get("text"):
+                    part["cache_control"] = {"type": "ephemeral"}
+                    return prepared
+    return prepared
+
+def _json_default(value: object) -> object:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json", exclude_unset=True)
+    raise TypeError(f"Cannot fingerprint {type(value).__name__}")
+
+def fingerprint(value: object) -> str:
+    """Hash structured requests without logging prompt or image contents."""
+    encoded = json.dumps(value, default=_json_default, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
 def make_text_content(content: str) -> AgentContent:
     return {
         "type": "text",
         "text": content,
-        "cache_control": CACHE_CONTROL,
     }
 
 def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentContent:
@@ -161,7 +201,7 @@ def get_text_contents(messages: list[AgentMessage]) -> list[AgentMessage]:
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
     and overrides all the message roles to user.
     """
-    temp_messages = []
+    temp_messages: list[AgentMessage] = []
     for msg in deepcopy(messages):
         if isinstance(msg["content"], str):
             temp_messages.append({
@@ -169,13 +209,16 @@ def get_text_contents(messages: list[AgentMessage]) -> list[AgentMessage]:
                 "content": msg["content"]
             })
         else:
+            text_parts: list[str] = []
             for cnt in msg["content"]:
-                if "text" in cnt:
-                    temp_messages.append({
-                        "role": "user",
-                        "content": cnt["text"]
-                    })
-                break
+                text = cnt.get("text")
+                if isinstance(text, str):
+                    text_parts.append(text)
+            if text_parts:
+                temp_messages.append({
+                    "role": "user",
+                    "content": "\n".join(text_parts)
+                })
     return temp_messages
 
 def adjusted_effort(model: str, effort: str) -> str | Omit:
