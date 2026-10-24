@@ -225,7 +225,7 @@ def adjusted_effort(model: str, effort: str) -> str | Omit:
     if "gpt-4" in model:
         return Omit()
     if effort in ("none", "minimal"):
-        if "codex" in model:
+        if "codex" in model or "gemini-3." in model:
             return "low"
         if model in ("gpt-5", "gpt-5-mini" "gpt-5-nano"):
             return "minimal"
