@@ -7,6 +7,8 @@ from arcenciel.base import ArcencielBase
 from arcenciel.comfy import ComfyMetadata
 from arcenciel.constants import VIEW_TIMEOUT
 from arcenciel.views.image_info import ImageInfoView
+from arcenciel.moss_metadata import from_params
+from arcenciel.moss_metadata.view import LayoutSource, add_summary_fields
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
 
@@ -23,6 +25,8 @@ class ImageActions(discord.ui.View):
     ) -> None:
         super().__init__(timeout=VIEW_TIMEOUT)
         self.metadata = metadata
+        self.moss_layout = from_params(metadata.as_dict(), metadata.moss_prompt or "")
+        self.layout_source: LayoutSource | None = None
         self.payload = payload
         self.bot: Red = cog.bot
         self.config = cog.config
@@ -62,7 +66,12 @@ class ImageActions(discord.ui.View):
         embed = await self.get_params_embed()
         if not embed:
             return await interaction.followup.send(f'Parameters for this image:\n```json\n{self.metadata.raw}```', ephemeral=True)
-        view = ImageInfoView(self.metadata.raw or "")
+        if self.moss_layout is not None and self.layout_source is None:
+            attachment = self.message.attachments[0] if self.message and self.message.attachments else None
+            self.layout_source = LayoutSource(
+                self.moss_layout, attachment=attachment, spoiler=attachment.is_spoiler() if attachment else True
+            )
+        view = ImageInfoView(self.metadata.raw or "", self.layout_source)
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     async def reroll_image(self, interaction: discord.Interaction) -> None:
@@ -113,6 +122,14 @@ class ImageActions(discord.ui.View):
             return None
         
         embed = discord.Embed(title="Image Parameters", color=await self.bot.get_embed_color(self.channel))
+        if self.moss_layout is not None:
+            add_summary_fields(embed, params, self.moss_layout)
+            resources = await self.get_resources(self.metadata)
+            if resources:
+                emote = await self.config.arcenciel_emoji()
+                embed.description = "\n".join(f"{emote} {res}" for res in resources)[:1500]
+            return embed
+
         for key in params.keys():
             if len(str(params[key])) > 1000:
                 params[key] = str(params[key])[:997] + "..."
