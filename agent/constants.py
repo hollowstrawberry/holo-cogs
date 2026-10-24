@@ -109,6 +109,10 @@ SD_IMAGEGEN_RESOLUTIONS = [
     (1536, 640),
 ]
 
+CACHE_CONTROL = {
+    "type": "ephemeral"
+}
+
 FAKE_TOOL_CALL = [
     {
         "role": "assistant",
