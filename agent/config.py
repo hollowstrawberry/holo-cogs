@@ -13,7 +13,7 @@ class AgentCogGuildConfig(CogConfigBase):
     auto_channels:           ConfigField[list[int]]      = ConfigField([])
     memory:                  ConfigField[dict[str, str]] = ConfigField({})
     prompt_keys:             ConfigField[dict[str, str]] = ConfigField({})
-    enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])
+    enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])       
     # LLM
     model_recaller:          ConfigField[str] = ConfigField("gpt-6-luna")
     model_responder:         ConfigField[str] = ConfigField("gpt-6-luna")
@@ -41,10 +41,11 @@ class AgentCogGuildConfig(CogConfigBase):
     max_quote:               ConfigField[int] = ConfigField(200)
     max_tool:                ConfigField[int] = ConfigField(3000)
     max_text_file:           ConfigField[int] = ConfigField(3000)
-    # Memorizer
+    # Flags
     allow_memorizer:         ConfigField[bool] = ConfigField(False)
     memorizer_user_only:     ConfigField[bool] = ConfigField(True)
     memorizer_alerts:        ConfigField[bool] = ConfigField(True)
+    force_captioner:         ConfigField[bool] = ConfigField(False)
     # Autoresponder
     autoresponder_chance:           ConfigField[float] = ConfigField(0.0)
     autoreacter_chance:             ConfigField[float] = ConfigField(0.0)
