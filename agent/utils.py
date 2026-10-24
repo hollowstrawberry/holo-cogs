@@ -143,7 +143,7 @@ def make_circle(image_bytes: bytes) -> bytes:
     img.putalpha(mask)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
-    return buf.read()
+    return buf.getvalue()
 
 def button_label(button: discord.Button):
     emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
