@@ -20,8 +20,8 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from openai import Omit
 
-from agent.schema import AgentImageContent, AgentMessage, StructuredObject
-from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING
+from agent.schema import AgentContent, AgentMessage, StructuredObject
+from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING, CACHE_CONTROL
 from agent.constants import NEWLINE_SEPARATOR_PATTERN, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN, MENTION_PATTERN
 
 log = logging.getLogger("agent.utils")
@@ -89,7 +89,14 @@ def farenheit_to_celsius(match: re.Match) -> str:
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
 
-def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentImageContent:
+def make_text_content(content: str) -> AgentContent:
+    return {
+        "type": "text",
+        "text": content,
+        "cache_control": CACHE_CONTROL,
+    }
+
+def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentContent:
     b = b.read() if isinstance(b, BytesIO) else b
     image_url = {"url": f"data:image/png;base64,{b64encode(b).decode()}"}
     if low_detail:

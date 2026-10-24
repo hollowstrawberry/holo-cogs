@@ -11,7 +11,7 @@ from redbot.core import commands
 from agent import utils, constants
 from agent.base import AgentCogBase
 from agent.config import AgentCogGuildConfig
-from agent.schema import AgentImageContent, CompletionResult, AgentMessage, ImageSource, ParsedMessageResult, StructuredObject
+from agent.schema import AgentContent, CompletionResult, AgentMessage, ImageSource, ParsedMessageResult, StructuredObject
 from agent.schema import DiscordMessageImageCandidates, DiscordMessageResolvedImages
 
 log = logging.getLogger("agent.context")
@@ -193,7 +193,7 @@ class ChatHistoryContext:
         caption_tasks  = [self.process_image_caption(src, generated_image) for src in caption_srcs]
         results_raw = await asyncio.gather(*priority_tasks, *caption_tasks, return_exceptions=True)
     
-        image_contents: list[AgentImageContent] = []
+        image_contents: list[AgentContent] = []
         attachment_captions: dict[int, str] = {}
         url_captions: dict[str, str] = {}
         for res in results_raw:
@@ -318,7 +318,7 @@ class ChatHistoryContext:
         for before, after_obj in message_inline_objs.items():
             text_content = text_content.replace(utils.escape_xml(before), xmltodict.unparse(after_obj, full_document=False))
 
-        image_contents: list[AgentImageContent] = []
+        image_contents: list[AgentContent] = []
         if images and self.first_appearance[images.message_id] == backmsg.id:
             image_contents.extend(images.image_contents)
         if quoted_images and self.first_appearance[quoted_images.message_id] == backmsg.id:
@@ -326,18 +326,10 @@ class ChatHistoryContext:
         text_tokens  = len(self.encoding.encode(text_content))
         image_tokens = 1120 * len(image_contents)
         total_tokens = text_tokens + image_tokens
-        content: str | list[AgentImageContent]
-
-        if image_contents:
-            content = [{"type": "text", "text": text_content}, *image_contents]
-            role = "user"
-        else:
-            content = text_content
-            role = "user"#"assistant" if backmsg.author == ctx.me else "user"
 
         gpt_msg = {
-            "role": role,
-            "content": content
+            "role": "user",
+            "content": [*image_contents, utils.make_text_content(text_content)]
         }
         return ParsedMessageResult(backmsg.id, gpt_msg, total_tokens, len(image_contents))
 

@@ -15,7 +15,7 @@ from redbot.core.bot import Red
 
 from agent import utils, constants
 from agent.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
-from agent.schema import AgentMessage, AgentImageContent, MessageReaction, ReactionResult
+from agent.schema import AgentMessage, AgentContent, MessageReaction, ReactionResult
 from agent.commands import AgentCogCommands
 from agent.constants import CACHE_CONTROL
 from agent.config_commands import AgentCogConfigCommands
@@ -374,8 +374,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         system_role = "developer" if "gpt-5" in model else "system"
         system_prompt = {
             "role": system_role,
-            "content": system_content,
-            "cache_control": CACHE_CONTROL,
+            "content": [utils.make_text_content(system_content)]
         }
         temp_messages.insert(0, system_prompt)  # type: ignore
         if prompt_keys.get("end", "").strip():
@@ -383,7 +382,6 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 "role": "system",
                 "content": prompt_keys["end"],
             })
-        temp_messages[-1]["cache_control"] = CACHE_CONTROL
         if prompt_keys.get("prefill", "").strip():
             temp_messages.append({
                 "role": "assistant",
@@ -489,9 +487,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
               
                 temp_messages.append({
                     "role": "tool",
-                    "content": tool_text,
+                    "content": [utils.make_text_content(tool_text)],
                     "tool_call_id": call.id,
-                    "cache_control": CACHE_CONTROL,
                 })
 
             if response.choices[0].message.content:
@@ -703,7 +700,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         return result
 
 
-    async def execute_captioner(self, ctx: commands.Context, image: AgentImageContent, result: CompletionResult) -> str:
+    async def execute_captioner(self, ctx: commands.Context, image: AgentContent, result: CompletionResult) -> str:
         assert ctx.guild
         config = self.config[ctx.guild]
 

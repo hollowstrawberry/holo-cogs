@@ -7,8 +7,8 @@ import discord
 from pydantic import BaseModel
 
 StructuredObject = dict[str, Any]
-AgentImageContent = dict[str, (str | dict[str, str])]
-AgentMessage = dict[str, (str | list[AgentImageContent])]
+AgentContent = dict[str, (str | dict[str, str])]
+AgentMessage = dict[str, (str | list[AgentContent])]
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ class DiscordMessageImageCandidates:
 @dataclass(frozen=True)
 class DiscordMessageResolvedImages:
     message_id: int
-    image_contents: list[AgentImageContent]
+    image_contents: list[AgentContent]
     attachment_captions: dict[int, str]
     url_captions: dict[str, str]
     generated_image: dict[str, str] | None
