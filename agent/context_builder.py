@@ -219,7 +219,7 @@ class ChatHistoryContext:
             return
         lock = self.builder.url_lock.setdefault(key, asyncio.Lock())
         async with lock:
-            data, caption = None, ""
+            data, caption = None, None
             if src.attachment:
                 _, data = self.builder.attachment_image_cache.get(src.attachment.id, (None, None))
                 _, caption = self.builder.attachment_caption_cache.get(src.attachment.id, (None, ""))
@@ -232,7 +232,7 @@ class ChatHistoryContext:
                     log.warning(f"image data is None for {src}")
                     return None
             if not self.config.force_captioner.value:
-                caption = "(Omitted)"
+                caption = None
             elif not caption and not generated_image:
                 data_thumbnail = await asyncio.to_thread(utils.normalize_image, data, None, self.config.max_caption_resolution.value)
                 image_content = utils.make_image_content(data_thumbnail or b'', low_detail=True)
@@ -241,11 +241,13 @@ class ChatHistoryContext:
                     log.warning(f"caption is None for {src}")
             if src.attachment:
                 self.builder.attachment_image_cache[src.attachment.id] = (src.att_index, data)
-                self.builder.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
+                if caption:
+                    self.builder.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
             elif src.url:
                 self.builder.url_image_cache[src.url] = data
-                self.builder.url_caption_cache[src.url] = caption
-            return src, caption, data
+                if caption:
+                    self.builder.url_caption_cache[src.url] = caption
+            return src, caption or "", data
 
 
     async def process_image_caption(self, src: ImageSource, generated_image: Any) -> tuple[ImageSource, str, None] | None:
@@ -429,7 +431,7 @@ class ChatHistoryContext:
                         and total_file_length < self.config.max_text_file.value:
                     if file_content := await self.read_text_file(attachment):
                         att_obj["content"] = file_content
-                if attachment_captions and i in attachment_captions:
+                if attachment_captions and attachment_captions.get(i):
                     att_obj["caption"] = attachment_captions[i]
                 attachments.append(att_obj)
             utils.add_xml_group(obj, attachments, "attachments")
