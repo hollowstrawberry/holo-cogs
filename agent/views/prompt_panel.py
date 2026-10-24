@@ -35,44 +35,24 @@ class PromptPanelView(discord.ui.LayoutView):
         self.color = color
         self.build()
 
-    # layout
-
-    def groups(self) -> tuple[list[str], list[str]]:
-        core: list[str] = list(PERMANENT_PROMPT_TYPES)
-        custom = [
-            name for name, text in self.prompts.items()
-            if name not in PERMANENT_PROMPT_TYPES and text.strip()
-        ]
-        return core, custom
-
-    def overview(self, core: list[str], custom: list[str], preview_len: int) -> str:
-        def line(name: str) -> str:
-            label = f"- **{discord.utils.escape_markdown(name)}**"
-            if preview_len:
-                label += " " + preview(self.prompts.get(name, ""), preview_len)
-            return label
-
-        lines = [f"### 📝 {self.title}", "-# CORE", *map(line, core)]
-        if custom:
-            lines += ["-# CUSTOM", *map(line, custom)]
-        return "\n".join(lines)
-
-    def make_select(self, names: list[str], placeholder: str) -> discord.ui.Select:
+    def prompt_select(self, items: dict[str, str], placeholder: str) -> discord.ui.Select:
         select = discord.ui.Select(
             placeholder=placeholder,
-            options=[discord.SelectOption(label=n, value=n, emoji="📝") for n in names],
+            options=[
+                discord.SelectOption(
+                    label=name,
+                    value=name,
+                    description=f"{len(content)} characters",
+                    emoji="📝"
+                )
+                for name, content in items
+            ],
         )
 
         async def on_select(interaction: discord.Interaction):
             name = select.values[0]
-            modal = PromptEditModal(
-                name,
-                self.prompts.get(name, ""),
-                self.check_owner,  # owner check happens in the modal
-                edit_callback=self.edit_callback_for(name),
-            )
+            modal = PromptEditModal(name, self.prompts.get(name, ""), self.check_owner, edit_callback=self.edit_callback_for(name))
             await interaction.response.send_modal(modal)
-            # Re-render so the dropdown resets and the same entry can be picked again.
             await self.refresh(interaction.message)
 
         select.callback = on_select
@@ -80,29 +60,33 @@ class PromptPanelView(discord.ui.LayoutView):
 
     def build(self):
         self.clear_items()
-        core, custom = self.groups()
-
-        text = self.overview(core, custom, PREVIEW_LENGTH)
-        if len(text) > TEXT_BUDGET:  # absurdly many prompts: drop previews
-            text = self.overview(core, custom, 0)[:3900]
+        module_prompts = {name: content for name, content in self.prompts if name in PERMANENT_PROMPT_TYPES}
+        custom_prompts = {name: content for name, content in self.prompts if name not in PERMANENT_PROMPT_TYPES and content}
 
         container = discord.ui.Container(accent_color=self.color)
-        container.add_item(discord.ui.TextDisplay(text))
-        container.add_item(discord.ui.Separator())
 
-        for label, names in (("core", core), ("custom", custom)):
-            chunks = [names[i:i + SELECT_MAX_OPTIONS] for i in range(0, len(names), SELECT_MAX_OPTIONS)]
-            for n, chunk in enumerate(chunks, 1):
-                page = f" ({n}/{len(chunks)})" if len(chunks) > 1 else ""
-                container.add_item(discord.ui.ActionRow(
-                    self.make_select(chunk, f"Edit a {label} prompt…{page}")
-                ))
-
+        container.add_item(
+            discord.ui.TextDisplay(f"## {self.title} Prompt Panel\n{len(module_prompts)} modules, {len(custom_prompts)} custom keys")
+        )
+        container.add_item(
+            discord.ui.TextDisplay("**Modules**")
+        )
+        container.add_item(
+            discord.ui.ActionRow(self.prompt_select(module_prompts, "Open a module prompt..."))
+        )
+        container.add_item(
+            discord.ui.TextDisplay(f"**Custom keys**")
+        )
+        container.add_item(
+            discord.ui.ActionRow(self.prompt_select(custom_prompts, "Open a prompt key..."))
+        )
         create_button = discord.ui.Button(emoji="➕", label="New", style=discord.ButtonStyle.green)
         create_button.callback = self.create_prompt
         close_button = discord.ui.Button(emoji="✖️", label="Close", style=discord.ButtonStyle.red)
         close_button.callback = self.delete
-        container.add_item(discord.ui.ActionRow(create_button, close_button))
+        container.add_item(
+            discord.ui.ActionRow(create_button, close_button)
+        )
 
         self.add_item(container)
 
@@ -112,17 +96,14 @@ class PromptPanelView(discord.ui.LayoutView):
         if target:
             await target.edit(view=self)
 
-
-    # callbacks
-
-    async def apply(self, name: str, prompt: str):
-        self.prompts[name] = prompt
-        await self.edit_callback(name, prompt)
+    async def apply(self, name: str, content: str):
+        self.prompts[name] = content
+        await self.edit_callback(name, content)
         await self.refresh()
 
     def edit_callback_for(self, name: str):
-        async def callback(prompt: str):
-            await self.apply(name, prompt)
+        async def callback(content: str):
+            await self.apply(name, content)
         return callback
 
     async def create_prompt(self, interaction: discord.Interaction):
@@ -134,7 +115,7 @@ class PromptPanelView(discord.ui.LayoutView):
     async def delete(self, interaction: discord.Interaction):
         assert interaction.message
         if not interaction.permissions.manage_messages and not await self.check_owner(interaction.user):
-            return await interaction.response.send_message("You don't have permission to delete this.", ephemeral=True)
+            return await interaction.response.send_message("You don't have permission to remove this.", ephemeral=True)
         await interaction.message.delete()
 
     async def on_timeout(self) -> None:

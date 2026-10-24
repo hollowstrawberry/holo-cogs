@@ -13,7 +13,7 @@ class PromptEditModal(discord.ui.Modal):
                  edit_callback: Callable[[str], Awaitable] | None = None,
                  create_callback: Callable[[str, str], Awaitable] | None = None,
                 ):
-        super().__init__(title="Prompt editing")
+        super().__init__(title="Prompt Editing")
         self.name = name
         self.prompt = prompt
         self.check_owner = check_owner
