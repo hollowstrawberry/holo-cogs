@@ -8,7 +8,7 @@ import xmltodict
 from random import random
 from difflib import get_close_matches
 from datetime import datetime, timezone
-from openai import AsyncOpenAI
+from openai import NOT_GIVEN, AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -390,7 +390,13 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 "content": prompt_keys["prefill"],
             })
 
-        tools = [t for t in self.available_tools if t.display_name in config.enabled_functions.value]
+        tools = sorted(
+            (
+                t for t in self.available_tools
+                if t.display_name in config.enabled_functions.value and t.available_for(ctx, auto=auto)
+            ),
+            key=lambda t: t.display_name,
+        )
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
 
@@ -399,6 +405,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         memory_changes: list[MemoryChangeResult] = []
         files: list[discord.File] = []
         do_reply = True
+        direct_tool_results: dict[tuple[str, str], str] = {}
         for depth in range(config.max_tool_depth.value):
             can_use_tools = depth < config.max_tool_depth.value - 1
             if not can_use_tools and depth > 0:
@@ -409,8 +416,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),  # type: ignore
                 messages=temp_messages,  # type: ignore
                 max_completion_tokens=config.response_tokens.value,  # type: ignore
-                tools=tools_schema,  # type: ignore
-                tool_choice="auto" if can_use_tools else "none",
+                tools=tools_schema or NOT_GIVEN,  # type: ignore
+                tool_choice=("auto" if can_use_tools else "none") if tools_schema else NOT_GIVEN,
                 extra_body=None if "/" not in model else {
                     "session_id": str(ctx.message.id),
                 },
@@ -456,7 +463,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     else:
                         args = json.loads(call.function.arguments)
 
-                    tool_result = await cls(ctx, self).run(args)
+                    tool_result = await cls(ctx, self).run_cached(args, direct_tool_results)
                     if call.function.name == "search_images_arcenciel" and isinstance(tool_result, dict):
                         for image in tool_result.get("results", {}).get("image", []):
                             if image.get("rating") in ("sensitive", "explicit"):
