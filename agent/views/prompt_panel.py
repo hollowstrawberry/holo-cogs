@@ -23,8 +23,9 @@ class PromptPanelView(discord.ui.LayoutView):
                  prompts: dict[str, str],
                  edit_callback: Callable[[str, str], Awaitable],
                  check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
-                 title: str = "Prompt Panel",
-                 color: discord.Color = discord.Color(0)
+                 title: str,
+                 color: discord.Color,
+                 thumbnail: str,
                 ):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.prompts = prompts
@@ -33,9 +34,10 @@ class PromptPanelView(discord.ui.LayoutView):
         self.title = title
         self.message: discord.Message | None = None
         self.color = color
+        self.thumbnail = thumbnail
         self.build()
 
-    def prompt_select(self, options: dict[str, str], placeholder: str) -> discord.ui.Select:
+    def make_prompt_select(self, options: dict[str, str], placeholder: str) -> discord.ui.Select:
         select = discord.ui.Select(
             placeholder=placeholder,
             options=[
@@ -58,36 +60,37 @@ class PromptPanelView(discord.ui.LayoutView):
         select.callback = on_select
         return select
 
+    def make_button(self, emoji: str, label: str, style: discord.ButtonStyle, callback: Callable):
+        button = discord.ui.Button(emoji=emoji, label=label, style=style)
+        button.callback = callback
+        return button
+
     def build(self):
         self.clear_items()
         module_prompts = {name: content for name, content in self.prompts.items() if name in PERMANENT_PROMPT_TYPES}
         custom_prompts = {name: content for name, content in self.prompts.items() if name not in PERMANENT_PROMPT_TYPES and content}
-
-        container = discord.ui.Container(accent_color=self.color)
-
-        container.add_item(
-            discord.ui.TextDisplay(f"## {self.title} Prompt Panel\n{len(module_prompts)} modules, {len(custom_prompts)} custom keys")
+        
+        container = discord.ui.Container(
+            discord.ui.Section(
+                discord.ui.TextDisplay(f"## {self.title}\n-# {len(module_prompts)} modules, {len(custom_prompts)} custom keys"),
+                accessory=discord.ui.Thumbnail(self.thumbnail)
+            ),
+            discord.ui.Separator(),
+            discord.ui.TextDisplay("**Modules**"),
+            discord.ui.ActionRow(
+                self.make_prompt_select(module_prompts, "Open a module prompt...")
+            ),
+            discord.ui.TextDisplay(f"**Custom keys**"),
+            discord.ui.ActionRow(
+                self.make_prompt_select(custom_prompts, "Open a prompt key...")
+            ),
+            discord.ui.Separator(),
+            discord.ui.ActionRow(
+                self.make_button("➕", "New", discord.ButtonStyle.green, self.create_prompt),
+                self.make_button("✖️", "Close", discord.ButtonStyle.red, self.delete),
+            ),
+            accent_color=self.color
         )
-        container.add_item(
-            discord.ui.TextDisplay("**Modules**")
-        )
-        container.add_item(
-            discord.ui.ActionRow(self.prompt_select(module_prompts, "Open a module prompt..."))
-        )
-        container.add_item(
-            discord.ui.TextDisplay(f"**Custom keys**")
-        )
-        container.add_item(
-            discord.ui.ActionRow(self.prompt_select(custom_prompts, "Open a prompt key..."))
-        )
-        create_button = discord.ui.Button(emoji="➕", label="New", style=discord.ButtonStyle.green)
-        create_button.callback = self.create_prompt
-        close_button = discord.ui.Button(emoji="✖️", label="Close", style=discord.ButtonStyle.red)
-        close_button.callback = self.delete
-        container.add_item(
-            discord.ui.ActionRow(create_button, close_button)
-        )
-
         self.add_item(container)
 
     async def refresh(self, fallback: discord.Message | None = None):

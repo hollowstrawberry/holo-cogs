@@ -96,8 +96,9 @@ class AgentCogCommands(AgentCogBase):
             prompts,
             edit_callback,
             self.bot.is_owner,
-            f"{ctx.me.name} Prompt Panel",
-            await ctx.embed_color()
+            f"{ctx.me.display_name} Prompt Panel",
+            await ctx.embed_color(),
+            ctx.me.display_avatar.url,
         )
 
 
