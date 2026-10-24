@@ -48,6 +48,7 @@ def spoiler_adult_image_links(text: str, image_ids: set[int]) -> str:
 
 class ArcencielImagesTool(ToolBase):
     display_name = "arcenciel_images"
+    settings = {"arcenciel_emoji": "📁"}
     schema = ToolCall(
         Function(
             name="search_images_arcenciel",
@@ -87,6 +88,9 @@ class ArcencielImagesTool(ToolBase):
         arcenciel = self.cog.bot.get_cog("Arcenciel")
         if not isinstance(arcenciel, Arcenciel) or not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
             return "<error>Arc en Ciel cog not configured, please notify the bot owner</error>"
+
+        emoji = self.get_setting("arcenciel_emoji")
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         query = str(arguments.get("query") or "").strip()[:200]
         user = str(arguments.get("user") or "").strip()[:100]
