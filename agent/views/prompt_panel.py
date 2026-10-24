@@ -35,7 +35,7 @@ class PromptPanelView(discord.ui.LayoutView):
         self.color = color
         self.build()
 
-    def prompt_select(self, items: dict[str, str], placeholder: str) -> discord.ui.Select:
+    def prompt_select(self, options: dict[str, str], placeholder: str) -> discord.ui.Select:
         select = discord.ui.Select(
             placeholder=placeholder,
             options=[
@@ -45,7 +45,7 @@ class PromptPanelView(discord.ui.LayoutView):
                     description=f"{len(content)} characters",
                     emoji="📝"
                 )
-                for name, content in items
+                for name, content in options.items()
             ],
         )
 
