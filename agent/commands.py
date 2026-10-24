@@ -13,8 +13,7 @@ from agent.views.memory_info import MemoryInfoView
 from agent.views.memory_list import MemoryListView
 from agent.views.memory_change import MemoryChangeView
 from agent.views.prompt_show import PromptView
-from agent.views.prompt_panel import PromptPanelView
-from agent.views.prompt_store import PromptRef, PromptStore
+from agent.views.prompts_edit import PromptsEditView
 
 
 class AgentCogCommands(AgentCogBase):
@@ -31,7 +30,7 @@ class AgentCogCommands(AgentCogBase):
         }
 
     @commands.command(name="prompt")
-    async def prompt_cmd(self, ctx: commands.Context, module: Optional[str]) -> None:
+    async def prompt_cmd(self, ctx: commands.Context, module: Optional[str]):
         """
         View or edit LLM prompts.
         The recaller grabs relevant memories.
@@ -54,26 +53,44 @@ class AgentCogCommands(AgentCogBase):
             return
         view = await self.prompt_cmd_show(ctx, module) if module else await self.prompt_cmd_edit(ctx)
         if view:
-            view.message = await ctx.send(view=view, allowed_mentions=discord.AllowedMentions.none())
+            embed = discord.Embed(color=await ctx.embed_color())
+            embed.set_author(name=f"{ctx.guild.me.name} Prompt Panel", icon_url=ctx.guild.me.display_avatar.url)
+            view.message = await ctx.send(embed=embed, view=view)
         if ctx.bot_permissions.manage_messages:
             await ctx.message.delete()
 
     async def prompt_cmd_show(self, ctx: commands.Context, module: str) -> PromptView | None:
         config = self.config[ctx.guild]
-        store = PromptStore(self.prompt_fields(config), config.prompt_keys)
-        ref = PromptRef("module" if module in store.modules else "key", module)
-        if store.get(ref) is None:
-            await ctx.send("Prompt not found. Use the prompt panel to select an available key.", delete_after=60)
-            return None
-        return PromptView(store, ref, self.bot.is_owner, await ctx.embed_color())
+        prompt = ""
+        if field := self.prompt_fields(config).get(module):
+            edit = field.set
+            prompt = field.value
+        else:
+            if module not in config.prompt_keys.value:
+                await ctx.send(f"Prompt `{module}` not found.", delete_after=60)
+                return None
+            async def edit_callback(pr: str):
+                config.prompt_keys.value[module] = pr
+                await config.prompt_keys.save()
+            edit = edit_callback
+            prompt = config.prompt_keys.value[module]
+        return PromptView(module, prompt, edit, self.bot.is_owner)
 
-    async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptPanelView:
+    async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptsEditView:
         assert ctx.guild
         config = self.config[ctx.guild]
-        return PromptPanelView(
-            PromptStore(self.prompt_fields(config), config.prompt_keys), self.bot.is_owner,
-            f"{ctx.guild.me.name} Prompt Panel", await ctx.embed_color(),
-        )
+        async def edit_callback(name: str, prompt: str):
+            assert ctx.guild
+            if field := self.prompt_fields(config).get(name):
+                await field.set(prompt)
+            else:
+                config.prompt_keys.value[name] = prompt
+                await config.prompt_keys.save()
+        prompts = {
+            **config.prompt_keys.value,
+            **{name: field.value for name, field in self.prompt_fields(config).items()}
+        }
+        return PromptsEditView(prompts, edit_callback, self.bot.is_owner)
 
 
     @commands.command(name="forget")
