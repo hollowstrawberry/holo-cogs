@@ -5,9 +5,10 @@ from difflib import get_close_matches
 from redbot.core import commands
 
 from agent.base import AgentCogBase
+from agent.utils import get_bot_avatar_emote
+from agent.schema import MemoryChangeResult
 from agent.config import AgentCogGuildConfig
 from agent.config_base import ConfigField
-from agent.schema import MemoryChangeResult
 from agent.constants import DISCORD_EPOCH_DATETIME
 from agent.views.memory_info import MemoryInfoView
 from agent.views.memory_list import MemoryListView
@@ -92,13 +93,13 @@ class AgentCogCommands(AgentCogBase):
             **config.prompt_keys.value,
             **{name: field.value for name, field in self.prompt_fields(config).items()}
         }
+        avatar_emote = await get_bot_avatar_emote(self.bot)
         return PromptPanelView(
             prompts,
             edit_callback,
             self.bot.is_owner,
-            f"{ctx.me.display_name} Prompt Panel",
+            f"{avatar_emote} {ctx.me.display_name} Prompt Panel",
             await ctx.embed_color(),
-            ctx.me.display_avatar.url,
         )
 
 

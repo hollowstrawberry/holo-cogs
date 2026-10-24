@@ -1,3 +1,4 @@
+import io
 import os
 import re
 import struct
@@ -14,7 +15,7 @@ from base64 import b64encode
 from typing import Callable
 from datetime import datetime
 from urllib.parse import urlparse
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageDraw, UnidentifiedImageError
 from redbot.core import commands
 from redbot.core.bot import Red
 from openai import Omit
@@ -135,6 +136,15 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail
     image.save(fp, format, quality=90)
     return fp.getvalue()
 
+def make_circle(image_bytes: bytes) -> bytes:
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+    mask = Image.new("L", img.size, 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, *img.size), fill=255)
+    img.putalpha(mask)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.read()
+
 def button_label(button: discord.Button):
     emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
     return " ".join([s for s in (emoji_name, button.label) if s])
@@ -242,6 +252,19 @@ async def is_valid_openrouter_model(session: aiohttp.ClientSession, model: str) 
             return False
         resp.raise_for_status()
     return True
+
+
+async def get_bot_avatar_emote(bot: discord.Client) -> discord.Emoji:
+    """Crop the bot's avatar into a circle and upload it as an application emoji."""
+    assert bot.user
+    NAME = "bot_avatar"
+    emojis = await bot.fetch_application_emojis()
+    avatar_emote = discord.utils.find(lambda a: a.name == NAME, emojis)
+    if avatar_emote:
+        return avatar_emote
+    data = await bot.user.display_avatar.replace(size=128, format="png").read()
+    result = await asyncio.to_thread(make_circle, data)
+    return await bot.create_application_emoji(name=NAME, image=result)
 
 
 async def chunk_and_send(ctx: commands.Context,

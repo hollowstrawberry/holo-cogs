@@ -25,7 +25,6 @@ class PromptPanelView(discord.ui.LayoutView):
                  check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
                  title: str,
                  color: discord.Color,
-                 thumbnail: str,
                 ):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.prompts = prompts
@@ -34,7 +33,6 @@ class PromptPanelView(discord.ui.LayoutView):
         self.title = title
         self.message: discord.Message | None = None
         self.color = color
-        self.thumbnail = thumbnail
         self.build()
 
     def make_prompt_select(self, options: dict[str, str], placeholder: str) -> discord.ui.Select:
@@ -71,10 +69,7 @@ class PromptPanelView(discord.ui.LayoutView):
         custom_prompts = {name: content for name, content in self.prompts.items() if name not in PERMANENT_PROMPT_TYPES and content}
         
         container = discord.ui.Container(
-            discord.ui.Section(
-                discord.ui.TextDisplay(f"## {self.title}\n-# {len(module_prompts)} modules, {len(custom_prompts)} custom keys"),
-                accessory=discord.ui.Thumbnail(self.thumbnail)
-            ),
+            discord.ui.TextDisplay(f"## {self.title}\n-# {len(module_prompts)} modules, {len(custom_prompts)} custom keys"),
             discord.ui.Separator(),
             discord.ui.TextDisplay("**Modules**"),
             discord.ui.ActionRow(
