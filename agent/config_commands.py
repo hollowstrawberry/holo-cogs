@@ -9,7 +9,7 @@ from agent.utils import is_valid_openrouter_model
 from agent.config_base import ConfigField
 from agent.constants import EFFORT_VALUES, VISION_MODELS, EMPTY
 from agent.tools.base import get_all_tools
-from agent.cache_policy import CacheMode
+from agent.schema import CacheMode
 
 log = logging.getLogger("agent.utils")
 

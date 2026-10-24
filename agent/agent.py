@@ -17,7 +17,6 @@ from agent import utils, constants
 from agent.schema import CompletionResult, MemoryChangeResult, MemoryChangeList
 from agent.schema import AgentMessage, AgentContent, MessageReaction, ReactionResult
 from agent.commands import AgentCogCommands
-from agent.cache_policy import fingerprint, prepare_messages
 from agent.config_commands import AgentCogConfigCommands
 from agent.tools.base import get_all_tools
 from agent.tools.arcenciel_images import spoiler_adult_image_links
@@ -357,11 +356,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         model: str = config.model_responder.value
 
         base_system_content: str = config.prompt_autoresponder.value if auto else config.prompt_responder.value
-        prompt_keys: dict[str, str] = dict(config.prompt_keys.value)
-        effort = config.effort_responder.value
-        response_tokens = config.response_tokens.value
-        max_tool_depth = config.max_tool_depth.value
-        max_tool = config.max_tool.value
+        prompt_keys: dict[str, str] = config.prompt_keys.value
         cache_mode = config.cache_mode.value if "/" in model else "implicit"
         system_content = base_system_content.format(
             **prompt_keys,
@@ -393,7 +388,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 "content": prompt_keys["prefill"],
             })
 
-        temp_messages = prepare_messages(temp_messages, cache_mode)
+        temp_messages = utils.prepare_messages(temp_messages, cache_mode)
         tools = sorted(
             (t for t in self.available_tools if t.display_name in config.enabled_functions.value),
             key=lambda tool: tool.schema.function.name,
@@ -401,25 +396,26 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
         initial_count = len(temp_messages)
-        prefix_hash = fingerprint(temp_messages)
-        schema_hash = fingerprint(tools_schema)
+        prefix_hash = utils.fingerprint(temp_messages)
+        schema_hash = utils.fingerprint(tools_schema)
 
         tool_call_history: list[str] = []
         adult_image_ids: set[int] = set()
         memory_changes: list[MemoryChangeResult] = []
         files: list[discord.File] = []
         do_reply = True
-        for depth in range(max_tool_depth):
-            can_use_tools = depth < max_tool_depth - 1
+        depths = range(config.max_tool_depth.value)
+        for depth in depths:
+            can_use_tools = depth < depths.stop - 1
             if not can_use_tools and depth > 0:
                 temp_messages.extend(constants.FAKE_TOOL_CALL)  # type: ignore
                 
             started = time.perf_counter()
             response = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
-                reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
+                reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),  # type: ignore
                 messages=temp_messages,  # type: ignore
-                max_completion_tokens=response_tokens,  # type: ignore
+                max_completion_tokens=config.response_tokens.value,  # type: ignore
                 tools=tools_schema,  # type: ignore
                 tool_choice="auto" if can_use_tools else "none",
                 extra_body=None if "/" not in model else {
@@ -442,11 +438,9 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     "tool_choice": "auto" if can_use_tools else "none",
                     "message_count": len(temp_messages),
                     "prefix_hash": prefix_hash,
-                    "prefix_unchanged": fingerprint(temp_messages[:initial_count]) == prefix_hash,
+                    "prefix_unchanged": utils.fingerprint(temp_messages[:initial_count]) == prefix_hash,
                     "schema_hash": schema_hash,
-                    "messages_hash": fingerprint(temp_messages),
-                    "effort": effort,
-                    "response_tokens": response_tokens,
+                    "messages_hash": utils.fingerprint(temp_messages),
                     "usage": response.usage.model_dump(mode="json") if response.usage else None,
                 }))
             
@@ -511,8 +505,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 else:
                     tool_text = tool_result.strip()
 
-                if len(tool_text) > max_tool:
-                    tool_text = utils.fix_truncated_xml(tool_text[:max_tool]) + "..."
+                if len(tool_text) > config.max_tool.value:
+                    tool_text = utils.fix_truncated_xml(tool_text[:config.max_tool.value]) + "..."
                 result.tokens.tools += len(self.encoding.encode(tool_text))
                 log.info(f"{call.function.name=} {call.function.arguments=}")
                 if self.config.extended_logging.value:

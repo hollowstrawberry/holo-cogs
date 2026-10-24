@@ -1,7 +1,7 @@
 from datetime import datetime
 from agent import constants
 from agent.config_base import ConfigField, CogConfig, CogConfigBase
-from agent.cache_policy import CacheMode
+from agent.schema import CacheMode
 
 
 class AgentCogGuildConfig(CogConfigBase):
