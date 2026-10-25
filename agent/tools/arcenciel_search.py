@@ -62,7 +62,10 @@ class ArcencielTool(ToolBase):
             else:
                 return "<error>User not found</error>"
 
-        params = {"search": query}
+        params = {
+            "search": query,
+            "limit": self.get_setting_int("arcenciel_model_results", 1, 20) or 5,
+        }
         if found_user is not None:
             params["userId"] = found_user
         try:
