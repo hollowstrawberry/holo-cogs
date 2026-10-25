@@ -469,7 +469,7 @@ class AgentCogConfigCommands(AgentCogBase):
         await enabled_tools.save()
         if fail:
             result.append(f"\nValid values are: " + ", ".join([f"`{name}`" for name in all_tool_names]))
-        await ctx.send()
+        await ctx.send("\n".join(result))
 
     @agentconfig_functions.command(name="disable")
     async def agentconfig_functions_disable(self, ctx: commands.Context, *tool_names: str):
@@ -489,7 +489,7 @@ class AgentCogConfigCommands(AgentCogBase):
         await enabled_tools.save()
         if fail:
             result.append(f"\nValid values are: " + ", ".join([f"`{name}`" for name in all_tool_names]))
-        await ctx.send()
+        await ctx.send("\n".join(result))
 
     @agentconfig_functions.command(name="setting", aliases=["settings"])
     async def agentconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
