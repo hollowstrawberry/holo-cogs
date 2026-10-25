@@ -24,7 +24,7 @@ from openai import Omit
 from pydantic import BaseModel
 
 from agent.schema import AgentContent, AgentMessage, AgentValue, CacheMode, StructuredObject
-from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING
+from agent.constants import CACHE_CONTROL, MAX_MESSAGE_LENGTH, DATETIME_FORMATTING
 from agent.constants import NEWLINE_SEPARATOR_PATTERN, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN, MENTION_PATTERN
 
 log = logging.getLogger("agent.utils")
@@ -106,8 +106,7 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
     if mode == "fixed_prefix":
         # A trailing system message may be folded into systemInstruction by gateways.
         # Prefer the last user message so the boundary includes conversation history.
-        # candidates = [message for message in prepared if message["role"] == "user"]
-        candidates = [message for message in prepared]
+        candidates = [message for message in prepared if message["role"] == "user"]
         if not candidates:
             candidates = prepared[:1]
         for message in reversed(candidates):
@@ -117,7 +116,7 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
                 message["content"] = content
             for part in reversed(content):
                 if part.get("type") == "text" and part.get("text"):
-                    part["cache_control"] = {"type": "ephemeral"}
+                    part["cache_control"] = CACHE_CONTROL
                     return prepared
     return prepared
 
@@ -131,11 +130,14 @@ def fingerprint(value: object) -> str:
     encoded = json.dumps(value, default=_json_default, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode()).hexdigest()
 
-def make_text_content(content: str) -> AgentContent:
-    return {
+def make_text_content(content: str, cache=False) -> AgentContent:
+    obj: AgentContent = {
         "type": "text",
         "text": content,
     }
+    if cache:
+        obj["cache_control"] = CACHE_CONTROL
+    return obj
 
 def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentContent:
     b = b.read() if isinstance(b, BytesIO) else b

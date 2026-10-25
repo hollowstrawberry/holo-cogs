@@ -2,6 +2,8 @@ import re
 from datetime import datetime, timezone
 from discord.utils import DISCORD_EPOCH
 
+from agent.schema import AgentValue
+
 MAX_MESSAGE_LENGTH = 1950
 MAX_EMBED_DESCRIPTION = 4096
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
@@ -109,7 +111,7 @@ SD_IMAGEGEN_RESOLUTIONS = [
     (1536, 640),
 ]
 
-CACHE_CONTROL = {
+CACHE_CONTROL: AgentValue = {
     "type": "ephemeral"
 }
 

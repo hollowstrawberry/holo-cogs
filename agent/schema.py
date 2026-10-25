@@ -1,5 +1,4 @@
 from typing import Any, Literal
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 import discord

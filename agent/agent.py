@@ -514,7 +514,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
               
                 temp_messages.append({
                     "role": "tool",
-                    "content": [utils.make_text_content(tool_text)],
+                    "content": [utils.make_text_content(tool_text, cache=True)],
                     "tool_call_id": call.id,
                 })
 
