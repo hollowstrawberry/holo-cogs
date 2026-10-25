@@ -2,8 +2,10 @@ import re
 import logging
 import asyncio
 import aiohttp
+from datetime import datetime
 
 from agent.schema import ToolCall, Function, Parameters
+from agent.constants import DATETIME_FORMATTING
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.arcenciel_images")
@@ -142,15 +144,18 @@ class ArcencielImagesTool(ToolBase):
                 continue
             uploader = image.get("uploader") or {}
             url = f"https://arcenciel.io/images/{image_id}"
-            results.append(
-                {
-                    "@id": image_id,
-                    "@title": (image.get("title") or f"Image #{image_id}")[:120],
-                    "url": f"||{url}||" if image["rating"] in ADULT_RATINGS else url,
-                    "uploader": str(uploader.get("username") or "Unknown")[:80],
-                    "rating": image["rating"],
-                }
-            )
+            
+            entry = {
+                "@id": image_id,
+                "@published": datetime.fromisoformat(image["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING),
+                "url": f"||{url}||" if image["rating"] in ADULT_RATINGS else url,
+                "title": (image.get("title") or f"Image #{image_id}")[:120],
+                "uploader": str(uploader.get("username") or "Unknown")[:80],
+                "rating": image["rating"],
+            }
+            if image.get("prompt"):
+                entry["prompt"] = image["prompt"][:2000]
+            results.append(entry)
 
         if not results:
             return "No published images found on this page"
