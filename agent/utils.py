@@ -122,7 +122,7 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
 
 def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:
     for msg in messages:
-        if not isinstance(msg["content"], list):
+        if not isinstance(msg, dict) or not isinstance(msg["content"], list):
             continue
         for cnt in msg["content"]:
             if isinstance(cnt, dict):

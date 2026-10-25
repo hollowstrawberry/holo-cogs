@@ -512,12 +512,12 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 if self.config.extended_logging.value:
                     log.info(f"{tool_text=}")
               
+                utils.clear_cache_breakpoints(temp_messages)
                 temp_messages.append({
                     "role": "tool",
                     "content": [utils.make_text_content(tool_text, cache=True)],
                     "tool_call_id": call.id,
                 })
-                utils.clear_cache_breakpoints(temp_messages)
 
             if response.choices[0].message.content:
                 break
