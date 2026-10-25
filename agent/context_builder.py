@@ -327,7 +327,7 @@ class ChatHistoryContext:
 
         gpt_msg = {
             "role": "user",
-            "content": [*image_contents, utils.make_text_content(text_content)]
+            "content": [utils.make_text_content(text_content), *image_contents]
         }
         return ParsedMessageResult(backmsg.id, gpt_msg, total_tokens, len(image_contents))
 
