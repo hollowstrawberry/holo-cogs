@@ -517,6 +517,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     "content": [utils.make_text_content(tool_text, cache=True)],
                     "tool_call_id": call.id,
                 })
+                utils.clear_cache_breakpoints(temp_messages)
 
             if response.choices[0].message.content:
                 break

@@ -120,6 +120,14 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
                     return prepared
     return prepared
 
+def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:
+    for msg in messages:
+        if not isinstance(msg["content"], list):
+            continue
+        for cnt in msg["content"]:
+            if isinstance(cnt, dict):
+                cnt.pop("cache_control", None)
+
 def _json_default(value: object) -> object:
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json", exclude_unset=True)
