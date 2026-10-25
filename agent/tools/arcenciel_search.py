@@ -14,6 +14,8 @@ class ArcencielTool(ToolBase):
     settings = {
         "arcenciel_emoji": "📁",
         "arcenciel_model_results": "5",
+        "arcenciel_model_description_chars": "200",
+        "arcenciel_model_trigger_chars": "256",
     }
     schema = ToolCall(
         Function(
@@ -83,7 +85,11 @@ class ArcencielTool(ToolBase):
         for result in data["data"]:
             if not result.get("versions"):
                 continue
-            results.append(parse_arcenciel_model(result))
+            results.append(parse_arcenciel_model(
+                result,
+                description_limit=self.get_setting_int("arcenciel_model_description_chars", 0, 2000) or 0,
+                trigger_limit=self.get_setting_int("arcenciel_model_trigger_chars", 0, 10000) or 0,
+            ))
         return {
             "results": {
                 "model": results

@@ -16,7 +16,8 @@ def get_filename(url: str) -> str:
     return os.path.basename(urlparse(url).path)
 
 
-def parse_arcenciel_model(data: dict) -> StructuredObject:
+def parse_arcenciel_model(data: dict, *, description_limit: int | None = None,
+                         trigger_limit: int | None = None) -> StructuredObject:
     obj = {
         "@title": data["title"],
         "@type": data["type"],
@@ -30,8 +31,9 @@ def parse_arcenciel_model(data: dict) -> StructuredObject:
         ver_obj = {
             "@name": version["versionName"],
             "@base_model": version["baseModel"],
-            "@published": datetime.fromisoformat(version["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING)
         }
+        if description_limit is None and isinstance(version.get("publishedAt"), str):
+            ver_obj["@published"] = datetime.fromisoformat(version["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING)
         filename = str(version.get("filePath", "")).split("/")[-1].replace(".safetensors", "").strip()
         if not filename:
             ver_obj["filename"] = "(unknown)"
@@ -40,7 +42,7 @@ def parse_arcenciel_model(data: dict) -> StructuredObject:
         else:
             ver_obj["filename"] = filename
         if i <= 1:
-            if "aboutThisVersion" in version:
+            if description_limit is None and "aboutThisVersion" in version:
                 ver_obj["description"] = version["aboutThisVersion"]
             if "activationTags" in version:
                 tags_obj = []
@@ -55,9 +57,23 @@ def parse_arcenciel_model(data: dict) -> StructuredObject:
                     t_obj["#text"] = tags
                     tags_obj.append(t_obj)
                 ver_obj["activation_tags"] = {"prompt": tags_obj}
-        else:
+                if trigger_limit is not None:
+                    remaining = trigger_limit
+                    selected = []
+                    for tag in tags_obj:
+                        if len(tag["#text"]) <= remaining:
+                            selected.append(tag)
+                            remaining -= len(tag["#text"])
+                    ver_obj["activation_tags"] = {"prompt": selected}
+                    if len(selected) < len(tags_obj):
+                        ver_obj["activation_tags"]["@more"] = True
+        elif description_limit is None:
             ver_obj["#text"] = "..."
         versions_obj.append(ver_obj)
+    if description_limit == 0:
+        obj.pop("description")
+    elif description_limit is not None and len(obj["description"]) > description_limit:
+        obj["description"] = obj["description"][:description_limit] + "..."
     obj["versions"] = {"version": versions_obj}
     return obj
 
