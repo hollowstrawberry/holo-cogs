@@ -104,8 +104,10 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
             for part in content:
                 part.pop("cache_control", None)
     if mode == "fixed_prefix":
-        # not all models support system messages after the first message
-        candidates = [message for message in prepared if message["role"] == "user"]
+        # A trailing system message may be folded into systemInstruction by gateways.
+        # Prefer the last user message so the boundary includes conversation history.
+        # candidates = [message for message in prepared if message["role"] == "user"]
+        candidates = [message for message in prepared]
         if not candidates:
             candidates = prepared[:1]
         for message in reversed(candidates):
