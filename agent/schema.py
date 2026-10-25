@@ -1,14 +1,14 @@
-from collections.abc import Mapping
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Literal
+from dataclasses import dataclass, field
 
 import discord
 from pydantic import BaseModel
 
 StructuredObject = dict[str, Any]
-AgentImageContent = dict[str, (str | dict[str, str])]
-AgentMessage = dict[str, (str | list[AgentImageContent])]
+AgentValue = dict[str, str | dict[str, str]]
+AgentContent = dict[str, (str | AgentValue)]
+AgentMessage = dict[str, (str | list[AgentContent])]
+CacheMode = Literal["implicit", "fixed_prefix"]
 
 
 @dataclass(frozen=True)
@@ -28,18 +28,26 @@ class ImageSource:
 
 
 @dataclass(frozen=True)
+class ImageProcessingResult:
+    src: ImageSource
+    data: bytes | None
+    caption: str | None
+    low_detail: bool = False
+
+
+@dataclass(frozen=True)
 class DiscordMessageImageCandidates:
     message: discord.Message
     priority: list[ImageSource]
-    caption: list[ImageSource]
+    low_priority: list[ImageSource]
 
     
 @dataclass(frozen=True)
 class DiscordMessageResolvedImages:
     message_id: int
-    image_contents: list[AgentImageContent]
-    attachment_captions: dict[int, str]
-    url_captions: dict[str, str]
+    image_contents: list[AgentContent]
+    attachment_captions: dict[int, str | None]
+    url_captions: dict[str, str | None]
     generated_image: dict[str, str] | None
 
 

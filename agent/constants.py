@@ -2,6 +2,8 @@ import re
 from datetime import datetime, timezone
 from discord.utils import DISCORD_EPOCH
 
+from agent.schema import AgentValue
+
 MAX_MESSAGE_LENGTH = 1950
 MAX_EMBED_DESCRIPTION = 4096
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
@@ -12,6 +14,8 @@ TOKEN_ENCODING = "o200k_base"
 PERMANENT_PROMPT_TYPES = ("responder", "autoresponder", "autoreacter", "recaller", "captioner", "memorizer")
 MAX_IMAGES_PER_MESSAGE = 4
 TONES = r"(pause?|happy|angry|sad|soft|excited|laugh|whisper|yell|scream|cry|sobb?|moan|sigh|sing|clear(s|ing)?.throat)(ing)?"
+
+CUMULATIVE_CACHE_FLAG = False
 
 RESPONSE_CLEANUP_PATTERNS = [
     #("Opening XML",       re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),
@@ -109,7 +113,7 @@ SD_IMAGEGEN_RESOLUTIONS = [
     (1536, 640),
 ]
 
-CACHE_CONTROL = {
+CACHE_CONTROL: AgentValue = {
     "type": "ephemeral"
 }
 

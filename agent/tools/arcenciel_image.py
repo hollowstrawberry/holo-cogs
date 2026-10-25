@@ -277,7 +277,7 @@ class ArcencielImageTool(ToolBase):
             arcenciel.generate_image(self.ctx, params=params, payload=payload, message_content=message_content, callback=callback())
         )
         result = {
-            "message": f"{choice.name} image generation started. Wait for completion before describing the result."
+            "message": f"{choice.name} image generation started. Respond while it generates."
         }
         add_xml_group(result, warnings, "warnings")
         return {"result": result}

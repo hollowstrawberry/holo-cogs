@@ -1,6 +1,7 @@
 from datetime import datetime
 from agent import constants
 from agent.config_base import ConfigField, CogConfig, CogConfigBase
+from agent.schema import CacheMode
 
 
 class AgentCogGuildConfig(CogConfigBase):
@@ -13,7 +14,7 @@ class AgentCogGuildConfig(CogConfigBase):
     auto_channels:           ConfigField[list[int]]      = ConfigField([])
     memory:                  ConfigField[dict[str, str]] = ConfigField({})
     prompt_keys:             ConfigField[dict[str, str]] = ConfigField({})
-    enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])
+    enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])       
     # LLM
     model_recaller:          ConfigField[str] = ConfigField("gpt-6-luna")
     model_responder:         ConfigField[str] = ConfigField("gpt-6-luna")
@@ -23,6 +24,7 @@ class AgentCogGuildConfig(CogConfigBase):
     effort_recaller:         ConfigField[str] = ConfigField("none")
     effort_responder:        ConfigField[str] = ConfigField("low")
     effort_memorizer:        ConfigField[str] = ConfigField("low")
+    cache_mode:              ConfigField[CacheMode] = ConfigField("fixed_prefix")
     prompt_recaller:         ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_RECALLER)
     prompt_responder:        ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_RESPONDER)
     prompt_autoresponder:    ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_AUTORESPONDER)
@@ -36,12 +38,14 @@ class AgentCogGuildConfig(CogConfigBase):
     backread_short:          ConfigField[int] = ConfigField(5)
     max_tool_depth:          ConfigField[int] = ConfigField(3)
     max_images:              ConfigField[int] = ConfigField(1)
+    max_images_low:          ConfigField[int] = ConfigField(3)
     max_image_resolution:    ConfigField[int] = ConfigField(1020)
     max_caption_resolution:  ConfigField[int] = ConfigField(380)
     max_quote:               ConfigField[int] = ConfigField(200)
     max_tool:                ConfigField[int] = ConfigField(3000)
     max_text_file:           ConfigField[int] = ConfigField(3000)
-    # Memorizer
+    # Flags
+    use_captions:         ConfigField[bool] = ConfigField(False)
     allow_memorizer:         ConfigField[bool] = ConfigField(False)
     memorizer_user_only:     ConfigField[bool] = ConfigField(True)
     memorizer_alerts:        ConfigField[bool] = ConfigField(True)
