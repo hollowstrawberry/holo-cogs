@@ -1,8 +1,8 @@
-from typing import Any, Literal
-from dataclasses import dataclass, field
-
 import discord
+from typing import Any, Literal, Protocol, runtime_checkable
+from dataclasses import dataclass, field
 from pydantic import BaseModel
+from redbot.core import Config
 
 StructuredObject = dict[str, Any]
 AgentValue = dict[str, str | dict[str, str]]
@@ -131,3 +131,12 @@ class Function:
 class ToolCall:
     function: Function
     type: str = field(default="function", init=False)
+
+
+# External cogs
+
+@runtime_checkable
+class ImageScanner(Protocol):
+    config: Config
+
+    async def grab_metadata_dict(self, message: discord.Message) -> dict: ...

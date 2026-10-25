@@ -11,7 +11,10 @@ log = logging.getLogger("agent.arcenciel_search")
 
 class ArcencielTool(ToolBase):
     display_name = "arcenciel_search"
-    settings = {"arcenciel_emoji": "📁"}
+    settings = {
+        "arcenciel_emoji": "📁",
+        "arcenciel_model_results": "5",
+    }
     schema = ToolCall(
         Function(
             name="search_models_arcenciel",
@@ -43,7 +46,10 @@ class ArcencielTool(ToolBase):
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if user:
-            params = {"q": user}
+            params = {
+                "q": user,
+                "limit": self.get_setting_int("arcenciel_model_results", 1, 20) or 5
+            }
             try:
                 async with self.cog.session.get("https://arcenciel.io/api/users/search", params=params, headers=self.HEADERS) as response:
                     response.raise_for_status()

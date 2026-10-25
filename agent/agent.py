@@ -404,7 +404,6 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         memory_changes: list[MemoryChangeResult] = []
         files: list[discord.File] = []
         do_reply = True
-        direct_tool_results: dict[tuple[str, str], str] = {}
         depths = range(config.max_tool_depth.value)
         for depth in depths:
             can_use_tools = depth < depths.stop - 1
@@ -482,8 +481,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     else:
                         args: dict = json.loads(call.function.arguments)
 
-                    tool_result = await cls(ctx, self).run_cached(args, direct_tool_results)
-                    
+                    tool_result = await cls(ctx, self).run(args)
+
                     if call.function.name == "search_images_arcenciel" and isinstance(tool_result, dict):
                         for image in tool_result.get("results", {}).get("image", []):
                             if image.get("rating") in ("sensitive", "explicit"):

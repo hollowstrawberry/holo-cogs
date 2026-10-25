@@ -50,7 +50,10 @@ def spoiler_adult_image_links(text: str, image_ids: set[int]) -> str:
 
 class ArcencielImagesTool(ToolBase):
     display_name = "arcenciel_images"
-    settings = {"arcenciel_emoji": "📁"}
+    settings = {
+        "arcenciel_emoji": "📁",
+        "arcenciel_image_results": "5",
+    }
     schema = ToolCall(
         Function(
             name="search_images_arcenciel",
@@ -111,7 +114,7 @@ class ArcencielImagesTool(ToolBase):
             "search": query,
             "sort": sort,
             "page": page,
-            "limit": 5,
+            "limit": self.get_setting_int("arcenciel_image_results", 1, 20) or 5,
             "ratings": ",".join(sorted(ratings)),
         }
         timeout = aiohttp.ClientTimeout(total=10)

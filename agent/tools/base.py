@@ -14,7 +14,6 @@ class ToolBase(ABC):
     apis: list[tuple[str, str]] = []  # [(service_name, key),]
     settings: dict[str, str] = {}  # key and default value
     imagegen: bool = False
-    direct_only: bool = False
     required_cog: str | None = None
 
     def __init__(self, ctx: commands.Context, cog: AgentCogBase) -> None:
@@ -27,29 +26,26 @@ class ToolBase(ABC):
         all = self.cog.config.tool_settings.value or {}
         return all.get(key) or self.settings.get(key) or ""
 
+    def get_setting_int(self, key: str, min: int | None = None, max: int | None = None) -> int | None:
+        all = self.cog.config.tool_settings.value or {}
+        sval = all.get(key) or self.settings.get(key) or ""
+        try:
+            val = int(sval)
+        except ValueError:
+            return None
+        if min is not None and val < min:
+            return min
+        if max is not None and val > max:
+            return max
+        return val  
+
     @classmethod
     def asdict(cls) -> dict[str, object]:
         return asdict(cls.schema)
 
     @classmethod
     def available_for(cls, ctx: commands.Context, *, auto: bool) -> bool:
-        return (not auto or not cls.direct_only) and (
-            cls.required_cog is None or ctx.bot.get_cog(cls.required_cog) is not None
-        )
-
-    async def run_cached(
-        self, arguments: dict[str, object], results: dict[tuple[str, str], str]
-    ) -> StructuredObject | str:
-        """Avoid repeating a write with identical arguments during one response."""
-        if not self.direct_only:
-            return await self.run(arguments)
-        key = (self.schema.function.name, json.dumps(arguments, sort_keys=True))
-        if key in results:
-            return results[key]
-        result = await self.run(arguments)
-        if isinstance(result, str):
-            results[key] = result
-        return result
+        return cls.required_cog is None or ctx.bot.get_cog(cls.required_cog) is not None
 
     @abstractmethod
     async def run(self, arguments: dict[str, object]) -> StructuredObject | str:

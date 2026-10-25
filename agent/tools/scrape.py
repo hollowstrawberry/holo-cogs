@@ -24,7 +24,8 @@ class ScrapeTool(ToolBase):
                 properties={
                     "url": {
                         "type": "string",
-                    }},
+                    }
+                },
                 required=["url"],
             )))
 

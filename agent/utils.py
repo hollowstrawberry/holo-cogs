@@ -12,9 +12,9 @@ import discord
 import contextlib
 import trafilatura
 from io import BytesIO
-from copy import deepcopy
+from copy import copy, deepcopy
 from base64 import b64encode
-from typing import Callable
+from typing import Callable, Type, TypeVar
 from datetime import datetime
 from urllib.parse import urlparse
 from PIL import Image, ImageDraw, UnidentifiedImageError
@@ -244,6 +244,14 @@ def adjusted_effort(model: str, effort: str) -> str | Omit:
 def clean_model(model: str) -> str:
     return model.replace("$", "")  # identifies openwebui model
 
+T = TypeVar("T")
+
+def get_cog(bot: Red, cog_type: Type[T]) -> T | None:
+    cog = bot.get_cog(cog_type.__name__)
+    if isinstance(cog, cog_type):
+        return cog
+    return None
+
 def parse_mentions(guild: discord.Guild, text: str) -> str:
     def replace(match: re.Match) -> str:
         prefix, name = match.groups()
@@ -311,6 +319,28 @@ async def is_valid_openrouter_model(session: aiohttp.ClientSession, model: str) 
             return False
         resp.raise_for_status()
     return True
+
+
+async def command_allowed(ctx: commands.Context, command: commands.Command, *, visible: bool = False) -> bool:
+    assert(isinstance(ctx.bot, Red))
+    check_ctx = copy(ctx)
+    check_ctx.command = command
+    if any(not item.is_enabled(ctx.guild) for item in (command, *command.parents)):
+        return False
+    if ctx.author.bot or not await ctx.bot.allowed_by_whitelist_blacklist(ctx.author):
+        return False
+    if not await ctx.bot.ignored_channel_or_guild(check_ctx):
+        return False
+    if ctx.guild and command.cog and await ctx.bot.cog_disabled_in_guild(command.cog, ctx.guild):
+        return False
+    try:
+        if not await ctx.bot.can_run(check_ctx, call_once=True):
+            return False
+        if visible:
+            return await command.can_see(check_ctx)
+        return await command.can_run(check_ctx, check_all_parents=True)
+    except commands.CommandError:
+        return False
 
 
 AVATAR_EMOTE: discord.Emoji | None = None
