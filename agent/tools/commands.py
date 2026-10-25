@@ -11,7 +11,9 @@ class CommandsTool(ToolBase):
     display_name = "commands"
     settings = {
         "command_results": "10",
-        "command_help_chars": "1000"
+        "subcommand_results": "30",
+        "command_help_chars": "1000",
+        "command_brief_chars": "120"
     }
     schema = ToolCall(
         Function(
@@ -46,19 +48,21 @@ class CommandsTool(ToolBase):
         context.prefix = prefix
         exact = self.cog.bot.get_command(query)
         limit = self.get_setting_int("command_results", 1, 50) or 10
-        budget = self.get_setting_int("command_help_chars", 400, 4000) or 1000
+        child_limit = self.get_setting_int("subcommand_results", 1, 100) or 30
+        help_budget = self.get_setting_int("command_help_chars", 100, 4000) or 1000
+        brief_budget = self.get_setting_int("command_brief_chars", 50, 4000) or 120
         cmds: list[dict] = []
 
         if exact and await command_allowed(context, exact, visible=True):
             cmd = {"command": f"{prefix}{exact.qualified_name} {exact.signature}".rstrip()}
             help_text = exact.format_help_for_context(context) or exact.short_doc
-            cmd["help"] = help_text[:budget//2].strip()
+            cmd["help"] = help_text[:help_budget].strip()
             if isinstance(exact, commands.Group):
                 children = []
-                for child in sorted(exact.commands, key=lambda c: c.qualified_name):
+                for child in sorted(exact.walk_commands(), key=lambda c: c.qualified_name):
                     if isinstance(child, commands.Command) and await command_allowed(context, child, visible=True):
-                        children.append(f"{prefix}{child.qualified_name}: {child.short_doc[:120]}")
-                        if len(children) >= limit:
+                        children.append(f"{prefix}{child.qualified_name}: {child.short_doc[:brief_budget].strip()}")
+                        if len(children) >= child_limit:
                             break
                 add_xml_group(cmd, children, "subcommands")
             cmds.append(cmd)
@@ -76,7 +80,7 @@ class CommandsTool(ToolBase):
                     candidates.append((-score, command.qualified_name, command))
             for _, _, match in sorted(candidates, key=lambda item: (item[0], item[1])):
                 if await command_allowed(context, match, visible=True):
-                    cmds.append({"#text": f"{prefix}{match.qualified_name}: {match.short_doc[:budget//2]}"})
+                    cmds.append({"#text": f"{prefix}{match.qualified_name}: {match.short_doc[:brief_budget].strip()}"})
                     if len(cmds) >= limit:
                         break
 
