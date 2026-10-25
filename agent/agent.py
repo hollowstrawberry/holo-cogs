@@ -511,11 +511,12 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 log.info(f"{call.function.name=} {call.function.arguments=}")
                 if self.config.extended_logging.value:
                     log.info(f"{tool_text=}")
-              
-                utils.clear_cache_breakpoints(temp_messages)
+
+                if constants.CUMULATIVE_CACHE_FLAG:
+                    utils.clear_cache_breakpoints(temp_messages)
                 temp_messages.append({
                     "role": "tool",
-                    "content": [utils.make_text_content(tool_text, cache=True)],
+                    "content": [utils.make_text_content(tool_text, cache=constants.CUMULATIVE_CACHE_FLAG)],
                     "tool_call_id": call.id,
                 })
 
