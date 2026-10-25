@@ -38,16 +38,17 @@ class AgentCogGuildConfig(CogConfigBase):
     backread_short:          ConfigField[int] = ConfigField(5)
     max_tool_depth:          ConfigField[int] = ConfigField(3)
     max_images:              ConfigField[int] = ConfigField(1)
+    max_images_low:          ConfigField[int] = ConfigField(3)
     max_image_resolution:    ConfigField[int] = ConfigField(1020)
     max_caption_resolution:  ConfigField[int] = ConfigField(380)
     max_quote:               ConfigField[int] = ConfigField(200)
     max_tool:                ConfigField[int] = ConfigField(3000)
     max_text_file:           ConfigField[int] = ConfigField(3000)
     # Flags
+    use_captions:         ConfigField[bool] = ConfigField(False)
     allow_memorizer:         ConfigField[bool] = ConfigField(False)
     memorizer_user_only:     ConfigField[bool] = ConfigField(True)
     memorizer_alerts:        ConfigField[bool] = ConfigField(True)
-    force_captioner:         ConfigField[bool] = ConfigField(False)
     # Autoresponder
     autoresponder_chance:           ConfigField[float] = ConfigField(0.0)
     autoreacter_chance:             ConfigField[float] = ConfigField(0.0)

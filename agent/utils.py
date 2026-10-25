@@ -23,7 +23,7 @@ from redbot.core.bot import Red
 from openai import Omit
 from pydantic import BaseModel
 
-from agent.schema import AgentContent, AgentMessage, CacheMode, StructuredObject
+from agent.schema import AgentContent, AgentMessage, AgentValue, CacheMode, StructuredObject
 from agent.constants import MAX_MESSAGE_LENGTH, DATETIME_FORMATTING
 from agent.constants import NEWLINE_SEPARATOR_PATTERN, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMOTE_PATTERN, MENTION_PATTERN
 
@@ -104,13 +104,12 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
             for part in content:
                 part.pop("cache_control", None)
     if mode == "fixed_prefix":
-        # A trailing system message may be folded into systemInstruction by gateways.
-        # Prefer the last user message so the boundary includes conversation history.
+        # not all models support system messages after the first message
         candidates = [message for message in prepared if message["role"] == "user"]
         if not candidates:
             candidates = prepared[:1]
         for message in reversed(candidates):
-            content = message["content"]
+            content: str | list[AgentContent] = message["content"]
             if isinstance(content, str):
                 content = [{"type": "text", "text": content}]
                 message["content"] = content
@@ -138,7 +137,7 @@ def make_text_content(content: str) -> AgentContent:
 
 def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentContent:
     b = b.read() if isinstance(b, BytesIO) else b
-    image_url = {"url": f"data:image/png;base64,{b64encode(b).decode()}"}
+    image_url: AgentValue = {"url": f"data:image/png;base64,{b64encode(b).decode()}"}
     if low_detail:
         image_url["detail"] = "low"
     return {

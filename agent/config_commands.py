@@ -80,17 +80,17 @@ class AgentCogConfigCommands(AgentCogBase):
  
         embed2.add_field(name="Captioner Model", value=code(config.model_captioner.value))
         embed2.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
-        embed2.add_field(name="Force Captioner", value=code(config.force_captioner.value))
         embed2.add_field(name="Cache Mode", value=code(config.cache_mode.value))
- 
+        
+        embed2.add_field(name="Use Captions", value=code(config.use_captions.value))
         embed2.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
         embed2.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
-        embed2.add_field(name="Memorizer User Only", value=code(config.memorizer_user_only.value))
 
+        embed2.add_field(name="Memorizer User Only", value=code(config.memorizer_user_only.value))
         embed2.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
         embed2.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
+        
         embed2.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
- 
         embed2.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes")) 
         embed2.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
 
@@ -98,6 +98,7 @@ class AgentCogConfigCommands(AgentCogBase):
         for name, field in (
             ("Response Tokens", config.response_tokens),
             ("Max Images", config.max_images),
+            ("Max Low Detail Images", config.max_images_low),
             ("Max Tool Depth", config.max_tool_depth),
             ("Backread Tokens", config.backread_tokens),
             ("Backread Messages", config.backread_messages),
@@ -201,10 +202,10 @@ class AgentCogConfigCommands(AgentCogBase):
         """Whether the memorizer will send a message in chat after editing memories."""
         await self.bool_config_command(ctx, self.config[ctx.guild].memorizer_alerts, value)
 
-    @agentconfig.command(name="force_captioner")
-    async def agentconfig_force_captioner(self, ctx: commands.Context, value: Optional[bool]):
-        """Whether the captioner will be used even on images that will already be sent to the responder as images."""
-        await self.bool_config_command(ctx, self.config[ctx.guild].force_captioner, value)
+    @agentconfig.command(name="use_captions")
+    async def agentconfig_use_captions(self, ctx: commands.Context, value: Optional[bool]):
+        """Whether the captioner will be used instead of low detail images"""
+        await self.bool_config_command(ctx, self.config[ctx.guild].use_captions, value)
 
     @agentconfig.command(name="cache_mode")
     async def agentconfig_cache_mode(self, ctx: commands.Context, mode: Optional[CacheMode] = None):
@@ -293,8 +294,13 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig_limits.command(name="max_images")
     async def agentconfig_max_images(self, ctx: commands.Context, value: Optional[int]):
-        """How many images to send to the LLM in full with each response; the rest will be captioned and stored instead."""
+        """How many images to send to the LLM in full with each response; the rest will be sent at lower detail or captioned."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_images, 0, 100, value)
+
+    @agentconfig_limits.command(name="max_images_low")
+    async def agentconfig_max_images_low(self, ctx: commands.Context, value: Optional[int]):
+        """How many images to send to the LLM with lower detail, after the max_images quota has been reached."""
+        await self.integer_config_command(ctx, self.config[ctx.guild].max_images_low, 0, 100, value)
 
     @agentconfig_limits.command(name="max_depth", aliases=["max_tool_depth"])
     async def agentconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
