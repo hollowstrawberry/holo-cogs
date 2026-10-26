@@ -317,6 +317,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             messages=temp_messages,  # type: ignore
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
+                **self.openrouter_price_limits(model),
             },
         )
 
@@ -421,6 +422,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 tool_choice="auto" if can_use_tools else "none",
                 extra_body=None if "/" not in model else {
                     "session_id": str(ctx.message.id),
+                    **self.openrouter_price_limits(model),
                 },
             )
             if response is None:
@@ -610,6 +612,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             response_format=MemoryChangeList,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
+                **self.openrouter_price_limits(model),
             },
         )
         completion = response.choices[0].message
@@ -686,6 +689,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             response_format=MessageReaction,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
+                **self.openrouter_price_limits(model),
             },
         )
         completion = response.choices[0].message
@@ -751,6 +755,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             messages=messages,  # type: ignore
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
+                **self.openrouter_price_limits(model),
             },
         )
         if response.choices and response.choices[0].message.content:

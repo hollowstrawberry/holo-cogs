@@ -49,6 +49,7 @@ class AgenticSearchTool(ToolBase):
                     }
                 ],
                 extra_body={
+                    **self.cog.openrouter_price_limits(model),
                     "plugins": [
                         {
                             "id": "web",
