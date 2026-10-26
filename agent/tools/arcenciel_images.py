@@ -3,7 +3,7 @@ import logging
 import asyncio
 import aiohttp
 
-from agent.utils import add_xml_group, parse_arcenciel_image, get_cog
+from agent.utils import add_xml_group, parse_arcenciel_image, get_cog, is_nsfw
 from agent.schema import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
@@ -87,7 +87,6 @@ class ArcencielImagesTool(ToolBase):
     async def run(self, arguments: dict) -> dict | str:
         try:
             from arcenciel.arcenciel import Arcenciel
-            from arcenciel.utils import is_nsfw
         except ImportError:
             return "<error>Arc en Ciel cog not installed, please notify the bot owner</error>"
         arcenciel = get_cog(self.cog.bot, Arcenciel)
