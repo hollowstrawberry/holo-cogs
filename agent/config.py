@@ -68,6 +68,8 @@ class AgentCogConfig(CogConfig[AgentCogGuildConfig, AgentCogChannelConfig]):
     _channel_config = AgentCogChannelConfig
     # Global
     tool_settings:    ConfigField[dict[str, str]] = ConfigField({})
+    openrouter_max_input_price:  ConfigField[dict[str, float]] = ConfigField({})
+    openrouter_max_output_price: ConfigField[dict[str, float]] = ConfigField({})
     extended_logging: ConfigField[bool] = ConfigField(True)
     response_timeout: ConfigField[int]  = ConfigField(120)
     slow_timer:       ConfigField[int]  = ConfigField(30)

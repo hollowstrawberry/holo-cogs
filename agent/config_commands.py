@@ -1,8 +1,10 @@
 import logging
 import discord
+from math import isfinite
 from typing import Literal, Optional
 from functools import reduce
 from redbot.core import commands
+from redbot.core.utils.chat_formatting import pagify
 
 from agent.base import AgentCogBase
 from agent.utils import is_valid_openrouter_model
@@ -118,6 +120,8 @@ class AgentCogConfigCommands(AgentCogBase):
         embed4.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
         embed4.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
         embed4.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
+        embed4.add_field(name="OpenRouter Input Price Limits", value=code(f"{len(self.config.openrouter_max_input_price.value)} models"))
+        embed4.add_field(name="OpenRouter Output Price Limits", value=code(f"{len(self.config.openrouter_max_output_price.value)} models"))
 
         embed4.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
         embed4.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
@@ -161,6 +165,30 @@ class AgentCogConfigCommands(AgentCogBase):
         else:
             await field.set(value)
         await ctx.reply(f"`[{field.name}:]` {value} {unit}", mention_author=False)
+
+    @staticmethod
+    async def price_config_command(ctx: commands.Context, field: ConfigField[dict[str, float]], model: str | None, value: str | None):
+        if model is None:
+            lines = [f"`{name}`: ${price} / 1M tokens" for name, price in sorted(field.value.items())]
+            for page in pagify("\n".join(lines) or "No price limits configured."):
+                await ctx.reply(page, mention_author=False)
+            return
+        if model.count("/") != 1 or not all(model.split("/")) or "$" in model:
+            return await ctx.reply("Use the exact OpenRouter model slug: author/model.", mention_author=False)
+        if value is not None:
+            if value.lower() == "off":
+                field.value.pop(model, None)
+            else:
+                try:
+                    price = float(value)
+                except ValueError:
+                    price = float("nan")
+                if not isfinite(price) or price < 0:
+                    return await ctx.reply("Use a finite price of 0 or greater, or off.", mention_author=False)
+                field.value[model] = price
+            await field.save()
+        price_text = f"${field.value[model]} / 1M tokens" if model in field.value else "off"
+        await ctx.reply(f"`[{field.name}:]` `{model}`: {price_text}", mention_author=False)
 
     @staticmethod
     async def emoji_config_command(ctx: commands.Context, field: ConfigField[str], emote: discord.Emoji):
@@ -215,6 +243,22 @@ class AgentCogConfigCommands(AgentCogBase):
         if mode is not None:
             await field.set(mode)
         await ctx.reply(f"`[cache_mode:]` {field.value}", mention_author=False)
+
+    @agentconfig.command(name="max_input_price")
+    async def agentconfig_max_input_price(self, ctx: commands.Context, model: Optional[str] = None, value: Optional[str] = None):
+        """Global OpenRouter input price cap for an exact model, in USD/1M tokens.
+
+        Omit arguments to list, omit value to view, or use off to remove. Zero is a zero-dollar cap.
+        """
+        await self.price_config_command(ctx, self.config.openrouter_max_input_price, model, value)
+
+    @agentconfig.command(name="max_output_price")
+    async def agentconfig_max_output_price(self, ctx: commands.Context, model: Optional[str] = None, value: Optional[str] = None):
+        """Global OpenRouter output price cap for an exact model, in USD/1M tokens.
+
+        Omit arguments to list, omit value to view, or use off to remove. Zero is a zero-dollar cap.
+        """
+        await self.price_config_command(ctx, self.config.openrouter_max_output_price, model, value)
     
     @agentconfig.command(name="autoresponder_chance")
     async def agentconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
