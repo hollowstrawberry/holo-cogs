@@ -2,7 +2,7 @@ import logging
 import asyncio
 import aiohttp
 
-from agent.utils import parse_arcenciel_model
+from agent.utils import parse_arcenciel_model, add_xml_group, get_cog
 from agent.schema import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
@@ -13,9 +13,10 @@ class ArcencielTool(ToolBase):
     display_name = "arcenciel_search"
     settings = {
         "arcenciel_emoji": "📁",
+        "arcenciel_timeout": "10",
         "arcenciel_model_results": "5",
-        "arcenciel_model_description_chars": "200",
-        "arcenciel_model_trigger_chars": "256",
+        "arcenciel_model_description_chars": "1000",
+        "arcenciel_model_trigger_chars": "1000",
     }
     schema = ToolCall(
         Function(
@@ -34,64 +35,67 @@ class ArcencielTool(ToolBase):
                 },
                 required=[],
             )))
-    
-    HEADERS = {
-        "User-Agent": "holo-cogs/v1 (https://github.com/hollowstrawberry/holo-cogs);"
-    }
 
     async def run(self, arguments: dict) -> dict | str:
+        try:
+            from arcenciel.arcenciel import Arcenciel
+            from arcenciel.utils import is_nsfw
+        except ImportError:
+            return "<error>Arc en Ciel cog not installed, please notify the bot owner</error>"
+        arcenciel = get_cog(self.cog.bot, Arcenciel)
+        if not arcenciel or not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
+            return "<error>Arc en Ciel cog not configured, please notify the bot owner</error>"
+        
         query = arguments.get("query", "")
         user = arguments.get("user", None)
-        found_user: int | None = None
 
+        limit = self.get_setting_int("arcenciel_model_results", 1, 20) or 5
+        description_limit = self.get_setting_int("arcenciel_model_description_chars", 0, 10000)
+        trigger_limit = self.get_setting_int("arcenciel_model_trigger_chars", 0, 10000)
+        timeout = asyncio.Timeout(self.get_setting_int("arcenciel_timeout", 1, 1000) or 10)
         emoji = self.get_setting("arcenciel_emoji")
-        asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
-        if user:
-            params = {
-                "q": user,
-                "limit": self.get_setting_int("arcenciel_model_results", 1, 20) or 5
-            }
-            try:
-                async with self.cog.session.get("https://arcenciel.io/api/users/search", params=params, headers=self.HEADERS) as response:
-                    response.raise_for_status()
-                    data = await response.json()
-            except aiohttp.ClientError as error:
-                log.warning(f"Trying to grab user from Arc en Ciel: {type(error).__name__}: {error}")
-                return "<error>Failed to grab user from Arc en Ciel</error>"
-            if data:
-                found_user = data[0]['id']
-            else:
-                return "<error>User not found</error>"
+        asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         params = {
             "search": query,
-            "limit": self.get_setting_int("arcenciel_model_results", 1, 20) or 5,
+            "limit": limit,
         }
-        if found_user is not None:
-            params["userId"] = found_user
+
         try:
-            async with self.cog.session.get("https://arcenciel.io/api/models/search", params=params, headers=self.HEADERS) as response:
+            if user:
+                async with arcenciel.api.session.get(
+                    f"{arcenciel.api.endpoint}/users/search",
+                    params={"q": user}, headers=self.headers, timeout=timeout
+                ) as response:
+                    response.raise_for_status()
+                    user_data: list[dict] = await response.json()
+                found_user = next((item for item in user_data if item.get("username", "").casefold() == user.casefold()), None)
+                if found_user is None:
+                    return "No Arc en Ciel user with that exact username"
+                params["userId"] = found_user["id"]
+
+            async with arcenciel.api.session.get(
+                f"{arcenciel.api.endpoint}/models/search",
+                params=params, headers=self.headers, timeout=timeout
+            ) as response:
                 response.raise_for_status()
-                data = await response.json()
-        except aiohttp.ClientError as error:
-            log.warning(f"Trying to grab model from Arc en Ciel: {type(error).__name__}: {error}")
-            return "<error>Failed to grab model from Arc en Ciel</error>"
-        
-        if not data["data"]:
+                data: dict = await response.json()
+
+        except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+            log.warning(f"Trying to contact Arc en Ciel: {type(error).__name__}: {error}")
+            return "<error>Failed to contact Arc en Ciel</error>"
+
+        models: list[dict] = data.get("data", [])
+        if not models:
             return "No results"
 
         results = []
-        for result in data["data"]:
+        for result in models:
             if not result.get("versions"):
                 continue
-            results.append(parse_arcenciel_model(
-                result,
-                description_limit=self.get_setting_int("arcenciel_model_description_chars", 0, 2000) or 0,
-                trigger_limit=self.get_setting_int("arcenciel_model_trigger_chars", 0, 10000) or 0,
-            ))
-        return {
-            "results": {
-                "model": results
-            }
-        }
+            results.append(parse_arcenciel_model(result, description_limit=description_limit, trigger_limit=trigger_limit))
+        
+        result = {}
+        add_xml_group(result, results, "models")
+        return {"result": result}

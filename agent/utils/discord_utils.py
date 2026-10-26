@@ -28,6 +28,14 @@ def fix_emote(bot: Red) -> Callable[[re.Match], str]:
         return match.group(0)
     return repl
 
+def is_nsfw(channel: discord.abc.Messageable) -> bool:
+    if isinstance(channel, discord.TextChannel):
+        return channel.nsfw
+    elif isinstance(channel, discord.Thread) and channel.parent:
+        return channel.parent.nsfw
+    else:
+        return False
+
 def button_label(button: discord.Button) -> str:
     emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
     return " ".join([s for s in (emoji_name, button.label) if s])

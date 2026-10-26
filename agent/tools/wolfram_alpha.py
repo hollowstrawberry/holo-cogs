@@ -35,10 +35,9 @@ class WolframAlphaTool(ToolBase):
         url = "http://api.wolframalpha.com/v2/query?"
         query = arguments["query"]
         payload = {"input": query, "appid": api_key}
-        headers = {"user-agent": "Red-cog/2.0.0"}
 
         try:
-            async with self.cog.session.get(url, params=payload, headers=headers) as response:
+            async with self.cog.session.get(url, params=payload, headers=self.headers) as response:
                 response.raise_for_status()
                 result = await response.text()
         except aiohttp.ClientError as error:

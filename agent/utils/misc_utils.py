@@ -8,6 +8,7 @@ from base64 import b64encode
 from datetime import datetime
 from urllib.parse import urlparse
 
+from agent.utils import add_xml_group
 from agent.schema import StructuredObject
 from agent.constants import DATETIME_FORMATTING
 
@@ -16,34 +17,52 @@ def get_filename(url: str) -> str:
     return os.path.basename(urlparse(url).path)
 
 
-def parse_arcenciel_model(data: dict, *, description_limit: int | None = None,
-                         trigger_limit: int | None = None) -> StructuredObject:
+def parse_arcenciel_image(image: dict, prompt_limit: int | None = None) -> StructuredObject:
+    image_id = image.get("id")
+    uploader = image.get("uploader") or {}
+    url = f"https://arcenciel.io/images/{image_id}"
+    
+    entry = {
+        "@id": image_id,
+        "@published": datetime.fromisoformat(image["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING),
+        "url": f"||{url}||" if image["rating"] in ("sensitive", "explicit") else url,
+        "title": (image.get("title") or f"Image #{image_id}")[:120],
+        "uploader": str(uploader.get("username") or "Unknown")[:80],
+        "rating": image["rating"],
+    }
+    if image.get("prompt"):
+        if prompt_limit is not None and len(image["prompt"]) > prompt_limit:
+            image["prompt"] = image["prompt"][:prompt_limit-3] + "..."
+        entry["prompt"] = image["prompt"]
+    return entry
+
+
+def parse_arcenciel_model(model: dict, *, description_limit: int | None = None, trigger_limit: int | None = None) -> StructuredObject:
     obj = {
-        "@title": data["title"],
-        "@type": data["type"],
-        "url": f"https://arcenciel.io/models/{data['id']}",
-        "uploader": data["uploader"]["username"],
-        "description": trafilatura.extract(data["description"]) or data["description"] or "(Empty)",
+        "@title": model["title"],
+        "@type": model["type"],
+        "url": f"https://arcenciel.io/models/{model['id']}",
+        "uploader": model["uploader"]["username"],
+        "description": trafilatura.extract(model["description"]) or model["description"] or "(Empty)",
     }
     versions_obj = []
-    versions: list[dict] = sorted(data.get("versions", []), key=lambda v: v['id'], reverse=True)
+    versions: list[dict] = sorted(model.get("versions", []), key=lambda v: v['id'], reverse=True)
     for i, version in enumerate(versions):
         ver_obj = {
             "@name": version["versionName"],
             "@base_model": version["baseModel"],
+            "@published": datetime.fromisoformat(version["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING)
         }
-        if description_limit is None and isinstance(version.get("publishedAt"), str):
-            ver_obj["@published"] = datetime.fromisoformat(version["publishedAt"]).astimezone().strftime(DATETIME_FORMATTING)
         filename = str(version.get("filePath", "")).split("/")[-1].replace(".safetensors", "").strip()
         if not filename:
             ver_obj["filename"] = "(unknown)"
-        elif data["type"] == "LORA":
+        elif model["type"] == "LORA":
             ver_obj["lora"] = f"<lora:{filename}:1.0>"
         else:
             ver_obj["filename"] = filename
-        if i <= 1:
-            if description_limit is None and "aboutThisVersion" in version:
-                ver_obj["description"] = version["aboutThisVersion"]
+        if i < 2:
+            if "aboutThisVersion" in version:
+                ver_obj["description"] = version["aboutThisVersion"][:description_limit//2 if description_limit else None]
             if "activationTags" in version:
                 tags_obj = []
                 all_tags: list[str] = version["activationTags"]
@@ -56,25 +75,27 @@ def parse_arcenciel_model(data: dict, *, description_limit: int | None = None,
                         obj["description"] = obj["description"].replace(tags, "<tags>")
                     t_obj["#text"] = tags
                     tags_obj.append(t_obj)
-                ver_obj["activation_tags"] = {"prompt": tags_obj}
-                if trigger_limit is not None:
+                if trigger_limit is None:
+                    add_xml_group(ver_obj, tags_obj, "prompts")
+                else:
                     remaining = trigger_limit
                     selected = []
                     for tag in tags_obj:
                         if len(tag["#text"]) <= remaining:
                             selected.append(tag)
                             remaining -= len(tag["#text"])
-                    ver_obj["activation_tags"] = {"prompt": selected}
+                    ver_obj["prompts"] = {"prompt": selected}
                     if len(selected) < len(tags_obj):
-                        ver_obj["activation_tags"]["@more"] = True
-        elif description_limit is None:
+                        ver_obj["prompts"]["@more"] = True  # type: ignore
+        else:
             ver_obj["#text"] = "..."
         versions_obj.append(ver_obj)
+
     if description_limit == 0:
         obj.pop("description")
     elif description_limit is not None and len(obj["description"]) > description_limit:
-        obj["description"] = obj["description"][:description_limit] + "..."
-    obj["versions"] = {"version": versions_obj}
+        obj["description"] = obj["description"][:description_limit-3] + "..."
+    add_xml_group(obj, versions_obj, "versions")
     return obj
 
 

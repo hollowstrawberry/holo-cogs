@@ -6,6 +6,7 @@ import discord
 import tiktoken
 import xmltodict
 from random import random
+from typing import Callable
 from difflib import get_close_matches
 from datetime import datetime, timezone
 from openai import NOT_GIVEN, AsyncOpenAI
@@ -19,7 +20,6 @@ from agent.schema import AgentMessage, AgentContent, MessageReaction, ReactionRe
 from agent.commands import AgentCogCommands
 from agent.config_commands import AgentCogConfigCommands
 from agent.tools.base import get_all_tools
-from agent.tools.arcenciel_images import spoiler_adult_image_links
 from agent.tools.update_memory import UpdateMemoryTool
 from agent.context_builder import ContextBuilder
 from agent.views.memory_change import MemoryChangeView
@@ -40,6 +40,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
 
     async def cog_load(self):
+        logging.getLogger("trafilatura").setLevel(logging.CRITICAL)
         await self.config.load_all(self.bot)
         await self.initialize_function_calls()
         await self.initialize_openai_client()
@@ -400,9 +401,9 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         schema_hash = utils.fingerprint(tools_schema)
 
         tool_call_history: list[str] = []
-        adult_image_ids: set[int] = set()
         memory_changes: list[MemoryChangeResult] = []
         files: list[discord.File] = []
+        cleanups: list[Callable[[str], str]] = []
         do_reply = True
         depths = range(config.max_tool_depth.value)
         for depth in depths:
@@ -482,12 +483,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                         args: dict = json.loads(call.function.arguments)
 
                     tool_result = await cls(ctx, self).run(args)
-
-                    if call.function.name == "search_images_arcenciel" and isinstance(tool_result, dict):
-                        for image in tool_result.get("results", {}).get("image", []):
-                            if image.get("rating") in ("sensitive", "explicit"):
-                                adult_image_ids.add(image["@id"])
-
+                    
                 except Exception:  # tools should handle specific errors internally, but broad errors should not stop the responder
                     tool_result = "<error>Unhandled error, please contact the developer</error>"
                     log.exception(f"Calling tool {call.function.name}")
@@ -496,6 +492,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 if isinstance(tool_result, dict):
                     if (file := tool_result.pop("file", None)) and isinstance(file, discord.File):
                         files.append(file)
+                    if (cleanup := tool_result.pop("cleanup")) and isinstance(cleanup, Callable):
+                        cleanups.append(cleanup)
                     if tool_result.pop("noreply", None):
                         do_reply = False
                     if len(tool_result) == 0:
@@ -543,7 +541,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 completion = pattern.sub(repl, completion)
             completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(self.bot), completion)
             completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
-            completion = spoiler_adult_image_links(completion, adult_image_ids)
+            for cleanup in cleanups:
+                completion = cleanup(completion)
             completion = utils.undo_xml(completion).strip()
             completion = utils.parse_mentions(ctx.guild, completion)
             

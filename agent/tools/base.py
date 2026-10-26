@@ -15,6 +15,9 @@ class ToolBase(ABC):
     settings: dict[str, str] = {}  # key and default value
     imagegen: bool = False
     required_cog: str | None = None
+    headers = {
+        "User-Agent": "holo-cogs/v1 (https://github.com/hollowstrawberry/holo-cogs);"
+    }
 
     def __init__(self, ctx: commands.Context, cog: AgentCogBase) -> None:
         self.ctx = ctx
