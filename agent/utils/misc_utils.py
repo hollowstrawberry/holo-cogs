@@ -8,7 +8,7 @@ from base64 import b64encode
 from datetime import datetime
 from urllib.parse import urlparse
 
-from agent.utils import add_xml_group
+from .string_utils import add_xml_group
 from agent.schema import StructuredObject
 from agent.constants import DATETIME_FORMATTING
 
