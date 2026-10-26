@@ -113,6 +113,12 @@ SD_IMAGEGEN_RESOLUTIONS = [
     (1536, 640),
 ]
 
+IMAGE_TOKEN_COUNT = (  # model family, low detail, high detail
+    (re.compile(".*gemini.*"), 384, 1120),
+    (re.compile(".*deepseek.*"), 184, 652),
+    (re.compile(".*"), 256, 1024),
+)
+
 CACHE_CONTROL: AgentValue = {
     "type": "ephemeral"
 }

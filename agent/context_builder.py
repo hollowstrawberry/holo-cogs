@@ -198,6 +198,7 @@ class ChatHistoryContext:
         image_contents: list[AgentContent] = []
         attachment_captions: dict[int, str | None] = {}
         url_captions: dict[str, str | None] = {}
+        low_detail_count = 0
         for res in results_raw:
             if isinstance(res, BaseException):
                 log.warning(f"process_image raised: {res}")
@@ -206,12 +207,13 @@ class ChatHistoryContext:
                 continue
             if res.data:
                 image_contents.append(utils.make_image_content(res.data, low_detail=res.low_detail))
+                low_detail_count += int(res.low_detail)
             if res.src.attachment:
                 attachment_captions[res.src.att_index] = res.caption
             elif res.src.url:
                 url_captions[res.src.url] = res.caption
                 
-        return DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions, generated_image)
+        return DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions, generated_image, low_detail_count)
 
 
     def get_cached_source(self, src: ImageSource) -> tuple[bytes | None, str | None]:
@@ -321,9 +323,10 @@ class ChatHistoryContext:
             image_contents.extend(images.image_contents)
         if quoted_images and self.first_appearance[quoted_images.message_id] == backmsg.id:
             image_contents.extend(quoted_images.image_contents)
-        text_tokens  = len(self.encoding.encode(text_content))
-        image_tokens = 1120 * len(image_contents)
-        total_tokens = text_tokens + image_tokens
+        total_tokens = len(self.encoding.encode(text_content))
+        if images:
+            low, high = utils.image_tokens(self.config.model_responder.value)
+            total_tokens += low * max(0, images.low_detail_count) + high * max(0, len(image_contents) - images.low_detail_count)
 
         gpt_msg = {
             "role": "user",

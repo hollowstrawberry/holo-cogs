@@ -28,18 +28,18 @@ class ImageSource:
 
 
 @dataclass(frozen=True)
+class DiscordMessageImageCandidates:
+    message: discord.Message
+    priority: list[ImageSource]
+    low_priority: list[ImageSource]
+
+
+@dataclass(frozen=True)
 class ImageProcessingResult:
     src: ImageSource
     data: bytes | None
     caption: str | None
     low_detail: bool = False
-
-
-@dataclass(frozen=True)
-class DiscordMessageImageCandidates:
-    message: discord.Message
-    priority: list[ImageSource]
-    low_priority: list[ImageSource]
 
     
 @dataclass(frozen=True)
@@ -49,6 +49,7 @@ class DiscordMessageResolvedImages:
     attachment_captions: dict[int, str | None]
     url_captions: dict[str, str | None]
     generated_image: dict[str, str] | None
+    low_detail_count: int
 
 
 @dataclass

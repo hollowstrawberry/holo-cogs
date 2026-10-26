@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from openai import Omit
 
 from agent.schema import AgentContent, AgentMessage, AgentValue, CacheMode
-from agent.constants import CACHE_CONTROL
+from agent.constants import CACHE_CONTROL, IMAGE_TOKEN_COUNT
 
 
 def is_bot_command(message: AgentMessage, prefixes: list[str]):
@@ -112,6 +112,12 @@ def adjusted_effort(model: str, effort: str) -> str | Omit:
             return "minimal"
         return "none"
     return effort
+
+def image_tokens(model: str) -> tuple[int, int]:
+    for pattern, low, high in IMAGE_TOKEN_COUNT:
+        if pattern.match(model):
+            return low, high
+    return IMAGE_TOKEN_COUNT[-1][1:]
 
 def clean_model(model: str) -> str:
     return model.replace("$", "")  # identifies openwebui model
