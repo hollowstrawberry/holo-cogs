@@ -16,7 +16,8 @@ class AgentCogGuildConfig(CogConfigBase):
     memory:                  ConfigField[dict[str, str]] = ConfigField({})
     prompt_keys:             ConfigField[dict[str, str]] = ConfigField({})
     enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])       
-    # LLM
+    cache_mode:              ConfigField[CacheMode]      = ConfigField("fixed_prefix")
+    # LLM parameters
     model_recaller:          ConfigField[str] = ConfigField("gpt-6-luna")
     model_responder:         ConfigField[str] = ConfigField("gpt-6-luna")
     model_memorizer:         ConfigField[str] = ConfigField("gpt-6-luna")
@@ -25,7 +26,6 @@ class AgentCogGuildConfig(CogConfigBase):
     effort_recaller:         ConfigField[str] = ConfigField("none")
     effort_responder:        ConfigField[str] = ConfigField("low")
     effort_memorizer:        ConfigField[str] = ConfigField("low")
-    cache_mode:              ConfigField[CacheMode] = ConfigField("fixed_prefix")
     prompt_recaller:         ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_RECALLER)
     prompt_responder:        ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_RESPONDER)
     prompt_autoresponder:    ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_AUTORESPONDER)
@@ -46,7 +46,7 @@ class AgentCogGuildConfig(CogConfigBase):
     max_tool:                ConfigField[int] = ConfigField(3000)
     max_text_file:           ConfigField[int] = ConfigField(3000)
     # Flags
-    use_captions:         ConfigField[bool] = ConfigField(False)
+    use_captions:            ConfigField[bool] = ConfigField(False)
     allow_memorizer:         ConfigField[bool] = ConfigField(False)
     memorizer_user_only:     ConfigField[bool] = ConfigField(True)
     memorizer_alerts:        ConfigField[bool] = ConfigField(True)
