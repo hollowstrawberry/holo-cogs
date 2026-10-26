@@ -324,7 +324,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             result.add_cost(response.usage)
                                    
         if not response.choices:
-            error = response.error if isinstance(response, types.HasError) else "Unknown error"
+            error = str(response.error) if isinstance(response, types.HasError) else "Unknown error"
             log.error(f"Missing recaller response: {error}")
             return {}
         
@@ -454,7 +454,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     result.tokens.thinking += response.usage.completion_tokens_details.reasoning_tokens or 0
 
             if not response.choices:  # request may get rejected
-                error = response.error if isinstance(response, types.HasError) else "Unknown error"
+                error = str(response.error) if isinstance(response, types.HasError) else "Unknown error"
                 if "403" in error or "PROHIBITED" in error:
                     log.warning(f"Missing response: {error}")
                     emoji = self.config.blocked_emoji.value

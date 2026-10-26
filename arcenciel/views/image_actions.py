@@ -7,7 +7,7 @@ from arcenciel.base import ArcencielBase
 from arcenciel.comfy import ComfyMetadata
 from arcenciel.constants import VIEW_TIMEOUT
 from arcenciel.views.image_info import ImageInfoView
-from arcenciel.moss_metadata import from_params
+from arcenciel.moss_metadata import from_metadata
 from arcenciel.moss_metadata.view import LayoutSource, add_summary_fields
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
@@ -25,7 +25,7 @@ class ImageActions(discord.ui.View):
     ) -> None:
         super().__init__(timeout=VIEW_TIMEOUT)
         self.metadata = metadata
-        self.moss_layout = from_params(metadata.as_dict(), metadata.moss_prompt or "")
+        self.moss_layout = from_metadata(metadata)
         self.layout_source: LayoutSource | None = None
         self.payload = payload
         self.bot: Red = cog.bot

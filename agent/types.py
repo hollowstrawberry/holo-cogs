@@ -1,3 +1,4 @@
+import math
 import discord
 from typing import Any, Literal, Protocol, runtime_checkable
 from pydantic import BaseModel
@@ -40,7 +41,7 @@ class ImageProcessingResult:
     caption: str | None
     low_detail: bool = False
 
-    
+ 
 @dataclass(frozen=True)
 class DiscordMessageResolvedImages:
     message_id: int
@@ -64,21 +65,20 @@ class TokensDetailsResult:
     recaller: tuple[int, int] | int = 0
     memorizer: tuple[int, int] | int = 0
 
+
 @dataclass
 class CostResult:
     cost: float | str
 
     def add_cost(self, cost: object) -> None:
-        if isinstance(cost, (int, float)):
-            val = cost
-        elif isinstance(cost, HasCost):
-            val = cost.cost  
-        else:
-            return     
+        val = cost.cost if isinstance(cost, HasCost) else cost
+        if not isinstance(val, (int, float)) or isinstance(val, bool) or not math.isfinite(val):
+            return
         if isinstance(self.cost, str):
             self.cost = val
         else:
             self.cost += val
+
 
 @dataclass
 class CompletionResult(CostResult):
@@ -91,6 +91,7 @@ class CompletionResult(CostResult):
     tool_calls: int = 0
     tokens: TokensDetailsResult = field(default_factory=TokensDetailsResult)
 
+
 @dataclass
 class ReactionResult(CostResult):
     emote: str | None = None
@@ -98,6 +99,7 @@ class ReactionResult(CostResult):
     input_tokens: int = 0
     output_tokens: int = 0
     cost: float | str = "unknown"
+
 
 @dataclass(frozen=True)
 class MemoryChangeResult:
@@ -151,7 +153,7 @@ class ImageScanner(Protocol): # crab-cogs
 
 @runtime_checkable
 class HasError(Protocol):
-    error: str
+    error: object
 
 @runtime_checkable
 class HasCost(Protocol):
