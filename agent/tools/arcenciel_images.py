@@ -99,7 +99,7 @@ class ArcencielImagesTool(ToolBase):
 
         limit = self.get_setting_int("arcenciel_image_results", 1, 20) or 5
         prompt_limit = self.get_setting_int("arcenciel_prompt_chars", 0, 10000) or 1000
-        timeout = asyncio.Timeout(self.get_setting_int("arcenciel_timeout", 1, 1000) or 10)
+        timeout = self.get_setting_int("arcenciel_timeout", 1, 1000) or 10
         emoji = self.get_setting("arcenciel_emoji")
 
         asyncio.create_task(self.ctx.message.add_reaction(emoji))
