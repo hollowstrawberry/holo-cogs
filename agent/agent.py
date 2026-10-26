@@ -492,7 +492,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 if isinstance(tool_result, dict):
                     if (file := tool_result.pop("file", None)) and isinstance(file, discord.File):
                         files.append(file)
-                    if (cleanup := tool_result.pop("cleanup")) and isinstance(cleanup, Callable):
+                    if (cleanup := tool_result.pop("cleanup", None)) and isinstance(cleanup, Callable):
                         cleanups.append(cleanup)
                     if tool_result.pop("noreply", None):
                         do_reply = False
