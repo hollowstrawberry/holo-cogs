@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timezone
 from discord.utils import DISCORD_EPOCH
 
-from agent.schema import AgentValue
+from agent.types import AgentValue
 
 MAX_MESSAGE_LENGTH = 1950
 MAX_EMBED_DESCRIPTION = 4096

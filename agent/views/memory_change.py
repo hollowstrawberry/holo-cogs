@@ -1,6 +1,6 @@
 import discord
 
-from agent.schema import MemoryChangeResult
+from agent.types import MemoryChangeResult
 from agent.constants import VIEW_TIMEOUT, EMPTY, MAX_EMBED_DESCRIPTION, BACKTICK_PATTERN
 
 

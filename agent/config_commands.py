@@ -7,11 +7,11 @@ from redbot.core import commands
 from redbot.core.utils.chat_formatting import pagify
 
 from agent.base import AgentCogBase
+from agent.types import CacheMode
 from agent.utils import is_valid_openrouter_model
 from agent.config_base import ConfigField
-from agent.constants import EFFORT_VALUES, VISION_MODELS, EMPTY
+from agent.constants import EFFORT_VALUES, VISION_MODELS
 from agent.tools.base import get_all_tools
-from agent.schema import CacheMode
 
 log = logging.getLogger("agent.utils")
 

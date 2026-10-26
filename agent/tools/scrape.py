@@ -6,7 +6,7 @@ import trafilatura
 from typing import Awaitable, Callable, OrderedDict
 
 from agent.utils import parse_arcenciel_model
-from agent.schema import ToolCall, Function, Parameters
+from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 from agent.constants import GITHUB_FILE_URL_PATTERN, ARCENCIEL_MODEL_URL_PATTERN
 

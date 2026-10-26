@@ -3,10 +3,9 @@ import math
 from typing import NamedTuple
 from collections.abc import Mapping
 
-from arcenciel.schema import ImageGenParams
+from arcenciel.types import ImageGenParams, MossLora
 from arcenciel.constants import MODEL_FAMILIES
 from arcenciel.moss import is_array, is_object, is_strings, json_object, resolve_profile
-from arcenciel.moss_schema import MossLora
 
 
 def parse_lora_entries(data: object) -> list[Mapping[str, object]]:

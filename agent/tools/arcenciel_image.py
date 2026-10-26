@@ -2,20 +2,14 @@ import logging
 import asyncio
 import aiohttp
 import discord
-from typing import Protocol, runtime_checkable
 from collections.abc import Mapping
 
-from agent.utils import add_xml_group, undo_xml
-from agent.schema import Function, Parameters, ToolCall
+from agent.utils import add_xml_group, undo_xml, get_cog
+from agent.types import Function, Parameters, ToolCall, ImageScanner
 from agent.constants import LORA_PATTERN
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.arcenciel_image")
-
-
-@runtime_checkable
-class MetadataScanner(Protocol):
-    async def grab_metadata_dict(self, message: discord.Message) -> Mapping[str, object]: ...
 
 
 def dimensions(value: str) -> tuple[int, int]:
@@ -116,7 +110,7 @@ class ArcencielImageTool(ToolBase):
             from arcenciel.arcenciel import Arcenciel
             from arcenciel.moss import layout_from_metadata
             from arcenciel.utils import ImageGenError, extend_negative_prompt
-            from arcenciel.schema import ImageGenParams
+            from arcenciel.types import ImageGenParams
             from arcenciel.constants import MODEL_FAMILIES
             from arcenciel.agent_utils import available_models, choose_lora, choose_model, lora_family_hint, lora_weight
         except ImportError:
@@ -169,8 +163,7 @@ class ArcencielImageTool(ToolBase):
             except (discord.HTTPException, OSError, ValueError):
                 warnings.append("Image metadata is unavailable; using a fresh image recipe.")
             if not metadata:
-                scanner = self.cog.bot.get_cog("ImageScanner")
-                if isinstance(scanner, MetadataScanner):
+                if scanner := get_cog(self.cog.bot, ImageScanner):
                     metadata = await scanner.grab_metadata_dict(message)
         elif existing:
             warnings.append("The original bot image was not found; a new image will be made.")

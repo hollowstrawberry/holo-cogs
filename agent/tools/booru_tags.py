@@ -8,7 +8,7 @@ from rapidfuzz import process, fuzz
 from redbot.core.data_manager import bundled_data_path
 
 from agent.utils import clean_tag
-from agent.schema import ToolCall, Function, Parameters
+from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.boorutags")

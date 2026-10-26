@@ -10,7 +10,7 @@ from redbot.core import app_commands, checks, commands
 
 from arcenciel.constants import EXCLUDE_TAGGER, LORA_PATTERN, MAX_UPLOAD_PIXELS, SUPPORTED_IMAGE_TYPES
 from arcenciel.moss_schema import MossBox, MossOptions
-from arcenciel.schema import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
+from arcenciel.types import ImageGenParams, ImageRegionalParams, ImageToImageParams, SplitType
 from arcenciel.settings import ArcencielSettings
 from arcenciel.utils import clean_model, clean_tag, edit_regional_prompts, filter_names, normalize_image
 

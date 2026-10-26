@@ -7,7 +7,7 @@ from base64 import b64encode
 from pydantic import BaseModel
 from openai import Omit
 
-from agent.schema import AgentContent, AgentMessage, AgentValue, CacheMode
+from agent.types import AgentContent, AgentMessage, AgentValue, CacheMode
 from agent.constants import CACHE_CONTROL, IMAGE_TOKEN_COUNT
 
 

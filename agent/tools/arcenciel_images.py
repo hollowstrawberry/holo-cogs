@@ -4,7 +4,7 @@ import asyncio
 import aiohttp
 
 from agent.utils import add_xml_group, parse_arcenciel_image, get_cog, is_nsfw
-from agent.schema import ToolCall, Function, Parameters
+from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.arcenciel_images")

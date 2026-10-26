@@ -9,7 +9,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 from .string_utils import add_xml_group
-from agent.schema import StructuredObject
+from agent.types import StructuredObject, HasLength
 from agent.constants import DATETIME_FORMATTING
 
 
@@ -103,7 +103,7 @@ async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000
     audio = mutagen.File(BytesIO(audio_bytes))
     if audio is None or audio.info is None or not hasattr(audio.info, "length"):
         raise ValueError("Could not read audio metadata")
-    duration = getattr(audio.info, "length")
+    assert isinstance(audio.info, HasLength)
 
     proc = await asyncio.create_subprocess_exec(
         "ffmpeg", "-i", "-",
@@ -124,7 +124,7 @@ async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000
     samples = struct.unpack(f"<{num_samples}h", raw[: num_samples * 2])
     abs_samples = [abs(s) for s in samples]
 
-    point_count = max(1, min(int(duration * 10), max_points))
+    point_count = max(1, min(int(audio.info.length * 10), max_points))
     points_per_bucket = max(1, len(abs_samples) // point_count)
 
     buckets = []
@@ -142,4 +142,4 @@ async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000
     mult = 255 / highest if highest else 0
     waveform_bytes = bytes(min(255, int(b * mult)) for b in buckets)
 
-    return b64encode(waveform_bytes).decode("utf-8"), duration
+    return b64encode(waveform_bytes).decode("utf-8"), audio.info.length

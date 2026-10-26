@@ -15,16 +15,15 @@ from discord.ext import tasks
 from redbot.core import commands
 
 from arcenciel import constants
-from arcenciel.schema import ImageGenParams, QueuedImageGen
-from arcenciel.commands import ArcencielCommands
-from arcenciel.agent_utils import build_standard_agent_payload, choose_model
-from arcenciel.arcenciel_api import ArcEnCielAPI
-from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
-from arcenciel.moss import build_moss_payload, is_array, json_object, safety_prompt
-from arcenciel.moss_schema import MossLora
+from arcenciel.types import ImageGenParams, ImageScanner, QueuedImageGen, MossLora
 from arcenciel.utils import ImageGenError, build_split_masks, gather_raise_all, is_nsfw, send_response, extend_negative_prompt
+from arcenciel.commands import ArcencielCommands
+from arcenciel.arcenciel_api import ArcEnCielAPI
 from arcenciel.views.generating import GeneratingV2View, GeneratingView
 from arcenciel.views.image_actions import ImageActions
+from arcenciel.moss import build_moss_payload, is_array, json_object, safety_prompt
+from arcenciel.comfy import ComfyMetadata, ComfyMetadataReader
+from arcenciel.agent_utils import build_standard_agent_payload, choose_model
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
 
@@ -394,9 +393,9 @@ class Arcenciel(ArcencielCommands):
             view.message = message
             quota_progress = self.config.user(gen.user).quota_progress
             await quota_progress.set(await quota_progress() + 1)
-            imagescanner = self.bot.get_cog("ImageScanner")
-            if message and imagescanner and gen.channel.id in getattr(imagescanner, "scan_channels"):
-                getattr(imagescanner, "image_cache")[message.id] = ({0: metadata}, {0: image_bytes})
+            imagescanner = self.bot.get_cog(ImageScanner.__name__)
+            if message and isinstance(imagescanner, ImageScanner) and gen.channel.id in imagescanner.scan_channels:
+                imagescanner.image_cache[message.id] = ({0: metadata}, {0: image_bytes})
                 final_tasks.append(message.add_reaction("🔎"))
         except ImageGenError as error:
             error_message = f":warning: Failed to retrieve image. ({error})"

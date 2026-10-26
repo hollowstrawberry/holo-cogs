@@ -5,8 +5,7 @@ from typing import TypeGuard
 from collections.abc import Mapping
 from redbot.core import commands
 
-from arcenciel.schema import ImageGenParams
-from arcenciel.moss_schema import *
+from arcenciel import types
 
 
 def is_object(value: object) -> TypeGuard[Mapping[str, object]]:
@@ -21,7 +20,7 @@ def is_strings(value: object) -> TypeGuard[list[str]]:
     return isinstance(value, list) and all(isinstance(item, str) for item in value)
 
 
-def is_box_label(value: object) -> TypeGuard[BoxLabel]:
+def is_box_label(value: object) -> TypeGuard[types.BoxLabel]:
     return isinstance(value, str) and value in ("character", "object", "text")
 
 
@@ -61,12 +60,12 @@ def string_setting(value: object, field: str) -> str:
     return value
 
 
-def moss_models(catalog: Mapping[str, object], *, sft_only: bool = False) -> dict[str, MossModel]:
+def moss_models(catalog: Mapping[str, object], *, sft_only: bool = False) -> dict[str, types.MossModel]:
     required = "moss_sft" if sft_only else "moss"
     entries = catalog.get("checkpoints", [])
     if not is_array(entries):
         raise ValueError("Invalid generator model catalog.")
-    models: dict[str, MossModel] = {}
+    models: dict[str, types.MossModel] = {}
     for entry in entries:
         if not is_object(entry):
             raise ValueError("Invalid generator model entry.")
@@ -84,7 +83,7 @@ def moss_models(catalog: Mapping[str, object], *, sft_only: bool = False) -> dic
 
 def resolve_profile(
     options: Mapping[str, object], catalog: Mapping[str, object], checkpoint: str | None = None
-) -> tuple[str, MossProfile]:
+) -> tuple[str, types.MossProfile]:
     limits = json_object(options.get("limits", {}))
     profile = json_object(limits.get("moss") or {})
     modes = profile.get("modes", [])
@@ -97,7 +96,7 @@ def resolve_profile(
     required = ("steps", "cfg", "shift", "samplerName", "scheduler", "width", "height")
     if any(raw_defaults.get(key) is None for key in required):
         raise ValueError("The generator's MOSS defaults are incomplete.")
-    defaults: MossDefaults = {
+    defaults: types.MossDefaults = {
         "steps": positive_int(raw_defaults["steps"], "steps"),
         "cfg": positive_float(raw_defaults["cfg"], "cfg"),
         "shift": positive_float(raw_defaults["shift"], "shift"),
@@ -129,8 +128,8 @@ def resolve_profile(
     }
 
 
-def moss_options(boxes: object = None, shift: object = None, *, max_boxes: int) -> MossOptions:
-    result: MossOptions = {}
+def moss_options(boxes: object = None, shift: object = None, *, max_boxes: int) -> types.MossOptions:
+    result: types.MossOptions = {}
     if shift is not None:
         if (
             isinstance(shift, bool)
@@ -144,7 +143,7 @@ def moss_options(boxes: object = None, shift: object = None, *, max_boxes: int) 
         return result
     if not is_array(boxes) or len(boxes) > max_boxes:
         raise ValueError(f"Provide at most {max_boxes} regional boxes.")
-    clean: list[MossBox] = []
+    clean: list[types.MossBox] = []
     for box in boxes:
         if not is_object(box) or set(box) - {"label", "caption", "text", "bbox"}:
             raise ValueError("Each box needs label, caption and bbox, with text only for a text box.")
@@ -160,7 +159,7 @@ def moss_options(boxes: object = None, shift: object = None, *, max_boxes: int) 
             coordinates.append(coordinate)
         if coordinates[0] >= coordinates[2] or coordinates[1] >= coordinates[3]:
             raise ValueError("Every box must have positive width and height.")
-        item: MossBox = {"label": label, "caption": caption, "bbox": coordinates}
+        item: types.MossBox = {"label": label, "caption": caption, "bbox": coordinates}
         if label == "text":
             text = box.get("text")
             if not isinstance(text, str) or not text.strip() or len(text) > 1024:
@@ -173,7 +172,7 @@ def moss_options(boxes: object = None, shift: object = None, *, max_boxes: int) 
     return result
 
 
-def validate_options(options: object, *, max_boxes: int) -> MossOptions:
+def validate_options(options: object, *, max_boxes: int) -> types.MossOptions:
     if not is_object(options) or set(options) - {"shift", "layout"}:
         raise ValueError("Invalid MOSS options.")
     layout = options.get("layout")
@@ -202,13 +201,13 @@ def setting(value: object, overrides: Mapping[str, object], name: str, default: 
 
 
 def build_moss_payload(
-    params: ImageGenParams,
+    params: types.ImageGenParams,
     options: Mapping[str, object],
     catalog: Mapping[str, object],
     nsfw: bool,
-    loras: list[MossLora],
+    loras: list[types.MossLora],
     overrides: Mapping[str, object] | None = None,
-) -> MossPayload:
+) -> types.MossPayload:
     settings = {key: value for key, value in (overrides or {}).items() if value not in (None, "")}
     selected = params.checkpoint or settings.get("checkpoint")
     checkpoint, profile = resolve_profile(
@@ -253,31 +252,7 @@ def build_moss_payload(
     }
 
 
-def agent_settings(agent: object, context: commands.Context) -> dict[str, str]:
-    """Narrow the optional cog lookup before reading guild permissions."""
-    import discord
-
-    from agent.base import AgentCogBase
-
-    if not isinstance(agent, AgentCogBase):
-        raise ValueError("The agent cog is unavailable.")
-    assert context.guild and isinstance(context.author, discord.Member)
-    assert isinstance(context.channel, (discord.TextChannel, discord.Thread))
-    config = agent.config[context.guild]
-    if "arcenciel_image" not in config.enabled_functions.value:
-        raise ValueError("The image tool is not enabled for this server.")
-    mode, channels = config.generation_channel_mode.value, config.generation_channels.value
-    if (
-        mode == "blacklist"
-        and context.channel.id in channels
-        or mode == "whitelist"
-        and context.channel.id not in channels
-    ) and not context.channel.permissions_for(context.author).manage_messages:
-        raise ValueError("Image generation is not allowed in this channel unless the user is a moderator.")
-    return dict(agent.config.tool_settings.value or {})
-
-
-def layout_from_metadata(metadata: Mapping[str, object]) -> MossOptions | None:
+def layout_from_metadata(metadata: Mapping[str, object]) -> types.MossOptions | None:
     """Recover only the documented native layout; never execute workflow data."""
     try:
         prompt, size = metadata.get("Prompt", ""), metadata.get("Size", "")

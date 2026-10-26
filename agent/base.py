@@ -3,7 +3,7 @@ from openai import AsyncOpenAI
 from redbot.core import commands, Config
 from redbot.core.bot import Red
 
-from agent.schema import CompletionResult, AgentContent
+from agent.types import CompletionResult, AgentContent
 from agent.config import AgentCogConfig
 
 

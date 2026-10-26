@@ -1,4 +1,4 @@
-from agent.schema import MemoryChangeResult, ToolCall, Function, Parameters
+from agent.types import MemoryChangeResult, ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
 

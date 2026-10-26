@@ -2,7 +2,7 @@ import logging
 import asyncio
 from openai import NotGiven
 
-from agent.schema import ToolCall, Function, Parameters
+from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.searchweb")

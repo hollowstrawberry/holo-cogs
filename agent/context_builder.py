@@ -8,11 +8,9 @@ from typing import Any
 from expiringdict import ExpiringDict
 from redbot.core import commands
 
-from agent import utils, constants
+from agent import types, utils, constants
 from agent.base import AgentCogBase
 from agent.config import AgentCogGuildConfig
-from agent.schema import AgentContent, CompletionResult, AgentMessage, ImageProcessingResult, ImageSource, ParsedMessageResult, StructuredObject
-from agent.schema import DiscordMessageImageCandidates, DiscordMessageResolvedImages
 
 log = logging.getLogger("agent.context")
 
@@ -36,9 +34,9 @@ class ContextBuilder:
         ctx: commands.Context,
         backread: list[discord.Message],
         config: AgentCogGuildConfig,
-        result: CompletionResult,
+        result: types.CompletionResult,
         encoding: tiktoken.Encoding,
-    ) -> list[AgentMessage]:
+    ) -> list[types.AgentMessage]:
         return await ChatHistoryContext(self, ctx, backread, config, result, encoding).build()
 
 
@@ -49,7 +47,7 @@ class ChatHistoryContext:
         ctx: commands.Context,
         backread: list[discord.Message],
         config: AgentCogGuildConfig,
-        result: CompletionResult,
+        result: types.CompletionResult,
         encoding: tiktoken.Encoding,
     ):
         self.builder = builder
@@ -58,13 +56,13 @@ class ChatHistoryContext:
         self.config = config
         self.result = result
         self.encoding = encoding
-        self.all_candidates: dict[int, DiscordMessageImageCandidates] = {}
+        self.all_candidates: dict[int, types.DiscordMessageImageCandidates] = {}
         self.first_appearance: dict[int, int] = {}
         self.all_resolved_quotes: dict[int, discord.Message | None] = {}
-        self.all_resolved_images: dict[int, DiscordMessageResolvedImages] = {}
+        self.all_resolved_images: dict[int, types.DiscordMessageResolvedImages] = {}
 
 
-    async def build(self) -> list[AgentMessage]:
+    async def build(self) -> list[types.AgentMessage]:
         assert self.ctx.guild
 
         # Pass 1: grab quoted messages
@@ -106,7 +104,7 @@ class ChatHistoryContext:
             # save them separately
             for msg in [backmsg, quote]:
                 if msg and msg.id not in self.all_candidates:
-                    self.all_candidates[msg.id] = DiscordMessageImageCandidates(msg,
+                    self.all_candidates[msg.id] = types.DiscordMessageImageCandidates(msg,
                         [s for s in priority_list if s.message_id == msg.id],
                         [s for s in low_priority_list if s.message_id == msg.id],
                     )
@@ -123,7 +121,7 @@ class ChatHistoryContext:
         # Pass 4: Parse each message and attach images
         parse_tasks = [self.parse_message_and_images(backmsg) for backmsg in self.backread]
         parse_results_raw = await asyncio.gather(*parse_tasks, return_exceptions=True)
-        all_parsed_messages: dict[int, ParsedMessageResult] = {}
+        all_parsed_messages: dict[int, types.ParsedMessageResult] = {}
         for res in parse_results_raw:
             if isinstance(res, BaseException):
                 log.warning(f"parse_message_and_images raised: {res}")
@@ -159,34 +157,34 @@ class ChatHistoryContext:
     
 
     @staticmethod
-    def extract_candidates(msg: discord.Message) -> list[ImageSource]:
-        att_candidates: list[ImageSource] = [
-            ImageSource(msg.id, attachment=att, att_index=i)
+    def extract_candidates(msg: discord.Message) -> list[types.ImageSource]:
+        att_candidates: list[types.ImageSource] = [
+            types.ImageSource(msg.id, attachment=att, att_index=i)
             for i, att in enumerate(msg.attachments)
             if att.content_type and att.content_type.startswith("image/")
         ]
         if att_candidates:
             return att_candidates
-        url_candidates: set[ImageSource] = set()
+        url_candidates: set[types.ImageSource] = set()
         for embed in msg.embeds:
             if embed.image and embed.image.url:
-                url_candidates.add(ImageSource(msg.id, url=embed.image.url))
+                url_candidates.add(types.ImageSource(msg.id, url=embed.image.url))
             if embed.thumbnail and embed.thumbnail.url:
-                url_candidates.add(ImageSource(msg.id, url=embed.thumbnail.url))
+                url_candidates.add(types.ImageSource(msg.id, url=embed.thumbnail.url))
         for match in constants.URL_PATTERN.findall(msg.content or ""):
             if match.endswith(constants.IMAGE_EXTENSIONS):
-                url_candidates.add(ImageSource(msg.id, url=match))
+                url_candidates.add(types.ImageSource(msg.id, url=match))
         return list(url_candidates)
 
 
-    async def resolve_images(self, backmsg: discord.Message) -> DiscordMessageResolvedImages:
+    async def resolve_images(self, backmsg: discord.Message) -> types.DiscordMessageResolvedImages:
         candidates = self.all_candidates[backmsg.id]
         generated_image: dict[str, str] | None = None
         if backmsg.attachments and len(backmsg.attachments) == 1 and backmsg.author == self.ctx.me:
             if "gptimage" in backmsg.attachments[0].filename:
                 generated_image = {"type": "gptimage"}
-            elif imagescanner := self.builder.bot.get_cog("ImageScanner"):
-                generated_image = await getattr(imagescanner, "grab_metadata_dict")(backmsg)
+            elif imagescanner := utils.get_cog(self.builder.bot, types.ImageScanner):
+                generated_image = await imagescanner.grab_metadata_dict(backmsg)
 
         priority_srcs = candidates.priority[:constants.MAX_IMAGES_PER_MESSAGE]
         num_remaining = constants.MAX_IMAGES_PER_MESSAGE - len(priority_srcs)
@@ -195,7 +193,7 @@ class ChatHistoryContext:
         low_priority_tasks  = [self.process_image(src, generated_image, low_priority=True) for src in caption_srcs]
         results_raw = await asyncio.gather(*priority_tasks, *low_priority_tasks, return_exceptions=True)
     
-        image_contents: list[AgentContent] = []
+        image_contents: list[types.AgentContent] = []
         attachment_captions: dict[int, str | None] = {}
         url_captions: dict[str, str | None] = {}
         low_detail_count = 0
@@ -213,10 +211,10 @@ class ChatHistoryContext:
             elif res.src.url:
                 url_captions[res.src.url] = res.caption
                 
-        return DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions, generated_image, low_detail_count)
+        return types.DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions, generated_image, low_detail_count)
 
 
-    def get_cached_source(self, src: ImageSource) -> tuple[bytes | None, str | None]:
+    def get_cached_source(self, src: types.ImageSource) -> tuple[bytes | None, str | None]:
         data, caption = None, None
         if src.attachment:
             _, data = self.builder.attachment_image_cache.get(src.attachment.id, (None, None))
@@ -227,7 +225,7 @@ class ChatHistoryContext:
         return data, caption
     
     
-    def store_cached_source(self, src: ImageSource, data: bytes | None, caption: str | None) -> None:
+    def store_cached_source(self, src: types.ImageSource, data: bytes | None, caption: str | None) -> None:
         if src.attachment:
             if data:
                 self.builder.attachment_image_cache[src.attachment.id] = (src.att_index, data)
@@ -240,13 +238,13 @@ class ChatHistoryContext:
                 self.builder.url_caption_cache[src.url] = caption
  
  
-    async def process_image(self, src: ImageSource, generated_image: dict | None, low_priority: bool = False) -> ImageProcessingResult:
+    async def process_image(self, src: types.ImageSource, generated_image: dict | None, low_priority: bool = False) -> types.ImageProcessingResult:
         has_prompt = generated_image and generated_image.get("Prompt")
         if low_priority and has_prompt:
-            return ImageProcessingResult(src, None, None)
+            return types.ImageProcessingResult(src, None, None)
         key = src.attachment.url if src.attachment else src.url
         if not key:
-            return ImageProcessingResult(src, None, None)
+            return types.ImageProcessingResult(src, None, None)
     
         use_captions = self.config.use_captions.value
         high_resolution = self.config.max_image_resolution.value
@@ -255,12 +253,12 @@ class ChatHistoryContext:
         async with self.builder.url_lock.setdefault(key, asyncio.Lock()):
             data, caption = self.get_cached_source(src)
             if low_priority and use_captions and caption:
-                return ImageProcessingResult(src, None, caption)
+                return types.ImageProcessingResult(src, None, caption)
             if not data:
                 data = await self.fetch_and_normalize(src, max_resolution=high_resolution)
                 if not data:
                     log.warning(f"failed to get image data for {src}")
-                    return ImageProcessingResult(src, None, None)
+                    return types.ImageProcessingResult(src, None, None)
             low_res_data = None
             needs_caption = use_captions and not has_prompt and not caption
             if needs_caption or low_priority:
@@ -272,24 +270,24 @@ class ChatHistoryContext:
                 if not caption:
                     log.warning(f"failed to make caption for {src}")
                     if low_priority:
-                        return ImageProcessingResult(src, None, None)
+                        return types.ImageProcessingResult(src, None, None)
             self.store_cached_source(src, data, caption)
 
         if low_priority and use_captions:
-            return ImageProcessingResult(src, None, caption)
+            return types.ImageProcessingResult(src, None, caption)
 
-        return ImageProcessingResult(src, low_res_data if low_priority else data, caption if use_captions else None, low_priority)
+        return types.ImageProcessingResult(src, low_res_data if low_priority else data, caption if use_captions else None, low_priority)
 
 
-    async def fetch_and_normalize(self, src: ImageSource, max_resolution: int | None = None, thumbnail_size: int | None = None) -> bytes | None:
+    async def fetch_and_normalize(self, src: types.ImageSource, max_resolution: int | None = None, thumbnail_size: int | None = None) -> bytes | None:
         assert max_resolution or thumbnail_size
         max_pixels = max_resolution ** 2 if max_resolution else None
         try:
             if src.attachment:
                 fp_before = BytesIO()
-                imagescanner: commands.Cog | None = self.builder.bot.get_cog("ImageScanner")
-                if imagescanner and src.message_id in getattr(imagescanner, "image_cache"):
-                    _, image_bytes = getattr(imagescanner, "image_cache").get(src.message_id, ({}, {}))
+                imagescanner = utils.get_cog(self.builder.bot, types.ImageScanner)
+                if imagescanner and src.message_id in imagescanner.image_cache:
+                    _, image_bytes = imagescanner.image_cache.get(src.message_id, ({}, {}))
                     if src.att_index in image_bytes:
                         fp_before = BytesIO(image_bytes[src.att_index])
                 if fp_before.getbuffer().nbytes == 0:
@@ -308,7 +306,7 @@ class ChatHistoryContext:
             return None
 
 
-    async def parse_message_and_images(self, backmsg: discord.Message) -> ParsedMessageResult:
+    async def parse_message_and_images(self, backmsg: discord.Message) -> types.ParsedMessageResult:
         quote = self.all_resolved_quotes.get(backmsg.id)
         images = self.all_resolved_images.get(backmsg.id)
         quoted_images = self.all_resolved_images.get(quote.id) if quote else None
@@ -318,7 +316,7 @@ class ChatHistoryContext:
         for before, after_obj in message_inline_objs.items():
             text_content = text_content.replace(utils.escape_xml(before), xmltodict.unparse(after_obj, full_document=False))
 
-        image_contents: list[AgentContent] = []
+        image_contents: list[types.AgentContent] = []
         if images and self.first_appearance[images.message_id] == backmsg.id:
             image_contents.extend(images.image_contents)
         if quoted_images and self.first_appearance[quoted_images.message_id] == backmsg.id:
@@ -332,7 +330,7 @@ class ChatHistoryContext:
             "role": "user",
             "content": [utils.make_text_content(text_content), *image_contents]
         }
-        return ParsedMessageResult(backmsg.id, gpt_msg, total_tokens, len(image_contents))
+        return types.ParsedMessageResult(backmsg.id, gpt_msg, total_tokens, len(image_contents))
 
 
     async def parse_discord_message(
@@ -341,7 +339,7 @@ class ChatHistoryContext:
         quote: discord.Message | None,
         exhaustive: bool,
         recursive: bool,
-    ) -> tuple[StructuredObject, dict[str, StructuredObject]]:
+    ) -> tuple[types.StructuredObject, dict[str, types.StructuredObject]]:
         """
         Converts a message into a dictionary of structured information that may then be unparsed into xml.
         Also returns a dictionary of inline objects to be injected back into the final string.

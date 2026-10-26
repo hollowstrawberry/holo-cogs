@@ -5,7 +5,7 @@ from datetime import date, datetime, timezone
 from redbot.core import Config
 
 from agent.utils import get_cog
-from agent.schema import Function, Parameters, ToolCall
+from agent.types import Function, Parameters, ToolCall
 from agent.tools.base import ToolBase
 
 MINIMUM_YEAR = 1900

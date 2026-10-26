@@ -3,7 +3,7 @@ from copy import copy
 from redbot.core import commands
 
 from agent.utils import add_xml_group, command_allowed
-from agent.schema import Function, Parameters, ToolCall
+from agent.types import Function, Parameters, ToolCall
 from agent.tools.base import ToolBase
 
 

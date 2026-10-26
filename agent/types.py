@@ -1,8 +1,7 @@
 import discord
 from typing import Any, Literal, Protocol, runtime_checkable
-from dataclasses import dataclass, field
 from pydantic import BaseModel
-from redbot.core import Config
+from dataclasses import dataclass, field
 
 StructuredObject = dict[str, Any]
 AgentValue = dict[str, str | dict[str, str]]
@@ -65,9 +64,24 @@ class TokensDetailsResult:
     recaller: tuple[int, int] | int = 0
     memorizer: tuple[int, int] | int = 0
 
+@dataclass
+class CostResult:
+    cost: float | str
+
+    def add_cost(self, cost: object) -> None:
+        if isinstance(cost, (int, float)):
+            val = cost
+        elif isinstance(cost, HasCost):
+            val = cost.cost  
+        else:
+            return     
+        if isinstance(self.cost, str):
+            self.cost = val
+        else:
+            self.cost += val
 
 @dataclass
-class CompletionResult:
+class CompletionResult(CostResult):
     elapsed_ms: float = 0
     input_tokens: int = 0
     output_tokens: int = 0
@@ -77,20 +91,13 @@ class CompletionResult:
     tool_calls: int = 0
     tokens: TokensDetailsResult = field(default_factory=TokensDetailsResult)
 
-    def add_cost(self, cost: float):
-        if isinstance(self.cost, str):
-            self.cost = cost
-        else:
-            self.cost += cost
-
 @dataclass
-class ReactionResult:
+class ReactionResult(CostResult):
     emote: str | None = None
     elapsed_ms: float = 0
     input_tokens: int = 0
     output_tokens: int = 0
     cost: float | str = "unknown"
-
 
 @dataclass(frozen=True)
 class MemoryChangeResult:
@@ -134,10 +141,26 @@ class ToolCall:
     type: str = field(default="function", init=False)
 
 
-# External cogs
+# Protocols
 
 @runtime_checkable
-class ImageScanner(Protocol):
-    config: Config
+class ImageScanner(Protocol): # crab-cogs
+    image_cache: dict[int, tuple[dict[int, object], dict[int, bytes]]]
 
     async def grab_metadata_dict(self, message: discord.Message) -> dict: ...
+
+@runtime_checkable
+class HasError(Protocol):
+    error: str
+
+@runtime_checkable
+class HasCost(Protocol):
+    cost: float
+
+@runtime_checkable
+class HasLength(Protocol):
+    length: float
+
+@runtime_checkable
+class HasId(Protocol):
+    id: int

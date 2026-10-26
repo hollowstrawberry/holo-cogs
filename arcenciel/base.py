@@ -6,7 +6,7 @@ from redbot.core import Config, commands
 from redbot.core.bot import Red
 
 from arcenciel.comfy import ComfyMetadata
-from arcenciel.schema import QueuedImageGen, ImageGenParams
+from arcenciel.types import QueuedImageGen, ImageGenParams
 from arcenciel.constants import DISCORD_EPOCH_DATETIME
 
 

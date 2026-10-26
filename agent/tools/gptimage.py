@@ -1,10 +1,19 @@
 import asyncio
 import discord
+from typing import Coroutine, Protocol, runtime_checkable
 from redbot.core import commands
 
-from agent.utils import undo_xml
-from agent.schema import ToolCall, Function, Parameters
+from agent.utils import undo_xml, get_cog
+from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
+
+
+@runtime_checkable
+class GptImage(Protocol):
+    @staticmethod
+    async def normalize_attachments(attachments: list[discord.Attachment]) -> tuple[list[bytes], str]: ...
+
+    async def imagine(self, ctx: commands.Context, resolution: str, prompt: str, images: list[bytes], callback: Coroutine | None = None): ...
 
 
 class GptImageToolBase(ToolBase):
@@ -20,7 +29,7 @@ class GptImageToolBase(ToolBase):
     
     async def run(self, arguments: dict) -> dict | str:
         assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
-        gptimage: commands.Cog | None = self.cog.bot.get_cog("GptImage")
+        gptimage = get_cog(self.cog.bot, GptImage)
         if not gptimage:
             return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
         
@@ -77,10 +86,9 @@ class GptImageToolBase(ToolBase):
                     }
                 attachments.append(att)
 
-        images = None
+        images = []
         if attachments:
-            normalize_attachments = getattr(gptimage, "normalize_attachments")
-            images, original_resolution = await normalize_attachments(attachments)
+            images, original_resolution = await gptimage.normalize_attachments(attachments)
             if base_image:
                 resolution = original_resolution
         if not resolution:
@@ -91,8 +99,9 @@ class GptImageToolBase(ToolBase):
             self.cog.currently_generating.discard(self.ctx.message.id)
         self.cog.currently_generating.add(self.ctx.message.id)
         
-        generate_image = getattr(gptimage, "imagine")
-        asyncio.create_task(generate_image(self.ctx, resolution=resolution, prompt=prompt, images=images, callback=callback()))
+        asyncio.create_task(
+            gptimage.imagine(self.ctx, resolution=resolution, prompt=prompt, images=images, callback=callback())
+        )
 
         return {
             "result": {

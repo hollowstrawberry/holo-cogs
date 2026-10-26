@@ -8,6 +8,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from .image_utils import make_circle
+from agent.types import HasId
 from agent.constants import MAX_MESSAGE_LENGTH, MENTION_PATTERN
 
 T = TypeVar("T")
@@ -162,9 +163,11 @@ async def chunk_and_send(ctx: commands.Context,
 @contextlib.asynccontextmanager
 async def bot_is_typing(channel: discord.abc.Messageable):
     """Like channel.typing but doesn't stop execution if typing fails."""
+    assert isinstance(channel, HasId)
+
     async def keep_typing():
         while True:
-            await asyncio.wait_for(channel._state.http.send_typing(getattr(channel, "id")), timeout=2.0)
+            await asyncio.wait_for(channel._state.http.send_typing(channel.id), timeout=2.0)
             await asyncio.sleep(5.0)
 
     task = asyncio.create_task(keep_typing())

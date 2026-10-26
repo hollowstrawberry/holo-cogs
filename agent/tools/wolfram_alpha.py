@@ -3,7 +3,7 @@ import aiohttp
 from xml.etree import ElementTree
 
 from agent.utils import farenheit_to_celsius
-from agent.schema import ToolCall, Function, Parameters
+from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 from agent.constants import FARENHEIT_PATTERN
 

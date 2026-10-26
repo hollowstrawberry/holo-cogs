@@ -6,7 +6,7 @@ from redbot.core import commands
 
 from agent.base import AgentCogBase
 from agent.utils import get_bot_avatar_emote
-from agent.schema import MemoryChangeResult
+from agent.types import MemoryChangeResult
 from agent.config import AgentCogGuildConfig
 from agent.config_base import ConfigField
 from agent.constants import DISCORD_EPOCH_DATETIME

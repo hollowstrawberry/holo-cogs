@@ -1,6 +1,8 @@
+
 import discord
 from abc import ABC
 from enum import Enum
+from typing import Literal, NotRequired, TypedDict, Protocol, runtime_checkable
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections.abc import Coroutine, Mapping
@@ -15,6 +17,12 @@ class SplitType(Enum):
 class GeneratingV2ViewBase(discord.ui.LayoutView, ABC):
     def set_progress(self, status: str, progress: str | None = None, eta: str | None = None, step: str | None = None, preview_filename: str | None = None):
         raise NotImplementedError
+
+
+@runtime_checkable
+class ImageScanner(Protocol): # crab-cogs
+    scan_channels: set[int]
+    image_cache: dict[int, tuple[dict[int, object], dict[int, bytes]]]
 
 
 @dataclass
@@ -79,3 +87,75 @@ class ImageGenParams:
     regions: ImageRegionalParams | None = None
     # Raw options are validated into MossOptions before they reach the API.
     moss: Mapping[str, object] | None = None
+
+
+# MOSS
+
+BoxLabel = Literal["character", "object", "text"]
+
+
+class MossModel(TypedDict):
+    name: str
+    modelCapabilities: list[str]
+    storageState: str
+
+
+class MossDefaults(TypedDict):
+    steps: int
+    cfg: float
+    shift: float
+    samplerName: str
+    scheduler: str
+    width: int
+    height: int
+
+
+class MossProfile(TypedDict):
+    available: bool
+    modes: list[str]
+    maxBoxes: int
+    coordinateSpace: Literal["normalized_1000"]
+    defaults: MossDefaults
+
+
+class MossBox(TypedDict):
+    label: BoxLabel
+    caption: str
+    bbox: list[int]
+    text: NotRequired[str]
+
+
+class MossLayout(TypedDict):
+    version: Literal[1]
+    coordinateSpace: Literal["normalized_1000"]
+    canvas: Literal["single"]
+    items: list[MossBox]
+    meta: NotRequired[list[str]]
+
+
+class MossOptions(TypedDict, total=False):
+    shift: float
+    layout: MossLayout
+
+
+class MossLora(TypedDict):
+    name: str
+    weight: float
+
+
+class MossPayload(TypedDict):
+    mode: Literal["txt2img"]
+    prompt: str
+    negativePrompt: str
+    modelName: str
+    seed: int
+    batchSize: Literal[1]
+    loras: list[MossLora]
+    sfwMode: bool
+    steps: int
+    cfg: float
+    samplerName: str
+    scheduler: str
+    width: int
+    height: int
+    moss: MossOptions

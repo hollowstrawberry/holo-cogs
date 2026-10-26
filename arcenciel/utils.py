@@ -8,7 +8,7 @@ from typing import Coroutine
 from rapidfuzz import fuzz
 from redbot.core import commands
 
-from arcenciel.schema import SplitType
+from arcenciel.types import SplitType
 from arcenciel.constants import MAX_MESSAGE_LENGTH, LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
 
 log = logging.getLogger("red.bz_cogs.arcenciel")

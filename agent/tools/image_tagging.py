@@ -4,7 +4,7 @@ import discord
 from redbot.core import commands
 
 from agent.utils import get_filename, clean_tag, normalize_image
-from agent.schema import ToolCall, Function, Parameters
+from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.imagetagger")

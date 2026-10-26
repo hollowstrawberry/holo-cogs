@@ -2,7 +2,7 @@ from typing import Protocol, runtime_checkable
 from datetime import datetime, timezone
 
 from agent.utils import get_cog
-from agent.schema import Function, Parameters, ToolCall
+from agent.types import Function, Parameters, ToolCall
 from agent.constants import DATETIME_FORMATTING
 from agent.tools.base import ToolBase
 

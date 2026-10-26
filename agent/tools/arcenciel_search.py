@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 
 from agent.utils import parse_arcenciel_model, add_xml_group, get_cog
-from agent.schema import ToolCall, Function, Parameters
+from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.arcenciel_search")
