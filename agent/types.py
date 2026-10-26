@@ -69,12 +69,9 @@ class CostResult:
     cost: float | str
 
     def add_cost(self, cost: object) -> None:
-        if isinstance(cost, (int, float)):
-            val = cost
-        elif isinstance(cost, HasCost):
-            val = cost.cost  
-        else:
-            return     
+        val = cost.cost if isinstance(cost, HasCost) else cost
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not -float("inf") < val < float("inf"):
+            return
         if isinstance(self.cost, str):
             self.cost = val
         else:
@@ -151,11 +148,11 @@ class ImageScanner(Protocol): # crab-cogs
 
 @runtime_checkable
 class HasError(Protocol):
-    error: str
+    error: object
 
 @runtime_checkable
 class HasCost(Protocol):
-    cost: float
+    cost: object
 
 @runtime_checkable
 class HasLength(Protocol):
