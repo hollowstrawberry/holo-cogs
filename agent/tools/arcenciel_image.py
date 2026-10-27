@@ -19,7 +19,14 @@ def dimensions(value: str) -> tuple[int, int]:
 
 class ArcencielImageTool(ToolBase):
     display_name = "arcenciel_image"
-    settings = {"checkpoint": "moss"}
+    settings = {
+        "checkpoint": "moss",
+        "checkpoint_moss": "",
+        "checkpoint_anima": "",
+        "checkpoint_illustrious": "",
+        "checkpoint_noobai": "",
+
+    }
     imagegen = True
     schema = ToolCall(
         Function(
@@ -126,7 +133,7 @@ class ArcencielImageTool(ToolBase):
         existing = str(arguments.get("existing", ""))
         checkpoint = str(arguments.get("checkpoint", "")).strip()
         if checkpoint.lower() in MODEL_FAMILIES:
-            checkpoint = checkpoint.lower()
+            checkpoint = self.get_setting(f"checkpoint_{checkpoint.lower()}") or checkpoint.lower()
         
         if not prompt.strip():
             return "<error>The prompt is missing.</error>"
@@ -229,6 +236,7 @@ class ArcencielImageTool(ToolBase):
                         )
                     else:
                         default, inferred_family = preferred.name, ""
+            
             choice = choose_model(options, catalog, family=inferred_family, checkpoint=checkpoint, inherited=inherited, default=default)
             if choice.family != "moss" and moss:
                 raise ValueError("Regional Boxes are available only with MOSS.")
