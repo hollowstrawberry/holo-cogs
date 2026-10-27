@@ -75,12 +75,12 @@ class PromptPanelView(discord.ui.LayoutView):
             discord.ui.ActionRow(
                 self.make_prompt_select(module_prompts, "Open a module prompt...")
             ),
-            *[
+            *([
                 discord.ui.TextDisplay(f"**Custom keys**"),
                 discord.ui.ActionRow(
                     self.make_prompt_select(custom_prompts, "Open a prompt key...")
                 ),
-            ] if custom_prompts else *[],
+            ] if custom_prompts else []),
             discord.ui.Separator(),
             discord.ui.ActionRow(
                 self.make_button("➕", "New", discord.ButtonStyle.green, self.create_prompt),
