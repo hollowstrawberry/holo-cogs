@@ -16,6 +16,7 @@ MAX_IMAGES_PER_MESSAGE = 4
 TONES = r"(pause?|happy|angry|sad|soft|excited|laugh|whisper|yell|scream|cry|sobb?|moan|sigh|sing|clear(s|ing)?.throat)(ing)?"
 
 CUMULATIVE_CACHE_FLAG = False
+COMPLETION_STREAM_FLAG = False
 
 RESPONSE_CLEANUP_PATTERNS = [
     #("Opening XML",       re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),

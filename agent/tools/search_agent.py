@@ -3,6 +3,7 @@ import asyncio
 from openai import NotGiven
 
 from agent.types import ToolCall, Function, Parameters
+from agent.constants import COMPLETION_STREAM_FLAG
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.searchweb")
@@ -48,6 +49,7 @@ class AgenticSearchTool(ToolBase):
                         "content": arguments["query"],
                     }
                 ],
+                stream=COMPLETION_STREAM_FLAG,
                 extra_body={
                     **self.cog.openrouter_price_limits(model),
                     "plugins": [

@@ -313,6 +313,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
             messages=temp_messages,  # type: ignore
+            stream=constants.COMPLETION_STREAM_FLAG,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
                 **self.openrouter_price_limits(model),
@@ -417,6 +418,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 max_completion_tokens=config.response_tokens.value,  # type: ignore
                 tools=tools_schema,  # type: ignore
                 tool_choice="auto" if can_use_tools else "none",
+                stream=constants.COMPLETION_STREAM_FLAG,
                 extra_body=None if "/" not in model else {
                     "session_id": str(ctx.message.id),
                     **self.openrouter_price_limits(model),
@@ -747,6 +749,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
             messages=messages,  # type: ignore
+            stream=constants.COMPLETION_STREAM_FLAG,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
                 **self.openrouter_price_limits(model),
