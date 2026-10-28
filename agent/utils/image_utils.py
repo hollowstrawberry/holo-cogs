@@ -7,10 +7,10 @@ from urllib.parse import parse_qs, urlsplit
 from PIL import Image, ImageDraw, UnidentifiedImageError
 from redbot.core import commands
 
-from agent.constants import IMAGE_EXTENSIONS, MEDIA_HEADERS, URL_PATTERN
-from agent.types import ImageSource
 from .misc_utils import get_filename
 from .string_utils import undo_xml
+from agent.types import ImageSource
+from agent.constants import IMAGE_DOWNLOAD_MAXSIZE, IMAGE_DOWNLOAD_TIMEOUT, IMAGE_EXTENSIONS, MEDIA_HEADERS, URL_PATTERN
 
 
 def image_sources(message: discord.Message) -> list[ImageSource]:
@@ -76,14 +76,15 @@ def find_image_source(reference: str, messages: list[discord.Message], consumed:
     return None
 
 
-async def read_image_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int = 20 * 1024 * 1024) -> bytes:
+async def read_image_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int = IMAGE_DOWNLOAD_MAXSIZE) -> bytes:
     data: bytes | bytearray
     if source.attachment:
         if source.attachment.size > max_bytes:
             raise ValueError("Image exceeds the download limit")
         data = await source.attachment.read()
     elif source.url:
-        async with session.get(source.url, headers=MEDIA_HEADERS, timeout=aiohttp.ClientTimeout(total=15)) as response:
+        timeout = aiohttp.ClientTimeout(IMAGE_DOWNLOAD_TIMEOUT)
+        async with session.get(source.url, headers=MEDIA_HEADERS, timeout=timeout) as response:
             response.raise_for_status()
             data = bytearray()
             async for chunk in response.content.iter_chunked(65536):
