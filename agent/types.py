@@ -146,6 +146,10 @@ class ToolCall:
 # Protocols
 
 @runtime_checkable
+class LinkFixer(Protocol): # crab-cogs
+    async def get_fixed_message(self, message: discord.Message) -> discord.Message | None: ...
+
+@runtime_checkable
 class ImageScanner(Protocol): # crab-cogs
     image_cache: dict[int, tuple[dict[int, object], dict[int, bytes]]]
 

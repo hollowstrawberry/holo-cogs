@@ -6,6 +6,7 @@ import discord
 import tiktoken
 import xmltodict
 from random import random
+from copy import copy
 from typing import Callable
 from difflib import get_close_matches
 from datetime import datetime, timezone
@@ -176,7 +177,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         await channel_config.last_response.set(now)
         
         if match := constants.URL_PATTERN.search(message.content):
-            if not message.embeds and f"<{match.group(0)}>" not in message.content:  # non-embedding links
+            if f"<{match.group(0)}>" not in message.content:  # non-embedding links
                 async with utils.bot_is_typing(ctx.channel):
                     ctx = await self.wait_for_embed(ctx)
     
@@ -228,17 +229,29 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         return True
 
 
-    @staticmethod
-    async def wait_for_embed(ctx: commands.Context) -> commands.Context:
+    async def wait_for_embed(self, ctx: commands.Context) -> commands.Context:
+        fixed = None
+        if isinstance(linkfixer := self.bot.get_cog("LinkFixer"), types.LinkFixer):
+            try:
+                fixed = await linkfixer.get_fixed_message(ctx.message)
+            except discord.DiscordException as error:
+                log.warning(f"LinkFixer {type(error).__name__}: {error}")
+        message = fixed or ctx.message
         for _ in range(4):
+            if message.embeds:
+                break
             await asyncio.sleep(1)
             try:
-                ctx.message = await ctx.channel.fetch_message(ctx.message.id)
+                message = await ctx.channel.fetch_message(message.id)
             except Exception as error:
                 log.warning(f"wait_for_embed {type(error).__name__}: {error}")
                 break
-            if ctx.message.embeds:
-                break
+        if fixed:
+            # Keep the requester, mentions and reply target; only enrich the LLM context.
+            ctx.message = copy(ctx.message)
+            ctx.message.embeds = message.embeds
+        else:
+            ctx.message = message
         return ctx
 
 
