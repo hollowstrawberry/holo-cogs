@@ -11,6 +11,7 @@ log = logging.getLogger("agent.arcenciel_search")
 
 class ArcencielTool(ToolBase):
     display_name = "arcenciel_search"
+    required_cog="Arcenciel"
     settings = {
         "arcenciel_emoji": "📁",
         "arcenciel_timeout": "10",
@@ -45,17 +46,18 @@ class ArcencielTool(ToolBase):
             return "<error>`arcenciel` cog not installed or outdated, please notify the bot owner</error>"
         if not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
             return "<error>`arcenciel` cog not configured, please notify the bot owner</error>"
-        
+
+        if self.ctx.bot_permissions.add_reactions:
+            emoji = self.get_setting("arcenciel_emoji")
+            asyncio.create_task(self.ctx.message.add_reaction(emoji))
+
         query = arguments.get("query", "")
         user = arguments.get("user", None)
 
         limit = self.get_setting_int("arcenciel_model_results", 1, 20) or 5
         description_limit = self.get_setting_int("arcenciel_model_description_chars", 0, 10000)
         trigger_limit = self.get_setting_int("arcenciel_model_trigger_chars", 0, 10000)
-        timeout = self.get_setting_int("arcenciel_timeout", 1, 1000) or 10
-        emoji = self.get_setting("arcenciel_emoji")
-
-        asyncio.create_task(self.ctx.message.add_reaction(emoji))
+        timeout = aiohttp.ClientTimeout(self.get_setting_int("arcenciel_timeout", 1, 1000) or 10)
 
         params = {
             "search": query,

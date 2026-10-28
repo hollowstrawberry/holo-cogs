@@ -15,7 +15,10 @@ log = logging.getLogger("agent.scrape")
 
 class ScrapeTool(ToolBase):
     display_name = "scrape"
-    settings = {"scrape_emoji": "🔗"}
+    settings = {
+        "scrape_emoji": "🔗",
+        "scrape_timeout": "10",
+    }
     schema = ToolCall(
         Function(
             name="open_url",
@@ -46,9 +49,10 @@ class ScrapeTool(ToolBase):
         url = arguments.get("url")
         if not url:
             return "<error>No URL provided</error>"
-            
-        emoji = self.get_setting("scrape_emoji")
-        asyncio.create_task(self.ctx.message.add_reaction(emoji))
+
+        if self.ctx.bot_permissions.add_reactions:
+            emoji = self.get_setting("scrape_emoji")
+            asyncio.create_task(self.ctx.message.add_reaction(emoji))
         
         for pattern, method in self.custom_scrapers.items():
             if match := pattern.search(url):
@@ -57,7 +61,8 @@ class ScrapeTool(ToolBase):
 
     async def scrape_generic(self, url: str) -> str:
         try:
-            async with self.cog.session.get(url, headers=self.headers, timeout=aiohttp.ClientTimeout(total=5)) as response:
+            timeout = aiohttp.ClientTimeout(self.get_setting_int("scrape_timeout", 1, 1000) or 10)
+            async with self.cog.session.get(url, headers=self.headers, timeout=timeout) as response:
                 response.raise_for_status()
                 content_type = response.headers.get("Content-Type", "").lower()
                 if "text" not in content_type:
@@ -82,8 +87,9 @@ class ScrapeTool(ToolBase):
     async def scrape_arcenciel_model(self, match: re.Match) -> dict | str:
         model_id = match.group("id")
         url = f"https://arcenciel.io/api/models/{model_id}"
+        timeout = aiohttp.ClientTimeout(self.get_setting_int("arcenciel_timeout", 1, 1000) or 10)
         try:
-            async with self.cog.session.get(url, headers=self.headers) as response:
+            async with self.cog.session.get(url, headers=self.headers, timeout=timeout) as response:
                 response.raise_for_status()
                 data = await response.json()
         except aiohttp.ClientError as error:

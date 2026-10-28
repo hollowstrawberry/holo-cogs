@@ -16,7 +16,9 @@ log = logging.getLogger("agent.boorutags")
 
 class BooruTagsTool(ToolBase):
     display_name = "booru_tags"
-    settings = {"boorutag_emoji": "🗒️"}
+    settings = {
+        "boorutag_emoji": "🗒️"
+    }
     schema = ToolCall(
         Function(
             name="find_booru_tags",
@@ -66,9 +68,10 @@ class BooruTagsTool(ToolBase):
         query = arguments.get("query", "")
         if len(query) < 3:
             return "<error>Query must be at least 3 characters long</error>"
-        
-        emoji = self.get_setting("boorutag_emoji")
-        asyncio.create_task(self.ctx.message.add_reaction(emoji))
+
+        if self.ctx.bot_permissions.add_reactions:
+            emoji = self.get_setting("boorutag_emoji")
+            asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         if not self.tag_groups:
             async with aiofiles.open(bundled_data_path(self.cog).absolute() / "tag_groups.json", "r") as fp:

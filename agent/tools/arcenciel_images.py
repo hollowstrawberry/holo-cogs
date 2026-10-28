@@ -49,6 +49,7 @@ def spoiler_nsfw_image_links(text: str, image_ids: list[int]) -> str:
 
 class ArcencielImagesTool(ToolBase):
     display_name = "arcenciel_images"
+    required_cog="Arcenciel"
     settings = {
         "arcenciel_emoji": "📁",
         "arcenciel_timeout": "10",
@@ -94,16 +95,17 @@ class ArcencielImagesTool(ToolBase):
         if not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
             return "<error>`arcenciel` cog not configured, please notify the bot owner</error>"
 
+        if self.ctx.bot_permissions.add_reactions:
+            emoji = self.get_setting("arcenciel_emoji")
+            asyncio.create_task(self.ctx.message.add_reaction(emoji))
+
         query = str(arguments.get("query") or "").strip()[:200]
         user = str(arguments.get("user") or "").strip()[:100]
         sort = arguments.get("sort")
 
         limit = self.get_setting_int("arcenciel_image_results", 1, 20) or 5
         prompt_limit = self.get_setting_int("arcenciel_prompt_chars", 0, 10000) or 1000
-        timeout = self.get_setting_int("arcenciel_timeout", 1, 1000) or 10
-        emoji = self.get_setting("arcenciel_emoji")
-
-        asyncio.create_task(self.ctx.message.add_reaction(emoji))
+        timeout = aiohttp.ClientTimeout(self.get_setting_int("arcenciel_timeout", 1, 1000) or 10)
 
         if sort not in SORT_TYPES:
             sort = "newest"

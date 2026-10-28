@@ -8,8 +8,8 @@ import discord.http
 
 from agent.utils import generate_waveform
 from agent.types import ToolCall, Function, Parameters
-from agent.tools.base import ToolBase
 from agent.constants import INCOMPLETE_EMOTE_PATTERN
+from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.finevoice")
 
@@ -26,6 +26,7 @@ class FinevoiceTool(ToolBase):
         "voice_speed": "1.0",
         "voice_pitch": "0",
         "voice_temperature": "0.9",
+        "voice_timeout": "60",
     }
     schema = ToolCall(
         Function(
@@ -46,13 +47,13 @@ class FinevoiceTool(ToolBase):
             log.error("finevoice api_key not found")
             return VOICE_ERROR
         
-        if self.ctx.bot_permissions.add_reactions:
-            emoji = self.get_setting("voice_emoji")
-            asyncio.create_task(self.ctx.message.add_reaction(emoji))
-
         if not arguments.get("text"):
             log.warning("llm did not provide text for tts")
             return "<error>You didn't send a text to convert into audio.</error>"
+
+        if self.ctx.bot_permissions.add_reactions:
+            emoji = self.get_setting("voice_emoji")
+            asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         text = arguments["text"]
         text = INCOMPLETE_EMOTE_PATTERN.sub(".", text)
@@ -68,11 +69,12 @@ class FinevoiceTool(ToolBase):
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
+        timeout = aiohttp.ClientTimeout(self.get_setting_int("voice_timeout", 1, 1000) or 60)
 
         try:
-            async with self.cog.session.post(FINEVOICE_ENDPOINT, json=payload, headers=headers) as response:
+            async with self.cog.session.post(FINEVOICE_ENDPOINT, json=payload, headers=headers, timeout=timeout) as response:
                 response.raise_for_status()
-                data = await response.json()
+                data: dict = await response.json()
         except aiohttp.ClientError:
             log.exception("Failed to get finevoice response")
             return VOICE_ERROR
@@ -83,7 +85,7 @@ class FinevoiceTool(ToolBase):
             return VOICE_ERROR
 
         try:
-            async with self.cog.session.get(voice_result_url) as response:
+            async with self.cog.session.get(voice_result_url, headers=headers, timeout=timeout) as response:
                 response.raise_for_status()
                 audio_data = await response.read()
         except aiohttp.ClientError:

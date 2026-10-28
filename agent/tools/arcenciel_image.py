@@ -18,6 +18,7 @@ def dimensions(value: str) -> tuple[int, int]:
 
 class ArcencielImageTool(ToolBase):
     display_name = "arcenciel_image"
+    required_cog="Arcenciel"
     settings = {
         "checkpoint": "moss",
         "checkpoint_moss": "",

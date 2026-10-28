@@ -10,7 +10,10 @@ log = logging.getLogger("agent.imagetagger")
 
 class ImageTaggingTool(ToolBase):
     display_name = "image_tagging"
-    settings = {"tagging_emoji": "🖼️"}
+    required_cog="Arcenciel"
+    settings = {
+        "tagging_emoji": "🖼️"
+    }
     schema = ToolCall(
         Function(
             name="infer_booru_tags",
@@ -39,6 +42,10 @@ class ImageTaggingTool(ToolBase):
         reference: str = arguments.get("image", "")
         if not reference:
             return "<error>No image provided</error>"
+
+        if self.ctx.bot_permissions.add_reactions:
+            emoji = self.get_setting("tagging_emoji")
+            asyncio.create_task(self.ctx.message.add_reaction(emoji))
         
         messages = await image_messages(self.ctx, self.cog.config[self.ctx.guild].backread_messages.value)
         image_source = find_image_source(reference, messages, [])
@@ -49,9 +56,7 @@ class ImageTaggingTool(ToolBase):
                     "hint": "Use an attachment filename or image URL from the conversation.",
                 }
             }
-
-        emoji = self.get_setting("tagging_emoji")
-        asyncio.create_task(self.ctx.message.add_reaction(emoji))
+            
         try:
             image_bytes = await read_image_source(image_source, self.cog.session)
             max_resolution = self.cog.config[self.ctx.guild].max_image_resolution.value

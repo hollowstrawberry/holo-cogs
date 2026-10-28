@@ -12,7 +12,10 @@ log = logging.getLogger("agent.searchweb")
 class TavilySearchTool(ToolBase):
     display_name = "tavily_search"
     apis = [("tavily", "api_key")]
-    settings = {"search_emoji": "🌐"}
+    settings = {
+        "search_emoji": "🌐",
+        "search_timeout": "10",
+    }
     schema = ToolCall(
         Function(
             name="web_search",
@@ -42,7 +45,7 @@ class TavilySearchTool(ToolBase):
             search_depth="basic",
             include_answer="advanced",
             max_results=5,
-            timeout=15,
+            timeout=self.get_setting_int("search_timeout", 1, 1000) or 10,
         )
         obj = {
             "query": result["query"],

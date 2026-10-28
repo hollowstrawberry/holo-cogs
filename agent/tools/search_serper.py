@@ -1,5 +1,6 @@
 import json
 import logging
+import asyncio
 import aiohttp
 from agent.utils import add_xml_group
 from agent.types import ToolCall, Function, Parameters
@@ -11,6 +12,10 @@ log = logging.getLogger("agent.searchgoogle")
 class SerperSearchTool(ToolBase):
     display_name = "serper_search"
     apis = [("serper", "api_key")]
+    settings = {
+        "search_emoji": "🌐",
+        "search_timeout": "10",
+    }
     schema = ToolCall(
         Function(
             name="search_google",
@@ -30,14 +35,19 @@ class SerperSearchTool(ToolBase):
             log.error("Tried to do a google search but serper api_key not found")
             return "<error>An error occured while searching Google.</error>"
 
+        if self.ctx.bot_permissions.add_reactions:
+            emoji = self.get_setting("search_emoji")
+            asyncio.create_task(self.ctx.message.add_reaction(emoji))
+
         url = "https://google.serper.dev/search"
         query = arguments["query"]
         payload = json.dumps({"q": query})
         headers = {'X-API-KEY': api_key, 'Content-Type': 'application/json'}
+        timeout = aiohttp.ClientTimeout(self.get_setting_int("search_timeout", 1, 1000) or 10)
         try:
-            async with self.cog.session.post(url, data=payload, headers=headers) as response:
+            async with self.cog.session.post(url, data=payload, headers=headers, timeout=timeout) as response:
                 response.raise_for_status()
-                data = await response.json()
+                data: dict = await response.json()
         except aiohttp.ClientError as error:
             log.warning(f"Failed request to serper.io: {type(error).__name__}: {error}")
             return "<error>An error occured while searching Google.</error>"
