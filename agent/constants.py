@@ -4,19 +4,42 @@ from discord.utils import DISCORD_EPOCH
 
 from agent.types import AgentValue
 
-MAX_MESSAGE_LENGTH = 1950
-MAX_EMBED_DESCRIPTION = 4096
+EMPTY = "ᅠ" # U+1160
+DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezone.utc)
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
-VIEW_TIMEOUT = 15 * 60
-EMPTY = "ᅠ"
 DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
-TOKEN_ENCODING = "o200k_base"
 PERMANENT_PROMPT_TYPES = ("responder", "autoresponder", "autoreacter", "recaller", "captioner", "memorizer")
+
+VIEW_TIMEOUT = 15 * 60
+MAX_MESSAGE_LENGTH = 1950
+MAX_EMBED_DESCRIPTION = 4090
 MAX_IMAGES_PER_MESSAGE = 4
-TONES = r"(pause?|happy|angry|sad|soft|excited|laugh|whisper|yell|scream|cry|sobb?|moan|sigh|sing|clear(s|ing)?.throat)(ing)?"
+IMAGE_DOWNLOAD_MAXSIZE = 50 * 1024 * 1024
+IMAGE_DOWNLOAD_TIMEOUT = 10
+TOKEN_ENCODING = "o200k_base"
 
 CUMULATIVE_CACHE_FLAG = False
 COMPLETION_STREAM_FLAG = False
+
+URL_PATTERN = re.compile(r"(https?://\S+)")
+ALPHANUMERIC_PATTERN = re.compile(r"^(\w+)$")
+FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
+EMOTE_PATTERN = re.compile(r"<(a?):(\w+):(\d{17,19})>")
+INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?\\?(?:&lt;|<)?(a?):(\w{3,}):(\d*)(?:&gt;|>)?`?")
+FAKE_EMOTE_PATTERN = re.compile(r"(?:^|\s+):\w+:(?:\s+|$)")
+MENTION_PATTERN = re.compile(r"(?<!\w)([@#])(\w[\w.-]*\w)")
+LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
+XML_TAG_PATTERN = re.compile(r"<(/)?(\w+)[^>]*?(/)?>")
+UNCLOSED_XML_TAG_PATTERN = re.compile(r"<[^>]*$")
+BACKTICK_PATTERN = re.compile(r"```+")
+NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
+PIPE_SEPARATOR_PATTERN = re.compile(r"\s*\|\|\s*")
+
+GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")
+ARCENCIEL_MODEL_URL_PATTERN = re.compile(r"(https?://)?arcenciel.io/models/(?P<id>\d+)")
+DISCORD_MESSAGE_LINK_PATTERN = re.compile(r"(?:https?://)?discord.com/channels/(?P<guild_id>\d+)/(?P<channel_id>\d+)/(?P<message_id>\d+)")
+
+TONES = r"(pause?|happy|angry|sad|soft|excited|laugh|whisper|yell|scream|cry|sobb?|moan|sigh|sing|clear(s|ing)?.throat)(ing)?"
 
 RESPONSE_CLEANUP_PATTERNS = [
     #("Opening XML",       re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),
@@ -38,31 +61,12 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Tone modifier",     re.compile(rf" +\[{TONES}\] +", re.IGNORECASE), "\n"),
     ("Tone modifier 2",   re.compile(rf" *\[{TONES}\] *", re.IGNORECASE), ""),
 ]
+
 GENERATE_IMAGE_PATTERNS = [
     ("XML object strict", re.compile(r"<generated_image(?: [^>]+)?>(?:(?!</generated_image>).)*<prompt>(.*?)</prompt>(?:(?!</generated_image>).)*</generated_image>", re.DOTALL | re.IGNORECASE)),
     ("XML object",        re.compile(r"<(\w+)(?: [^>]+)?>(?:(?!</\1>).)*<prompt>(.*?)</prompt>(?:(?!</\1>).)*</\1>", re.DOTALL | re.IGNORECASE)),
     #"JSON object":       re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
 ]
-EMOTE_PATTERN = re.compile(r"<(a?):(\w+):(\d{17,19})>")
-INCOMPLETE_EMOTE_PATTERN = re.compile(r"`?\\?(?:&lt;|<)?(a?):(\w{3,}):(\d*)(?:&gt;|>)?`?")
-FAKE_EMOTE_PATTERN = re.compile(r"(?:^|\s+):\w+:(?:\s+|$)")
-
-ALPHANUMERIC_PATTERN = re.compile(r"^(\w+)$")
-FARENHEIT_PATTERN = re.compile(r"(-?\d+)\s?°[fF]")
-LORA_PATTERN = re.compile(r"(<lora:([^:]+):(\d+\.?\d*)>)")
-BACKTICK_PATTERN = re.compile(r"```+")
-NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
-PIPE_SEPARATOR_PATTERN = re.compile(r"\s*\|\|\s*")
-UNCLOSED_XML_TAG_PATTERN = re.compile(r"<[^>]*$")
-XML_TAG_PATTERN = re.compile(r"<(/)?(\w+)[^>]*?(/)?>")
-MENTION_PATTERN = re.compile(r"(?<!\w)([@#])(\w[\w.-]*\w)")
-
-URL_PATTERN = re.compile(r"(https?://\S+)")
-GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")
-ARCENCIEL_MODEL_URL_PATTERN = re.compile(r"(https?://)?arcenciel.io/models/(?P<id>\d+)")
-DISCORD_MESSAGE_LINK_PATTERN = re.compile(r"(?:https?://)?discord.com/channels/(?P<guild_id>\d+)/(?P<channel_id>\d+)/(?P<message_id>\d+)")
-
-DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezone.utc)
 
 MEDIA_HEADERS =  {
     "User-Agent": "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
