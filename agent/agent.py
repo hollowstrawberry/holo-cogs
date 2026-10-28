@@ -231,13 +231,14 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
     async def wait_for_embed(self, ctx: commands.Context) -> commands.Context:
         fixed = None
-        if isinstance(linkfixer := self.bot.get_cog("LinkFixer"), types.LinkFixer):
+        if linkfixer := utils.get_cog(self.bot, types.LinkFixer):
             try:
                 fixed = await linkfixer.get_fixed_message(ctx.message)
             except discord.DiscordException as error:
                 log.warning(f"LinkFixer {type(error).__name__}: {error}")
         message = fixed or ctx.message
-        for _ in range(4):
+        wait = 8 if fixed else 4
+        for _ in range(wait):
             if message.embeds:
                 break
             await asyncio.sleep(1)
@@ -247,7 +248,6 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 log.warning(f"wait_for_embed {type(error).__name__}: {error}")
                 break
         if fixed:
-            # Keep the requester, mentions and reply target; only enrich the LLM context.
             ctx.message = copy(ctx.message)
             ctx.message.embeds = message.embeds
         else:
