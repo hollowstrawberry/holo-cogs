@@ -25,6 +25,7 @@ class ImageSource:
     attachment: discord.Attachment | None = None
     att_index: int = 0
     url: str | None = None
+    proxy_url: str | None = None
 
 
 @dataclass(frozen=True)

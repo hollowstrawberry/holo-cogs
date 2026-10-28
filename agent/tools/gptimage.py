@@ -1,17 +1,18 @@
 import asyncio
+import aiohttp
 import discord
 from typing import Coroutine, Protocol, runtime_checkable
 from redbot.core import commands
 
-from agent.utils import undo_xml, get_cog
-from agent.types import ToolCall, Function, Parameters
+from agent.utils import undo_xml, get_cog, image_messages, find_image_source, read_image_source
+from agent.types import ToolCall, Function, Parameters, ImageSource
 from agent.tools.base import ToolBase
 
 
 @runtime_checkable
 class GptImage(Protocol):
     @staticmethod
-    async def normalize_attachments(attachments: list[discord.Attachment]) -> tuple[list[bytes], str]: ...
+    async def normalize_images(data: list[bytes]) -> tuple[list[bytes], str]: ...
 
     async def imagine(self, ctx: commands.Context, resolution: str, prompt: str, images: list[bytes], callback: Coroutine | None = None): ...
 
@@ -19,19 +20,11 @@ class GptImage(Protocol):
 class GptImageToolBase(ToolBase):
     imagegen = True
 
-    async def find_attachment(self, filename: str, messages: list[discord.Message], consumed: list[discord.Attachment]) -> discord.Attachment | None:
-        assert self.ctx.guild
-        for message in messages:
-            for attachment in message.attachments:
-                if attachment.filename == filename and attachment not in consumed:
-                    return attachment
-        return None
-    
     async def run(self, arguments: dict) -> dict | str:
         assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
         gptimage = get_cog(self.cog.bot, GptImage)
         if not gptimage:
-            return "<error>`gptimage` cog not installed, please notify the bot owner</error>"
+            return "<error>`gptimage` cog missing or outdated, please notify the bot owner</error>"
         
         channel_mode = self.cog.config[self.ctx.guild].generation_channel_mode.value
         channels = self.cog.config[self.ctx.guild].generation_channels.value
@@ -51,6 +44,8 @@ class GptImageToolBase(ToolBase):
 
         if not prompt:
             return "<error>No prompt provided</error>"
+        if len(existing) > 4:
+            return "<error>At most four input images are supported</error>"
         if not existing and "first image" in prompt or len(existing) < 2 and "second image" in prompt or len(existing) < 3 and "third image" in prompt:
             return "<error>You didn't provide all the reference images</error>"
     
@@ -68,27 +63,28 @@ class GptImageToolBase(ToolBase):
         else:
             resolution = None
 
-        attachments: list[discord.Attachment] = []
+        sources: list[ImageSource] = []
         if existing:
             limit = self.cog.config[self.ctx.guild].backread_messages.value
-            messages = [message async for message in self.ctx.channel.history(limit=limit+1)]
-            if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
-                quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(self.ctx.message.reference.message_id)
-                messages.insert(0, quoted)
-            for i, filename in enumerate(existing):
-                att = await self.find_attachment(filename, messages, attachments)
-                if not att:
+            messages = await image_messages(self.ctx, limit)
+            for reference in existing:
+                source = find_image_source(reference, messages, sources)
+                if not source:
                     return {
                         "result": {
-                            "error": f'Image "{filename}" could not be found.',
-                            "hint": 'Use an attachment in chat, for example, <attachment filename="image.png"></attachment> would result in image.png',
+                            "error": f'Image "{reference}" could not be found or was already selected.',
+                            "hint": "Use an attachment filename or image URL from the conversation.",
                         }
                     }
-                attachments.append(att)
+                sources.append(source)
 
-        images = []
-        if attachments:
-            images, original_resolution = await gptimage.normalize_attachments(attachments)
+        images: list[bytes] = []
+        if sources:
+            try:
+                data = [await read_image_source(source, self.cog.session) for source in sources]
+                images, original_resolution = await gptimage.normalize_images(data)
+            except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError):
+                return "<error>Could not read an input image. It may be unavailable, invalid or too large.</error>"
             if base_image:
                 resolution = original_resolution
         if not resolution:
@@ -129,8 +125,7 @@ class GptImageGenTool(GptImageToolBase):
                         "items": {"type": "string"},
                         "minItems": 0,
                         "maxItems": 4,
-                        "description": 'These will be used to help make the final image.'\
-                                       ' Each must be the filename of individual chat message attachments, extracted from the message history only.'
+                        "description": 'Reference images: attachment filenames or image URLs from the conversation.'
                     },
                     "resolution": {
                         "type": "string",
@@ -153,7 +148,7 @@ class GptImageEditTool(GptImageToolBase):
                 properties={
                     "base_image": {
                         "type": "string",
-                        "description": 'The filename of a chat message attachment, extracted from the message history only. Refer to this as "the first image".'
+                        "description": 'Attachment filename or image URL from the conversation. Refer to this as "the first image".'
                     },
                     "prompt": {
                         "type": "string",
@@ -166,8 +161,7 @@ class GptImageEditTool(GptImageToolBase):
                         "items": {"type": "string"},
                         "minItems": 0,
                         "maxItems": 3,
-                        "description": 'Use if more than one image is needed. Refer to these as "the second/third/fourth image".'\
-                                       ' Each must be the filename of individual chat message attachments, extracted from the message history only.',
+                        "description": 'Additional attachment filenames or image URLs from the conversation, in reference order.',
                     },
                 },
                 required=["base_image", "prompt"],

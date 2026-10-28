@@ -88,8 +88,8 @@ class ChatHistoryContext:
         for backmsg in self.backread:
             quote = self.all_resolved_quotes.get(backmsg.id)
             # share image budget between base message and its quoted message
-            backmsg_candidates = self.extract_candidates(backmsg)
-            quote_candidates   = self.extract_candidates(quote) if quote else []
+            backmsg_candidates = utils.image_sources(backmsg)
+            quote_candidates   = utils.image_sources(quote) if quote else []
             candidates = backmsg_candidates + quote_candidates
             if not candidates:
                 continue
@@ -155,27 +155,6 @@ class ChatHistoryContext:
             except discord.DiscordException:
                 return backmsg.id, None
     
-
-    @staticmethod
-    def extract_candidates(msg: discord.Message) -> list[types.ImageSource]:
-        att_candidates: list[types.ImageSource] = [
-            types.ImageSource(msg.id, attachment=att, att_index=i)
-            for i, att in enumerate(msg.attachments)
-            if att.content_type and att.content_type.startswith("image/")
-        ]
-        if att_candidates:
-            return att_candidates
-        url_candidates: set[types.ImageSource] = set()
-        for embed in msg.embeds:
-            if embed.image and embed.image.url:
-                url_candidates.add(types.ImageSource(msg.id, url=embed.image.url))
-            if embed.thumbnail and embed.thumbnail.url:
-                url_candidates.add(types.ImageSource(msg.id, url=embed.thumbnail.url))
-        for match in constants.URL_PATTERN.findall(msg.content or ""):
-            if match.endswith(constants.IMAGE_EXTENSIONS):
-                url_candidates.add(types.ImageSource(msg.id, url=match))
-        return list(url_candidates)
-
 
     async def resolve_images(self, backmsg: discord.Message) -> types.DiscordMessageResolvedImages:
         candidates = self.all_candidates[backmsg.id]
@@ -293,9 +272,7 @@ class ChatHistoryContext:
                 if fp_before.getbuffer().nbytes == 0:
                     await src.attachment.save(fp_before, seek_begin=True)
             elif src.url:
-                async with self.builder.session.get(src.url, headers=constants.MEDIA_HEADERS) as response:
-                    response.raise_for_status()
-                    fp_before = BytesIO(await response.read())
+                fp_before = BytesIO(await utils.read_image_source(src, self.builder.session))
 
             fp_after = await asyncio.to_thread(utils.normalize_image, fp_before, max_pixels, thumbnail_size)
             del fp_before
