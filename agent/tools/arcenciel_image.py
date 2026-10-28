@@ -2,7 +2,6 @@ import logging
 import asyncio
 import aiohttp
 import discord
-from collections.abc import Mapping
 
 from agent.utils import add_xml_group, undo_xml, get_cog
 from agent.types import Function, Parameters, ToolCall, ImageScanner
@@ -107,11 +106,7 @@ class ArcencielImageTool(ToolBase):
         return (False, None)
 
     async def run(self, arguments: dict[str, object]) -> dict[str, object] | str:
-        assert (
-            self.ctx.guild
-            and isinstance(self.ctx.author, discord.Member)
-            and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
-        )
+        assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
 
         try:
             from arcenciel.arcenciel import Arcenciel
@@ -122,11 +117,11 @@ class ArcencielImageTool(ToolBase):
             from arcenciel.agent_utils import available_models, choose_lora, choose_model, lora_family_hint, lora_weight
         except ImportError:
            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
-        
-        arcenciel = self.cog.bot.get_cog("Arcenciel")
-        if not isinstance(arcenciel, Arcenciel):
-            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
-        
+        if not (arcenciel := get_cog(self.cog.bot, Arcenciel)):
+            return "<error>`arcenciel` cog not installed or outdated, please notify the bot owner</error>"
+        if not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
+            return "<error>`arcenciel` cog not configured, please notify the bot owner</error>"
+
         prompt = undo_xml(str(arguments.get("prompt", "")))
         negative_prompt = str(arguments.get("negative_prompt", ""))
         aspect = str(arguments.get("resolution", "")).lower().strip()
@@ -139,8 +134,6 @@ class ArcencielImageTool(ToolBase):
             return "<error>The prompt is missing.</error>"
         if len(prompt) > 32768:
             return "<error>The prompt is too long.</error>"
-        if arcenciel.api is None:
-            return "<error>The Arc en Ciel generator is unavailable.</error>"
         
         moss: dict[str, object] = {}
         if "boxes" in arguments and arguments["boxes"] != []:
@@ -157,7 +150,7 @@ class ArcencielImageTool(ToolBase):
         width, height = sizes.get(aspect, (None, None))
 
         sent_by_me, message = await self.find_attachment(existing) if existing else (False, None)
-        metadata: Mapping[str, object] = {}
+        metadata: dict[str, object] = {}
         warnings: list[str] = []
 
         if message and sent_by_me:

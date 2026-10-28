@@ -88,10 +88,11 @@ class ArcencielImagesTool(ToolBase):
         try:
             from arcenciel.arcenciel import Arcenciel
         except ImportError:
-            return "<error>Arc en Ciel cog not installed, please notify the bot owner</error>"
-        arcenciel = get_cog(self.cog.bot, Arcenciel)
-        if not arcenciel or not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
-            return "<error>Arc en Ciel cog not configured, please notify the bot owner</error>"
+            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
+        if not (arcenciel := get_cog(self.cog.bot, Arcenciel)):
+            return "<error>`arcenciel` cog not installed or outdated, please notify the bot owner</error>"
+        if not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
+            return "<error>`arcenciel` cog not configured, please notify the bot owner</error>"
 
         query = str(arguments.get("query") or "").strip()[:200]
         user = str(arguments.get("user") or "").strip()[:100]

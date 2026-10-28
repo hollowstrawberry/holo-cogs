@@ -1,9 +1,7 @@
 import logging
 import asyncio
-import discord
-from redbot.core import commands
 
-from agent.utils import get_filename, clean_tag, normalize_image, image_messages, find_image_source, read_image_source
+from agent.utils import get_filename, clean_tag, normalize_image, image_messages, find_image_source, read_image_source, get_cog
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
@@ -29,12 +27,19 @@ class ImageTaggingTool(ToolBase):
 
     async def run(self, arguments: dict) -> str | dict:
         assert self.ctx.guild
+        try:
+            from arcenciel.arcenciel import Arcenciel
+        except ImportError:
+            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
+        if not (arcenciel := get_cog(self.cog.bot, Arcenciel)):
+            return "<error>`arcenciel` cog not installed or outdated, please notify the bot owner</error>"
+        if not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
+            return "<error>`arcenciel` cog not configured, please notify the bot owner</error>"
+
         reference: str = arguments.get("image", "")
         if not reference:
             return "<error>No image provided</error>"
-        arcenciel: commands.Cog | None = self.cog.bot.get_cog("Arcenciel")
-        if not arcenciel:
-            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
+        
         messages = await image_messages(self.ctx, self.cog.config[self.ctx.guild].backread_messages.value)
         image_source = find_image_source(reference, messages, [])
         if not image_source:

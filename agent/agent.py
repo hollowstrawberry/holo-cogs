@@ -851,9 +851,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             from arcenciel.types import ImageGenParams
         except ImportError:
             return await ctx.message.add_reaction("❌")
-        
-        arcenciel = self.bot.get_cog("Arcenciel")
-        if not isinstance(arcenciel, Arcenciel):
+        if not (arcenciel := utils.get_cog(self.bot, Arcenciel)):
             return await ctx.message.add_reaction("❌")
 
         width, height = await self.find_last_sd_generated_image_resolution(ctx)                
