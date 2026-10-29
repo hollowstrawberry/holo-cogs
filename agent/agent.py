@@ -540,15 +540,6 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             raw_completion = completion
             if self.config.extended_logging.value:
                 log.info(f"{raw_completion=}")
-            # special case: the bot tries to generate an image by sending text instead of using the function call
-            prompt = None
-            for _, pattern in constants.GENERATE_IMAGE_PATTERNS:
-                if m := pattern.search(completion):
-                    prompt = utils.undo_xml(m.groups()[-1])
-                    completion = pattern.sub("", completion)
-                    break
-            if prompt and "generate_stable_diffusion" not in tool_call_history:
-                await self.generate_stable_diffusion(ctx, prompt)
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
@@ -835,45 +826,3 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if len(mem_obj) > 1:
                 recalled_memories_obj["memories"]["memory"].append(mem_obj)
         return xmltodict.unparse(recalled_memories_obj, full_document=False)
-
-
-    async def generate_stable_diffusion(self, ctx: commands.Context, prompt: str):
-        assert ctx.guild and self.bot.user
-        config = self.config[ctx.guild]
-        if config.channel_mode.value == "blacklist" and ctx.channel.id in config.channels.value \
-                or config.channel_mode.value == "whitelist" and ctx.channel.id not in config.channels.value:
-            if ctx.bot_permissions.add_reactions:
-                await ctx.message.add_reaction("❌")
-            return
-
-        try:
-            from arcenciel.arcenciel import Arcenciel
-            from arcenciel.types import ImageGenParams
-        except ImportError:
-            return await ctx.message.add_reaction("❌")
-        if not (arcenciel := utils.get_cog(self.bot, Arcenciel)):
-            return await ctx.message.add_reaction("❌")
-
-        width, height = await self.find_last_sd_generated_image_resolution(ctx)                
-        params = ImageGenParams(prompt=prompt, width=width, height=height)
-        message_content = f"Requested at {ctx.message.jump_url} by {ctx.author.mention}"
-        async def callback():
-            await asyncio.sleep(0)
-            self.currently_generating.discard(ctx.message.id)
-        self.currently_generating.add(ctx.message.id)
-        generate_image = arcenciel.generate_image
-        asyncio.create_task(generate_image(ctx, params=params, message_content=message_content, callback=callback()))
-
-
-    async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
-        backread = await self.fetch_message_history(ctx)
-        if ctx.message.reference and (ctx.message.reference.cached_message or ctx.message.reference.message_id):
-            quote = ctx.message.reference.cached_message or await ctx.message.channel.fetch_message(ctx.message.reference.message_id or 0)
-            backread.insert(1, quote)
-        for msg in backread[1:]:
-            if msg.author == self.bot.user and msg.attachments and len(msg.attachments) == 1 and msg.attachments[0].width and msg.attachments[0].height:
-                width, height = msg.attachments[0].width, msg.attachments[0].height
-                if (width, height) not in constants.SD_IMAGEGEN_RESOLUTIONS:
-                    width, height = utils.find_nearest_resolution((width, height), constants.SD_IMAGEGEN_RESOLUTIONS)
-                return width, height
-        return None, None

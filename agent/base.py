@@ -22,9 +22,6 @@ class AgentCogBase(commands.Cog):
         self.currently_generating: set[int] = set()
         self.config = AgentCogConfig(Config.get_conf(None, identifier=19475820, cog_name="GptMemory"))
         self.config.register_all()
-        
-    async def find_last_sd_generated_image_resolution(self, ctx: commands.Context) -> tuple[int | None, int | None]:
-        raise NotImplementedError()
     
     async def execute_captioner(self, ctx: commands.Context, image: AgentContent, result: CompletionResult) -> str:
         raise NotImplementedError()

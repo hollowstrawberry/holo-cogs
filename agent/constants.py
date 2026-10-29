@@ -63,12 +63,6 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Tone modifier 2",   re.compile(rf" *\[{TONES}\] *", re.IGNORECASE), ""),
 ]
 
-GENERATE_IMAGE_PATTERNS = [
-    ("XML object strict", re.compile(r"<generated_image(?: [^>]+)?>(?:(?!</generated_image>).)*<prompt>(.*?)</prompt>(?:(?!</generated_image>).)*</generated_image>", re.DOTALL | re.IGNORECASE)),
-    ("XML object",        re.compile(r"<(\w+)(?: [^>]+)?>(?:(?!</\1>).)*<prompt>(.*?)</prompt>(?:(?!</\1>).)*</\1>", re.DOTALL | re.IGNORECASE)),
-    #"JSON object":       re.compile(r"""{\s*(?:["']action["'].+?)?["']prompt["']:\s*["']([^"']+)["'].*$""", re.DOTALL | re.IGNORECASE),
-]
-
 MEDIA_HEADERS =  {
     "User-Agent": "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
     "Accept": "image/*;q=0.9",
