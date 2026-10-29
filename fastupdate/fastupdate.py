@@ -56,7 +56,8 @@ class FastUpdate(commands.Cog):
         if not isinstance(downloader, Downloader) or not isinstance(core, Core):
             return await ctx.send("Downloader cog not found.")
 
-        allowed_repos = await self.config.allowed_repos()
+        allowed_repo_names = await self.config.allowed_repos()
+        allowed_repos = [repo for repo in downloader._repo_manager.repos if repo.name in allowed_repo_names]
         cogs_to_check, _ = await downloader._get_cogs_to_check(repos=allowed_repos or None)
         cogs_to_check = {cog for cog in cogs_to_check if not cog.pinned}
 
