@@ -410,8 +410,6 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
         initial_count = len(temp_messages)
-        prefix_hash = utils.fingerprint(temp_messages)
-        schema_hash = utils.fingerprint(tools_schema)
 
         tool_call_history: list[str] = []
         memory_changes: list[types.MemoryChangeResult] = []
@@ -453,10 +451,6 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     "cache_mode": cache_mode,
                     "tool_choice": "auto" if can_use_tools else "none",
                     "message_count": len(temp_messages),
-                    "prefix_hash": prefix_hash,
-                    "prefix_unchanged": utils.fingerprint(temp_messages[:initial_count]) == prefix_hash,
-                    "schema_hash": schema_hash,
-                    "messages_hash": utils.fingerprint(temp_messages),
                     "usage": response.usage.model_dump(mode="json") if response.usage else None,
                 }))
             

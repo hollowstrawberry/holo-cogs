@@ -41,15 +41,6 @@ def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:
             for cnt in msg["content"]:
                 cnt.pop("cache_control", None)
 
-def fingerprint(value: object) -> str:
-    """Hash structured requests without logging prompt or image contents"""
-    def json_default(value: object) -> object:
-        if isinstance(value, BaseModel):
-            return value.model_dump(mode="json", exclude_unset=True)
-        raise TypeError(f"Cannot fingerprint {type(value).__name__}")
-    encoded = json.dumps(value, default=json_default, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(encoded.encode()).hexdigest()
-
 def make_text_content(content: str, cache=False) -> AgentContent:
     obj: AgentContent = {
         "type": "text",
