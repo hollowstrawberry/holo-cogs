@@ -1,6 +1,6 @@
 {
     "author": ["hollowstrawberry"],
-    "min_bot_version": "3.24.0",
+    "min_bot_version": "3.5.24",
     "min_python_version": [3,10,0],
     "description": "Adds an update command that is more efficient and prettier than the default, although less stable. Cogs that failed to update will be retried next time. Does not reinstall dependecies each time, which fits a fast development environment.",
     "hidden": false,
