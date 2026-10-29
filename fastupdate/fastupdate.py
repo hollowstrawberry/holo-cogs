@@ -109,7 +109,7 @@ class FastUpdate(commands.Cog):
         embed.set_author(icon_url=self.bot.user.display_avatar.url, name=f"{self.bot.user.name} Updates")
         for cog in entries[:25]:
             if cog not in missing:
-                embed.add_field(name=cog, value=state_of(cog))
+                embed.add_field(name=cog, value=f"`{state_of(cog)}`")
         if len(entries) > 25:
             embed.set_footer(text=f"+{len(entries) - 25} more not shown")
         await ctx.send(embed=embed)
