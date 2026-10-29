@@ -38,7 +38,7 @@ class FastUpdate(commands.Cog):
     @commands.command(name="update")
     async def update_command(self, ctx: commands.Context):
         """
-        Update cogs without reinstalling dependencies.
+        Updates cogs without reinstalling their requirements.
         Updated cogs are reloaded automatically.
         Cogs that failed to update or load are retried next time.
         """
@@ -62,16 +62,18 @@ class FastUpdate(commands.Cog):
         cogs_to_check = {cog for cog in cogs_to_check if not cog.pinned}
 
         # update
+        successful_updates: set[str] = set()
         failed_updates: list[str] = []
-        updated_cogs: set[str] = set()
         if cogs_to_check:
             cogs_to_update, _ = await downloader._available_updates(cogs_to_check)
             if cogs_to_update:
-                updated_cogs, _ = await downloader._update_cogs_and_libs(ctx, cogs_to_update, [], cogs_to_check)
-                failed_updates = sorted(cog.name for cog in cogs_to_update if cog.name not in updated_cogs)
+                install_success, install_fail = await downloader._install_cogs(cogs_to_update)
+                await downloader._save_to_installed(install_success)
+                successful_updates = set(cog.name for cog in install_success)
+                failed_updates = sorted(cog.name for cog in install_fail)
 
         previously_failed: set[str] = set(await self.config.failed_cogs())
-        to_reload = list(dict.fromkeys([*sorted(updated_cogs), *sorted(previously_failed)]))  # specific order
+        to_reload = list(dict.fromkeys([*sorted(successful_updates), *sorted(previously_failed)]))  # specific order
         if not to_reload and not failed_updates:
             if allowed_repos:
                 return await ctx.send("Everything is up to date on the relevant repos.")
@@ -95,7 +97,7 @@ class FastUpdate(commands.Cog):
         def state_of(cog: str) -> str:
             if cog in failed_updates:
                 return "❌ Failed to update" + (" again" if cog in previously_failed else "")
-            if cog in updated_cogs:
+            if cog in successful_updates:
                 if cog in failed_to_load:
                     return "❌ Updated but failed to load"
                 if cog in now_loaded:
