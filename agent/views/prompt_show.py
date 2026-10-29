@@ -5,12 +5,13 @@ from agent.constants import VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
 
 
 class PromptView(discord.ui.View):
-    def __init__(self,
-                 name: str,
-                 prompt: str,
-                 edit_callback: Callable[[str], Awaitable],
-                 check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
-                ):
+    def __init__(
+        self,
+        name: str,
+        prompt: str,
+        edit_callback: Callable[[str], Awaitable],
+        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
+    ):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.name = name
         self.prompt = prompt

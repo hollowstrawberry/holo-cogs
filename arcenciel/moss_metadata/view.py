@@ -146,7 +146,7 @@ class LayoutView(discord.ui.LayoutView):
             start = self.selected // PAGE_SIZE * PAGE_SIZE
             self.selector.options = [
                 discord.SelectOption(
-                    label=display(f"{i + 1} · {r.label}", 100), value=str(i), default=i == self.selected
+                    label=display(f"{i + 1} · {r.label}", 100), value=str(i), default=i == self.selected,
                 )
                 for i, r in enumerate(layout.regions[start : start + PAGE_SIZE], start)
             ]
@@ -173,7 +173,7 @@ class LayoutView(discord.ui.LayoutView):
         if interaction.user.id == self.owner_id:
             return True
         await interaction.response.send_message(
-            "Open your own image metadata view to use these controls.", ephemeral=True
+            "Open your own image metadata view to use these controls.", ephemeral=True,
         )
         return False
 
@@ -220,11 +220,11 @@ async def send_layout(interaction: discord.Interaction, source: LayoutSource, ti
     try:
         if file:
             view.message = await interaction.followup.send(
-                view=view, file=file, ephemeral=True, allowed_mentions=discord.AllowedMentions.none(), wait=True
+                view=view, file=file, ephemeral=True, allowed_mentions=discord.AllowedMentions.none(), wait=True,
             )
         else:
             view.message = await interaction.followup.send(
-                view=view, ephemeral=True, allowed_mentions=discord.AllowedMentions.none(), wait=True
+                view=view, ephemeral=True, allowed_mentions=discord.AllowedMentions.none(), wait=True,
             )
     finally:
         if file:

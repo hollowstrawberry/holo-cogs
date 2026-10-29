@@ -81,7 +81,9 @@ def moss_models(catalog: Mapping[str, object], *, sft_only: bool = False) -> dic
 
 
 def resolve_profile(
-    options: Mapping[str, object], catalog: Mapping[str, object], checkpoint: str | None = None
+    options: Mapping[str, object],
+    catalog: Mapping[str, object],
+    checkpoint: str | None = None,
 ) -> tuple[str, types.MossProfile]:
     limits = json_object(options.get("limits", {}))
     profile = json_object(limits.get("moss") or {})

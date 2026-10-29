@@ -68,7 +68,7 @@ class ArcencielTool(ToolBase):
             if user:
                 async with arcenciel.api.session.get(
                     f"{arcenciel.api.endpoint}/users/search",
-                    params={"q": user}, headers=self.headers, timeout=timeout
+                    params={"q": user}, headers=self.headers, timeout=timeout,
                 ) as response:
                     response.raise_for_status()
                     user_data: list[dict] = await response.json()
@@ -79,7 +79,7 @@ class ArcencielTool(ToolBase):
 
             async with arcenciel.api.session.get(
                 f"{arcenciel.api.endpoint}/models/search",
-                params=params, headers=self.headers, timeout=timeout
+                params=params, headers=self.headers, timeout=timeout,
             ) as response:
                 response.raise_for_status()
                 data: dict = await response.json()

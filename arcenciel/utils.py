@@ -14,10 +14,6 @@ from arcenciel.constants import MAX_MESSAGE_LENGTH, LORA_PATTERN, NEWLINE_SEPARA
 log = logging.getLogger("red.bz_cogs.arcenciel")
 
 
-class ImageGenError(Exception):
-    pass
-
-
 async def send_response(context: commands.Context | discord.Interaction, **kwargs) -> discord.Message | None:
     if isinstance(context, discord.Interaction):
         assert isinstance(context.channel, discord.abc.Messageable)

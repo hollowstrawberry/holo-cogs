@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from redbot.core import checks, commands
 
 from arcenciel.base import ArcencielBase
-from arcenciel.utils import ImageGenError, clean_model, make_batches, chunk_and_send
+from arcenciel.types import ImageGenError
+from arcenciel.utils import clean_model, make_batches, chunk_and_send
 from arcenciel.constants import QUOTA_PERIOD
 from arcenciel.views.checkpoint_select import CheckpointSelectView, checkpoints_from_catalog, exact_checkpoint
 

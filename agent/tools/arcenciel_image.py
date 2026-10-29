@@ -105,8 +105,8 @@ class ArcencielImageTool(ToolBase):
 
         try:
             from arcenciel.arcenciel import Arcenciel
-            from arcenciel.types import ImageGenParams
-            from arcenciel.utils import ImageGenError, extend_negative_prompt
+            from arcenciel.types import ImageGenParams, ImageGenError
+            from arcenciel.utils import extend_negative_prompt
             from arcenciel.constants import MODEL_FAMILIES
             from arcenciel.agent_utils import available_models, choose_lora, choose_model, lora_family_hint, lora_weight
             from arcenciel.moss import layout_from_metadata

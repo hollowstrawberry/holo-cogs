@@ -19,13 +19,14 @@ def preview(text: str, limit: int) -> str:
 
 
 class PromptPanelView(discord.ui.LayoutView):
-    def __init__(self,
-                 prompts: dict[str, str],
-                 edit_callback: Callable[[str, str], Awaitable],
-                 check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
-                 title: str,
-                 color: discord.Color,
-                ):
+    def __init__(
+        self,
+        prompts: dict[str, str],
+        edit_callback: Callable[[str, str], Awaitable],
+        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
+        title: str,
+        color: discord.Color,
+    ):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.prompts = prompts
         self.edit_callback = edit_callback
@@ -86,7 +87,7 @@ class PromptPanelView(discord.ui.LayoutView):
                 self.make_button("➕", "New", discord.ButtonStyle.green, self.create_prompt),
                 self.make_button("✖️", "Close", discord.ButtonStyle.red, self.delete),
             ),
-            accent_color=self.color
+            accent_color=self.color,
         )
         self.add_item(container)
 

@@ -353,7 +353,7 @@ class ChatHistoryContext:
         # quote
         if quote and exhaustive and recursive and not generated_image:
             quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(
-                quote, None, exhaustive=quote not in self.backread, recursive=False
+                quote, None, exhaustive=quote not in self.backread, recursive=False,
             )
             obj["quote"] = quoted_message_obj
             inline_objs.update(quoted_message_inlines)
@@ -387,7 +387,7 @@ class ChatHistoryContext:
                     except (AttributeError, discord.NotFound):
                         continue
                     linked_message_obj, linked_message_inlines = await self.parse_discord_message(
-                        linked, None, exhaustive=linked not in self.backread, recursive=False
+                        linked, None, exhaustive=linked not in self.backread, recursive=False,
                     )
                     obj["linked_message"] = {**link_obj, **linked_message_obj}
                     inline_objs.update(linked_message_inlines)

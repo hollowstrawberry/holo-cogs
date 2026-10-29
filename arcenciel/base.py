@@ -72,9 +72,7 @@ class ArcencielBase(commands.Cog):
     ) -> None:
         raise NotImplementedError
 
-    async def prepare_image_payload(
-        self, context: commands.Context | discord.Interaction, params: ImageGenParams
-    ) -> dict[str, object]:
+    async def prepare_image_payload(self, context: commands.Context | discord.Interaction, params: ImageGenParams) -> dict[str, object]:
         raise NotImplementedError
 
     async def resolve_arcenciel_resources(self, metadata: ComfyMetadata) -> list[str]:

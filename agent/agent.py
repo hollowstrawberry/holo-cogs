@@ -288,13 +288,14 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         log.info(result)
 
 
-    async def execute_recaller(self,
-                               ctx: commands.Context,
-                               participants: list[discord.Member | discord.User],
-                               messages: list[types.AgentMessage],
-                               memories: list[str],
-                               result: types.CompletionResult
-                               ) -> dict[str, str]:
+    async def execute_recaller(
+        self,
+        ctx: commands.Context,
+        participants: list[discord.Member | discord.User],
+        messages: list[types.AgentMessage],
+        memories: list[str],
+        result: types.CompletionResult,
+    ) -> dict[str, str]:
         """
         Runs an openai completion with the chat history and a list of memories from the database
         and returns a dictionary of memories and their contents as chosen by the LLM.
@@ -353,14 +354,15 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         return recalled_memories or {}
   
 
-    async def execute_responder(self,
-                                ctx: commands.Context,
-                                messages: list[types.AgentMessage],
-                                memory_names: list[str],
-                                recalled_memories_str: str,
-                                result: types.CompletionResult,
-                                auto: bool = False,
-                                ):
+    async def execute_responder(
+        self,
+        ctx: commands.Context,
+        messages: list[types.AgentMessage],
+        memory_names: list[str],
+        recalled_memories_str: str,
+        result: types.CompletionResult,
+        auto: bool = False,
+    ):
         """
         Runs an openai completion with the chat history and the contents of memories
         and returns a response message after sending it to the user.
@@ -561,14 +563,15 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         return response_message  # type: ignore
 
 
-    async def execute_memorizer(self,
-                                ctx: commands.Context,
-                                messages: list[types.AgentMessage],
-                                memory_names: list[str],
-                                recalled_memories_str: str,
-                                result: types.CompletionResult,
-                                standalone: bool
-                                ) -> list[types.MemoryChangeResult]:
+    async def execute_memorizer(
+        self,
+        ctx: commands.Context,
+        messages: list[types.AgentMessage],
+        memory_names: list[str],
+        recalled_memories_str: str,
+        result: types.CompletionResult,
+        standalone: bool,
+    ) -> list[types.MemoryChangeResult]:
         """
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
@@ -587,7 +590,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             xmltodict.unparse(memory_names_obj, full_document=False),
             recalled_memories_str,
             botname=ctx.me.name,
-            botnickname=ctx.guild.me.nick or ctx.me.name
+            botnickname=ctx.guild.me.nick or ctx.me.name,
         )
         system_prompt = {
             "role": "system",
@@ -779,7 +782,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             limit=limit,
             before=ctx.message,
             after=channel_config.start.value,
-            oldest_first=False
+            oldest_first=False,
         )]
         backread.insert(0, ctx.message)
         return backread

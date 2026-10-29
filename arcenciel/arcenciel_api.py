@@ -5,9 +5,10 @@ from typing import Any
 from collections.abc import AsyncIterator, Mapping
 
 from arcenciel.base import ArcencielBase
-from arcenciel.moss import json_object
-from arcenciel.utils import ImageGenError, clean_model, parse_prompts
+from arcenciel.types import ImageGenError
+from arcenciel.utils import clean_model, parse_prompts
 from arcenciel.agent_utils import parse_lora_entries
+from arcenciel.moss import json_object
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
 

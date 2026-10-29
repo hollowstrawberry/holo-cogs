@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from collections.abc import Awaitable, Callable, Mapping
 
 from arcenciel.base import ArcencielBase
+from arcenciel.types import ImageGenError
+from arcenciel.utils import clean_model
 from arcenciel.constants import VIEW_TIMEOUT
 from arcenciel.moss import is_array, is_object
-from arcenciel.utils import ImageGenError, clean_model
 
 
 @dataclass(frozen=True)
@@ -122,7 +123,7 @@ class CheckpointSelectView(discord.ui.View):
         if 1 < len(bases) <= 24:
             self.base_select.options = [discord.SelectOption(label="All bases", value="all", default=not self.base)] + [
                 discord.SelectOption(
-                    label=base[:100], value=hashlib.sha256(base.encode()).hexdigest(), default=base == self.base
+                    label=base[:100], value=hashlib.sha256(base.encode()).hexdigest(), default=base == self.base,
                 )
                 for base in bases
             ]
@@ -227,7 +228,7 @@ class CheckpointSelectView(discord.ui.View):
                 self.entries = checkpoints_from_catalog(catalog)
             except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError):
                 await interaction.followup.send(
-                    "Could not refresh checkpoints. Your default was not changed; try again.", ephemeral=True
+                    "Could not refresh checkpoints. Your default was not changed; try again.", ephemeral=True,
                 )
                 return
             if self.is_finished():
@@ -238,7 +239,7 @@ class CheckpointSelectView(discord.ui.View):
                 self.current = selected.name
             else:
                 await interaction.followup.send(
-                    "That checkpoint is no longer available. Please choose another.", ephemeral=True
+                    "That checkpoint is no longer available. Please choose another.", ephemeral=True,
                 )
             self.rebuild()
             await interaction.edit_original_response(embed=self.embed(), view=self)

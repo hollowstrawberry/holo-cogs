@@ -6,13 +6,14 @@ from agent import constants
 
 
 class PromptEditModal(discord.ui.Modal):
-    def __init__(self,
-                 name: str | None,
-                 prompt: str,
-                 check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
-                 edit_callback: Callable[[str], Awaitable] | None = None,
-                 create_callback: Callable[[str, str], Awaitable] | None = None,
-                ):
+    def __init__(
+        self,
+        name: str | None,
+        prompt: str,
+        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
+        edit_callback: Callable[[str], Awaitable] | None = None,
+        create_callback: Callable[[str, str], Awaitable] | None = None,
+    ):
         super().__init__(title="Prompt Editing")
         self.name = name
         self.prompt = prompt

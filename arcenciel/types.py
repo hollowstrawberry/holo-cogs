@@ -9,6 +9,10 @@ from collections.abc import Coroutine, Mapping
 from redbot.core import commands
 
 
+class ImageGenError(Exception):
+    pass
+
+
 class SplitType(Enum):
     HORIZONTAL = "split-horizontal-2"
     VERTICAL = "split-vertical-2"

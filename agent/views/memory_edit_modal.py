@@ -6,12 +6,13 @@ from agent import constants
 
 
 class MemoryEditModal(discord.ui.Modal):
-    def __init__(self,
-                 name: str,
-                 content: str,
-                 edit_callback: Callable[[str], Awaitable],
-                 check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
-                ):
+    def __init__(
+        self,
+        name: str,
+        content: str,
+        edit_callback: Callable[[str], Awaitable],
+        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
+    ):
         super().__init__(title="Edit Memory")
         self.name = name
         self.content = content

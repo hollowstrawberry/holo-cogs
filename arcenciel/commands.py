@@ -7,10 +7,12 @@ from copy import copy
 from PIL.Image import UnidentifiedImageError
 from redbot.core import app_commands, checks, commands
 
-from arcenciel.constants import EXCLUDE_TAGGER, LORA_PATTERN, MAX_UPLOAD_PIXELS, SUPPORTED_IMAGE_TYPES
-from arcenciel.types import ImageGenParams, ImageRegionalParams, ImageToImageParams, MossBox, MossOptions, SplitType
-from arcenciel.settings import ArcencielSettings
+from arcenciel.types import ImageGenError, ImageGenParams, ImageRegionalParams, ImageToImageParams, MossBox, MossOptions, SplitType
 from arcenciel.utils import clean_model, clean_tag, edit_regional_prompts, filter_names, normalize_image
+from arcenciel.constants import EXCLUDE_TAGGER, LORA_PATTERN, MAX_UPLOAD_PIXELS, SUPPORTED_IMAGE_TYPES
+from arcenciel.settings import ArcencielSettings
+from arcenciel.moss import moss_models
+
 
 log = logging.getLogger("red.holo-cogs.arcenciel")
  
@@ -149,12 +151,7 @@ class ArcencielCommands(ArcencielSettings):
         message_content=f"Result of {ctx.message.jump_url} requested by {ctx.author.mention}"
         await self.generate_image(ctx, params=params, message_content=message_content)
 
-    async def moss_checkpoint_autocomplete(
-        self, interaction: discord.Interaction, current: str
-    ) -> list[app_commands.Choice[str]]:
-        from arcenciel.moss import moss_models
-        from arcenciel.utils import ImageGenError
-
+    async def moss_checkpoint_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
         if not self.api:
             return []
         try:
@@ -443,7 +440,7 @@ class ArcencielCommands(ArcencielSettings):
             image_bytes,
             image_name,
             denoising,
-            scale
+            scale,
         )
         params = ImageGenParams(
             prompt=prompt,

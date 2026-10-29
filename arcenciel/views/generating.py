@@ -2,9 +2,8 @@ import asyncio
 import discord
 
 from arcenciel.base import ArcencielBase
+from arcenciel.types import ImageGenError, QueuedImageGen, GeneratingV2ViewBase
 from arcenciel.constants import VIEW_TIMEOUT
-from arcenciel.types import QueuedImageGen, GeneratingV2ViewBase
-from arcenciel.utils import ImageGenError
 
 
 class _GeneratingControls(discord.ui.view.BaseView):
@@ -97,8 +96,14 @@ class GeneratingV2View(GeneratingV2ViewBase, _GeneratingControls):
         self.add_item(self.container)
         self.set_progress("Image request sent...")
 
-    def set_progress(self, status: str, progress: str | None = None, eta: str | None = None,
-                     step: str | None = None, preview_filename: str | None = None):
+    def set_progress(
+        self,
+        status: str,
+        progress: str | None = None,
+        eta: str | None = None,
+        step: str | None = None,
+        preview_filename: str | None = None,
+    ) -> None:
         self.container.clear_items()
         self.container.add_item(discord.ui.TextDisplay(status))
         details = []

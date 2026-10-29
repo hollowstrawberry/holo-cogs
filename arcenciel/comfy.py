@@ -354,7 +354,7 @@ class ComfyResourceHintExtractor:
 
     @classmethod
     def _add_hash(
-        cls, hints: ComfyResourceHints, seen: set[str], value: str | None
+        cls, hints: ComfyResourceHints, seen: set[str], value: str | None,
     ) -> None:
         if not value:
             return
@@ -565,9 +565,7 @@ class ComfyMetadataReader:
         candidates = cls.extract_workflow_candidates(meta)
         if not candidates:
             result = ComfyMetadata(error="Workflow not found")
-            result.resource_hints = ComfyResourceHintExtractor.from_sources(
-                result, meta
-            )
+            result.resource_hints = ComfyResourceHintExtractor.from_sources(result, meta)
             return result
 
         merged = ComfyMetadata(is_comfy=True)
@@ -588,13 +586,9 @@ class ComfyMetadataReader:
             parsed_any = True
 
         if not parsed_any:
-            error = (
-                candidate_errors[0] if candidate_errors else "Workflow nodes not found"
-            )
+            error = candidate_errors[0] if candidate_errors else "Workflow nodes not found"
             result = ComfyMetadata(error=error)
-            result.resource_hints = ComfyResourceHintExtractor.from_sources(
-                result, meta
-            )
+            result.resource_hints = ComfyResourceHintExtractor.from_sources(result, meta)
             return result
 
         merged.moss_prompt = next(
@@ -1016,9 +1010,7 @@ class ComfyMetadataReader:
             if not region_text:
                 continue
 
-            region_index = cls.extract_region_index(node.id) or cls.extract_region_index(
-                cond_node_id
-            )
+            region_index = cls.extract_region_index(node.id) or cls.extract_region_index(cond_node_id)
             if region_index is None:
                 continue
             region_by_index.setdefault(region_index, region_text)
@@ -1092,9 +1084,7 @@ class ComfyMetadataReader:
             ),
         )
 
-        if (
-            "checkpoint" in node_type_lower and "upscale" not in node_type_lower
-        ) or "unetloader" in node_type_lower:
+        if "unetloader" in node_type_lower or "checkpoint" in node_type_lower and "upscale" not in node_type_lower:
             cls.set_if_missing(
                 meta,
                 "checkpoint",
@@ -1139,9 +1129,7 @@ class ComfyMetadataReader:
             if text_value is None and widget_index == 0:
                 text_value = cls.as_text(inputs.get("text"))
             if text_value and cls.is_useful_text_candidate(text_value):
-                is_negative = result_key == "negative_prompt" or cls.looks_negative(
-                    text_value
-                )
+                is_negative = result_key == "negative_prompt" or cls.looks_negative(text_value)
                 text_candidates.append((node.id, text_value, is_negative))
                 if is_negative:
                     cls.set_if_missing(meta, "negative_prompt", text_value)

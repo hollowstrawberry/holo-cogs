@@ -6,12 +6,13 @@ from agent.views.memory_edit_modal import MemoryEditModal
 
 
 class MemoryInfoView(discord.ui.View):
-    def __init__(self,
-                 name: str,
-                 content: str,
-                 edit_callback: Callable[[str], Awaitable],
-                 check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]]
-                ):
+    def __init__(
+        self,
+        name: str,
+        content: str,
+        edit_callback: Callable[[str], Awaitable],
+        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
+    ):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.name = name
         self.content = content

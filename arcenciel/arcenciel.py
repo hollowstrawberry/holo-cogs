@@ -15,8 +15,8 @@ from discord.ext import tasks
 from redbot.core import commands
 
 from arcenciel import constants
-from arcenciel.types import ImageGenParams, ImageScanner, QueuedImageGen, MossLora
-from arcenciel.utils import ImageGenError, build_split_masks, gather_raise_all, is_nsfw, send_response, extend_negative_prompt
+from arcenciel.types import ImageGenError, ImageGenParams, ImageScanner, QueuedImageGen, MossLora
+from arcenciel.utils import build_split_masks, gather_raise_all, is_nsfw, send_response, extend_negative_prompt
 from arcenciel.commands import ArcencielCommands
 from arcenciel.arcenciel_api import ArcEnCielAPI
 from arcenciel.views.generating import GeneratingV2View, GeneratingView
@@ -184,7 +184,7 @@ class Arcenciel(ArcencielCommands):
                 image, mime_type, preview_step, preview_total_steps = pending_preview
                 extension = "jpg" if mime_type == "image/jpeg" else "png"
                 preview_file = discord.File(
-                    BytesIO(image), filename=f"preview_{gen.id}_{preview_version}.{extension}", spoiler=True
+                    BytesIO(image), filename=f"preview_{gen.id}_{preview_version}.{extension}", spoiler=True,
                 )
                 preview_filename = preview_file.filename
             step_value = f"`{preview_step}/{preview_total_steps}`" if show_preview and preview_filename else None

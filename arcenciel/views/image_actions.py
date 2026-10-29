@@ -69,7 +69,7 @@ class ImageActions(discord.ui.View):
         if self.moss_layout is not None and self.layout_source is None:
             attachment = self.message.attachments[0] if self.message and self.message.attachments else None
             self.layout_source = LayoutSource(
-                self.moss_layout, attachment=attachment, spoiler=attachment.is_spoiler() if attachment else True
+                self.moss_layout, attachment=attachment, spoiler=attachment.is_spoiler() if attachment else True,
             )
         view = ImageInfoView(self.metadata.raw or "", self.layout_source)
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)

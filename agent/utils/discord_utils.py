@@ -135,13 +135,14 @@ async def get_bot_avatar_emote(bot: discord.Client) -> discord.Emoji:
     return AVATAR_EMOTE
 
 
-async def chunk_and_send(ctx: commands.Context,
-                         full_text: str,
-                         embed: discord.Embed = None,
-                         view: discord.ui.View = None,
-                         files: list[discord.File] = None,
-                         do_reply: bool = False
-                        ):
+async def chunk_and_send(
+    ctx: commands.Context,
+    full_text: str,
+    embed: discord.Embed = None,
+    view: discord.ui.View = None,
+    files: list[discord.File] = None,
+    do_reply: bool = False,
+) -> None:
     """
     Splits a message that is too long into multiple messages.
     The first message will do a reply, the last message will contain embeds and views and files
@@ -202,7 +203,7 @@ async def chunk_and_send(ctx: commands.Context,
             files=current_files,
             reference=current_reference,
             allowed_mentions=discord.AllowedMentions.none(),
-            mention_author=False
+            mention_author=False,
         )
         if isinstance(view, HasMessage):
             view.message = msg
