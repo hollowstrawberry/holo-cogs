@@ -1,6 +1,6 @@
 {
   "author": ["hollowstrawberry"],
-  "min_bot_version": "3.5.0",
+  "min_bot_version": "3.5.24",
   "min_python_version": [3, 10, 0],
   "description": "A custom-made conversational agent for Discord, tailored for small self-hosted communities. More than just a chat bot, it's designed with division of work (sub-agents), it features text-based memories, and has access to many tools like web search, image generation, and voice generation. Highly customizable, but the bot owner becomes responsible for user data and monetary cost.",
   "hidden": false,
