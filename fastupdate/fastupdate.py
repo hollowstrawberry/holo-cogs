@@ -129,7 +129,7 @@ class FastUpdate(commands.Cog):
         await ctx.send(f"Allowed repos for update command: " + (f"`{' '.join(allowed_repos)}`" if allowed_repos else "*(None)*"))
 
     @fastupdate_repos.command("add")
-    async def fastupdate_repos_add(self, ctx: commands.Context, repos: commands.Greedy[str]):
+    async def fastupdate_repos_add(self, ctx: commands.Context, *repos: str):
         """Add allowed repos"""
         allowed_repos: set[str] = set(await self.config.allowed_repos())
         allowed_repos |= set(repos)
@@ -137,7 +137,7 @@ class FastUpdate(commands.Cog):
         await ctx.tick(message="✅")
 
     @fastupdate_repos.command("remove")
-    async def fastupdate_repos_remove(self, ctx: commands.Context, repos: commands.Greedy[str]):
+    async def fastupdate_repos_remove(self, ctx: commands.Context, *repos: str):
         """Remove allowed repos"""
         allowed_repos: set[str] = set(await self.config.allowed_repos())
         allowed_repos -= set(repos)
