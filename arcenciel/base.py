@@ -10,7 +10,7 @@ from arcenciel.types import QueuedImageGen, ImageGenParams
 from arcenciel.constants import DISCORD_EPOCH_DATETIME
 
 
-class ArcencielBase(commands.Cog:
+class ArcencielBase(commands.Cog):
     """
     Abstract cog to prevent recursive imports
     """
