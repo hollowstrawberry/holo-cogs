@@ -194,7 +194,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             log.exception("run_response")
             # show the user if task didn't finish
             asyncio.create_task(ctx.message.add_reaction(self.config.noresponse_emoji.value))
-    
+
 
     @commands.Cog.listener()
     async def on_user_update(self, before: discord.User, after: discord.User):

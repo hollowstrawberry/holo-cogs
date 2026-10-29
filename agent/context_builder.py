@@ -321,12 +321,12 @@ class ChatHistoryContext:
         Converts a message into a dictionary of structured information that may then be unparsed into xml.
         Also returns a dictionary of inline objects to be injected back into the final string.
         """
-        assert(guild := message.guild)
+        assert(message.guild)
         current_images = self.all_resolved_images.get(message.id)
         generated_image = current_images.generated_image if current_images else None
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
-        clean_content = lambda text: utils.clean_content(self.builder.bot, guild, text)
+        clean_content = lambda text: utils.clean_content(self.builder.bot, message.guild, text) if message.guild else ""
         
         inline_objs: dict[str, dict[str, Any]] = {}
         obj: dict[str, Any] = {
@@ -366,10 +366,10 @@ class ChatHistoryContext:
             for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
                 guild_id, channel_id, message_id = [int(num) for num in message_link.groups()]
                 link_obj = {}
-                if guild.id != guild_id:
+                if message.guild.id != guild_id:
                     link_obj["@source"] = "Outside this server"
                 elif message.channel.id != channel_id:
-                    channel = guild.get_channel_or_thread(channel_id)
+                    channel = message.guild.get_channel_or_thread(channel_id)
                     link_obj["@channel"] = f"#{channel.name}" if channel else "unknown"
                 inline_objs[message_link.group(0)] = {
                     "message_link": {
