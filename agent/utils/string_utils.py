@@ -32,9 +32,6 @@ def fix_truncated_xml(text: str) -> str:
         text += f"</{tag}>"
     return text
 
-def clean_content(text: str) -> str:
-    return EMOTE_PATTERN.sub(r":\2:", text)
-
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()
     if len(tag) > 3:

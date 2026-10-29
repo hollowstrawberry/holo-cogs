@@ -321,11 +321,12 @@ class ChatHistoryContext:
         Converts a message into a dictionary of structured information that may then be unparsed into xml.
         Also returns a dictionary of inline objects to be injected back into the final string.
         """
-        assert message.guild
+        assert(guild := message.guild)
         current_images = self.all_resolved_images.get(message.id)
         generated_image = current_images.generated_image if current_images else None
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
+        clean_content = lambda text: utils.clean_content(self.builder.bot, guild, text)
         
         inline_objs: dict[str, dict[str, Any]] = {}
         obj: dict[str, Any] = {
@@ -356,18 +357,19 @@ class ChatHistoryContext:
         if message.is_system():
             obj["action"] = "Joined the server" if message.type == discord.MessageType.new_member else message.system_content
         elif message.content:
-            content = utils.clean_content(message.content)
+            content = message.content
             for mentioned in message.mentions + message.role_mentions:
                 content = content.replace(mentioned.mention, f"@{mentioned.name}")
             for mentioned_ch in message.channel_mentions:
                 content = content.replace(mentioned_ch.mention, f"#{mentioned_ch.name}")
+            content = clean_content(content)
             for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
                 guild_id, channel_id, message_id = [int(num) for num in message_link.groups()]
                 link_obj = {}
-                if message.guild.id != guild_id:
+                if guild.id != guild_id:
                     link_obj["@source"] = "Outside this server"
                 elif message.channel.id != channel_id:
-                    channel = message.guild.get_channel_or_thread(channel_id)
+                    channel = guild.get_channel_or_thread(channel_id)
                     link_obj["@channel"] = f"#{channel.name}" if channel else "unknown"
                 inline_objs[message_link.group(0)] = {
                     "message_link": {
@@ -421,9 +423,9 @@ class ChatHistoryContext:
             if embed.author:
                 embed_obj["header"] = embed.author.name
             if embed.title:
-                embed_obj["title"] = embed.title
+                embed_obj["title"] = clean_content(embed.title)
             if embed.description:
-                embed_obj["description"] = utils.clean_content(embed.description)# if exhaustive else "..."
+                embed_obj["description"] = clean_content(embed.description)# if exhaustive else "..."
             if embed.url and embed.url[:self.config.max_quote.value] not in obj.get("content", ""):
                 embed_obj["url"] = embed.url
             if embed.image and embed.image.url and not any(link["@url"] == embed.image.url for link in linked_images):
@@ -434,8 +436,8 @@ class ChatHistoryContext:
                 fields = []
                 for field in embed.fields:
                     fields.append({
-                        "@name": field.name,
-                        "#text": utils.clean_content(str(field.value)),
+                        "@name": clean_content(field.name),
+                        "#text": clean_content(field.value or ""),
                     })
                 utils.add_xml_group(embed_obj, fields, "fields")
             if embed.footer:

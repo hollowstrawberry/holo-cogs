@@ -9,7 +9,7 @@ from redbot.core.bot import Red
 
 from .image_utils import make_circle
 from agent.types import HasId
-from agent.constants import MAX_MESSAGE_LENGTH, MENTION_PATTERN
+from agent.constants import MAX_MESSAGE_LENGTH, EMOTE_PATTERN, MENTION_PATTERN, RESOLVED_MENTION_PATTERN
 
 T = TypeVar("T")
 
@@ -53,7 +53,27 @@ def parse_mentions(guild: discord.Guild, text: str) -> str:
         group = guild.members if prefix == "@" else guild.channels
         obj = discord.utils.find(lambda o: name == o.name, group)
         return obj.mention if obj else match.group(0)
+    return RESOLVED_MENTION_PATTERN.sub(replace, text)
+
+def resolve_mentions(bot: Red, guild: discord.Guild, text: str) -> str:
+    def replace(match: re.Match) -> str:
+        prefix, id = match.groups()
+        if prefix == "@&":
+            role = guild.get_role(int(id))
+            return f"@{role.name}" if role else "@unknown"
+        elif prefix == "#":
+            channel = bot.get_channel(int(id))
+            return f"#{channel.name}" if isinstance(channel, (discord.abc.GuildChannel, discord.Thread)) else "#unknown"
+        else:
+            user = bot.get_user(int(id))
+            return f"@{user.name}" if user else "@unknown"
     return MENTION_PATTERN.sub(replace, text)
+
+def clean_content(bot: Red, guild: discord.Guild, text: str) -> str:
+    """Convert formatted content such as discord ID into LLM-friendly text"""
+    text = EMOTE_PATTERN.sub(r":\2:", text)
+    text = resolve_mentions(bot, guild, text)
+    return text
 
 async def command_allowed(ctx: commands.Context, command: commands.Command, *, visible: bool = False) -> bool:
     assert(isinstance(ctx.bot, Red))
