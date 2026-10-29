@@ -21,6 +21,7 @@ class FastUpdate(commands.Cog):
         self.config = Config.get_conf(self, 12367)
         self.config.register_global(**{
             "failed_cogs": [],
+            "allowed_repos": []
         })
 
     async def save_failed_cogs(self, *, add: Iterable[str] | None = None, remove: Iterable[str] | None = None) -> None:
@@ -42,7 +43,7 @@ class FastUpdate(commands.Cog):
         Cogs that failed to update or load are retried next time.
         """
         try:
-            async with bot_is_typing(ctx):
+            async with bot_is_typing(ctx.channel):
                 await self.update_logic(ctx)
         except Exception:
             log.exception("Unexpected error when running the update command.")
@@ -55,7 +56,8 @@ class FastUpdate(commands.Cog):
         if not isinstance(downloader, Downloader) or not isinstance(core, Core):
             return await ctx.send("Downloader cog not found.")
 
-        cogs_to_check, _ = await downloader._get_cogs_to_check()
+        allowed_repos = await self.config.allowed_repos()
+        cogs_to_check, _ = await downloader._get_cogs_to_check(repos=allowed_repos or None)
         cogs_to_check = {cog for cog in cogs_to_check if not cog.pinned}
 
         # update
@@ -70,7 +72,10 @@ class FastUpdate(commands.Cog):
         previously_failed: set[str] = set(await self.config.failed_cogs())
         to_reload = list(dict.fromkeys([*sorted(updated_cogs), *sorted(previously_failed)]))  # specific order
         if not to_reload and not failed_updates:
-            return await ctx.send("Everything is already up to date.")
+            if allowed_repos:
+                return await ctx.send("Everything is up to date on the relevant repos.")
+            else:
+                return await ctx.send("Everything is up to date.")
 
         # unload
         unload_result = await core._unload(to_reload)
@@ -107,3 +112,34 @@ class FastUpdate(commands.Cog):
         if len(entries) > 25:
             embed.set_footer(text=f"+{len(entries) - 25} more not shown")
         await ctx.send(embed=embed)
+
+
+    @commands.group(name="fastupdateset", aliases=["setfastupdate"])
+    async def fastupdate_set(self, ctx: commands.Context):
+        """Configure the fastupdate cog"""
+
+    @fastupdate_set.group(name="repo", aliases=["repos"])
+    async def fastupdate_repos(self, ctx: commands.Context):
+        """Sets allowed repos to limit the [p]update command"""
+
+    @fastupdate_repos.command("list", aliases=["show", "view"])
+    async def fastupdate_repos_list(self, ctx: commands.Context):
+        """Show all the allowed repos"""
+        allowed_repos: list[str] = await self.config.allowed_repos()
+        await ctx.send(f"Allowed repos for update command: " + (f"`{' '.join(allowed_repos)}`" if allowed_repos else "*(None)*"))
+
+    @fastupdate_repos.command("add")
+    async def fastupdate_repos_add(self, ctx: commands.Context, repos: commands.Greedy[str]):
+        """Add allowed repos"""
+        allowed_repos: set[str] = set(await self.config.allowed_repos())
+        allowed_repos |= set(repos)
+        await self.config.allowed_repos.set(list(allowed_repos))
+        await ctx.tick(message="✅")
+
+    @fastupdate_repos.command("remove")
+    async def fastupdate_repos_remove(self, ctx: commands.Context, repos: commands.Greedy[str]):
+        """Remove allowed repos"""
+        allowed_repos: set[str] = set(await self.config.allowed_repos())
+        allowed_repos -= set(repos)
+        await self.config.allowed_repos.set(list(allowed_repos))
+        await ctx.tick(message="✅")
