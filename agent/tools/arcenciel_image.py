@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 import discord
 
-from agent.utils import add_xml_group, undo_xml, get_cog
+from agent.utils import add_xml_group, undo_xml, get_cog, backread_with_quote
 from agent.types import Function, Parameters, ToolCall, ImageScanner
 from agent.constants import LORA_PATTERN
 from agent.tools.base import ToolBase
@@ -91,15 +91,9 @@ class ArcencielImageTool(ToolBase):
     )
 
     async def find_attachment(self, filename: str) -> tuple[bool, discord.Message | None]:
-        assert self.ctx.guild and self.ctx.guild.me
-        assert isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
+        assert self.ctx.guild
         limit = self.cog.config[self.ctx.guild].backread_messages.value
-        messages = [message async for message in self.ctx.channel.history(limit=limit)]
-        if self.ctx.message and self.ctx.message.reference and self.ctx.message.reference.message_id:
-            quoted = self.ctx.message.reference.cached_message or await self.ctx.channel.fetch_message(
-                self.ctx.message.reference.message_id
-            )
-            messages.insert(0, quoted)
+        messages = await backread_with_quote(self.ctx, limit)
         for message in messages:
             for attachment in message.attachments:
                 if attachment.filename == filename:
@@ -111,11 +105,12 @@ class ArcencielImageTool(ToolBase):
 
         try:
             from arcenciel.arcenciel import Arcenciel
-            from arcenciel.moss import layout_from_metadata
-            from arcenciel.utils import ImageGenError, extend_negative_prompt
             from arcenciel.types import ImageGenParams
+            from arcenciel.utils import ImageGenError, extend_negative_prompt
             from arcenciel.constants import MODEL_FAMILIES
             from arcenciel.agent_utils import available_models, choose_lora, choose_model, lora_family_hint, lora_weight
+            from arcenciel.moss import layout_from_metadata
+            from arcenciel.comfy import ComfyMetadataReader
         except ImportError:
            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         if not (arcenciel := get_cog(self.cog.bot, Arcenciel)):
@@ -155,8 +150,6 @@ class ArcencielImageTool(ToolBase):
         warnings: list[str] = []
 
         if message and sent_by_me:
-            from arcenciel.comfy import ComfyMetadataReader
-
             attachment = next((item for item in message.attachments if item.filename == existing), None)
             try:
                 if attachment:

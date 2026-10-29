@@ -5,7 +5,6 @@ from io import BytesIO
 from dataclasses import replace
 from urllib.parse import parse_qs, urlsplit
 from PIL import Image, ImageDraw, UnidentifiedImageError
-from redbot.core import commands
 
 from .misc_utils import get_filename
 from .string_utils import undo_xml
@@ -44,21 +43,6 @@ def image_sources(message: discord.Message) -> list[ImageSource]:
         seen.update(urls)
     return result
 
-
-async def image_messages(ctx: commands.Context, limit: int) -> list[discord.Message]:
-    """Keep the enriched triggering message and prefer its explicit reply target."""
-    messages = [ctx.message]
-    ref = ctx.message.reference
-    if ref and ref.message_id and ref.channel_id == ctx.channel.id:
-        try:
-            quoted = ref.cached_message or await ctx.channel.fetch_message(ref.message_id)
-            messages.insert(0, quoted)
-        except discord.DiscordException:
-            pass
-    messages.extend([message async for message in ctx.channel.history(limit=limit, before=ctx.message)])
-    return messages
-
-
 def find_image_source(reference: str, messages: list[discord.Message], consumed: list[ImageSource]) -> ImageSource | None:
     reference = undo_xml(reference).strip().strip("<>")
     used = {url for source in consumed for url in (source.url, source.proxy_url) if url}
@@ -74,7 +58,6 @@ def find_image_source(reference: str, messages: list[discord.Message], consumed:
         if reference == filename:
             return source
     return None
-
 
 async def read_image_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int = IMAGE_DOWNLOAD_MAXSIZE) -> bytes:
     data: bytes | bytearray
@@ -96,7 +79,6 @@ async def read_image_source(source: ImageSource, session: aiohttp.ClientSession,
     if len(data) > max_bytes:
         raise ValueError("Image exceeds the download limit")
     return bytes(data)
-
 
 def find_nearest_resolution(current: tuple[int, int], targets: list[tuple[int, int]]) -> tuple[int, int]:
     ratio = current[0] / current[1]
@@ -132,7 +114,7 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail
     image.save(fp, format, quality=90)
     return fp.getvalue()
 
-def make_circle(image_bytes: bytes) -> bytes:
+def crop_circle(image_bytes: bytes) -> bytes:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
     mask = Image.new("L", img.size, 0)
     ImageDraw.Draw(mask).ellipse((0, 0, *img.size), fill=255)

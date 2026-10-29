@@ -32,7 +32,7 @@ def fix_truncated_xml(text: str) -> str:
         text += f"</{tag}>"
     return text
 
-def clean_tag(tag: str) -> str:
+def clean_booru_tag(tag: str) -> str:
     tag = tag.lower().strip()
     if len(tag) > 3:
         return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
@@ -44,7 +44,13 @@ def farenheit_to_celsius(match: re.Match) -> str:
     c = (f - 32) * 5.0/9.0
     return f"{round(c)}°C/{round(f)}°F"
 
+
 def parse_prompt(prompt: str) -> str:
+    """
+    Convert a newline-separated prompt into a pipe-separated prompt.
+    Meant to properly show regional prompting to the LLM.
+    Probably not needed anymore?
+    """
     prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)
     return prompt
 

@@ -7,7 +7,7 @@ from typing import Any
 from rapidfuzz import process, fuzz
 from redbot.core.data_manager import bundled_data_path
 
-from agent.utils import clean_tag
+from agent.utils import clean_booru_tag
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
@@ -44,14 +44,14 @@ class BooruTagsTool(ToolBase):
                     vals = [v if isinstance(v, (list, tuple)) else [v]
                             for v in subgroup_content.values()]
                     merged = list(itertools.chain.from_iterable(vals))
-                    cls.tag_groups[clean_tag(subgroup_name)] = [clean_tag(t) for t in merged if t is not None]
+                    cls.tag_groups[clean_booru_tag(subgroup_name)] = [clean_booru_tag(t) for t in merged if t is not None]
                 elif isinstance(subgroup_content, list):
-                    cls.tag_groups[clean_tag(subgroup_name)] = [clean_tag(tag) for tag in subgroup_content]
+                    cls.tag_groups[clean_booru_tag(subgroup_name)] = [clean_booru_tag(tag) for tag in subgroup_content]
         cls.all_tags = list(itertools.chain.from_iterable(cls.tag_groups.values()))                
         
     @classmethod
     def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> list[str]:
-        query = clean_tag(query)
+        query = clean_booru_tag(query)
         matches: set[str] = set()
 
         for group, tags in cls.tag_groups.items():

@@ -101,9 +101,8 @@ def parse_arcenciel_model(model: dict, *, description_limit: int | None = None, 
 
 async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000) -> tuple[str, float]:
     audio = mutagen.File(BytesIO(audio_bytes))
-    if audio is None or audio.info is None or not hasattr(audio.info, "length"):
+    if not audio or not audio.info or not isinstance(audio.info, HasLength) or not isinstance(audio.info.length, (int, float)):
         raise ValueError("Could not read audio metadata")
-    assert isinstance(audio.info, HasLength)
 
     proc = await asyncio.create_subprocess_exec(
         "ffmpeg", "-i", "-",

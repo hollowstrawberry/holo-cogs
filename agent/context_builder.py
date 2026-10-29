@@ -326,7 +326,11 @@ class ChatHistoryContext:
         generated_image = current_images.generated_image if current_images else None
         attachment_captions = current_images.attachment_captions if current_images else None
         url_captions = current_images.url_captions if current_images else None
-        clean_content = lambda text: utils.clean_content(self.builder.bot, message.guild, text) if message.guild else ""
+
+        def clean_content(text: str) -> str:
+            text = utils.resolve_emotes(self.builder.bot, text)
+            text = utils.resolve_mentions(self.builder.bot, message.guild, text)
+            return text
         
         inline_objs: dict[str, dict[str, Any]] = {}
         obj: dict[str, Any] = {
@@ -436,7 +440,7 @@ class ChatHistoryContext:
                 fields = []
                 for field in embed.fields:
                     fields.append({
-                        "@name": clean_content(field.name),
+                        "@name": clean_content(field.name or ""),
                         "#text": clean_content(field.value or ""),
                     })
                 utils.add_xml_group(embed_obj, fields, "fields")

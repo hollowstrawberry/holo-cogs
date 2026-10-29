@@ -53,14 +53,14 @@ class CommandsTool(ToolBase):
         brief_budget = self.get_setting_int("command_brief_chars", 50, 4000) or 120
         cmds: list[dict] = []
 
-        if exact and await command_allowed(context, exact, visible=True):
+        if exact and await command_allowed(context, exact, visible_only=True):
             cmd = {"command": f"{prefix}{exact.qualified_name} {exact.signature}".rstrip()}
             help_text = exact.format_help_for_context(context) or exact.short_doc
             cmd["help"] = help_text[:help_budget].strip()
             if isinstance(exact, commands.Group):
                 children = []
                 for child in sorted(exact.walk_commands(), key=lambda c: c.qualified_name):
-                    if isinstance(child, commands.Command) and await command_allowed(context, child, visible=True):
+                    if isinstance(child, commands.Command) and await command_allowed(context, child, visible_only=True):
                         children.append(f"{prefix}{child.qualified_name}: {child.short_doc[:brief_budget].strip()}")
                         if len(children) >= child_limit:
                             break
@@ -79,7 +79,7 @@ class CommandsTool(ToolBase):
                     score = sum(word in names for word in words)
                     candidates.append((-score, command.qualified_name, command))
             for _, _, match in sorted(candidates, key=lambda item: (item[0], item[1])):
-                if await command_allowed(context, match, visible=True):
+                if await command_allowed(context, match, visible_only=True):
                     cmds.append({"#text": f"{prefix}{match.qualified_name}: {match.short_doc[:brief_budget].strip()}"})
                     if len(cmds) >= limit:
                         break

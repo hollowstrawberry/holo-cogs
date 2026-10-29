@@ -4,7 +4,7 @@ import discord
 from typing import Coroutine, Protocol, runtime_checkable
 from redbot.core import commands
 
-from agent.utils import undo_xml, get_cog, image_messages, find_image_source, read_image_source
+from agent.utils import undo_xml, get_cog, backread_with_quote, find_image_source, read_image_source
 from agent.types import ToolCall, Function, Parameters, ImageSource
 from agent.tools.base import ToolBase
 
@@ -66,7 +66,7 @@ class GptImageToolBase(ToolBase):
         sources: list[ImageSource] = []
         if existing:
             limit = self.cog.config[self.ctx.guild].backread_messages.value
-            messages = await image_messages(self.ctx, limit)
+            messages = await backread_with_quote(self.ctx, limit)
             for reference in existing:
                 source = find_image_source(reference, messages, sources)
                 if not source:

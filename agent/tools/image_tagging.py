@@ -1,8 +1,8 @@
 import logging
 import asyncio
 
-from agent.utils import get_filename, clean_tag, normalize_image, image_messages, find_image_source, read_image_source, get_cog
 from agent.types import ToolCall, Function, Parameters
+from agent.utils import get_filename, clean_booru_tag, normalize_image, backread_with_quote, find_image_source, read_image_source, get_cog
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.imagetagger")
@@ -47,7 +47,7 @@ class ImageTaggingTool(ToolBase):
             emoji = self.get_setting("tagging_emoji")
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
         
-        messages = await image_messages(self.ctx, self.cog.config[self.ctx.guild].backread_messages.value)
+        messages = await backread_with_quote(self.ctx, self.cog.config[self.ctx.guild].backread_messages.value)
         image_source = find_image_source(reference, messages, [])
         if not image_source:
             return {
@@ -65,7 +65,7 @@ class ImageTaggingTool(ToolBase):
                 return f"<error>The image appears to be corrupted or invalid</error>"
             filename = get_filename(image_source.url or reference).rsplit(".", 1)[0] + ".png"
             tags = await arcenciel.api.interrogate(fp, filename)  # type: ignore
-            return f"`{', '.join([clean_tag(tag) for tag in tags])}`"
+            return f"`{', '.join([clean_booru_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
             return f"<error>{type(error).__name__}: {error}</error>"

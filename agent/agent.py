@@ -11,7 +11,7 @@ from random import random
 from difflib import get_close_matches
 from datetime import datetime, timezone
 from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionMessageFunctionToolCall
+from openai.types.chat import ChatCompletion, ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
 from redbot.core.bot import Red
 
@@ -262,6 +262,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         start = time.perf_counter()
         result = types.CompletionResult()
         mem_task = None
+        ctx.channel
         async with utils.bot_is_typing(ctx.channel):
             backread = await self.fetch_message_history(ctx)
             messages = await self.context_builder.build_context(ctx, backread, config, result, self.encoding)
@@ -424,7 +425,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 temp_messages.extend(constants.FAKE_TOOL_CALL)  # type: ignore
                 
             started = time.perf_counter()
-            response = await self.get_client(model).chat.completions.create(
+            response: ChatCompletion = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),  # type: ignore
                 messages=temp_messages,  # type: ignore
@@ -543,7 +544,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             # cleanup
             for _, pattern, repl in constants.RESPONSE_CLEANUP_PATTERNS:
                 completion = pattern.sub(repl, completion)
-            completion = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(self.bot), completion)
+            completion = utils.parse_emotes(self.bot, completion)
             completion = constants.FAKE_EMOTE_PATTERN.sub("\n", completion)
             for cleanup in cleanups:
                 completion = cleanup(completion)
@@ -708,9 +709,9 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         if constants.EMOTE_PATTERN.match(completion.parsed.emote):  # full emote
             emote = completion.parsed.emote
         elif constants.INCOMPLETE_EMOTE_PATTERN.match(completion.parsed.emote):  # :name:
-            emote = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(self.bot), completion.parsed.emote)
+            emote = utils.parse_emotes(self.bot, completion.parsed.emote)
         elif constants.ALPHANUMERIC_PATTERN.match(completion.parsed.emote):  # name
-            emote = constants.INCOMPLETE_EMOTE_PATTERN.sub(utils.fix_emote(self.bot), f":{completion.parsed.emote}:")
+            emote = utils.parse_emotes(self.bot, f":{completion.parsed.emote}:")
         else:  # emoji?
             emote = completion.parsed.emote
         if not emote:

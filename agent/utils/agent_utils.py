@@ -15,41 +15,34 @@ def is_bot_command(message: AgentMessage, prefixes: list[str]):
     return message["role"] == "user" and any(f"<content>{prefix}" in message["content"] for prefix in prefixes)
 
 def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[AgentMessage]:
-    """Copy the initial context; a fixed boundary never advances with tool results."""
-    if mode not in ("implicit", "fixed_prefix"):
-        raise ValueError("Unknown cache mode")
-    prepared = deepcopy(messages)
-    for message in prepared:
-        message.pop("cache_control", None)
-        content = message["content"]
-        if isinstance(content, list):
-            for part in content:
-                part.pop("cache_control", None)
-    if mode == "fixed_prefix":
-        candidates = [message for message in prepared if message["role"] == "user"]
-        if not candidates:
-            candidates = prepared[:1]
-        for message in reversed(candidates):
-            content: str | list[AgentContent] = message["content"]
-            if isinstance(content, str):
-                content = [{"type": "text", "text": content}]
-                message["content"] = content
-            for part in reversed(content):
-                if part.get("type") == "text" and part.get("text"):
-                    part["cache_control"] = CACHE_CONTROL
-                    return prepared
-    return prepared
+    """Copies the message list and applies cache breakpoints if applicable"""
+    messages = deepcopy(messages)
+    if mode != "fixed_prefix":
+        return messages
+    clear_cache_breakpoints(messages)
+    candidates = [message for message in messages if message["role"] == "user"]
+    if not candidates:
+        candidates = messages[:1]
+    for message in reversed(candidates):
+        content: str | list[AgentContent] = message["content"]
+        if isinstance(content, str):
+            content = [{"type": "text", "text": content}]
+            message["content"] = content
+        for part in reversed(content):
+            if part.get("type") == "text" and part.get("text"):
+                part["cache_control"] = CACHE_CONTROL
+                return messages
+    return messages
 
 def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:
     for msg in messages:
-        if not isinstance(msg, dict) or not isinstance(msg["content"], list):
-            continue
-        for cnt in msg["content"]:
-            if isinstance(cnt, dict):
+        msg.pop("cache_control", None)
+        if "content" in msg and isinstance(msg["content"], list):
+            for cnt in msg["content"]:
                 cnt.pop("cache_control", None)
 
 def fingerprint(value: object) -> str:
-    """Hash structured requests without logging prompt or image contents."""
+    """Hash structured requests without logging prompt or image contents"""
     def json_default(value: object) -> object:
         if isinstance(value, BaseModel):
             return value.model_dump(mode="json", exclude_unset=True)
@@ -79,7 +72,7 @@ def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentCon
 def get_text_contents(messages: list[AgentMessage]) -> list[AgentMessage]:
     """
     Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
-    and overrides all the message roles to user.
+    and overrides all the message roles to user
     """
     temp_messages: list[AgentMessage] = []
     for msg in deepcopy(messages):
@@ -102,6 +95,7 @@ def get_text_contents(messages: list[AgentMessage]) -> list[AgentMessage]:
     return temp_messages
 
 def adjusted_effort(model: str, effort: str) -> str | Omit:
+    """Transforms an effort value into a value that is valid for the given model"""
     if "gpt-4" in model:
         return Omit()
     # very non-exhaustive list of edge cases to prevent BadRequests

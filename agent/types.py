@@ -9,6 +9,7 @@ AgentValue = dict[str, str | dict[str, str]]
 AgentContent = dict[str, (str | AgentValue)]
 AgentMessage = dict[str, (str | list[AgentContent])]
 CacheMode = Literal["implicit", "fixed_prefix"]
+MessageableChannel = discord.abc.GuildChannel | discord.GroupChannel | discord.DMChannel | discord.Thread | discord.PartialMessageable
 
 
 @dataclass(frozen=True)
@@ -166,8 +167,8 @@ class HasCost(Protocol):
 
 @runtime_checkable
 class HasLength(Protocol):
-    length: float
+    length: Any
 
 @runtime_checkable
-class HasId(Protocol):
-    id: int
+class HasMessage(Protocol):
+    message: discord.Message | None
