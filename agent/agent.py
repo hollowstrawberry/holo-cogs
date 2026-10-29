@@ -5,9 +5,9 @@ import asyncio
 import discord
 import tiktoken
 import xmltodict
-from random import random
 from copy import copy
 from typing import Callable
+from random import random
 from difflib import get_close_matches
 from datetime import datetime, timezone
 from openai import AsyncOpenAI

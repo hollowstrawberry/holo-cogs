@@ -1,13 +1,11 @@
-from __future__ import annotations
-
-import asyncio
 import hashlib
-from collections.abc import Awaitable, Callable, Mapping
-from contextlib import suppress
-from dataclasses import dataclass
-
+import asyncio
 import aiohttp
 import discord
+from contextlib import suppress
+from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping
+
 from arcenciel.base import ArcencielBase
 from arcenciel.constants import VIEW_TIMEOUT
 from arcenciel.moss import is_array, is_object

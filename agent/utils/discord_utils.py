@@ -1,7 +1,7 @@
 import re
 import asyncio
-import contextlib
 import discord
+import contextlib
 from copy import copy
 from typing import Callable, Type, TypeVar
 from redbot.core import commands

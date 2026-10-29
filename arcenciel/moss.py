@@ -3,7 +3,6 @@ import math
 import json
 from typing import TypeGuard
 from collections.abc import Mapping
-from redbot.core import commands
 
 from arcenciel import types
 
