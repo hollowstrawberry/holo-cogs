@@ -62,7 +62,7 @@ class ContextBuilder:
 
     async def fetch_message(self, channel: object, message_id: int) -> discord.Message | None:
         if message := self.message_cache.get(message_id):
-            return message
+            return await utils.resolve_components(message)
         if not isinstance(channel, discord.abc.Messageable):
             return None
         try:
@@ -70,7 +70,7 @@ class ContextBuilder:
         except discord.DiscordException:
             return None
         self.message_cache[message_id] = message
-        return message
+        return await utils.resolve_components(message)
 
 
 class ContextBuilderPipeline:
@@ -97,6 +97,8 @@ class ContextBuilderPipeline:
         self.image_tokens = {ImageQuality.NONE: 0, ImageQuality.LOW: low, ImageQuality.FULL: high}
 
     async def build(self) -> AgentChatContext:
+        self.backread = list(await asyncio.gather(*(utils.resolve_components(message) for message in self.backread)))
+        self.in_context = {message.id: message for message in self.backread}
         self.quotes = await self.resolve_quotes()
         self.generated = await self.resolve_generated()
         messages = await self.parse_messages()
@@ -125,7 +127,8 @@ class ContextBuilderPipeline:
 
     async def fetch_quote(self, backmsg: discord.Message, quote_id: int) -> discord.Message | None:
         cached = backmsg.reference.cached_message if backmsg.reference else None
-        return self.in_context.get(quote_id) or cached or await self.builder.fetch_message(backmsg.channel, quote_id)
+        quote = self.in_context.get(quote_id) or cached or await self.builder.fetch_message(backmsg.channel, quote_id)
+        return await utils.resolve_components(quote) if quote else None
 
 
     async def resolve_generated(self) -> dict[int, dict[str, str]]:
@@ -317,6 +320,8 @@ class ContextBuilderPipeline:
             utils.add_xml_group(obj, stickers, "stickers")
         if (embeds := self.embed_objs(message, obj.get("content", ""), exhaustive)):
             utils.add_xml_group(obj, embeds, "embeds")
+        if components := self.component_objs(message, exhaustive):
+            utils.add_xml_group(obj, components, "components")
         if exhaustive and not generated and (buttons := self.button_objs(message)):
             utils.add_xml_group(obj, buttons, "buttons")
         if message.poll:
@@ -416,9 +421,29 @@ class ContextBuilderPipeline:
     def button_objs(self, message: discord.Message) -> list[StructuredObject]:
         return [
             {"#text": utils.button_label(button)}
-            for row in [component.children if isinstance(component, discord.ActionRow) else [component] for component in message.components]
-            for button in row if isinstance(button, discord.Button)
+            for button in utils.walk_components(message.components) if isinstance(button, discord.Button)
         ]
+
+
+    def component_objs(self, message: discord.Message, exhaustive: bool) -> list[StructuredObject]:
+        objects: list[StructuredObject] = []
+        remaining = self.config.backread_tokens.value * 4 if exhaustive else self.config.max_quote.value
+        for component in utils.walk_components(message.components):
+            if isinstance(component, discord.TextDisplay):
+                text = self.clean_content(component.content)
+                if remaining > 0:
+                    objects.append({"text": utils.truncate_with_omitted(text, remaining)})
+                    remaining -= len(text)
+            elif isinstance(component, discord.Button) and component.url:
+                objects.append({"link": component.url})
+            for media, description in utils.component_media(component):
+                kind = utils.media_kind(media)
+                obj: StructuredObject = {kind: media.url}
+                if description and remaining > 0:
+                    obj["description"] = utils.truncate_with_omitted(self.clean_content(description), remaining)
+                    remaining -= len(description)
+                objects.append(obj)
+        return objects
 
 
     def poll_obj(self, poll: discord.Poll, exhaustive: bool) -> StructuredObject:

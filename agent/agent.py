@@ -243,7 +243,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         message = fixed or ctx.message
         wait = 8 if fixed else 4
         for _ in range(wait):
-            if message.embeds:
+            if message.embeds or message.components:
                 break
             await asyncio.sleep(1)
             try:
@@ -251,9 +251,11 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             except Exception as error:
                 log.warning(f"wait_for_embed {type(error).__name__}: {error}")
                 break
+        message = await utils.resolve_components(message)
         if fixed:
             ctx.message = copy(ctx.message)
             ctx.message.embeds = message.embeds
+            ctx.message.components = [*ctx.message.components, *message.components]
         else:
             ctx.message = message
         return ctx

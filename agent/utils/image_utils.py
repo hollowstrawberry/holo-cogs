@@ -1,14 +1,25 @@
 import io
+import asyncio
 import aiohttp
 import discord
 from io import BytesIO
 from dataclasses import replace
+from tempfile import TemporaryDirectory
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from PIL import Image, ImageDraw, UnidentifiedImageError
+from expiringdict import ExpiringDict
 
 from .string_utils import undo_xml, get_filename
-from agent.types import ImageSource
-from agent.constants import IMAGE_DOWNLOAD_MAXSIZE, IMAGE_DOWNLOAD_TIMEOUT, IMAGE_EXTENSIONS, MEDIA_HEADERS, URL_PATTERN
+from .component_utils import walk_components, component_media, media_kind
+from agent.types import ImageSource, ImageEntry
+from agent.constants import (
+    IMAGE_DOWNLOAD_MAXSIZE, IMAGE_DOWNLOAD_TIMEOUT, IMAGE_EXTENSIONS, MEDIA_HEADERS, URL_PATTERN,
+    CACHE_SIZE, VIDEO_FRAME_MAXSIZE, VIDEO_FRAME_TIMEOUT,
+)
+
+VIDEO_FRAMES: dict[int | str, ImageEntry] = ExpiringDict(CACHE_SIZE, 5 * 60)
+VIDEO_DECODERS = asyncio.Semaphore(2)
 
 
 def image_sources(message: discord.Message) -> list[ImageSource]:
@@ -19,9 +30,26 @@ def image_sources(message: discord.Message) -> list[ImageSource]:
         if att.content_type and att.content_type.startswith("image/")
     ]
     for embed in message.embeds:
-        media = embed.image if embed.image.url else embed.thumbnail
-        if media.url:
-            candidates.append(ImageSource(media.url, message.id, proxy_url=media.proxy_url))
+        embed_media = embed.image if embed.image.url else embed.thumbnail
+        if embed_media.url:
+            candidates.append(ImageSource(embed_media.url, message.id, proxy_url=embed_media.proxy_url))
+    # Gallery content takes priority over section thumbnails, which are often profile pictures.
+    components = sorted(walk_components(message.components), key=lambda item: isinstance(item, discord.ThumbnailComponent))
+    for component in components:
+        for media, _ in component_media(component):
+            kind = media_kind(media)
+            if kind in ("image", "video"):
+                attachment = next((
+                    (i, att) for i, att in enumerate(message.attachments)
+                    if att.id == media.attachment_id or media.url == f"attachment://{att.filename}"
+                ), None)
+                if attachment:
+                    index, att = attachment
+                    candidates.append(ImageSource(att.url, message.id, att, index, att.proxy_url, kind == "video"))
+                else:
+                    candidates.append(ImageSource(
+                        media.url, message.id, proxy_url=media.proxy_url, is_video=kind == "video",
+                    ))
     for match in URL_PATTERN.findall(message.content or ""):
         url = match.rstrip(">)]|")
         try:
@@ -59,6 +87,48 @@ def find_image_source(reference: str, messages: list[discord.Message], consumed:
     return None
 
 async def read_image_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int = IMAGE_DOWNLOAD_MAXSIZE) -> bytes:
+    if not source.is_video:
+        return await _read_media_source(source, session, max_bytes)
+    entry = VIDEO_FRAMES.setdefault(source.key, ImageEntry())
+    async with entry.lock:
+        if entry.image_full is None:
+            try:
+                async with VIDEO_DECODERS:
+                    data = await _read_media_source(source, session, max_bytes)
+                    entry.image_full = await video_frame(data)
+            except Exception:
+                entry.image_full = b""  # Avoid retrying an unavailable video on every turn.
+                raise
+        if not entry.image_full:
+            raise ValueError("Video preview unavailable")
+        return entry.image_full
+
+
+async def video_frame(data: bytes) -> bytes:
+    """Decode one bounded still from a local video; FFmpeg never receives a remote URL."""
+    with TemporaryDirectory(prefix="agent-video-") as directory:
+        path = Path(directory) / "video"
+        await asyncio.to_thread(path.write_bytes, data)
+        process = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-nostdin", "-v", "error", "-threads", "1",
+            "-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,webm",
+            "-i", str(path), "-threads", "1", "-frames:v", "1", "-an", "-sn",
+            "-vf", f"scale='min({VIDEO_FRAME_MAXSIZE},iw)':'min({VIDEO_FRAME_MAXSIZE},ih)':force_original_aspect_ratio=decrease",
+            "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "3", "pipe:1",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            frame, _ = await asyncio.wait_for(process.communicate(), timeout=VIDEO_FRAME_TIMEOUT)
+            if process.returncode or not frame:
+                raise ValueError("Could not decode a video preview")
+            return frame
+        finally:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+
+
+async def _read_media_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int) -> bytes:
     data: bytes | bytearray
     if source.attachment:
         if source.attachment.size > max_bytes:

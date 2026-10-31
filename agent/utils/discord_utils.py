@@ -8,6 +8,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from .image_utils import crop_circle
+from .component_utils import resolve_components
 from agent.types import MessageableChannel, HasMessage
 from agent import constants
 
@@ -42,11 +43,12 @@ async def backread_with_quote(ctx: commands.Context, limit: int) -> list[discord
             quoted = ref.cached_message or await ctx.channel.fetch_message(ref.message_id)
         except discord.DiscordException:
             pass
-    return [
+    messages = [
         *([quoted] if quoted else []),
         ctx.message,
         *[message async for message in ctx.channel.history(limit=limit, before=ctx.message)]
     ]
+    return list(await asyncio.gather(*(resolve_components(message) for message in messages)))
 
 def parse_mentions(guild: discord.Guild, text: str) -> str:
     """Convert @name mentions into <@id> mentions (users/roles/channels)."""

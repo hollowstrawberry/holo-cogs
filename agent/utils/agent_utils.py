@@ -63,6 +63,7 @@ def make_caption_content(src: ImageSource, caption: str) -> AgentContent:
     caption_obj = {
         "image_caption": {
             "#text": caption,
+            **({"@type": "video_frame"} if src.is_video else {}),
             **({"@filename": src.attachment.filename} if src.attachment else {"@url": src.url}),
         }
     }
@@ -74,6 +75,10 @@ def build_image_contents(msg: ContextMessage, max_quality: ImageQuality, use_cap
         quality = min(max_quality, slot.quality)
         if not slot.entry or quality == ImageQuality.NONE:
             continue
+        if slot.src.is_video:
+            contents.append(make_text_content(xmltodict.unparse(
+                {"video_frame": {"@url": slot.src.url, "@audio": "false"}}, full_document=False,
+            )))
         if quality == ImageQuality.FULL and slot.entry.image_full:
             contents.append(make_image_content(slot.entry.image_full))
         elif use_captions and slot.entry.caption:
