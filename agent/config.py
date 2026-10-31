@@ -16,7 +16,7 @@ class AgentCogGuildConfig(CogConfigBase):
     memory:                  ConfigField[dict[str, str]] = ConfigField({})
     prompt_keys:             ConfigField[dict[str, str]] = ConfigField({})
     enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])       
-    cache_mode:              ConfigField[CacheMode]      = ConfigField("fixed_prefix")
+    cache_mode:              ConfigField[CacheMode]      = ConfigField("fixed")
     # LLM parameters
     model_recaller:          ConfigField[str] = ConfigField("gpt-6-luna")
     model_responder:         ConfigField[str] = ConfigField("gpt-6-luna")

@@ -379,7 +379,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
         base_system_content: str = config.prompt_autoresponder.value if auto else config.prompt_responder.value
         prompt_keys: dict[str, str] = config.prompt_keys.value
-        cache_mode = config.cache_mode.value if "/" in model else "implicit"
+        cache_mode = config.cache_mode.value
         system_content = base_system_content.format(
             **prompt_keys,
             botname=ctx.me.name,
@@ -396,7 +396,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         system_role = "developer" if "gpt-5" in model else "system"
         system_prompt = {
             "role": system_role,
-            "content": [utils.make_text_content(system_content)]
+            "content": [utils.make_text_content(system_content)],
         }
         messages.insert(0, system_prompt)
         if prompt_keys.get("end", "").strip():
@@ -417,7 +417,6 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         )
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
-        initial_count = len(messages)
 
         tool_call_history: list[str] = []
         memory_changes: list[MemoryChangeResult] = []
@@ -527,11 +526,11 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 if self.config.extended_logging.value:
                     log.info(f"{tool_text=}")
 
-                if constants.CUMULATIVE_CACHE_FLAG:
-                    utils.clear_cache_breakpoints(messages)
+                if cache_mode == "cumulative":
+                    utils.clear_cache_breakpoints(messages[1:])
                 messages.append({
                     "role": "tool",
-                    "content": [utils.make_text_content(tool_text, cache=constants.CUMULATIVE_CACHE_FLAG)],
+                    "content": [utils.make_text_content(tool_text, cache_mode in ("multiple", "cumulative"))],
                     "tool_call_id": call.id,
                 })
 

@@ -13,7 +13,7 @@ AgentValue = dict[str, str | dict[str, str]]
 AgentContent = dict[str, (str | AgentValue)]
 AgentMessage = dict[str, (str | list[AgentContent])]
 
-CacheMode = Literal["implicit", "fixed_prefix"]
+CacheMode = Literal["implicit", "fixed", "multiple", "cumulative"]
 
 if TYPE_CHECKING:
     MessageableChannel = discord.abc.MessageableChannel

@@ -18,21 +18,22 @@ def is_bot_command(message: AgentMessage, prefixes: list[str]):
 def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[AgentMessage]:
     """Copies the message list and applies cache breakpoints if applicable."""
     messages = deepcopy(messages)
-    if mode != "fixed_prefix":
+    if mode == "implicit":
         return messages
     clear_cache_breakpoints(messages)
-    candidates = [message for message in messages if message["role"] == "user"]
-    if not candidates:
-        candidates = messages[:1]
-    for message in reversed(candidates):
-        content: str | list[AgentContent] = message["content"]
-        if isinstance(content, str):
-            content = [{"type": "text", "text": content}]
-            message["content"] = content
-        for part in reversed(content):
-            if part.get("type") == "text" and part.get("text"):
-                part["cache_control"] = CACHE_CONTROL
-                return messages
+    breakpoints: set[AgentMessage] = set()
+    if mode in ("multiple", "cumulative"):
+        breakpoints.add(messages[0])  # system prompt
+    last = next((msg for msg in reversed(messages) if msg["role"] == "user"), messages[-1])
+    breakpoints.add(last)
+    for message in breakpoints:
+        contents: str | list[AgentContent] = message["content"]
+        if isinstance(contents, str):
+            contents = message["content"] = [{"type": "text", "text": contents}]
+        for cnt in reversed(contents):
+            if cnt.get("type") == "text" and cnt.get("text"):
+                cnt["cache_control"] = CACHE_CONTROL
+                break
     return messages
 
 def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:

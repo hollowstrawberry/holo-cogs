@@ -23,7 +23,6 @@ CACHE_AGE = 24*60*60
 CACHE_SIZE = 100
 TOKEN_ENCODING = "o200k_base"
 
-CUMULATIVE_CACHE_FLAG = False
 COMPLETION_STREAM_FLAG = False
 
 URL_PATTERN = re.compile(r"(https?://\S+)")
