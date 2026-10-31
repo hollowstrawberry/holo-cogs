@@ -425,7 +425,7 @@ class ContextBuilderPipeline:
 
     def component_objs(self, message: discord.Message, exhaustive: bool) -> list[StructuredObject]:
         objects: list[StructuredObject] = []
-        remaining = self.config.backread_tokens.value * 4 if exhaustive else self.config.max_quote.value
+        remaining = constants.MAX_EMBED_DESCRIPTION if exhaustive else self.config.max_quote.value
         for component in utils.walk_components(message.components):
             if isinstance(component, discord.TextDisplay):
                 text = self.clean_content(component.content)
