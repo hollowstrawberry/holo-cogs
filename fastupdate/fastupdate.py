@@ -119,21 +119,21 @@ class FastUpdate(commands.Cog):
 
     @commands.group(name="fastupdateset", aliases=["setfastupdate"])
     async def fastupdate_set(self, ctx: commands.Context):
-        """Configure the fastupdate cog"""
+        """Configure the fastupdate cog."""
 
     @fastupdate_set.group(name="repo", aliases=["repos"])
     async def fastupdate_repos(self, ctx: commands.Context):
-        """Sets allowed repos to limit the [p]update command"""
+        """Sets allowed repos to limit the [p]update command."""
 
     @fastupdate_repos.command("list", aliases=["show", "view"])
     async def fastupdate_repos_list(self, ctx: commands.Context):
-        """Show all the allowed repos"""
+        """Show all the allowed repos."""
         allowed_repos: list[str] = await self.config.allowed_repos()
         await ctx.send(f"Allowed repos for update command: " + (f"`{' '.join(allowed_repos)}`" if allowed_repos else "*(None)*"))
 
     @fastupdate_repos.command("add")
     async def fastupdate_repos_add(self, ctx: commands.Context, *repos: str):
-        """Add allowed repos"""
+        """Add allowed repos."""
         allowed_repos: set[str] = set(await self.config.allowed_repos())
         allowed_repos |= set(repos)
         await self.config.allowed_repos.set(list(allowed_repos))
@@ -141,7 +141,7 @@ class FastUpdate(commands.Cog):
 
     @fastupdate_repos.command("remove")
     async def fastupdate_repos_remove(self, ctx: commands.Context, *repos: str):
-        """Remove allowed repos"""
+        """Remove allowed repos."""
         allowed_repos: set[str] = set(await self.config.allowed_repos())
         allowed_repos -= set(repos)
         await self.config.allowed_repos.set(list(allowed_repos))

@@ -15,19 +15,23 @@ from openai.types.chat import ChatCompletion, ChatCompletionMessageFunctionToolC
 from redbot.core import commands
 from redbot.core.bot import Red
 
-from agent import types, utils, constants
+from agent import utils, constants
 from agent.commands import AgentCogCommands
-from agent.config_commands import AgentCogConfigCommands
 from agent.tools.base import get_all_tools
 from agent.tools.update_memory import UpdateMemoryTool
 from agent.views.memory_change import MemoryChangeView
-from agent.context_builder import ContextBuilder
+from agent.context_builder import ContextBuilder, AgentChatContext
+from agent.config_commands import AgentCogConfigCommands
+from agent.types import (
+    CompletionResult, AgentContent, AgentMessage, ImageQuality, HasError, LinkFixer,
+    MemoryChangeList, MemoryChangeResult, MessageReaction, ReactionResult, 
+)
 
 log = logging.getLogger("agent")
 
 
 class AgentCog(AgentCogCommands, AgentCogConfigCommands):
-    """A custom-built conversational agent for Discord"""
+    """A custom-built conversational agent for Discord."""
 
     def __init__(self, bot: Red):
         super().__init__(bot)
@@ -149,7 +153,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
         # autoresponse or autoreaction
         if self.bot.user not in ctx.message.mentions:
-            if config.auto_channel_mode == "blacklist" and ctx.channel.id in config.auto_channels.value:
+            if config.auto_channel_mode.value == "blacklist" and ctx.channel.id in config.auto_channels.value:
                 return
             if config.auto_channel_mode.value == "whitelist" and ctx.channel.id not in config.auto_channels.value:
                 return
@@ -231,7 +235,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
     async def wait_for_embed(self, ctx: commands.Context) -> commands.Context:
         fixed = None
-        if linkfixer := utils.get_cog(self.bot, types.LinkFixer):
+        if linkfixer := utils.get_cog(self.bot, LinkFixer):
             try:
                 fixed = await linkfixer.get_fixed_message(ctx.message)
             except discord.DiscordException as error:
@@ -260,9 +264,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         config = self.config[ctx.guild]
         memory_names = list(config.memory.value.keys())
         start = time.perf_counter()
-        result = types.CompletionResult()
+        result = CompletionResult()
         mem_task = None
-        ctx.channel
         async with utils.bot_is_typing(ctx.channel):
             backread = await self.fetch_message_history(ctx)
             messages = await self.context_builder.build_context(ctx, backread, config, result, self.encoding)
@@ -282,7 +285,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         assert ctx.guild
         start = time.perf_counter()
         backread = await self.fetch_message_history(ctx, short=True)
-        messages = await self.context_builder.build_context(ctx, backread, self.config[ctx.guild], types.CompletionResult(), self.encoding)
+        messages = await self.context_builder.build_context(ctx, backread, self.config[ctx.guild], CompletionResult(), self.encoding)
         result = await self.execute_autoreacter(ctx, messages)
         result.elapsed_ms = int(1000 * (time.perf_counter() - start))
         log.info(result)
@@ -292,9 +295,9 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         self,
         ctx: commands.Context,
         participants: list[discord.Member | discord.User],
-        messages: list[types.AgentMessage],
+        chat: AgentChatContext,
         memories: list[str],
-        result: types.CompletionResult,
+        result: CompletionResult,
     ) -> dict[str, str]:
         """
         Runs an openai completion with the chat history and a list of memories from the database
@@ -305,8 +308,9 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         
         assert ctx.guild
         config = self.config[ctx.guild]
+        quality = ImageQuality.LOW if config.use_images_recaller.value or config.use_captions.value else ImageQuality.NONE
 
-        temp_messages = utils.get_text_contents(messages)
+        messages = chat.messages(quality)
         temp_memories = list(memories)
         memories_to_recall = set()
         participant_names = [p.name for p in participants]
@@ -317,17 +321,17 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
         temp_memories_str = ", ".join(temp_memories)
         system_content = config.prompt_recaller.value.format(temp_memories_str)
-        system_prompt = {
+        system_prompt: AgentMessage = {
             "role": "system",
             "content": system_content
         }
-        temp_messages.insert(0, system_prompt)  # type: ignore
+        messages.insert(0, system_prompt)
 
         model, effort = config.model_recaller.value, config.effort_recaller.value
         response = await self.get_client(model).chat.completions.create(
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
-            messages=temp_messages,  # type: ignore
+            messages=messages,  # type: ignore
             stream=constants.COMPLETION_STREAM_FLAG,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
@@ -340,7 +344,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             result.add_cost(response.usage)
                                    
         if not response.choices:
-            error = str(response.error) if isinstance(response, types.HasError) else "Unknown error"
+            error = str(response.error) if isinstance(response, HasError) else "Unknown error"
             log.error(f"Missing recaller response: {error}")
             return {}
         
@@ -357,10 +361,10 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
     async def execute_responder(
         self,
         ctx: commands.Context,
-        messages: list[types.AgentMessage],
+        chat: AgentChatContext,
         memory_names: list[str],
         recalled_memories_str: str,
-        result: types.CompletionResult,
+        result: CompletionResult,
         auto: bool = False,
     ):
         """
@@ -386,35 +390,35 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         result.tokens.memories = len(self.encoding.encode(recalled_memories_str))
         result.tokens.system = len(self.encoding.encode(system_content)) - result.tokens.memories
 
-        temp_messages = [msg for msg in messages]
+        messages = chat.messages(ImageQuality.FULL)
         system_role = "developer" if "gpt-5" in model else "system"
         system_prompt = {
             "role": system_role,
             "content": [utils.make_text_content(system_content)]
         }
-        temp_messages.insert(0, system_prompt)  # type: ignore
+        messages.insert(0, system_prompt)
         if prompt_keys.get("end", "").strip():
-            temp_messages.append({
+            messages.append({
                 "role": "system",
                 "content": prompt_keys["end"],
             })
         if prompt_keys.get("prefill", "").strip():
-            temp_messages.append({
+            messages.append({
                 "role": "assistant",
                 "content": prompt_keys["prefill"],
             })
 
-        temp_messages = utils.prepare_messages(temp_messages, cache_mode)
+        messages = utils.prepare_messages(messages, cache_mode)
         tools = sorted(
             (t for t in self.available_tools if t.display_name in config.enabled_functions.value and t.available_for(ctx, auto=auto)),
             key=lambda tool: tool.schema.function.name,
         )
         tools_schema = [t.asdict() for t in tools]
         result.tokens.schema = len(self.encoding.encode(json.dumps(tools_schema)))
-        initial_count = len(temp_messages)
+        initial_count = len(messages)
 
         tool_call_history: list[str] = []
-        memory_changes: list[types.MemoryChangeResult] = []
+        memory_changes: list[MemoryChangeResult] = []
         files: list[discord.File] = []
         cleanups: list[Callable[[str], str]] = []
         do_reply = True
@@ -422,14 +426,14 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         for depth in depths:
             can_use_tools = depth < depths.stop - 1
             if not can_use_tools and depth > 0:
-                temp_messages.extend(constants.FAKE_TOOL_CALL)  # type: ignore
+                messages.extend(constants.FAKE_TOOL_CALL)
                 
             started = time.perf_counter()
             response: ChatCompletion = await self.get_client(model).chat.completions.create(
                 model=utils.clean_model(model),
                 reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),  # type: ignore
-                messages=temp_messages,  # type: ignore
-                max_completion_tokens=config.response_tokens.value,  # type: ignore
+                messages=messages,  # type: ignore
+                max_completion_tokens=config.response_tokens.value,
                 tools=tools_schema,  # type: ignore
                 tool_choice="auto" if can_use_tools else "none",
                 stream=constants.COMPLETION_STREAM_FLAG,
@@ -452,7 +456,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     "elapsed_ms": round(1000 * (time.perf_counter() - started)),
                     "cache_mode": cache_mode,
                     "tool_choice": "auto" if can_use_tools else "none",
-                    "message_count": len(temp_messages),
+                    "message_count": len(messages),
                     "usage": response.usage.model_dump(mode="json") if response.usage else None,
                 }))
             
@@ -466,7 +470,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     result.tokens.thinking += response.usage.completion_tokens_details.reasoning_tokens or 0
 
             if not response.choices:  # request may get rejected
-                error = str(response.error) if isinstance(response, types.HasError) else "Unknown error"
+                error = str(response.error) if isinstance(response, HasError) else "Unknown error"
                 if "403" in error or "PROHIBITED" in error:
                     log.warning(f"Missing response: {error}")
                     emoji = self.config.blocked_emoji.value
@@ -479,7 +483,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if not can_use_tools or not response.choices[0].message.tool_calls:
                 break
                   
-            temp_messages.append(response.choices[0].message)  # type: ignore
+            messages.append(response.choices[0].message)  # type: ignore
             for call in response.choices[0].message.tool_calls:
                 assert isinstance(call, ChatCompletionMessageFunctionToolCall)
                 result.tool_calls += 1
@@ -487,7 +491,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     cls = next(t for t in tools if t.schema.function.name == call.function.name)
                     if cls is UpdateMemoryTool:
                         if not memory_changes:
-                            memory_changes = await self.execute_memorizer(ctx, messages, memory_names, recalled_memories_str, result, standalone=False)
+                            memory_changes = await self.execute_memorizer(ctx, chat, memory_names, recalled_memories_str, result, standalone=False)
                         args: dict = {"changes": memory_changes}
                     else:
                         args: dict = json.loads(call.function.arguments)
@@ -522,8 +526,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     log.info(f"{tool_text=}")
 
                 if constants.CUMULATIVE_CACHE_FLAG:
-                    utils.clear_cache_breakpoints(temp_messages)
-                temp_messages.append({
+                    utils.clear_cache_breakpoints(messages)
+                messages.append({
                     "role": "tool",
                     "content": [utils.make_text_content(tool_text, cache=constants.CUMULATIVE_CACHE_FLAG)],
                     "tool_call_id": call.id,
@@ -556,31 +560,32 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         else:
             await ctx.message.add_reaction(self.config.noresponse_emoji.value)
 
-        response_message = {
+        return {
             "role": "assistant",
             "content": completion
         }
-        return response_message  # type: ignore
 
 
     async def execute_memorizer(
         self,
         ctx: commands.Context,
-        messages: list[types.AgentMessage],
+        chat: AgentChatContext,
         memory_names: list[str],
         recalled_memories_str: str,
-        result: types.CompletionResult,
+        result: CompletionResult,
         standalone: bool,
-    ) -> list[types.MemoryChangeResult]:
+    ) -> list[MemoryChangeResult]:
         """
         Runs an openai completion with the chat history, a list of memories, and the contents of some memories,
         and executes database operations as decided by the LLM.
         """
         assert ctx.guild and ctx.guild.me
         config = self.config[ctx.guild]
+        quality = ImageQuality.LOW if config.use_images_memorizer.value or config.use_captions.value else ImageQuality.NONE
 
         if config.memorizer_user_only.value:
             memory_names = [memory for memory in memory_names if any(member.name == memory for member in ctx.guild.members)]
+
         memory_names_obj = {
             "memory_names": {
                 "#text": ", ".join(memory_names),
@@ -592,24 +597,23 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             botname=ctx.me.name,
             botnickname=ctx.guild.me.nick or ctx.me.name,
         )
-        system_prompt = {
+        system_prompt: AgentMessage = {
             "role": "system",
             "content": system_content
         }
 
         prefixes = await self.bot.get_valid_prefixes(ctx.guild)
-        temp_messages = [msg for msg in utils.get_text_contents(messages) if not utils.is_bot_command(msg, prefixes)]
-        num_backread = config.backread_short.value if config.allow_memorizer.value else config.backread_messages.value
-        if len(temp_messages) > num_backread:
-            temp_messages = temp_messages[-num_backread:]
-        temp_messages.insert(0, system_prompt)  # type: ignore
+        messages = [msg for msg in chat.messages(quality) if not utils.is_bot_command(msg, prefixes)]
+        if config.allow_memorizer.value:
+            messages = messages[-config.backread_short.value:]
+        messages.insert(0, system_prompt)
 
         model, effort = config.model_memorizer.value, config.effort_memorizer.value
         response = await self.get_client(model).chat.completions.parse(
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
-            messages=temp_messages,  # type: ignore
-            response_format=types.MemoryChangeList,
+            messages=messages,  # type: ignore
+            response_format=MemoryChangeList,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
                 **self.openrouter_price_limits(model),
@@ -625,7 +629,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         if not completion.parsed or not completion.parsed.memory_changes:
             return []
 
-        memory_changes: list[types.MemoryChangeResult] = []
+        memory_changes = []
         memory = config.memory.value
         for change in completion.parsed.memory_changes:
             action, name, content = change.action_type, change.memory_name, change.memory_content
@@ -651,7 +655,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                 log.info(f"{action} memory / {name=} / {content=}")
             after = memory.get(name)
             if before != after:
-                memory_changes.append(types.MemoryChangeResult(name, before, after))
+                memory_changes.append(MemoryChangeResult(name, before, after))
         
         await config.memory.save()
 
@@ -661,11 +665,12 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         return memory_changes
 
 
-    async def execute_autoreacter(self, ctx: commands.Context, messages: list[types.AgentMessage]) -> types.ReactionResult:
+    async def execute_autoreacter(self, ctx: commands.Context, chat: AgentChatContext) -> ReactionResult:
         assert ctx.guild and isinstance(ctx.channel, (discord.TextChannel, discord.Thread))
         config = self.config[ctx.guild]
 
-        temp_messages = utils.get_text_contents(messages[:-1]) + [messages[-1]]  # allow last message to have an image
+        messages = chat.messages(ImageQuality.LOW)
+        messages = utils.text_content_only(messages[:-1]) + messages[-1:]  # allow trigger message to have an image
         system_content = config.prompt_autoreacter.value.format(
             **config.prompt_keys.value,
             botname=ctx.me.name,
@@ -678,21 +683,21 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             "role": "system",
             "content": system_content
         }
-        temp_messages.insert(0, system_prompt)  # type: ignore
+        messages.insert(0, system_prompt)  # type: ignore
         model = config.model_autoreacter.value
         effort = "none"
         response = await self.get_client(model).chat.completions.parse(
             model=utils.clean_model(model),
             reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
-            messages=temp_messages,  # type: ignore
-            response_format=types.MessageReaction,
+            messages=messages,  # type: ignore
+            response_format=MessageReaction,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
                 **self.openrouter_price_limits(model),
             },
         )
         completion = response.choices[0].message
-        result = types.ReactionResult()
+        result = ReactionResult()
         if response.usage:
             result.input_tokens = response.usage.prompt_tokens
             result.output_tokens = response.usage.completion_tokens
@@ -731,11 +736,11 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         return result
 
 
-    async def execute_captioner(self, ctx: commands.Context, image: types.AgentContent, result: types.CompletionResult) -> str:
+    async def execute_captioner(self, ctx: commands.Context, image: AgentContent, result: CompletionResult) -> str:
         assert ctx.guild
         config = self.config[ctx.guild]
 
-        messages: list[types.AgentMessage] = [
+        messages: list[AgentMessage] = [
             {
                 "role": "system",
                 "content": config.prompt_captioner.value,

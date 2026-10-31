@@ -1,57 +1,62 @@
 import math
+import asyncio
 import discord
+from enum import IntEnum
 from typing import Any, Literal, Protocol, runtime_checkable
 from pydantic import BaseModel
 from dataclasses import dataclass, field
 
 StructuredObject = dict[str, Any]
+"""Signifies a dict that will be unparsed into XML."""
+
 AgentValue = dict[str, str | dict[str, str]]
 AgentContent = dict[str, (str | AgentValue)]
 AgentMessage = dict[str, (str | list[AgentContent])]
+
 CacheMode = Literal["implicit", "fixed_prefix"]
 MessageableChannel = discord.abc.GuildChannel | discord.GroupChannel | discord.DMChannel | discord.Thread | discord.PartialMessageable
 
 
-@dataclass(frozen=True)
-class ParsedMessageResult:
-    message_id: int
-    gpt_message: AgentMessage
-    tokens: int
-    num_images: int
+class ImageQuality(IntEnum):
+    NONE = 0
+    LOW = 1
+    FULL = 2
 
 
 @dataclass(frozen=True)
 class ImageSource:
+    url: str
     message_id: int
     attachment: discord.Attachment | None = None
     att_index: int = 0
-    url: str | None = None
     proxy_url: str | None = None
 
-
-@dataclass(frozen=True)
-class DiscordMessageImageCandidates:
-    message: discord.Message
-    priority: list[ImageSource]
-    low_priority: list[ImageSource]
+    @property
+    def key(self) -> int | str:
+        return self.attachment.id if self.attachment else self.url
 
 
-@dataclass(frozen=True)
-class ImageProcessingResult:
+@dataclass
+class ImageEntry:
+    image_full: bytes | None = None
+    image_low: bytes | None = None
+    caption: str | None = None
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)
+
+
+@dataclass
+class ImageSlot:
     src: ImageSource
-    data: bytes | None
-    caption: str | None
-    low_detail: bool = False
+    quality: ImageQuality
+    entry: ImageEntry | None = None
 
- 
+
 @dataclass(frozen=True)
-class DiscordMessageResolvedImages:
-    message_id: int
-    image_contents: list[AgentContent]
-    attachment_captions: dict[int, str | None]
-    url_captions: dict[str, str | None]
-    generated_image: dict[str, str] | None
-    low_detail_count: int
+class ContextMessage:
+    message: discord.Message
+    text: str
+    text_tokens: int
+    slots: list[ImageSlot] = field(default_factory=list)  # includes the images of the message it quotes
 
 
 @dataclass
@@ -70,7 +75,7 @@ class TokensDetailsResult:
 
 @dataclass
 class CostResult:
-    cost: float | str
+    cost: float | str = "unknown"
 
     def add_cost(self, cost: object) -> None:
         val = cost.cost if isinstance(cost, HasCost) else cost
@@ -87,9 +92,9 @@ class CompletionResult(CostResult):
     elapsed_ms: float = 0
     input_tokens: int = 0
     output_tokens: int = 0
-    cost: float | str = "unknown"
     messages: int = 0
-    images: int = 0
+    images: int = 0  # full quality
+    images_low: int = 0
     tool_calls: int = 0
     tokens: TokensDetailsResult = field(default_factory=TokensDetailsResult)
 
@@ -100,7 +105,6 @@ class ReactionResult(CostResult):
     elapsed_ms: float = 0
     input_tokens: int = 0
     output_tokens: int = 0
-    cost: float | str = "unknown"
 
 
 @dataclass(frozen=True)
@@ -110,7 +114,7 @@ class MemoryChangeResult:
     after: str | None
 
 
-# Structured Outputs
+# LLM Structured Outputs
 
 class MemoryChange(BaseModel):
     action_type: Literal["create", "append", "modify", "delete"]
@@ -148,11 +152,13 @@ class ToolCall:
 # Protocols
 
 @runtime_checkable
-class LinkFixer(Protocol): # crab-cogs
+class LinkFixer(Protocol):
+    """Cog from crab-cogs."""
     async def get_fixed_message(self, message: discord.Message) -> discord.Message | None: ...
 
 @runtime_checkable
-class ImageScanner(Protocol): # crab-cogs
+class ImageScanner(Protocol):
+    """Cog from crab-cogs."""
     image_cache: dict[int, tuple[dict[int, object], dict[int, bytes]]]
 
     async def grab_metadata_dict(self, message: discord.Message) -> dict: ...

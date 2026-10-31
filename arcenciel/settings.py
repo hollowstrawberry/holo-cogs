@@ -2,7 +2,7 @@ import logging
 import aiohttp
 import discord
 import humanize
-from typing import Literal, Optional
+from typing import Literal
 from datetime import datetime, timezone
 from redbot.core import checks, commands
 
@@ -17,9 +17,9 @@ log = logging.getLogger("red.bz_cogs.arcenciel")
 
 class ArcencielSettings(ArcencielBase):
 
-    @commands.command(name="ckpt") # type: ignore
     @checks.bot_has_permissions(embed_links=True)
-    async def member_checkpoint(self, ctx: commands.Context, *, checkpoint: Optional[str] = None):
+    @commands.command(name="ckpt")
+    async def member_checkpoint(self, ctx: commands.Context, *, checkpoint: str | None):
         """
         Browse or search checkpoints and set your personal image generation default.
         """
@@ -56,7 +56,6 @@ class ArcencielSettings(ArcencielBase):
     @commands.guild_only()
     @checks.bot_has_permissions(embed_links=True, add_reactions=True)
     @checks.admin_or_permissions(manage_guild=True)
-    @checks.bot_in_a_guild()
     async def arcenciel(self, _: commands.Context):
         """ Manage AI Image cog settings. """
         pass
@@ -114,7 +113,7 @@ class ArcencielSettings(ArcencielBase):
         await ctx.send(f"NSFW filtering is now {'`disabled`' if not nsfw else '`enabled`'}")
 
     @arcenciel.command(name="negative_prompt", aliases=["negative"])
-    async def negative_prompt_cmd(self, ctx: commands.Context, *, negative_prompt: Optional[str]):
+    async def negative_prompt_cmd(self, ctx: commands.Context, *, negative_prompt: str | None):
         """
         Set the default negative prompt
         """
@@ -143,7 +142,7 @@ class ArcencielSettings(ArcencielBase):
         await ctx.tick(message="✅ Default sampling steps updated.")
 
     @arcenciel.command(name="sampler")
-    async def sampler_cmd(self, ctx: commands.Context, *, sampler: Optional[str]):
+    async def sampler_cmd(self, ctx: commands.Context, *, sampler: str | None):
         """
         Set the default sampler
         """
@@ -158,7 +157,7 @@ class ArcencielSettings(ArcencielBase):
         await ctx.tick(message="✅ Default sampler updated.")
 
     @arcenciel.command(name="scheduler")
-    async def scheduler_cmd(self, ctx: commands.Context, *, scheduler: Optional[str]):
+    async def scheduler_cmd(self, ctx: commands.Context, *, scheduler: str | None):
         """
         Set the default scheduler
         """
@@ -207,7 +206,7 @@ class ArcencielSettings(ArcencielBase):
         await ctx.tick(message="✅ Maximum img2img size updated.")
 
     @arcenciel.command(name="checkpoint", aliases=["model", "ckpt"])
-    async def checkpoint_cmd(self, ctx: commands.Context, *, checkpoint: Optional[str]):
+    async def checkpoint_cmd(self, ctx: commands.Context, *, checkpoint: str | None):
         """
         Set the default checkpoint / model used for generating images
         """
@@ -224,7 +223,7 @@ class ArcencielSettings(ArcencielBase):
         await ctx.tick(message="✅ Default checkpoint updated.")
 
     @arcenciel.command(name="vae")
-    async def vae_cmd(self, ctx: commands.Context, *, vae: Optional[str]):
+    async def vae_cmd(self, ctx: commands.Context, *, vae: str | None):
         """
         Set the default vae used for generating images
         """
@@ -249,7 +248,7 @@ class ArcencielSettings(ArcencielBase):
         await ctx.send(f"ADetailer is now {'`disabled`' if not new else '`enabled`'} for basic gens")
 
     @arcenciel.command(name="blacklist", aliases=["blocklist"])
-    async def blacklist_cmd(self, ctx: commands.Context, *, regex: Optional[str]):
+    async def blacklist_cmd(self, ctx: commands.Context, *, regex: str | None):
         """
         Sets a blacklist regex for prompts
         """

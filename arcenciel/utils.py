@@ -103,7 +103,7 @@ def parse_prompts(payload: dict) -> None:
         region["prompt"] = LORA_PATTERN.sub("", region["prompt"]).replace(", ,", ",").strip()
 
 def extend_negative_prompt(base_prompt: str, extra_prompt: str) -> str:
-    """Adds unique comma-separated terms"""
+    """Adds unique comma-separated terms."""
     if base_prompt and extra_prompt:
         base_tags = [tag.strip() for tag in base_prompt.split(",")]
         extra_tags = [tag.strip() for tag in extra_prompt.split(",")]

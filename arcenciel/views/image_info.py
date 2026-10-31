@@ -29,8 +29,8 @@ class ImageInfoView(discord.ui.View):
             content = json.dumps(j, indent=2)  # prettify
         except json.JSONDecodeError:
             content = self.raw_metadata
-        with io.StringIO() as f:
-            f.write(content)
+        with io.BytesIO() as f:
+            f.write(content.encode())
             f.seek(0)
-            file = discord.File(f, f"parameters_{interaction.id}.json")  # type: ignore
+            file = discord.File(f, f"parameters_{interaction.id}.json")
             await interaction.response.send_message(file=file, ephemeral=True)

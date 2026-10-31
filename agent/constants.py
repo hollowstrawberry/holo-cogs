@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timezone
 from discord.utils import DISCORD_EPOCH
 
-from agent.types import AgentValue
+from agent.types import AgentValue, AgentMessage
 
 EMPTY = "ᅠ" # U+1160
 DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezone.utc)
@@ -16,6 +16,9 @@ MAX_EMBED_DESCRIPTION = 4090
 MAX_IMAGES_PER_MESSAGE = 4
 IMAGE_DOWNLOAD_MAXSIZE = 50 * 1024 * 1024
 IMAGE_DOWNLOAD_TIMEOUT = 10
+TEXT_DOWNLOAD_MAXSIZE = 5 * 1024 * 1024
+CACHE_AGE = 24*60*60
+CACHE_SIZE = 100
 TOKEN_ENCODING = "o200k_base"
 
 CUMULATIVE_CACHE_FLAG = False
@@ -104,6 +107,7 @@ EFFORT_VALUES = [
     "low",
     "medium",
     "high",
+    "max",
 ]
 
 SD_IMAGEGEN_RESOLUTIONS = [
@@ -123,10 +127,10 @@ CACHE_CONTROL: AgentValue = {
     "type": "ephemeral"
 }
 
-FAKE_TOOL_CALL = [
+FAKE_TOOL_CALL: list[AgentMessage] = [
     {
         "role": "assistant",
-        "content": None,
+        "content": "",
         "tool_calls": [{
             "id": "retrieve_data_cmV0cmlldmVfZGF0YQ",
             "type": "function",

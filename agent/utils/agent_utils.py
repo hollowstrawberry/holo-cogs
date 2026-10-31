@@ -1,21 +1,22 @@
-import json
-import hashlib
 import aiohttp
+import xmltodict
 from io import BytesIO
 from copy import deepcopy
 from base64 import b64encode
-from pydantic import BaseModel
 from openai import Omit
 
-from agent.types import AgentContent, AgentMessage, AgentValue, CacheMode
+from agent.types import AgentContent, AgentMessage, AgentValue, ContextMessage, ImageQuality, ImageSource, CacheMode
 from agent.constants import CACHE_CONTROL, IMAGE_TOKEN_COUNT
 
 
 def is_bot_command(message: AgentMessage, prefixes: list[str]):
-    return message["role"] == "user" and any(f"<content>{prefix}" in message["content"] for prefix in prefixes)
+    content = message["content"]
+    if not isinstance(content, str):
+        content = next((text for cnt in content if (text := cnt.get("text"))), "")
+    return any(f"<content>{prefix}" in content for prefix in prefixes)
 
 def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[AgentMessage]:
-    """Copies the message list and applies cache breakpoints if applicable"""
+    """Copies the message list and applies cache breakpoints if applicable."""
     messages = deepcopy(messages)
     if mode != "fixed_prefix":
         return messages
@@ -42,51 +43,55 @@ def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:
                 cnt.pop("cache_control", None)
 
 def make_text_content(content: str, cache=False) -> AgentContent:
-    obj: AgentContent = {
+    return {
         "type": "text",
         "text": content,
+        **({"cache_control": CACHE_CONTROL} if cache else {}),
     }
-    if cache:
-        obj["cache_control"] = CACHE_CONTROL
-    return obj
 
 def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentContent:
     b = b.read() if isinstance(b, BytesIO) else b
-    image_url: AgentValue = {"url": f"data:image/png;base64,{b64encode(b).decode()}"}
-    if low_detail:
-        image_url["detail"] = "low"
     return {
         "type": "image_url",
-        "image_url": image_url
+        "image_url": {
+            "url": f"data:image/png;base64,{b64encode(b).decode()}",
+            **({"detail": "low"} if low_detail else {}),     
+        }
     }
 
-def get_text_contents(messages: list[AgentMessage]) -> list[AgentMessage]:
-    """
-    Converts a list of mixed OpenAI message dicts into a list of text-only message dicts,
-    and overrides all the message roles to user
-    """
-    temp_messages: list[AgentMessage] = []
-    for msg in deepcopy(messages):
-        if isinstance(msg["content"], str):
-            temp_messages.append({
-                "role": "user",
-                "content": msg["content"]
-            })
-        else:
-            text_parts: list[str] = []
-            for cnt in msg["content"]:
-                text = cnt.get("text")
-                if isinstance(text, str):
-                    text_parts.append(text)
-            if text_parts:
-                temp_messages.append({
-                    "role": "user",
-                    "content": "\n".join(text_parts)
-                })
+def make_caption_content(src: ImageSource, caption: str) -> AgentContent:
+    caption_obj = {
+        "image_caption": {
+            "#text": caption,
+            **({"@filename": src.attachment.filename} if src.attachment else {"@url": src.url}),
+        }
+    }
+    return make_text_content(xmltodict.unparse(caption_obj, full_document=False))
+
+def build_image_contents(msg: ContextMessage, max_quality: ImageQuality, use_captions: bool) -> list[AgentContent]:
+    contents: list[AgentContent] = []
+    for slot in msg.slots:
+        quality = min(max_quality, slot.quality)
+        if not slot.entry or quality == ImageQuality.NONE:
+            continue
+        if quality == ImageQuality.FULL and slot.entry.image_full:
+            contents.append(make_image_content(slot.entry.image_full))
+        elif use_captions and slot.entry.caption:
+            contents.append(make_caption_content(slot.src, slot.entry.caption))
+        elif not use_captions and slot.entry.image_low:
+            contents.append(make_image_content(slot.entry.image_low, low_detail=True))
+    return contents
+
+def text_content_only(messages: list[AgentMessage]) -> list[AgentMessage]:
+    """Strips any non-text contents from the chat history."""
+    temp_messages = deepcopy(messages)
+    for msg in temp_messages:
+        if not isinstance(msg["content"], str):
+            msg["content"] = [cnt for cnt in msg["content"] if cnt.get("type") == "text"]
     return temp_messages
 
 def adjusted_effort(model: str, effort: str) -> str | Omit:
-    """Transforms an effort value into a value that is valid for the given model"""
+    """Transforms an effort value into a value that is valid for the given model."""
     if "gpt-4" in model:
         return Omit()
     # very non-exhaustive list of edge cases to prevent BadRequests

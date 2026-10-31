@@ -1,7 +1,7 @@
 import logging
 import discord
 from math import isfinite
-from typing import Literal, Optional
+from typing import Literal
 from functools import reduce
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import pagify
@@ -18,7 +18,7 @@ log = logging.getLogger("agent.utils")
 
 class AgentCogConfigCommands(AgentCogBase):
 
-    @commands.group(name="agent", aliases=["llm", "gpt"]) # type: ignore
+    @commands.group(name="agent", aliases=["llm", "gpt"])  # type: ignore
     @commands.is_owner()
     @commands.guild_only()
     async def agentconfig(self, _: commands.Context):
@@ -27,7 +27,7 @@ class AgentCogConfigCommands(AgentCogBase):
  
     @agentconfig.command(name="config", aliases=["settings"])
     async def agentconfig_config(self, ctx: commands.Context):
-        """View all settings"""
+        """View all settings."""
         assert ctx.guild
         config = self.config[ctx.guild]
  
@@ -85,14 +85,17 @@ class AgentCogConfigCommands(AgentCogBase):
         embed2.add_field(name="Cache Mode", value=code(config.cache_mode.value))
         
         embed2.add_field(name="Use Captions", value=code(config.use_captions.value))
+        embed2.add_field(name="Use Images in Recaller", value=code(config.use_images_recaller.value))
+        embed2.add_field(name="Use Images in Memorizer", value=code(config.use_images_memorizer.value))
+
         embed2.add_field(name="Allow Memorizer", value=code(config.allow_memorizer.value))
         embed2.add_field(name="Memorizer Alerts", value=code(config.memorizer_alerts.value))
-
         embed2.add_field(name="Memorizer User Only", value=code(config.memorizer_user_only.value))
+
         embed2.add_field(name="Autoreacter Cooldown", value=code(f"{config.autoreacter_cooldown_minutes.value} minutes"))
         embed2.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
-        
         embed2.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
+
         embed2.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes")) 
         embed2.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
 
@@ -211,32 +214,42 @@ class AgentCogConfigCommands(AgentCogBase):
 
 
     @agentconfig.command(name="logging", aliases=["extended_logging"])
-    async def agentconfig_logging(self, ctx: commands.Context, value: Optional[bool]):
+    async def agentconfig_logging(self, ctx: commands.Context, value: bool | None):
         """Toggles logging mode, for the developer."""
         await self.bool_config_command(ctx, self.config.extended_logging, value)
     
     @agentconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
-    async def agentconfig_allow_memorizer(self, ctx: commands.Context, value: Optional[bool]):
+    async def agentconfig_allow_memorizer(self, ctx: commands.Context, value: bool | None):
         """Whether the memorizer will run at all, editing memories."""
         await self.bool_config_command(ctx, self.config[ctx.guild].allow_memorizer, value)
 
     @agentconfig.command(name="memorizer_user_only")
-    async def agentconfig_memorizer_user_only(self, ctx: commands.Context, value: Optional[bool]):
+    async def agentconfig_memorizer_user_only(self, ctx: commands.Context, value: bool | None):
         """If enabled, only memories of usernames will be passed to the memorizer."""
         await self.bool_config_command(ctx, self.config[ctx.guild].memorizer_user_only, value)
 
     @agentconfig.command(name="memorizer_alerts")
-    async def agentconfig_memorizer_alerts(self, ctx: commands.Context, value: Optional[bool]):
+    async def agentconfig_memorizer_alerts(self, ctx: commands.Context, value: bool | None):
         """Whether the memorizer will send a message in chat after editing memories."""
         await self.bool_config_command(ctx, self.config[ctx.guild].memorizer_alerts, value)
 
     @agentconfig.command(name="use_captions")
-    async def agentconfig_use_captions(self, ctx: commands.Context, value: Optional[bool]):
-        """Whether the captioner will be used instead of low detail images"""
+    async def agentconfig_use_captions(self, ctx: commands.Context, value: bool | None):
+        """Whether the captioner will be used instead of low detail images."""
         await self.bool_config_command(ctx, self.config[ctx.guild].use_captions, value)
 
+    @agentconfig.command(name="use_images_recaller")
+    async def agentconfig_use_images_recaller(self, ctx: commands.Context, value: bool | None):
+        """Whether to send images to the recaller."""
+        await self.bool_config_command(ctx, self.config[ctx.guild].use_images_recaller, value)
+
+    @agentconfig.command(name="use_images_memorizer")
+    async def agentconfig_use_images_memorizer(self, ctx: commands.Context, value: bool | None):
+        """Whether to send images to the memorizer."""
+        await self.bool_config_command(ctx, self.config[ctx.guild].use_images_memorizer, value)
+
     @agentconfig.command(name="cache_mode")
-    async def agentconfig_cache_mode(self, ctx: commands.Context, mode: Optional[CacheMode] = None):
+    async def agentconfig_cache_mode(self, ctx: commands.Context, mode: CacheMode | None):
         """OpenRouter: implicit caching or a fixed boundary after the initial context."""
         assert ctx.guild
         field = self.config[ctx.guild].cache_mode
@@ -245,7 +258,7 @@ class AgentCogConfigCommands(AgentCogBase):
         await ctx.reply(f"`[cache_mode:]` {field.value}", mention_author=False)
 
     @agentconfig.command(name="max_input_price")
-    async def agentconfig_max_input_price(self, ctx: commands.Context, model: Optional[str] = None, value: Optional[str] = None):
+    async def agentconfig_max_input_price(self, ctx: commands.Context, model: str | None, value: str | None):
         """Global OpenRouter input price cap for an exact model, in USD/1M tokens.
 
         Omit arguments to list, omit value to view, or use off to remove. Zero is a zero-dollar cap.
@@ -253,7 +266,7 @@ class AgentCogConfigCommands(AgentCogBase):
         await self.price_config_command(ctx, self.config.openrouter_max_input_price, model, value)
 
     @agentconfig.command(name="max_output_price")
-    async def agentconfig_max_output_price(self, ctx: commands.Context, model: Optional[str] = None, value: Optional[str] = None):
+    async def agentconfig_max_output_price(self, ctx: commands.Context, model: str | None, value: str | None):
         """Global OpenRouter output price cap for an exact model, in USD/1M tokens.
 
         Omit arguments to list, omit value to view, or use off to remove. Zero is a zero-dollar cap.
@@ -261,38 +274,38 @@ class AgentCogConfigCommands(AgentCogBase):
         await self.price_config_command(ctx, self.config.openrouter_max_output_price, model, value)
     
     @agentconfig.command(name="autoresponder_chance")
-    async def agentconfig_autoresponder_chance(self, ctx: commands.Context, percent: Optional[float]):
-        """The chance that the autoresponder will trigger, from 0.0 to 100.0"""
+    async def agentconfig_autoresponder_chance(self, ctx: commands.Context, percent: float | None):
+        """The chance that the autoresponder will trigger, from 0.0 to 100.0."""
         await self.percent_config_command(ctx, self.config[ctx.guild].autoresponder_chance, percent)
 
     @agentconfig.command(name="autoreacter_chance")
-    async def agentconfig_autoreacter_chance(self, ctx: commands.Context, percent: Optional[float]):
-        """The chance that the autoreacter will trigger, from 0.0 to 100.0"""
+    async def agentconfig_autoreacter_chance(self, ctx: commands.Context, percent: float | None):
+        """The chance that the autoreacter will trigger, from 0.0 to 100.0."""
         await self.percent_config_command(ctx, self.config[ctx.guild].autoreacter_chance, percent)
 
     @agentconfig.command(name="autoreacter_chance_images")
-    async def agentconfig_autoreacter_chance_images(self, ctx: commands.Context, percent: Optional[float]):
-        """The chance that the autoreacter will trigger on an image attachment, from 0.0 to 100.0"""
+    async def agentconfig_autoreacter_chance_images(self, ctx: commands.Context, percent: float | None):
+        """The chance that the autoreacter will trigger on an image attachment, from 0.0 to 100.0."""
         await self.percent_config_command(ctx, self.config[ctx.guild].autoreacter_chance_images, percent)
 
     @agentconfig.command(name="autoresponder_cooldown", aliases=["autoresponder_cooldown_minutes"])
-    async def agentconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
+    async def agentconfig_autoresponder_cooldown(self, ctx: commands.Context, minutes: int | None):
         """The minimum time between 2 autoresponder triggers in a single channel."""
         await self.integer_config_command(ctx, self.config[ctx.guild].autoresponder_cooldown_minutes, 0, None, minutes)
 
     @agentconfig.command(name="autoreacter_cooldown", aliases=["autoreacter_cooldown_minutes"])
-    async def agentconfig_autoreacter_cooldown(self, ctx: commands.Context, minutes: Optional[int]):
+    async def agentconfig_autoreacter_cooldown(self, ctx: commands.Context, minutes: int | None):
         """The minimum time between 2 autoreacter triggers in a single channel."""
         await self.integer_config_command(ctx, self.config[ctx.guild].autoreacter_cooldown_minutes, 0, None, minutes)
 
     @agentconfig.command(name="timeout")
-    async def agentconfig_timeout(self, ctx: commands.Context, value: Optional[int]):
-        """Sets how long a response can take before it's cancelled"""
+    async def agentconfig_timeout(self, ctx: commands.Context, value: int | None):
+        """Sets how long a response can take before it's cancelled."""
         await self.integer_config_command(ctx, self.config.response_timeout, 10, 3600, value, "seconds")
     
     @agentconfig.command(name="slow_timer")
-    async def agentconfig_slow_timer(self, ctx: commands.Context, value: Optional[int]):
-        """Sets how long a response can take before reacting with slow_emoji"""
+    async def agentconfig_slow_timer(self, ctx: commands.Context, value: int | None):
+        """Sets how long a response can take before reacting with slow_emoji."""
         await self.integer_config_command(ctx, self.config.slow_timer, 10, 3600, value, "seconds")
     
     @agentconfig.command(name="slow_emoji")
@@ -317,62 +330,62 @@ class AgentCogConfigCommands(AgentCogBase):
         pass
 
     @agentconfig_limits.command(name="response_tokens")
-    async def agentconfig_response_tokens(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_response_tokens(self, ctx: commands.Context, value: int | None):
         """Hard limit on the number of tokens the responder will send."""
         await self.integer_config_command(ctx, self.config[ctx.guild].response_tokens, 500, 20000, value)
 
     @agentconfig_limits.command(name="backread_tokens")
-    async def agentconfig_backread_tokens(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_backread_tokens(self, ctx: commands.Context, value: int | None):
         """Soft limit on the number of tokens the LLM will read from the chat history."""
         await self.integer_config_command(ctx, self.config[ctx.guild].backread_tokens, 500, 20000, value)
 
     @agentconfig_limits.command(name="backread_messages")
-    async def agentconfig_backread_messages(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_backread_messages(self, ctx: commands.Context, value: int | None):
         """How many messages in chat the recaller and responder will read."""
         await self.integer_config_command(ctx, self.config[ctx.guild].backread_messages, 0, 100, value)
 
     @agentconfig_limits.command(name="backread_short", aliases=["backread_messages_short"])
-    async def agentconfig_backread_short(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_backread_short(self, ctx: commands.Context, value: int | None):
         """How many messages in chat will read for shorter contexts (memorizer, autoreacter)."""
         await self.integer_config_command(ctx, self.config[ctx.guild].backread_short, 0, 100, value, "messages")
 
     @agentconfig_limits.command(name="max_images")
-    async def agentconfig_max_images(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_max_images(self, ctx: commands.Context, value: int | None):
         """How many images to send to the LLM in full with each response; the rest will be sent at lower detail or captioned."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_images, 0, 100, value)
 
     @agentconfig_limits.command(name="max_images_low")
-    async def agentconfig_max_images_low(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_max_images_low(self, ctx: commands.Context, value: int | None):
         """How many images to send to the LLM with lower detail, after the max_images quota has been reached."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_images_low, 0, 100, value)
 
     @agentconfig_limits.command(name="max_depth", aliases=["max_tool_depth"])
-    async def agentconfig_max_tool_depth(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_max_tool_depth(self, ctx: commands.Context, value: int | None):
         """How many tools the AI can use one after the other. Each consecutive tool call is more expensive than the last."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_tool_depth, 1, 10, value, "requests")
 
     @agentconfig_limits.command(name="max_tool", aliases=["max_tool_characters"])
-    async def agentconfig_max_tool(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_max_tool(self, ctx: commands.Context, value: int | None):
         """Character limit for function call results."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_tool, 1000, 20000, value, "characters")
 
     @agentconfig_limits.command(name="max_text_file")
-    async def agentconfig_max_text_file(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_max_text_file(self, ctx: commands.Context, value: int | None):
         """Character limit for text files."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_text_file, 1000, 20000, value, "characters")
 
     @agentconfig_limits.command(name="max_quote", aliases=["max_quote_characters"])
-    async def agentconfig_max_quote(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_max_quote(self, ctx: commands.Context, value: int | None):
         """Character limit for message replies."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_quote, 100, 10000, value, "characters")
 
     @agentconfig_limits.command(name="max_image_resolution", aliases=["max_resolution"])
-    async def agentconfig_max_image_resolution(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_max_image_resolution(self, ctx: commands.Context, value: int | None):
         """Images will be resized to this resolution before being sent to the LLM."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_image_resolution, 512, 2048, value, "on each side")
 
     @agentconfig_limits.command(name="max_caption_resolution", aliases=["max_thumbnail_resolution"])
-    async def agentconfig_max_caption_resolution(self, ctx: commands.Context, value: Optional[int]):
+    async def agentconfig_max_caption_resolution(self, ctx: commands.Context, value: int | None):
         """Images will be resized to this resolution before being sent for captioning."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_caption_resolution, 128, 1024, value, "on each side")
 
@@ -393,7 +406,7 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig_channels.command("set")
     async def agentconfig_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
-        """Sets a new whitelist or blacklist for LLM channels"""
+        """Sets a new whitelist or blacklist for LLM channels."""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.channels, config.channel_mode, set(c.id for c in channels), mode)
 
@@ -424,7 +437,7 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig_generation_channels.command("set")
     async def agentconfig_generation_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
-        """Sets a new whitelist or blacklist for image generation channels"""
+        """Sets a new whitelist or blacklist for image generation channels."""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, set(c.id for c in channels), mode)
 
@@ -455,7 +468,7 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig_auto_channels.command("set")
     async def agentconfig_auto_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
-        """Sets a new whitelist or blacklist for autoresponse channels"""
+        """Sets a new whitelist or blacklist for autoresponse channels."""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, set(c.id for c in channels), mode)
 
@@ -497,7 +510,7 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig_functions.command(name="enable")
     async def agentconfig_functions_enable(self, ctx: commands.Context, *tool_names: str):
-        """Enables a tool call"""
+        """Enables a tool call."""
         all_tool_names = [t.display_name for t in get_all_tools()]
         enabled_tools = self.config[ctx.guild].enabled_functions
         result = []
@@ -517,7 +530,7 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig_functions.command(name="disable")
     async def agentconfig_functions_disable(self, ctx: commands.Context, *tool_names: str):
-        """Disables a tool call"""
+        """Disables a tool call."""
         all_tool_names = [t.display_name for t in get_all_tools()]
         enabled_tools = self.config[ctx.guild].enabled_functions
         result = []
@@ -536,7 +549,7 @@ class AgentCogConfigCommands(AgentCogBase):
         await ctx.send("\n".join(result))
 
     @agentconfig_functions.command(name="setting", aliases=["settings"])
-    async def agentconfig_functions_setting(self, ctx: commands.Context, key: Optional[str], *, value: str = ""):
+    async def agentconfig_functions_setting(self, ctx: commands.Context, key: str | None, *, value: str = ""):
         """Sets a tool-specific key-value setting."""
         setting_dict = reduce(lambda a, b: a | b, [func.settings for func in get_all_tools()])
         setting_values = self.config.tool_settings.value
@@ -560,7 +573,7 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig.command("model")
     @commands.is_owner()
-    async def agentconfig_model(self, ctx: commands.Context, module: ModelPromptTypes, model: Optional[str]):
+    async def agentconfig_model(self, ctx: commands.Context, module: ModelPromptTypes, model: str | None):
         """Views or changes the LLM model being used by different modules of this cog."""
         config = self.config[ctx.guild]
         fields = {
@@ -594,7 +607,7 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig.command("effort")
     @commands.is_owner()
-    async def agentconfig_effort(self, ctx: commands.Context, module: EffortPromptTypes, effort: Optional[str]):
+    async def agentconfig_effort(self, ctx: commands.Context, module: EffortPromptTypes, effort: str | None):
         """Views or changes the LLM reasoning effort used by different modules of this cog."""
         config = self.config[ctx.guild]
         fields = {
@@ -612,8 +625,8 @@ class AgentCogConfigCommands(AgentCogBase):
 
     @agentconfig.command("status")
     @commands.is_owner()
-    async def agentconfig_status(self, ctx: commands.Context, *, status: Optional[str]):
-        """Little feature to preset a status on bot startup"""
+    async def agentconfig_status(self, ctx: commands.Context, *, status: str | None):
+        """Little feature to preset a status on bot startup."""
         if not status:
             await self.config.status.set("")
             await self.bot.change_presence(activity=None)

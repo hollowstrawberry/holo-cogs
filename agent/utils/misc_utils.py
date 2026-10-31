@@ -4,7 +4,9 @@ import asyncio
 import mutagen
 import trafilatura
 from io import BytesIO
+from typing import Awaitable, Iterable, TypeVar
 from base64 import b64encode
+from logging import Logger
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -13,8 +15,15 @@ from agent.types import StructuredObject, HasLength
 from agent.constants import DATETIME_FORMATTING
 
 
-def get_filename(url: str) -> str:
-    return os.path.basename(urlparse(url).path)
+T = TypeVar("T")
+
+async def gather_logged(log: Logger, tasks: Iterable[Awaitable[T]]) -> list[T | None]:
+    """Like asyncio.gather, but every failure is logged and its result becomes None."""
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for res in results:
+        if isinstance(res, BaseException):
+            log.warning(f"{type(res).__name__}: {res}", exc_info=res)
+    return [None if isinstance(res, BaseException) else res for res in results]
 
 
 def parse_arcenciel_image(image: dict, prompt_limit: int | None = None) -> StructuredObject:
@@ -141,4 +150,4 @@ async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000
     mult = 255 / highest if highest else 0
     waveform_bytes = bytes(min(255, int(b * mult)) for b in buckets)
 
-    return b64encode(waveform_bytes).decode("utf-8"), audio.info.length
+    return b64encode(waveform_bytes).decode(), audio.info.length

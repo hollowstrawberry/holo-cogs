@@ -3,16 +3,40 @@ import asyncio
 import discord
 import tiktoken
 import xmltodict
-from io import BytesIO
-from typing import Any
+from typing import Sequence
+from itertools import accumulate, chain, repeat, zip_longest
+from collections import Counter
+from dataclasses import dataclass
 from expiringdict import ExpiringDict
 from redbot.core import commands
 
-from agent import types, utils, constants
+from agent import utils, constants
 from agent.base import AgentCogBase
 from agent.config import AgentCogGuildConfig
+from agent.types import (
+    ImageQuality, ImageSlot, ImageSource, ImageEntry, ImageScanner,
+    StructuredObject, AgentMessage, ContextMessage, CompletionResult
+)
 
 log = logging.getLogger("agent.context")
+
+
+@dataclass(frozen=True)
+class AgentChatContext:
+    _messages: Sequence[ContextMessage]
+    use_captions: bool
+
+    def messages(self, max_quality: ImageQuality = ImageQuality.FULL) -> list[AgentMessage]:
+        """Returns the built chat context with images limited to a certain quality level."""
+        return [
+            {
+                "role": "user", 
+                "content": [
+                    utils.make_text_content(msg.text),
+                    *utils.build_image_contents(msg, max_quality, self.use_captions),
+                ]
+            } for msg in reversed(self._messages)
+        ]
 
 
 class ContextBuilder:
@@ -22,32 +46,41 @@ class ContextBuilder:
         self.session = cog.session
         self.execute_captioner = cog.execute_captioner
         self.is_busy = cog.is_busy
-        self.attachment_image_cache: dict[int, tuple[int, bytes]]  = ExpiringDict(max_len=25, max_age_seconds=24*60*60)
-        self.url_image_cache: dict[str, bytes]                     = ExpiringDict(max_len=25, max_age_seconds=24*60*60)
-        self.attachment_caption_cache: dict[int, tuple[int, str]]  = ExpiringDict(max_len=200, max_age_seconds=24*60*60)
-        self.url_caption_cache: dict[str, str]                     = ExpiringDict(max_len=200, max_age_seconds=24*60*60)
-        self.quote_lock: dict[int, asyncio.Lock]                   = ExpiringDict(max_len=25, max_age_seconds=120)
-        self.url_lock: dict[str, asyncio.Lock]                     = ExpiringDict(max_len=25, max_age_seconds=120)
+        self.image_cache: dict[tuple, ImageEntry]      = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
+        self.text_cache: dict[int, str]                = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
+        self.message_cache: dict[int, discord.Message] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
 
     async def build_context(
         self,
         ctx: commands.Context,
         backread: list[discord.Message],
         config: AgentCogGuildConfig,
-        result: types.CompletionResult,
+        result: CompletionResult,
         encoding: tiktoken.Encoding,
-    ) -> list[types.AgentMessage]:
-        return await ChatHistoryContext(self, ctx, backread, config, result, encoding).build()
+    ) -> AgentChatContext:
+        return await ContextBuilderPipeline(self, ctx, backread, config, result, encoding).build()
+
+    async def fetch_message(self, channel: object, message_id: int) -> discord.Message | None:
+        if message := self.message_cache.get(message_id):
+            return message
+        if not isinstance(channel, discord.abc.Messageable):
+            return None
+        try:
+            message = await channel.fetch_message(message_id)
+        except discord.DiscordException:
+            return None
+        self.message_cache[message_id] = message
+        return message
 
 
-class ChatHistoryContext:
+class ContextBuilderPipeline:
     def __init__(
         self,
         builder: ContextBuilder,
         ctx: commands.Context,
         backread: list[discord.Message],
         config: AgentCogGuildConfig,
-        result: types.CompletionResult,
+        result: CompletionResult,
         encoding: tiktoken.Encoding,
     ):
         self.builder = builder
@@ -56,452 +89,372 @@ class ChatHistoryContext:
         self.config = config
         self.result = result
         self.encoding = encoding
-        self.all_candidates: dict[int, types.DiscordMessageImageCandidates] = {}
-        self.first_appearance: dict[int, int] = {}
-        self.all_resolved_quotes: dict[int, discord.Message | None] = {}
-        self.all_resolved_images: dict[int, types.DiscordMessageResolvedImages] = {}
+        self.imagescanner = utils.get_cog(builder.bot, ImageScanner)
+        self.in_context = {backmsg.id: backmsg for backmsg in backread}
+        self.quotes: dict[int, discord.Message] = {}
+        self.generated: dict[int, dict[str, str]] = {}
+        low, high = utils.image_tokens(config.model_responder.value)
+        self.image_tokens = {ImageQuality.NONE: 0, ImageQuality.LOW: low, ImageQuality.FULL: high}
+
+    async def build(self) -> AgentChatContext:
+        self.quotes = await self.resolve_quotes()
+        self.generated = await self.resolve_generated()
+        messages = await self.parse_messages()
+        self.plan_images(messages)
+        messages = self.trim(messages)
+        await self.resolve_images(messages)
+        self.report(messages)
+        return AgentChatContext(messages, self.config.use_captions.value)
 
 
-    async def build(self) -> list[types.AgentMessage]:
-        assert self.ctx.guild
+    # Fetching
 
-        # Pass 1: grab quoted messages
-        quotes: dict[int, int | None] = {}
-        for n, backmsg in enumerate(self.backread):
-            ref = backmsg.reference
-            if ref and not (len(self.backread) > n + 1 and ref.message_id == self.backread[n + 1].id):  # prevent consecutive quote chains
-                quotes[backmsg.id] = ref.message_id
+    async def resolve_quotes(self) -> dict[int, discord.Message]:
+        """Returns the quoted message of each message."""
+        older_ids = [backmsg.id for backmsg in self.backread[1:]]
+        quote_ids = {
+            backmsg.id: ref.message_id
+            for backmsg, older_id in zip_longest(self.backread, older_ids)
+            if (ref := backmsg.reference) and ref.message_id and ref.message_id != older_id
+        }
+        replies = {quote_id: backmsg for backmsg in self.backread if (quote_id := quote_ids.get(backmsg.id))}  # fetch each once
+        fetched = await utils.gather_logged(log, (self.fetch_quote(backmsg, quote_id) for quote_id, backmsg in replies.items()))
+        found = dict(zip(replies, fetched))
+        return {message_id: quote for message_id, quote_id in quote_ids.items() if (quote := found[quote_id])}
+
+
+    async def fetch_quote(self, backmsg: discord.Message, quote_id: int) -> discord.Message | None:
+        cached = backmsg.reference.cached_message if backmsg.reference else None
+        return self.in_context.get(quote_id) or cached or await self.builder.fetch_message(backmsg.channel, quote_id)
+
+
+    async def resolve_generated(self) -> dict[int, dict[str, str]]:
+        """Returns the metadata of the generated image of each message."""
+        messages = {message.id: message for message in [*self.backread, *self.quotes.values()]}
+        found = await utils.gather_logged(log, (self.detect_generated(message) for message in messages.values()))
+        return {message_id: generated for message_id, generated in zip(messages, found) if generated}
+
+
+    async def detect_generated(self, message: discord.Message) -> dict[str, str] | None:
+        if message.author != self.ctx.me or len(message.attachments) != 1:
+            return None
+        if "gptimage" in message.attachments[0].filename:
+            return {"type": "gptimage"}
+        if self.imagescanner:
+            return await self.imagescanner.grab_metadata_dict(message)
+        return None
+
+
+    # Parsing
+
+    async def parse_messages(self) -> list[ContextMessage]:
+        parsed = await utils.gather_logged(log, (self.parse_message(backmsg) for backmsg in self.backread))
+        return [msg or self.failed_message(backmsg) for msg, backmsg in zip(parsed, self.backread)]
+
+
+    async def parse_message(self, backmsg: discord.Message) -> ContextMessage:
+        obj, inlines = await self.parse_discord_message(backmsg, exhaustive=True, recursive=True)
+        return self.make_message(backmsg, obj, inlines)
+
+
+    def failed_message(self, backmsg: discord.Message) -> ContextMessage:
+        obj = {**self.message_header(backmsg), "error": "Failed to process this message"}
+        return self.make_message(backmsg, {"chat_message": obj}, {})
+
+
+    def make_message(self, backmsg: discord.Message, obj: StructuredObject, inlines: dict[str, StructuredObject]) -> ContextMessage:
+        text = xmltodict.unparse(obj, full_document=False)
+        for before, after_obj in inlines.items():
+            text = text.replace(utils.escape_xml(before), xmltodict.unparse(after_obj, full_document=False))
+        text = utils.resolve_omitted(text)
+        return ContextMessage(backmsg, text, len(self.encoding.encode(text)))
+
+
+    # Planning
+
+    def plan_images(self, messages: list[ContextMessage]) -> None:
+        """
+        Decides the quality tier of each image according to configured budgets, newest first.
+        An image is listed in the newest message that shows it, either by itself or by quoting it.
+        """
+        budget_full, budget_low = self.config.max_images.value, self.config.max_images_low.value
+        tiers = chain(repeat(ImageQuality.FULL, budget_full), repeat(ImageQuality.LOW, budget_low), repeat(ImageQuality.NONE))
+        placed: set[int] = set()
+        for msg in messages:
+            for shown in (msg.message, self.quotes.get(msg.message.id)):
+                if not shown or shown.id in placed:
+                    continue
+                placed.add(shown.id)
+                msg.slots.extend(ImageSlot(src, next(tiers)) for src in self.image_sources(shown))
+
+
+    def image_sources(self, message: discord.Message) -> list[ImageSource]:
+        if (generated := self.generated.get(message.id)) and generated.get("Prompt"):
+            return []  # the prompt is sent instead
+        return utils.image_sources(message)[:constants.MAX_IMAGES_PER_MESSAGE]
+
+
+    def tokens(self, msg: ContextMessage) -> int:
+        return msg.text_tokens + sum(self.image_tokens[slot.quality] for slot in msg.slots)
+
+
+    def trim(self, messages: list[ContextMessage]) -> list[ContextMessage]:
+        """Keeps messages until the token budget runs out, including the one that crosses it."""
+        used_before = accumulate((self.tokens(msg) for msg in messages), initial=0)
+        return [msg for msg, used in zip(messages, used_before) if used < self.config.backread_tokens.value]
+
+
+    # Result
+
+    def report(self, messages: list[ContextMessage]) -> None:
+        tiers = Counter(slot.quality for msg in messages for slot in msg.slots)
+        self.result.messages = len(messages)
+        self.result.images = tiers[ImageQuality.FULL]
+        self.result.images_low = tiers[ImageQuality.LOW]
+        self.result.tokens.backread = sum(self.tokens(msg) for msg in messages)
+
+
+    # Images
+
+    async def resolve_images(self, messages: list[ContextMessage]) -> None:
+        slots = [slot for msg in messages for slot in msg.slots if slot.quality]
+        entries = await utils.gather_logged(log, (self.resolve_image(slot) for slot in slots))
+        for slot, entry in zip(slots, entries):
+            if entry and entry.image_full:
+                slot.entry = entry
             else:
-                quotes[backmsg.id] = None
-        quote_tasks = [self.resolve_quote(quote_id, backmsg) for backmsg in self.backread if (quote_id := quotes[backmsg.id])]
-        quote_results_raw = await asyncio.gather(*quote_tasks, return_exceptions=True)
-        for res in quote_results_raw:
-            if isinstance(res, BaseException):
-                log.warning(f"resolve_quote raised: {res}")
-                continue
-            msg_id, quote = res
-            self.all_resolved_quotes[msg_id] = quote
-
-        # Pass 2: decide which images will be sent in full, which at lower detail, and which not at all
-        priority_budget = self.config.max_images.value
-        low_priority_budget = self.config.max_images.value
-        for backmsg in self.backread:
-            quote = self.all_resolved_quotes.get(backmsg.id)
-            # share image budget between base message and its quoted message
-            backmsg_candidates = utils.image_sources(backmsg)
-            quote_candidates   = utils.image_sources(quote) if quote else []
-            candidates = backmsg_candidates + quote_candidates
-            if not candidates:
-                continue
-            self.first_appearance.setdefault(backmsg.id, backmsg.id)
-            if quote:
-                self.first_appearance.setdefault(quote.id, backmsg.id)
-            # deplete priority budget then the low priority budget
-            priority_list = candidates[:priority_budget]
-            low_priority_list = candidates[priority_budget : priority_budget + low_priority_budget]
-            priority_budget = max(0, priority_budget - len(priority_list))
-            low_priority_budget = max(0, low_priority_budget - len(low_priority_list))
-            # save them separately
-            for msg in [backmsg, quote]:
-                if msg and msg.id not in self.all_candidates:
-                    self.all_candidates[msg.id] = types.DiscordMessageImageCandidates(msg,
-                        [s for s in priority_list if s.message_id == msg.id],
-                        [s for s in low_priority_list if s.message_id == msg.id],
-                    )
-
-        # Pass 3: grab images
-        image_tasks = [self.resolve_images(src.message) for src in self.all_candidates.values()]
-        image_results_raw = await asyncio.gather(*image_tasks, return_exceptions=True)
-        for res in image_results_raw:
-            if isinstance(res, BaseException):
-                log.warning(f"resolve_images raised: {res}")
-                continue
-            self.all_resolved_images[res.message_id] = res
- 
-        # Pass 4: Parse each message and attach images
-        parse_tasks = [self.parse_message_and_images(backmsg) for backmsg in self.backread]
-        parse_results_raw = await asyncio.gather(*parse_tasks, return_exceptions=True)
-        all_parsed_messages: dict[int, types.ParsedMessageResult] = {}
-        for res in parse_results_raw:
-            if isinstance(res, BaseException):
-                log.warning(f"parse_message_and_images raised: {res}")
-                continue
-            all_parsed_messages[res.message_id] = res
-
-        # Pass 5: trim to token budget and return
-        parsed_messages = [parsed_message for backmsg in self.backread if (parsed_message := all_parsed_messages.get(backmsg.id))]
-        cumulative = 0
-        cutoff = len(parsed_messages)
-        for i, msg in enumerate(parsed_messages):
-            cumulative += msg.tokens
-            if i > 0 and cumulative > self.config.backread_tokens.value:
-                cutoff = i + 1  # it's fine to go over
-                break
-        parsed_messages = parsed_messages[:cutoff]
-        self.result.messages = len(parsed_messages)
-        self.result.images = sum(msg.num_images for msg in parsed_messages)
-        self.result.tokens.backread = sum(msg.tokens for msg in parsed_messages)
-
-        return [msg.gpt_message for msg in reversed(parsed_messages)]
-        
-
-    async def resolve_quote(self, quote_id: int, backmsg: discord.Message) -> tuple[int, discord.Message | None]:
-        lock = self.builder.quote_lock.setdefault(quote_id, asyncio.Lock())
-        async with lock:
-            if backmsg.reference and backmsg.reference.cached_message:
-                return backmsg.id, backmsg.reference.cached_message
-            try:
-                return backmsg.id, await backmsg.channel.fetch_message(quote_id)
-            except discord.DiscordException:
-                return backmsg.id, None
-    
-
-    async def resolve_images(self, backmsg: discord.Message) -> types.DiscordMessageResolvedImages:
-        candidates = self.all_candidates[backmsg.id]
-        generated_image: dict[str, str] | None = None
-        if backmsg.attachments and len(backmsg.attachments) == 1 and backmsg.author == self.ctx.me:
-            if "gptimage" in backmsg.attachments[0].filename:
-                generated_image = {"type": "gptimage"}
-            elif imagescanner := utils.get_cog(self.builder.bot, types.ImageScanner):
-                generated_image = await imagescanner.grab_metadata_dict(backmsg)
-
-        priority_srcs = candidates.priority[:constants.MAX_IMAGES_PER_MESSAGE]
-        num_remaining = constants.MAX_IMAGES_PER_MESSAGE - len(priority_srcs)
-        caption_srcs = candidates.low_priority[:num_remaining]
-        priority_tasks = [self.process_image(src, generated_image) for src in priority_srcs]
-        low_priority_tasks  = [self.process_image(src, generated_image, low_priority=True) for src in caption_srcs]
-        results_raw = await asyncio.gather(*priority_tasks, *low_priority_tasks, return_exceptions=True)
-    
-        image_contents: list[types.AgentContent] = []
-        attachment_captions: dict[int, str | None] = {}
-        url_captions: dict[str, str | None] = {}
-        low_detail_count = 0
-        for res in results_raw:
-            if isinstance(res, BaseException):
-                log.warning(f"process_image raised: {res}")
-                continue
-            if not res.data and not res.caption:
-                continue
-            if res.data:
-                image_contents.append(utils.make_image_content(res.data, low_detail=res.low_detail))
-                low_detail_count += int(res.low_detail)
-            if res.src.attachment:
-                attachment_captions[res.src.att_index] = res.caption
-            elif res.src.url:
-                url_captions[res.src.url] = res.caption
-                
-        return types.DiscordMessageResolvedImages(backmsg.id, image_contents, attachment_captions, url_captions, generated_image, low_detail_count)
+                slot.quality = ImageQuality.NONE
 
 
-    def get_cached_source(self, src: types.ImageSource) -> tuple[bytes | None, str | None]:
-        data, caption = None, None
-        if src.attachment:
-            _, data = self.builder.attachment_image_cache.get(src.attachment.id, (None, None))
-            _, caption = self.builder.attachment_caption_cache.get(src.attachment.id, (None, None))
-        elif src.url:
-            data = self.builder.url_image_cache.get(src.url)
-            caption = self.builder.url_caption_cache.get(src.url)
-        return data, caption
-    
-    
-    def store_cached_source(self, src: types.ImageSource, data: bytes | None, caption: str | None) -> None:
-        if src.attachment:
-            if data:
-                self.builder.attachment_image_cache[src.attachment.id] = (src.att_index, data)
-            if caption:
-                self.builder.attachment_caption_cache[src.attachment.id] = (src.att_index, caption)
-        elif src.url:
-            if data:
-                self.builder.url_image_cache[src.url] = data
-            if caption:
-                self.builder.url_caption_cache[src.url] = caption
- 
- 
-    async def process_image(self, src: types.ImageSource, generated_image: dict | None, low_priority: bool = False) -> types.ImageProcessingResult:
-        has_prompt = generated_image and generated_image.get("Prompt")
-        if low_priority and has_prompt:
-            return types.ImageProcessingResult(src, None, None)
-        key = src.attachment.url if src.attachment else src.url
-        if not key:
-            return types.ImageProcessingResult(src, None, None)
-    
-        use_captions = self.config.use_captions.value
-        high_resolution = self.config.max_image_resolution.value
-        low_resolution = self.config.max_caption_resolution.value
-        
-        async with self.builder.url_lock.setdefault(key, asyncio.Lock()):
-            data, caption = self.get_cached_source(src)
-            if low_priority and use_captions and caption:
-                return types.ImageProcessingResult(src, None, caption)
-            if not data:
-                data = await self.fetch_and_normalize(src, max_resolution=high_resolution)
-                if not data:
-                    log.warning(f"failed to get image data for {src}")
-                    return types.ImageProcessingResult(src, None, None)
-            low_res_data = None
-            needs_caption = use_captions and not has_prompt and not caption
-            if needs_caption or low_priority:
-                low_res_data = await asyncio.to_thread(utils.normalize_image, data, low_resolution)
-            if needs_caption:
-                if low_res_data:
-                    content = utils.make_image_content(low_res_data, low_detail=True)
-                    caption = await self.builder.execute_captioner(self.ctx, content, self.result)
-                if not caption:
-                    log.warning(f"failed to make caption for {src}")
-                    if low_priority:
-                        return types.ImageProcessingResult(src, None, None)
-            self.store_cached_source(src, data, caption)
-
-        if low_priority and use_captions:
-            return types.ImageProcessingResult(src, None, caption)
-
-        return types.ImageProcessingResult(src, low_res_data if low_priority else data, caption if use_captions else None, low_priority)
+    async def resolve_image(self, slot: ImageSlot) -> ImageEntry:
+        full_pixels = self.config.max_image_resolution.value ** 2
+        low_pixels = self.config.max_caption_resolution.value ** 2
+        entry = self.builder.image_cache.setdefault((slot.src.key, full_pixels, low_pixels), ImageEntry())
+        async with entry.lock:
+            entry.image_full = entry.image_full or await self.fetch_image(slot.src, full_pixels)
+            if entry.image_full:
+                entry.image_low = entry.image_low or await asyncio.to_thread(utils.normalize_image, entry.image_full, low_pixels)
+            if entry.image_low and self.config.use_captions.value and not entry.caption:
+                content = utils.make_image_content(entry.image_low, low_detail=True)
+                try:
+                    entry.caption = await self.builder.execute_captioner(self.ctx, content, self.result)
+                except Exception as error:
+                    log.warning(f"failed to make caption for {slot.src.url} - {type(error).__name__}: {error}")
+        return entry
 
 
-    async def fetch_and_normalize(self, src: types.ImageSource, max_resolution: int | None = None, thumbnail_size: int | None = None) -> bytes | None:
-        assert max_resolution or thumbnail_size
-        max_pixels = max_resolution ** 2 if max_resolution else None
+    async def fetch_image(self, src: ImageSource, max_pixels: int) -> bytes | None:
         try:
-            if src.attachment:
-                fp_before = BytesIO()
-                imagescanner = utils.get_cog(self.builder.bot, types.ImageScanner)
-                if imagescanner and src.message_id in imagescanner.image_cache:
-                    _, image_bytes = imagescanner.image_cache.get(src.message_id, ({}, {}))
-                    if src.att_index in image_bytes:
-                        fp_before = BytesIO(image_bytes[src.att_index])
-                if fp_before.getbuffer().nbytes == 0:
-                    await src.attachment.save(fp_before, seek_begin=True)
-            elif src.url:
-                fp_before = BytesIO(await utils.read_image_source(src, self.builder.session))
-
-            fp_after = await asyncio.to_thread(utils.normalize_image, fp_before, max_pixels, thumbnail_size)
-            del fp_before
-            return fp_after if fp_after else None
+            image = self.scanned_image(src) or await utils.read_image_source(src, self.builder.session)
+            return await asyncio.to_thread(utils.normalize_image, image, max_pixels)
         except Exception as error:
-            src_label = src.attachment.url if src.attachment else src.url
-            log.warning(f"fetch_and_normalize {src_label}: {type(error).__name__}: {error}")
+            log.warning(f"failed to get image data for {src.url}: {type(error).__name__}: {error}")
             return None
 
 
-    async def parse_message_and_images(self, backmsg: discord.Message) -> types.ParsedMessageResult:
-        quote = self.all_resolved_quotes.get(backmsg.id)
-        images = self.all_resolved_images.get(backmsg.id)
-        quoted_images = self.all_resolved_images.get(quote.id) if quote else None
-
-        message_obj, message_inline_objs = await self.parse_discord_message(backmsg, quote, exhaustive=True, recursive=True)
-        text_content = xmltodict.unparse(message_obj, full_document=False)
-        for before, after_obj in message_inline_objs.items():
-            text_content = text_content.replace(utils.escape_xml(before), xmltodict.unparse(after_obj, full_document=False))
-
-        image_contents: list[types.AgentContent] = []
-        if images and self.first_appearance[images.message_id] == backmsg.id:
-            image_contents.extend(images.image_contents)
-        if quoted_images and self.first_appearance[quoted_images.message_id] == backmsg.id:
-            image_contents.extend(quoted_images.image_contents)
-        total_tokens = len(self.encoding.encode(text_content))
-        if images:
-            low, high = utils.image_tokens(self.config.model_responder.value)
-            total_tokens += low * max(0, images.low_detail_count) + high * max(0, len(image_contents) - images.low_detail_count)
-
-        gpt_msg = {
-            "role": "user",
-            "content": [utils.make_text_content(text_content), *image_contents]
-        }
-        return types.ParsedMessageResult(backmsg.id, gpt_msg, total_tokens, len(image_contents))
+    def scanned_image(self, src: ImageSource) -> bytes | None:
+        if self.imagescanner and src.attachment:
+            return self.imagescanner.image_cache.get(src.message_id, ({}, {}))[1].get(src.att_index)
+        return None
 
 
-    async def parse_discord_message(
-        self,
-        message: discord.Message,
-        quote: discord.Message | None,
-        exhaustive: bool,
-        recursive: bool,
-    ) -> tuple[types.StructuredObject, dict[str, types.StructuredObject]]:
-        """
-        Converts a message into a dictionary of structured information that may then be unparsed into xml.
-        Also returns a dictionary of inline objects to be injected back into the final string.
-        """
-        assert(message.guild)
-        current_images = self.all_resolved_images.get(message.id)
-        generated_image = current_images.generated_image if current_images else None
-        attachment_captions = current_images.attachment_captions if current_images else None
-        url_captions = current_images.url_captions if current_images else None
+    # Messages
 
-        def clean_content(text: str) -> str:
-            text = utils.resolve_emotes(self.builder.bot, text)
-            text = utils.resolve_mentions(self.builder.bot, message.guild, text)
-            return text
-        
-        inline_objs: dict[str, dict[str, Any]] = {}
-        obj: dict[str, Any] = {
+    def message_header(self, message: discord.Message) -> StructuredObject:
+        obj = {
             "@time": message.created_at.astimezone().strftime(constants.DATETIME_FORMATTING),
             "@username": message.author.name,
         }
         if isinstance(message.author, discord.Member) and message.author.nick:
             obj["@nickname"] = message.author.nick
+        return obj
+
+
+    def clean_content(self, text: str) -> str:
+        text = utils.resolve_emotes(self.builder.bot, text)
+        return utils.resolve_mentions(self.builder.bot, self.ctx.guild, text)
+
+
+    async def parse_discord_message(
+        self,
+        message: discord.Message,
+        exhaustive: bool,
+        recursive: bool,
+    ) -> tuple[StructuredObject, dict[str, StructuredObject]]:
+        """
+        Converts a message into a dictionary of structured information that may then be unparsed into xml.
+        Also returns a dictionary of inline objects to be injected back into the final string.
+        """
+        assert message.guild
+        generated = self.generated.get(message.id) or {}
+        prompt = generated.get("Prompt")
+        recursive = recursive and not generated  # a generated image doesn't need the messages around it
+        inlines: dict[str, StructuredObject] = {}
+        obj = self.message_header(message)
         starting_len = len(obj)
-        if message != self.backread[0] and self.builder.is_busy(message.id):
-            obj["error"] = "This message is currently being processed"
-            return ({"chat_message": obj}, inline_objs)
+        if message.id != self.backread[0].id and self.builder.is_busy(message.id):
+            return ({"chat_message": {**obj, "error": "This message is currently being processed"}}, inlines)
         # generated image
-        if generated_image and generated_image.get("Prompt"):
-            obj["stable_diffusion_image"] = {
+        if prompt:
+            obj["generated_image"] = {
                 "@filename": message.attachments[0].filename,
-                "@dimensions": generated_image.get("Size", "unknown"),
-                "prompt": utils.parse_prompt(generated_image["Prompt"]),
+                "@dimensions": generated.get("Size", "unknown"),
+                "prompt": utils.parse_prompt(prompt),
             }
         # quote
-        if quote and exhaustive and recursive and not generated_image:
-            quoted_message_obj, quoted_message_inlines = await self.parse_discord_message(
-                quote, None, exhaustive=quote not in self.backread, recursive=False,
-            )
-            obj["quote"] = quoted_message_obj
-            inline_objs.update(quoted_message_inlines)
-        # text content
-        if message.is_system():
-            obj["action"] = "Joined the server" if message.type == discord.MessageType.new_member else message.system_content
-        elif message.content:
-            content = message.content
-            for mentioned in message.mentions + message.role_mentions:
-                content = content.replace(mentioned.mention, f"@{mentioned.name}")
-            for mentioned_ch in message.channel_mentions:
-                content = content.replace(mentioned_ch.mention, f"#{mentioned_ch.name}")
-            content = clean_content(content)
-            for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
-                guild_id, channel_id, message_id = [int(num) for num in message_link.groups()]
-                link_obj = {}
-                if message.guild.id != guild_id:
-                    link_obj["@source"] = "Outside this server"
-                elif message.channel.id != channel_id:
-                    channel = message.guild.get_channel_or_thread(channel_id)
-                    link_obj["@channel"] = f"#{channel.name}" if channel else "unknown"
-                inline_objs[message_link.group(0)] = {
-                    "message_link": {
-                        "#text": "...",
-                        **link_obj,
-                    }}
-                # Add quote for linked message if it is the first
-                if i == 0 and exhaustive and recursive and not generated_image:
-                    try:
-                        linked = await self.builder.bot.get_guild(guild_id).get_channel(channel_id).fetch_message(message_id) # type: ignore
-                    except (AttributeError, discord.NotFound):
-                        continue
-                    linked_message_obj, linked_message_inlines = await self.parse_discord_message(
-                        linked, None, exhaustive=linked not in self.backread, recursive=False,
-                    )
-                    obj["linked_message"] = {**link_obj, **linked_message_obj}
-                    inline_objs.update(linked_message_inlines)
-            if not exhaustive and len(content) > self.config.max_quote.value:
-                content = content[:self.config.max_quote.value - 3] + "..."
-                obj["@truncated"] = "true"
-            obj["content"] = content
-        # attachments
-        if not generated_image or not generated_image.get("Prompt"):
-            attachments = []
-            total_file_length = 0
-            for i, attachment in enumerate(message.attachments):
-                att_obj = {"@filename": attachment.filename}
-                if exhaustive and attachment.content_type and attachment.content_type.startswith("text") \
-                        and total_file_length < self.config.max_text_file.value:
-                    if file_content := await self.read_text_file(attachment):
-                        att_obj["content"] = file_content
-                if attachment_captions and attachment_captions.get(i):
-                    att_obj["caption"] = attachment_captions[i]  # type: ignore
-                attachments.append(att_obj)
+        if recursive and (quote := self.quotes.get(message.id)):
+            quote_obj, quote_inlines = await self.parse_discord_message(quote, exhaustive=quote.id not in self.in_context, recursive=False)
+            obj["quote"] = quote_obj
+            inlines.update(quote_inlines)
+        # text
+        text_obj, text_inlines = await self.parse_text(message, exhaustive, recursive)
+        obj.update(text_obj)
+        inlines.update(text_inlines)
+        # groups
+        if not prompt and (attachments := await self.attachment_objs(message, exhaustive)):
             utils.add_xml_group(obj, attachments, "attachments")
-        # linked images
-        linked_images = []
-        if url_captions:
-            for url, caption in url_captions.items():
-                linked_images.append({"@url": url, "caption": caption})
-            utils.add_xml_group(obj, linked_images, "linked_images")
-        # stickers
-        stickers = []
-        for sticker in message.stickers:
-            stickers.append({"#text": sticker.name})
-        utils.add_xml_group(obj, stickers, "stickers")
-        # embeds
-        embeds = []
-        for embed in message.embeds:
-            embed_obj = {}
-            if embed.author:
-                embed_obj["header"] = embed.author.name
-            if embed.title:
-                embed_obj["title"] = clean_content(embed.title)
-            if embed.description:
-                embed_obj["description"] = clean_content(embed.description)# if exhaustive else "..."
-            if embed.url and embed.url[:self.config.max_quote.value] not in obj.get("content", ""):
-                embed_obj["url"] = embed.url
-            if embed.image and embed.image.url and not any(link["@url"] == embed.image.url for link in linked_images):
-                embed_obj["image"] = embed.image.url
-            if embed.thumbnail and embed.thumbnail.url and not any(link["@url"] == embed.thumbnail.url for link in linked_images):
-                embed_obj["thumbnail"] = embed.thumbnail.url
-            if embed.fields and exhaustive:
-                fields = []
-                for field in embed.fields:
-                    fields.append({
-                        "@name": clean_content(field.name or ""),
-                        "#text": clean_content(field.value or ""),
-                    })
-                utils.add_xml_group(embed_obj, fields, "fields")
-            if embed.footer:
-                embed_obj["footer"] = embed.footer.text
-            if embed_obj:
-                embeds.append(embed_obj)
-        utils.add_xml_group(obj, embeds, "embeds")
-        # buttons
-        if exhaustive and not generated_image:
-            buttons = []
-            for component in message.components:
-                if isinstance(component, discord.ActionRow):
-                    for subcomponent in component.children:
-                        if isinstance(subcomponent, discord.Button):
-                            buttons.append({"#text": utils.button_label(subcomponent)})
-                elif isinstance(component, discord.Button):
-                    buttons.append({"#text": utils.button_label(component)})
+        if stickers := [{"#text": sticker.name} for sticker in message.stickers]:
+            utils.add_xml_group(obj, stickers, "stickers")
+        if (embeds := self.embed_objs(message, obj.get("content", ""), exhaustive)):
+            utils.add_xml_group(obj, embeds, "embeds")
+        if exhaustive and not generated and (buttons := self.button_objs(message)):
             utils.add_xml_group(obj, buttons, "buttons")
-        # poll
         if message.poll:
-            poll = {"question": message.poll.question}
-            if exhaustive:
-                answers = []
-                for answer in message.poll.answers:
-                    answers.append({
-                        "@votes": str(answer.vote_count),
-                        "#text": answer.text,
-                    })
-                utils.add_xml_group(poll, answers, "answers")
-            obj["poll"] = poll
-        # etc
+            obj["poll"] = self.poll_obj(message.poll, exhaustive)
         if len(obj) == starting_len:
             obj["error"] = "Message empty or not supported"
-        # reactions
-        if exhaustive:
-            reactions = []
-            for reaction in message.reactions[:5]:
-                if reaction.emoji == "🔎":
-                    continue
-                reaction_obj = {
-                    "@count": str(reaction.count),
-                    "#text": reaction.emoji if isinstance(reaction.emoji, str) else f":{reaction.emoji.name}:"
-                }
-                if reaction.me:
-                    reaction_obj["@self_reacted"] = "true"
-                reactions.append(reaction_obj)
+        if exhaustive and (reactions := self.reaction_objs(message)):
             utils.add_xml_group(obj, reactions, "reactions")
         # done
-        return ({"chat_message": obj}, inline_objs)
-    
+        return {"chat_message": obj}, inlines
+
+
+    async def parse_text(
+        self,
+        message: discord.Message,
+        exhaustive: bool,
+        recursive: bool,
+    ) -> tuple[StructuredObject, dict[str, StructuredObject]]:
+        """Returns the text fields of a message, and the inline objects that replace its message links."""
+        assert message.guild
+        if message.is_system():
+            return {"action": "Joined the server" if message.type == discord.MessageType.new_member else message.system_content}, {}
+        if not message.content:
+            return {}, {}
+        content = message.content
+        for mentioned in message.mentions + message.role_mentions:
+            content = content.replace(mentioned.mention, f"@{mentioned.name}")
+        for mentioned_ch in message.channel_mentions:
+            content = content.replace(mentioned_ch.mention, f"#{mentioned_ch.name}")
+        content = self.clean_content(content)
+        fields: StructuredObject = {}
+        inlines: dict[str, StructuredObject] = {}
+        for i, message_link in enumerate(constants.DISCORD_MESSAGE_LINK_PATTERN.finditer(content)):
+            guild_id, channel_id, message_id = [int(num) for num in message_link.groups()]
+            link_obj = {}
+            if message.guild.id != guild_id:
+                link_obj["@source"] = "Outside this server"
+            elif message.channel.id != channel_id:
+                channel = message.guild.get_channel_or_thread(channel_id)
+                link_obj["@channel"] = f"#{channel.name}" if channel else "unknown"
+            inlines[message_link.group(0)] = {"message_link": {"#text": utils.make_omitted(), **link_obj}}
+            # add the linked message if it is the first link
+            if i == 0 and recursive:
+                guild = self.builder.bot.get_guild(guild_id)
+                channel = guild.get_channel_or_thread(channel_id) if guild else None
+                if linked := await self.builder.fetch_message(channel, message_id):
+                    linked_obj, linked_inlines = await self.parse_discord_message(linked, exhaustive=linked.id not in self.in_context, recursive=False)
+                    fields["linked_message"] = {**link_obj, **linked_obj}
+                    inlines.update(linked_inlines)
+        if not exhaustive:
+            content = utils.truncate_with_omitted(content, self.config.max_quote.value)
+        return {**fields, "content": content}, inlines
+
+
+    async def attachment_objs(self, message: discord.Message, exhaustive: bool) -> list[StructuredObject]:
+        remaining = self.config.max_text_file.value
+        attachments = []
+        for attachment in message.attachments:
+            obj = {"@filename": attachment.filename}
+            if exhaustive and remaining > 0 and (attachment.content_type or "").startswith("text"):
+                if content := await self.read_text_file(attachment):
+                    obj["content"] = utils.truncate_with_omitted(content, remaining, keep_ends=True)
+                    remaining -= len(obj["content"])
+            attachments.append(obj)
+        return attachments
+
+
+    def embed_objs(self, message: discord.Message, content: str, exhaustive: bool) -> list[StructuredObject]:
+        embeds = []
+        for embed in message.embeds:
+            obj = {}
+            if embed.author:
+                obj["header"] = embed.author.name
+            if embed.title:
+                obj["title"] = self.clean_content(embed.title)
+            if embed.description:
+                obj["description"] = self.clean_content(embed.description)
+            if embed.url and embed.url[:self.config.max_quote.value] not in content:
+                obj["url"] = embed.url
+            if embed.image and embed.image.url:
+                obj["image"] = embed.image.url
+            if embed.thumbnail and embed.thumbnail.url:
+                obj["thumbnail"] = embed.thumbnail.url
+            if embed.fields and exhaustive:
+                fields = [{
+                    "@name": self.clean_content(field.name or ""),
+                    "#text": self.clean_content(field.value or "")
+                } for field in embed.fields]
+                utils.add_xml_group(obj, fields, "fields")
+            if embed.footer:
+                obj["footer"] = embed.footer.text
+            if obj:
+                embeds.append(obj)
+        return embeds
+
+
+    def button_objs(self, message: discord.Message) -> list[StructuredObject]:
+        return [
+            {"#text": utils.button_label(button)}
+            for row in [component.children if isinstance(component, discord.ActionRow) else [component] for component in message.components]
+            for button in row if isinstance(button, discord.Button)
+        ]
+
+
+    def poll_obj(self, poll: discord.Poll, exhaustive: bool) -> StructuredObject:
+        obj = {
+            "@finished": str(poll.is_finalised()).lower(),
+            "question": poll.question
+        }
+        if exhaustive:
+            answers = [{
+                "@votes": str(answer.vote_count),
+                "#text": answer.text
+            } for answer in poll.answers]
+            utils.add_xml_group(obj, answers, "answers")
+        elif poll.victor_answer:
+            obj["winner"] = poll.victor_answer.text
+        return obj
+
+
+    def reaction_objs(self, message: discord.Message) -> list[StructuredObject]:
+        return [{
+            "@count": str(reaction.count),
+            "@me": str(reaction.me).lower(),
+            "#text": reaction.emoji if isinstance(reaction.emoji, str) else f":{reaction.emoji.name}:",
+        } for reaction in message.reactions[:5] if reaction.emoji != "🔎"]
+
 
     async def read_text_file(self, attachment: discord.Attachment) -> str | None:
-        max_length = self.config.max_text_file.value
-        fp = BytesIO()
+        file_content = self.builder.text_cache.get(attachment.id)
+        if file_content is not None:
+            return file_content
+        if attachment.size > constants.TEXT_DOWNLOAD_MAXSIZE:
+            return None
         try:
-            await attachment.save(fp, seek_begin=True)
-            file_content = fp.getvalue().decode('utf-8')
+            file_content = (await attachment.read()).decode()
         except (discord.DiscordException, UnicodeDecodeError) as error:
             log.warning(f"Processing text attachment {attachment.filename}: {type(error).__name__}: {error}")
             return None
-        if len(file_content) > max_length + 10:
-            file_content = f"{file_content[:max_length//2]}\n(...)\n{file_content[-max_length//2:]}"
+        self.builder.text_cache[attachment.id] = file_content
         return file_content

@@ -47,6 +47,8 @@ class AgentCogGuildConfig(CogConfigBase):
     max_text_file:           ConfigField[int] = ConfigField(3000)
     # Flags
     use_captions:            ConfigField[bool] = ConfigField(False)
+    use_images_recaller:     ConfigField[bool] = ConfigField(False)
+    use_images_memorizer:    ConfigField[bool] = ConfigField(False)
     allow_memorizer:         ConfigField[bool] = ConfigField(False)
     memorizer_user_only:     ConfigField[bool] = ConfigField(True)
     memorizer_alerts:        ConfigField[bool] = ConfigField(True)

@@ -6,8 +6,7 @@ from dataclasses import replace
 from urllib.parse import parse_qs, urlsplit
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
-from .misc_utils import get_filename
-from .string_utils import undo_xml
+from .string_utils import undo_xml, get_filename
 from agent.types import ImageSource
 from agent.constants import IMAGE_DOWNLOAD_MAXSIZE, IMAGE_DOWNLOAD_TIMEOUT, IMAGE_EXTENSIONS, MEDIA_HEADERS, URL_PATTERN
 
@@ -15,14 +14,14 @@ from agent.constants import IMAGE_DOWNLOAD_MAXSIZE, IMAGE_DOWNLOAD_TIMEOUT, IMAG
 def image_sources(message: discord.Message) -> list[ImageSource]:
     """Collect images in display order, retaining original and proxy URLs."""
     candidates = [
-        ImageSource(message.id, att, i, att.url, att.proxy_url)
+        ImageSource(att.url, message.id, att, i, att.proxy_url)
         for i, att in enumerate(message.attachments)
         if att.content_type and att.content_type.startswith("image/")
     ]
     for embed in message.embeds:
         media = embed.image if embed.image.url else embed.thumbnail
         if media.url:
-            candidates.append(ImageSource(message.id, url=media.url, proxy_url=media.proxy_url))
+            candidates.append(ImageSource(media.url, message.id, proxy_url=media.proxy_url))
     for match in URL_PATTERN.findall(message.content or ""):
         url = match.rstrip(">)]|")
         try:
@@ -33,7 +32,7 @@ def image_sources(message: discord.Message) -> list[ImageSource]:
         if parsed.path.lower().endswith(IMAGE_EXTENSIONS) or any(
             f".{fmt.lower()}" in IMAGE_EXTENSIONS for fmt in formats
         ):
-            candidates.append(ImageSource(message.id, url=url))
+            candidates.append(ImageSource(url, message.id))
     result: list[ImageSource] = []
     seen: set[str] = set()
     for source in candidates:

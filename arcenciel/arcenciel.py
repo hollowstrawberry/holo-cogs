@@ -29,7 +29,7 @@ log = logging.getLogger("red.holo-cogs.arcenciel")
 
 
 class Arcenciel(ArcencielCommands):
-    """Generate AI images with arcenciel.io"""
+    """Generate AI images with arcenciel.io."""
 
     async def cog_load_when_ready(self):
         await self.bot.wait_until_red_ready()

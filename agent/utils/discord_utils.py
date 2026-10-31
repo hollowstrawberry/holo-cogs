@@ -14,7 +14,7 @@ from agent import constants
 T = TypeVar("T")
 
 def get_cog(bot: Red, cog_type: Type[T]) -> T | None:
-    """Grab the cog with the given type's name and type, if present"""
+    """Grab the cog with the given type's name and type, if present."""
     cog = bot.get_cog(cog_type.__name__)
     if isinstance(cog, cog_type):
         return cog
@@ -29,12 +29,12 @@ def is_nsfw(channel: discord.abc.Messageable) -> bool:
         return False
 
 def button_label(button: discord.Button) -> str:
-    """The button's emoji and label if either or both are present"""
+    """The button's emoji and label if either or both are present."""
     emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
     return " ".join([s for s in (emoji_name, button.label) if s])
 
 async def backread_with_quote(ctx: commands.Context, limit: int) -> list[discord.Message]:
-    """Return the trigger message's quoted message, then the trigger message, then the rest of the chat history"""
+    """Return the trigger message's quoted message, then the trigger message, then the rest of the chat history."""
     quoted = None
     ref = ctx.message.reference
     if ref and ref.message_id and ref.channel_id == ctx.channel.id:
@@ -49,7 +49,7 @@ async def backread_with_quote(ctx: commands.Context, limit: int) -> list[discord
     ]
 
 def parse_mentions(guild: discord.Guild, text: str) -> str:
-    """Convert @name mentions into <@id> mentions (users/roles/channels)"""
+    """Convert @name mentions into <@id> mentions (users/roles/channels)."""
     def repl(match: re.Match) -> str:
         prefix, name = match.groups()
         group = [*guild.members, *guild.roles] if prefix == "@" else guild.channels
@@ -58,7 +58,7 @@ def parse_mentions(guild: discord.Guild, text: str) -> str:
     return constants.RESOLVED_MENTION_PATTERN.sub(repl, text)
 
 def resolve_mentions(bot: Red, guild: discord.Guild | None, text: str) -> str:
-    """Convert <@id> mentions into @name mentions (users/roles/channels)"""
+    """Convert <@id> mentions into @name mentions (users/roles/channels)."""
     def repl(match: re.Match) -> str:
         prefix, id = match.groups()
         if prefix == "@&":
@@ -73,7 +73,7 @@ def resolve_mentions(bot: Red, guild: discord.Guild | None, text: str) -> str:
     return constants.MENTION_PATTERN.sub(repl, text)
 
 def parse_emotes(bot: Red, text: str) -> str:
-    """Convert any :name: emotes with no id and any <:name:id> emotes with the wrong name into <:name:id> emotes"""
+    """Convert any :name: emotes with no id and any <:name:id> emotes with the wrong name into <:name:id> emotes."""
     def repl(match: re.Match) -> str:
         _, name, eid = match.groups()
         emote = None
@@ -89,7 +89,7 @@ def parse_emotes(bot: Red, text: str) -> str:
     return constants.INCOMPLETE_EMOTE_PATTERN.sub(repl, text)
 
 def resolve_emotes(bot: Red, text: str) -> str:
-    """Convert <:name:id> emotes into :name: emotes, gets the emote's true name from the id if possible"""
+    """Convert <:name:id> emotes into :name: emotes, gets the emote's true name from the id if possible."""
     def repl(match: re.Match) -> str:
         _, name, eid = match.groups()
         emote = bot.get_emoji(int(eid))
@@ -121,7 +121,7 @@ async def command_allowed(ctx: commands.Context, command: commands.Command, *, v
 AVATAR_EMOTE: discord.Emoji | None = None
 
 async def get_bot_avatar_emote(bot: discord.Client) -> discord.Emoji:
-    """Use the bot's avatar cropped into a circle as an application emoji"""
+    """Use the bot's avatar cropped into a circle as an application emoji."""
     global AVATAR_EMOTE
     NAME = "bot_avatar"
     if not AVATAR_EMOTE:

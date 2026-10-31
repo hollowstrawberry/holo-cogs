@@ -1,6 +1,5 @@
 import io
 import discord
-from typing import Optional
 from difflib import get_close_matches
 from redbot.core import commands
 
@@ -31,7 +30,7 @@ class AgentCogCommands(AgentCogBase):
         }
 
     @commands.command(name="prompt")
-    async def prompt_cmd(self, ctx: commands.Context, module: Optional[str]):
+    async def prompt_cmd(self, ctx: commands.Context, module: str | None):
         """
         View or edit LLM prompts.
         The recaller grabs relevant memories.
@@ -46,10 +45,10 @@ class AgentCogCommands(AgentCogBase):
             prompt_keys = config.prompt_keys.value
             for key, value in prompt_keys.items():
                 prompt = prompt.replace(f"{{{key}}}", value)
-            with io.StringIO() as fp:
-                fp.write(prompt)
+            with io.BytesIO() as fp:
+                fp.write(prompt.encode())
                 fp.seek(0)
-                file = discord.File(fp, f"prompt_{ctx.message.id}.txt")  # type: ignore
+                file = discord.File(fp, f"prompt_{ctx.message.id}.txt")
             await ctx.send(file=file)
             return
         view = await self.prompt_cmd_show(ctx, module) if module else await self.prompt_cmd_edit(ctx)
@@ -112,7 +111,7 @@ class AgentCogCommands(AgentCogBase):
     @commands.has_permissions(manage_messages=True)
     @commands.command(name="unforget")
     async def command_unforget(self, ctx: commands.Context):
-        """Undoes the effect of [p]forget"""
+        """Undoes the effect of [p]forget."""
         await self.config[ctx.channel].start.set(DISCORD_EPOCH_DATETIME)
         await ctx.tick(message="✅")
         # remove the previous [p]forget, this is not perfect but it's not important anyway
@@ -134,13 +133,13 @@ class AgentCogCommands(AgentCogBase):
     @commands.command(name="mymemory")
     @commands.guild_only()
     async def command_mymemory(self, ctx: commands.Context):
-        """View your personal memory in the bot LLM"""
+        """View your personal memory in the bot LLM."""
         await self.command_memory(ctx, name=ctx.author)
 
     @commands.command(name="memory", aliases=["memories"], invoke_without_subcommand=True)
     @commands.guild_only()
     async def command_memory(self, ctx: commands.Context, *, name: discord.Member | str | None):
-        """View all memories or a specific memory, for the bot LLM"""
+        """View all memories or a specific memory, for the bot LLM."""
         if isinstance(name, discord.Member):
             name = name.name
         assert ctx.guild
@@ -172,11 +171,11 @@ class AgentCogCommands(AgentCogBase):
             except discord.DiscordException:
                 pass
 
-    @commands.command(name="deletememory", aliases=["delmemory"]) # type: ignore
-    @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    @commands.command(name="deletememory", aliases=["delmemory"])
     async def command_deletememory(self, ctx: commands.Context, *, name: str):
-        """Delete an LLM memory"""
+        """Delete an LLM memory."""
         memory = self.config[ctx.guild].memory
         if before := memory.value.pop(name, None):
             await memory.save()
@@ -191,11 +190,11 @@ class AgentCogCommands(AgentCogBase):
             except discord.DiscordException:
                 pass
 
-    @commands.command(name="setmemory") # type: ignore
-    @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    @commands.command(name="setmemory")
     async def command_setmemory(self, ctx: commands.Context, name: str, *, content: str):
-        """Overwrite an LLM memory"""
+        """Overwrite an LLM memory."""
         name = name.replace("`", "")
         if not name:
             return await ctx.send("Invalid name")

@@ -21,7 +21,7 @@ class ConfigField(Generic[T]):
 
     @property
     def name(self) -> str:
-        """The internal name of this field"""
+        """The internal name of this field."""
         return self._name
 
     @property

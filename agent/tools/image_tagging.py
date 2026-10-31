@@ -64,7 +64,7 @@ class ImageTaggingTool(ToolBase):
             if not fp:
                 return f"<error>The image appears to be corrupted or invalid</error>"
             filename = get_filename(image_source.url or reference).rsplit(".", 1)[0] + ".png"
-            tags = await arcenciel.api.interrogate(fp, filename)  # type: ignore
+            tags = await arcenciel.api.interrogate(fp, filename)
             return f"`{', '.join([clean_booru_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
