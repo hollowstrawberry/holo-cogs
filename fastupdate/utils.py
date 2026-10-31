@@ -2,15 +2,16 @@ import asyncio
 import discord
 import itertools
 import contextlib
-from typing import Mapping
+from typing import TYPE_CHECKING, Mapping
 
-MessageableChannel = discord.abc.GuildChannel | discord.GroupChannel | discord.DMChannel | discord.Thread | discord.PartialMessageable
+if TYPE_CHECKING:
+    MessageableChannel = discord.abc.MessageableChannel
 
 def get_result_set(result: Mapping[str, list[str] | dict[str, str]], *keys: str) -> set[str]:
     return set(itertools.chain.from_iterable(list(result.get(result_name) or "") for result_name in keys))
 
 @contextlib.asynccontextmanager
-async def bot_is_typing(channel: MessageableChannel):
+async def bot_is_typing(channel: "MessageableChannel"):
     """Like channel.typing but doesn't stop execution if typing fails."""
     async def keep_typing():
         while True:

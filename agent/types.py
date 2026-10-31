@@ -2,7 +2,7 @@ import math
 import asyncio
 import discord
 from enum import IntEnum
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 from pydantic import BaseModel
 from dataclasses import dataclass, field
 
@@ -14,7 +14,11 @@ AgentContent = dict[str, (str | AgentValue)]
 AgentMessage = dict[str, (str | list[AgentContent])]
 
 CacheMode = Literal["implicit", "fixed_prefix"]
-MessageableChannel = discord.abc.GuildChannel | discord.GroupChannel | discord.DMChannel | discord.Thread | discord.PartialMessageable
+
+if TYPE_CHECKING:
+    MessageableChannel = discord.abc.MessageableChannel
+else:  # I hate future imports
+    MessageableChannel = discord.abc.Messageable
 
 
 class ImageQuality(IntEnum):
