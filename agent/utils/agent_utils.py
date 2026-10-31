@@ -2,6 +2,7 @@ import aiohttp
 import xmltodict
 from io import BytesIO
 from copy import deepcopy
+from typing import Mapping
 from base64 import b64encode
 from openai import Omit
 
@@ -39,6 +40,8 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
 
 def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:
     for msg in messages:
+        if not isinstance(msg, Mapping):
+            continue
         msg.pop("cache_control", None)
         if "content" in msg and isinstance(msg["content"], list):
             for cnt in msg["content"]:
