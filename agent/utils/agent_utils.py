@@ -69,6 +69,15 @@ def make_caption_content(src: ImageSource, caption: str) -> AgentContent:
     }
     return make_text_content(xmltodict.unparse(caption_obj, full_document=False))
 
+def make_video_placeholder_content(url: str):
+    obj = {
+        "video_frame": {
+            "@url": url,
+            "@audio": "false"
+        }
+    }
+    return make_text_content(xmltodict.unparse(obj, full_document=False))
+
 def build_image_contents(msg: ContextMessage, max_quality: ImageQuality, use_captions: bool) -> list[AgentContent]:
     contents: list[AgentContent] = []
     for slot in msg.slots:
@@ -76,9 +85,7 @@ def build_image_contents(msg: ContextMessage, max_quality: ImageQuality, use_cap
         if not slot.entry or quality == ImageQuality.NONE:
             continue
         if slot.src.is_video:
-            contents.append(make_text_content(xmltodict.unparse(
-                {"video_frame": {"@url": slot.src.url, "@audio": "false"}}, full_document=False,
-            )))
+            contents.append(make_video_placeholder_content(slot.src.url))
         if quality == ImageQuality.FULL and slot.entry.image_full:
             contents.append(make_image_content(slot.entry.image_full))
         elif use_captions and slot.entry.caption:

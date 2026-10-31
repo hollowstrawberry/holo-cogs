@@ -4,7 +4,7 @@ import discord
 from typing import Coroutine, Protocol, runtime_checkable
 from redbot.core import commands
 
-from agent.utils import undo_xml, get_cog, backread_with_quote, find_image_source, read_image_source
+from agent.utils import undo_xml, get_cog, backread_with_quote, find_image_source, resolve_image_source
 from agent.types import ToolCall, Function, Parameters, ImageSource
 from agent.tools.base import ToolBase
 
@@ -81,7 +81,7 @@ class GptImageToolBase(ToolBase):
         images: list[bytes] = []
         if sources:
             try:
-                data = [await read_image_source(source, self.cog.session) for source in sources]
+                data = [await resolve_image_source(source, self.cog.session) for source in sources]
                 images, original_resolution = await gptimage.normalize_images(data)
             except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError):
                 return "<error>Could not read an input image. It may be unavailable, invalid or too large.</error>"

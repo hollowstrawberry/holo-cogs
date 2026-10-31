@@ -1,16 +1,20 @@
 import re
+import logging
 import asyncio
 import discord
 import contextlib
 from copy import copy
-from typing import Type, TypeVar
+from typing import Iterable, Type, TypeVar
 from redbot.core import commands
 from redbot.core.bot import Red
 
+from .misc_utils import gather_logged
 from .image_utils import crop_circle
 from .component_utils import resolve_components
 from agent.types import MessageableChannel, HasMessage
 from agent import constants
+
+log = logging.Logger("agent.utils")
 
 T = TypeVar("T")
 
@@ -34,6 +38,11 @@ def button_label(button: discord.Button) -> str:
     emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
     return " ".join([s for s in (emoji_name, button.label) if s])
 
+async def fixed_messages(messages: Iterable[discord.Message]) -> list[discord.Message]:
+    """Adds missing information to discord messages."""
+    results = await gather_logged(log, (resolve_components(message) for message in messages))
+    return [new or old for new, old in zip(results, messages)]
+
 async def backread_with_quote(ctx: commands.Context, limit: int) -> list[discord.Message]:
     """Return the trigger message's quoted message, then the trigger message, then the rest of the chat history."""
     quoted = None
@@ -48,7 +57,7 @@ async def backread_with_quote(ctx: commands.Context, limit: int) -> list[discord
         ctx.message,
         *[message async for message in ctx.channel.history(limit=limit, before=ctx.message)]
     ]
-    return list(await asyncio.gather(*(resolve_components(message) for message in messages)))
+    return await fixed_messages(messages)
 
 def parse_mentions(guild: discord.Guild, text: str) -> str:
     """Convert @name mentions into <@id> mentions (users/roles/channels)."""

@@ -61,15 +61,14 @@ class ContextBuilder:
         return await ContextBuilderPipeline(self, ctx, backread, config, result, encoding).build()
 
     async def fetch_message(self, channel: object, message_id: int) -> discord.Message | None:
-        if message := self.message_cache.get(message_id):
-            return await utils.resolve_components(message)
-        if not isinstance(channel, discord.abc.Messageable):
-            return None
-        try:
-            message = await channel.fetch_message(message_id)
-        except discord.DiscordException:
-            return None
-        self.message_cache[message_id] = message
+        if not (message := self.message_cache.get(message_id)):
+            if not isinstance(channel, discord.abc.Messageable):
+                return None
+            try:
+                message = await channel.fetch_message(message_id)
+            except discord.DiscordException:
+                return None
+            self.message_cache[message_id] = message
         return await utils.resolve_components(message)
 
 
@@ -97,8 +96,7 @@ class ContextBuilderPipeline:
         self.image_tokens = {ImageQuality.NONE: 0, ImageQuality.LOW: low, ImageQuality.FULL: high}
 
     async def build(self) -> AgentChatContext:
-        self.backread = list(await asyncio.gather(*(utils.resolve_components(message) for message in self.backread)))
-        self.in_context = {message.id: message for message in self.backread}
+        self.backread = await utils.fixed_messages(self.backread)
         self.quotes = await self.resolve_quotes()
         self.generated = await self.resolve_generated()
         messages = await self.parse_messages()
@@ -112,7 +110,7 @@ class ContextBuilderPipeline:
     # Fetching
 
     async def resolve_quotes(self) -> dict[int, discord.Message]:
-        """Returns the quoted message of each message."""
+        """Returns the quoted message of each message, unless the quote is the previous message."""
         older_ids = [backmsg.id for backmsg in self.backread[1:]]
         quote_ids = {
             backmsg.id: ref.message_id
@@ -248,7 +246,7 @@ class ContextBuilderPipeline:
 
     async def fetch_image(self, src: ImageSource, max_pixels: int) -> bytes | None:
         try:
-            image = self.scanned_image(src) or await utils.read_image_source(src, self.builder.session)
+            image = self.scanned_image(src) or await utils.resolve_image_source(src, self.builder.session)
             return await asyncio.to_thread(utils.normalize_image, image, max_pixels)
         except Exception as error:
             log.warning(f"failed to get image data for {src.url}: {type(error).__name__}: {error}")

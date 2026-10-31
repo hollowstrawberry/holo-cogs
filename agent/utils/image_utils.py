@@ -15,7 +15,7 @@ from .component_utils import walk_components, component_media, media_kind
 from agent.types import ImageSource, ImageEntry
 from agent.constants import (
     IMAGE_DOWNLOAD_MAXSIZE, IMAGE_DOWNLOAD_TIMEOUT, IMAGE_EXTENSIONS, MEDIA_HEADERS, URL_PATTERN,
-    CACHE_SIZE, VIDEO_FRAME_MAXSIZE, VIDEO_FRAME_TIMEOUT,
+    CACHE_SIZE, VIDEO_FRAME_RESOLUTION, VIDEO_FRAME_TIMEOUT,
 )
 
 VIDEO_FRAMES: dict[int | str, ImageEntry] = ExpiringDict(CACHE_SIZE, 5 * 60)
@@ -29,16 +29,16 @@ def image_sources(message: discord.Message) -> list[ImageSource]:
         for i, att in enumerate(message.attachments)
         if att.content_type and att.content_type.startswith("image/")
     ]
+
     for embed in message.embeds:
         embed_media = embed.image if embed.image.url else embed.thumbnail
         if embed_media.url:
             candidates.append(ImageSource(embed_media.url, message.id, proxy_url=embed_media.proxy_url))
-    # Gallery content takes priority over section thumbnails, which are often profile pictures.
+
     components = sorted(walk_components(message.components), key=lambda item: isinstance(item, discord.ThumbnailComponent))
     for component in components:
         for media, _ in component_media(component):
-            kind = media_kind(media)
-            if kind in ("image", "video"):
+            if (kind := media_kind(media)) in ("image", "video"):
                 attachment = next((
                     (i, att) for i, att in enumerate(message.attachments)
                     if att.id == media.attachment_id or media.url == f"attachment://{att.filename}"
@@ -47,20 +47,18 @@ def image_sources(message: discord.Message) -> list[ImageSource]:
                     index, att = attachment
                     candidates.append(ImageSource(att.url, message.id, att, index, att.proxy_url, kind == "video"))
                 else:
-                    candidates.append(ImageSource(
-                        media.url, message.id, proxy_url=media.proxy_url, is_video=kind == "video",
-                    ))
+                    candidates.append(ImageSource(media.url, message.id, proxy_url=media.proxy_url, is_video=kind == "video"))
+
     for match in URL_PATTERN.findall(message.content or ""):
-        url = match.rstrip(">)]|")
+        url: str = match.rstrip(">)]|")
         try:
             parsed = urlsplit(url)
         except ValueError:
             continue
         formats = parse_qs(parsed.query).get("format", [])
-        if parsed.path.lower().endswith(IMAGE_EXTENSIONS) or any(
-            f".{fmt.lower()}" in IMAGE_EXTENSIONS for fmt in formats
-        ):
+        if parsed.path.lower().endswith(IMAGE_EXTENSIONS) or any(f".{fmt.lower()}" in IMAGE_EXTENSIONS for fmt in formats):
             candidates.append(ImageSource(url, message.id))
+
     result: list[ImageSource] = []
     seen: set[str] = set()
     for source in candidates:
@@ -69,6 +67,7 @@ def image_sources(message: discord.Message) -> list[ImageSource]:
             result.append(source)
         seen.update(urls)
     return result
+
 
 def find_image_source(reference: str, messages: list[discord.Message], consumed: list[ImageSource]) -> ImageSource | None:
     reference = undo_xml(reference).strip().strip("<>")
@@ -86,15 +85,17 @@ def find_image_source(reference: str, messages: list[discord.Message], consumed:
             return source
     return None
 
-async def read_image_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int = IMAGE_DOWNLOAD_MAXSIZE) -> bytes:
+
+async def resolve_image_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int = IMAGE_DOWNLOAD_MAXSIZE) -> bytes:
+    """Returns an image or a still frame from a video."""
     if not source.is_video:
-        return await _read_media_source(source, session, max_bytes)
+        return await fetch_media_source(source, session, max_bytes)
     entry = VIDEO_FRAMES.setdefault(source.key, ImageEntry())
     async with entry.lock:
         if entry.image_full is None:
             try:
                 async with VIDEO_DECODERS:
-                    data = await _read_media_source(source, session, max_bytes)
+                    data = await fetch_media_source(source, session, max_bytes)
                     entry.image_full = await video_frame(data)
             except Exception:
                 entry.image_full = b""  # Avoid retrying an unavailable video on every turn.
@@ -105,15 +106,15 @@ async def read_image_source(source: ImageSource, session: aiohttp.ClientSession,
 
 
 async def video_frame(data: bytes) -> bytes:
-    """Decode one bounded still from a local video; FFmpeg never receives a remote URL."""
-    with TemporaryDirectory(prefix="agent-video-") as directory:
+    """Decode a still frame from a video."""
+    with TemporaryDirectory(prefix="agent-video-") as directory:  # ffmpeg only takes local files
         path = Path(directory) / "video"
         await asyncio.to_thread(path.write_bytes, data)
         process = await asyncio.create_subprocess_exec(
             "ffmpeg", "-nostdin", "-v", "error", "-threads", "1",
             "-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,webm",
             "-i", str(path), "-threads", "1", "-frames:v", "1", "-an", "-sn",
-            "-vf", f"scale='min({VIDEO_FRAME_MAXSIZE},iw)':'min({VIDEO_FRAME_MAXSIZE},ih)':force_original_aspect_ratio=decrease",
+            "-vf", f"scale='min({VIDEO_FRAME_RESOLUTION},iw)':'min({VIDEO_FRAME_RESOLUTION},ih)':force_original_aspect_ratio=decrease",
             "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "3", "pipe:1",
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
         )
@@ -128,7 +129,7 @@ async def video_frame(data: bytes) -> bytes:
                 await process.wait()
 
 
-async def _read_media_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int) -> bytes:
+async def fetch_media_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int) -> bytes:
     data: bytes | bytearray
     if source.attachment:
         if source.attachment.size > max_bytes:

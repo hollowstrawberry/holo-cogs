@@ -1,24 +1,27 @@
-import asyncio
-import aiohttp
 import logging
+import asyncio
 import discord
 from copy import copy
 from typing import TYPE_CHECKING, Iterable, Iterator, cast
 from urllib.parse import urlsplit
-from discord.components import _component_factory
 from expiringdict import ExpiringDict
-
-from agent import constants
+from discord.components import _component_factory
 
 if TYPE_CHECKING:
     from discord.types.components import Component as ComponentPayload
 
+from agent import constants
+
 log = logging.getLogger("agent.components")
-COMPONENT_CACHE: dict[tuple, list[discord.Component]] = ExpiringDict(constants.CACHE_SIZE, 60)
+COMPONENT_CACHE: dict[tuple, list[discord.Component]] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
 
 
 async def resolve_components(message: discord.Message) -> discord.Message:
-    """Recover component embeds discarded by discord.py, without modifying its cached messages."""
+    """
+    Temporary solution to discord.py's lack of component-embeds.
+    Feature specs: https://docs.discord.com/developers/link-previews/component-embeds
+    Feature status: https://github.com/Rapptz/discord.py/pull/10528
+    """
     embeds = [embed for embed in message.embeds if embed.type == "components"]
     if not embeds:
         return message
@@ -34,16 +37,15 @@ async def resolve_components(message: discord.Message) -> discord.Message:
             )
             for embed in data.get("embeds", []):
                 for payload in cast("list[ComponentPayload]", embed.get("components", [])):
-                    component = _component_factory(payload)
-                    if component is not None:
+                    if component := _component_factory(payload):
                         components.append(component)
-        except (discord.DiscordException, aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError, TypeError, KeyError) as error:
-            log.warning("Could not read components for %s: %s", message.id, type(error).__name__)
+        except Exception as error:
+            log.warning(f"Could not read components for {message.id} - {type(error).__name__}: {error}")
         COMPONENT_CACHE[key] = components
     if not components:
         return message
     result = copy(message)
-    result.components = [*message.components, *components]
+    result.components = [*components, *message.components]
     # The recovered content now lives in components; retain its source link without fetching it twice.
     result.embeds = [discord.Embed(url=embed.url) if embed.type == "components" else embed for embed in message.embeds]
     return result

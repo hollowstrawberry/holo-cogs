@@ -2,7 +2,7 @@ import logging
 import asyncio
 
 from agent.types import ToolCall, Function, Parameters
-from agent.utils import get_filename, clean_booru_tag, normalize_image, backread_with_quote, find_image_source, read_image_source, get_cog
+from agent.utils import get_filename, clean_booru_tag, normalize_image, backread_with_quote, find_image_source, resolve_image_source, get_cog
 from agent.tools.base import ToolBase
 
 log = logging.getLogger("agent.imagetagger")
@@ -58,7 +58,7 @@ class ImageTaggingTool(ToolBase):
             }
             
         try:
-            image_bytes = await read_image_source(image_source, self.cog.session)
+            image_bytes = await resolve_image_source(image_source, self.cog.session)
             max_resolution = self.cog.config[self.ctx.guild].max_image_resolution.value
             fp = await asyncio.to_thread(normalize_image, image_bytes, max_resolution**2)
             if not fp:
