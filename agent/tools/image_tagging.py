@@ -2,8 +2,11 @@ import logging
 import asyncio
 
 from agent.types import ToolCall, Function, Parameters
-from agent.utils import get_filename, clean_booru_tag, normalize_image, backread_with_quote, find_image_source, resolve_image_source, get_cog
 from agent.tools.base import ToolBase
+from agent.utils import (
+    get_cog, get_filename, backread_with_quote, clean_booru_tag, debug,
+    normalize_image, find_image_source, resolve_image_source, 
+)
 
 log = logging.getLogger("agent.imagetagger")
 
@@ -68,4 +71,4 @@ class ImageTaggingTool(ToolBase):
             return f"`{', '.join([clean_booru_tag(tag) for tag in tags])}`"
         except Exception as error:
             log.exception("LLM autotag")
-            return f"<error>{type(error).__name__}: {error}</error>"
+            return f"<error>{debug(error)}</error>"

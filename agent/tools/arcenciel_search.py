@@ -2,7 +2,7 @@ import logging
 import asyncio
 import aiohttp
 
-from agent.utils import parse_arcenciel_model, add_xml_group, get_cog
+from agent.utils import parse_arcenciel_model, add_xml_group, get_cog, debug
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
@@ -85,7 +85,7 @@ class ArcencielTool(ToolBase):
                 data: dict = await response.json()
 
         except (aiohttp.ClientError, asyncio.TimeoutError) as error:
-            log.warning(f"Trying to contact Arc en Ciel: {type(error).__name__}: {error}")
+            log.warning(f"Trying to contact Arc en Ciel: {debug(error)}")
             return "<error>Failed to contact Arc en Ciel</error>"
 
         models: list[dict] = data.get("data", [])

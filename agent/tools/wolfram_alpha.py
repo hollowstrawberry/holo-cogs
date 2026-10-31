@@ -2,7 +2,7 @@ import logging
 import aiohttp
 from xml.etree import ElementTree
 
-from agent.utils import farenheit_to_celsius
+from agent.utils import farenheit_to_celsius, debug
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 from agent.constants import FARENHEIT_PATTERN
@@ -41,7 +41,7 @@ class WolframAlphaTool(ToolBase):
                 response.raise_for_status()
                 result = await response.text()
         except aiohttp.ClientError as error:
-            log.warning(f"Asking Wolfram Alpha: {type(error).__name__}: {error}")
+            log.warning(f"Asking Wolfram Alpha: {debug(error)}")
             return "<error>An error occured while asking Wolfram Alpha.</error>"
 
         root = ElementTree.fromstring(result)

@@ -239,7 +239,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             try:
                 fixed = await linkfixer.get_fixed_message(ctx.message)
             except discord.DiscordException as error:
-                log.warning(f"LinkFixer {type(error).__name__}: {error}")
+                log.warning(f"LinkFixer {utils.debug(error)}")
         message = fixed or ctx.message
         wait = 8 if fixed else 4
         for _ in range(wait):
@@ -249,7 +249,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             try:
                 message = await ctx.channel.fetch_message(message.id)
             except Exception as error:
-                log.warning(f"wait_for_embed {type(error).__name__}: {error}")
+                log.warning(f"wait_for_embed {utils.debug(error)}")
                 break
         message = await utils.resolve_components(message)
         if fixed:

@@ -8,6 +8,7 @@ from typing import Any
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
+from arcenciel.utils import debug
 from arcenciel.moss_metadata.workflow import resolve_moss_prompt
 
 NEGATIVE_HINTS = (
@@ -557,7 +558,7 @@ class ComfyMetadataReader:
             image = Image.open(BytesIO(b))
             return cls.from_info(image.info, image.width, image.height)
         except Exception as error:
-            result.error = f"{type(error).__name__}: {error}"
+            result.error = f"{debug(error)}"
         return result
 
     @classmethod
@@ -580,7 +581,7 @@ class ComfyMetadataReader:
             try:
                 cls.parse_nodes(nodes, partial)
             except Exception as error:
-                candidate_errors.append(f"{type(error).__name__}: {error}")
+                candidate_errors.append(f"{debug(error)}")
                 continue
             cls.merge_metadata(merged, partial)
             parsed_any = True

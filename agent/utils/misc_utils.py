@@ -4,7 +4,7 @@ from typing import Awaitable, Iterable, TypeVar
 from logging import Logger
 from datetime import datetime
 
-from .string_utils import add_xml_group
+from .string_utils import add_xml_group, debug
 from agent.types import StructuredObject
 from agent.constants import DATETIME_FORMATTING
 
@@ -14,9 +14,9 @@ T = TypeVar("T")
 async def gather_logged(log: Logger, tasks: Iterable[Awaitable[T]]) -> list[T | None]:
     """Like asyncio.gather, but every failure is logged and its result becomes None."""
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    for res in results:
+    for task, res in zip(tasks, results):
         if isinstance(res, BaseException):
-            log.warning(f"{type(res).__name__}: {res}", exc_info=res)
+            log.error(f"Gathered task {debug(task)}", exc_info=res)
     return [None if isinstance(res, BaseException) else res for res in results]
 
 

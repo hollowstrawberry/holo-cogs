@@ -8,7 +8,7 @@ from PIL.Image import UnidentifiedImageError
 from redbot.core import app_commands, checks, commands
 
 from arcenciel.types import ImageGenError, ImageGenParams, ImageRegionalParams, ImageToImageParams, MossBox, MossOptions, SplitType
-from arcenciel.utils import clean_model, clean_tag, edit_regional_prompts, filter_names, normalize_image
+from arcenciel.utils import clean_model, clean_tag, edit_regional_prompts, filter_names, normalize_image, debug
 from arcenciel.constants import EXCLUDE_TAGGER, LORA_PATTERN, MAX_UPLOAD_PIXELS, SUPPORTED_IMAGE_TYPES
 from arcenciel.settings import ArcencielSettings
 from arcenciel.moss import moss_models
@@ -434,7 +434,7 @@ class ArcencielCommands(ArcencielSettings):
             return await interaction.followup.send("The file you uploaded is corrupted or invalid.", ephemeral=True)
         except Exception as error:
             log.exception("img2img")
-            await ctx.reply(f":warning: There was a problem with the image. `{type(error).__name__}: {error}`")
+            await ctx.reply(f":warning: There was a problem with the image. `{debug(error)}`")
 
         img2img_params = ImageToImageParams(
             image_bytes,
@@ -516,7 +516,7 @@ class ArcencielCommands(ArcencielSettings):
             await ctx.reply(f":warning: Failed to tag the image! `{error.message}`")
         except Exception as error:
             log.exception("Autotagger")
-            await ctx.reply(f":warning: Failed to tag the image! `{type(error).__name__}: {error}`")
+            await ctx.reply(f":warning: Failed to tag the image! `{debug(error)}`")
         else:
             embed = discord.Embed(title="Autotagger Result", color=await self.bot.get_embed_color(ctx))
             if "sensitive" not in tags and "explicit" not in tags:

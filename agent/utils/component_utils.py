@@ -10,6 +10,7 @@ from discord.components import _component_factory
 if TYPE_CHECKING:
     from discord.types.components import Component as ComponentPayload
 
+from .string_utils import debug
 from agent import constants
 
 log = logging.getLogger("agent.components")
@@ -40,7 +41,7 @@ async def resolve_components(message: discord.Message) -> discord.Message:
                     if component := _component_factory(payload):
                         components.append(component)
         except Exception as error:
-            log.warning(f"Could not read components for {message.id} - {type(error).__name__}: {error}")
+            log.warning(f"Could not read components for {message.id}: {debug(error)}")
         COMPONENT_CACHE[key] = components
     if not components:
         return message

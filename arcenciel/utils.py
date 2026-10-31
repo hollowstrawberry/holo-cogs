@@ -14,6 +14,10 @@ from arcenciel.constants import MAX_MESSAGE_LENGTH, LORA_PATTERN, NEWLINE_SEPARA
 log = logging.getLogger("red.bz_cogs.arcenciel")
 
 
+def debug(obj: object):
+    name = getattr(obj, "__qualname__") if hasattr(obj, "__qualname__") else type(obj).__qualname__
+    return f"{name}: {obj}"
+
 async def send_response(context: commands.Context | discord.Interaction, **kwargs) -> discord.Message | None:
     if isinstance(context, discord.Interaction):
         assert isinstance(context.channel, discord.abc.Messageable)

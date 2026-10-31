@@ -3,7 +3,7 @@ import logging
 import asyncio
 import aiohttp
 
-from agent.utils import add_xml_group
+from agent.utils import add_xml_group, debug
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
@@ -50,7 +50,7 @@ class SerperSearchTool(ToolBase):
                 response.raise_for_status()
                 data: dict = await response.json()
         except aiohttp.ClientError as error:
-            log.warning(f"Failed request to serper.io: {type(error).__name__}: {error}")
+            log.warning(f"Failed request to serper.io: {debug(error)}")
             return "<error>An error occured while searching Google.</error>"
 
         obj = {}

@@ -146,7 +146,7 @@ class ArcencielImagesTool(ToolBase):
                 data: dict = await response.json()
 
         except (aiohttp.ClientError, asyncio.TimeoutError) as error:
-            log.warning(f"Trying to contact Arc en Ciel: {type(error).__name__}: {error}")
+            log.warning(f"Trying to contact Arc en Ciel: {debug(error)}")
             return "<error>Failed to contact Arc en Ciel</error>"
 
         images: list[dict] = data.get("data", [])

@@ -5,6 +5,10 @@ from urllib.parse import urlparse
 from agent.constants import NEWLINE_SEPARATOR_PATTERN, XML_TAG_PATTERN, UNCLOSED_XML_TAG_PATTERN, EMPTY
 
 
+def debug(obj: object):
+    name = getattr(obj, "__qualname__") if hasattr(obj, "__qualname__") else type(obj).__qualname__
+    return f"{name}: {obj}"
+
 def get_filename(url: str) -> str:
     return os.path.basename(urlparse(url).path)
 

@@ -8,7 +8,7 @@ from redbot.core.utils.chat_formatting import pagify
 
 from agent.base import AgentCogBase
 from agent.types import CacheMode
-from agent.utils import is_valid_openrouter_model
+from agent.utils import is_valid_openrouter_model, debug
 from agent.config_base import ConfigField
 from agent.constants import EFFORT_VALUES, VISION_MODELS
 from agent.tools.base import get_all_tools
@@ -593,7 +593,7 @@ class AgentCogConfigCommands(AgentCogBase):
             try:
                 is_valid = await is_valid_openrouter_model(self.session, model)
             except Exception as error:
-                log.error(f"Failed to contact OpenRouter. {type(error).__name__}: {error}")
+                log.error(f"Failed to contact OpenRouter. {debug(error)}")
                 await ctx.reply("There was an error trying to contact OpenRouter, but the model will be changed anyway.")
             if not is_valid:
                 return await ctx.reply("That is not a valid OpenRouter model! You may browse models [here](<https://openrouter.ai/discover>).")

@@ -240,7 +240,7 @@ class ContextBuilderPipeline:
                 try:
                     entry.caption = await self.builder.execute_captioner(self.ctx, content, self.result)
                 except Exception as error:
-                    log.warning(f"failed to make caption for {slot.src.url} - {type(error).__name__}: {error}")
+                    log.warning(f"failed to make caption for {slot.src.url}: {utils.debug(error)}")
         return entry
 
 
@@ -249,7 +249,7 @@ class ContextBuilderPipeline:
             image = self.scanned_image(src) or await utils.resolve_image_source(src, self.builder.session)
             return await asyncio.to_thread(utils.normalize_image, image, max_pixels)
         except Exception as error:
-            log.warning(f"failed to get image data for {src.url}: {type(error).__name__}: {error}")
+            log.warning(f"failed to get image data for {src.url}: {utils.debug(error)}")
             return None
 
 
@@ -477,7 +477,7 @@ class ContextBuilderPipeline:
         try:
             file_content = (await attachment.read()).decode()
         except (discord.DiscordException, UnicodeDecodeError) as error:
-            log.warning(f"Processing text attachment {attachment.filename}: {type(error).__name__}: {error}")
+            log.warning(f"Processing text attachment {attachment.filename}: {utils.debug(error)}")
             return None
         self.builder.text_cache[attachment.id] = file_content
         return file_content

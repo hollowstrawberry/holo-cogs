@@ -5,7 +5,7 @@ import aiohttp
 import trafilatura
 from typing import Awaitable, Callable, OrderedDict
 
-from agent.utils import parse_arcenciel_model
+from agent.utils import parse_arcenciel_model, debug
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 from agent.constants import GITHUB_FILE_URL_PATTERN, ARCENCIEL_MODEL_URL_PATTERN
@@ -72,8 +72,8 @@ class ScrapeTool(ToolBase):
         except asyncio.TimeoutError:
             return "<error>Timed out.</error>"
         except aiohttp.ClientError as error:
-            log.warning(f"Opening {url}: {type(error).__name__}: {error}")
-            return f"<error>Failed to open URL ({type(error).__name__})</error>"
+            log.warning(f"Opening {url}: {debug(error)}")
+            return f"<error>Failed to open URL ({debug(error)})</error>"
         return content or "<error>The page is empty.</error>"
     
     async def scrape_github_file(self, match: re.Match) -> str:
@@ -93,7 +93,7 @@ class ScrapeTool(ToolBase):
                 response.raise_for_status()
                 data = await response.json()
         except aiohttp.ClientError as error:
-            log.warning(f"Opening {url}: {type(error).__name__}: {error}")
+            log.warning(f"Opening {url}: {debug(error)}")
             return "<error>Failed to open URL</error>"
         
         return {"model": parse_arcenciel_model(data)}

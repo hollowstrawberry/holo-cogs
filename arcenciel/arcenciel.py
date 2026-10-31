@@ -16,7 +16,7 @@ from redbot.core import commands
 
 from arcenciel import constants
 from arcenciel.types import ImageGenError, ImageGenParams, ImageScanner, QueuedImageGen, MossLora
-from arcenciel.utils import build_split_masks, gather_raise_all, is_nsfw, send_response, extend_negative_prompt
+from arcenciel.utils import build_split_masks, gather_raise_all, is_nsfw, send_response, extend_negative_prompt, debug
 from arcenciel.commands import ArcencielCommands
 from arcenciel.arcenciel_api import ArcEnCielAPI
 from arcenciel.views.generating import GeneratingV2View, GeneratingView
@@ -112,7 +112,7 @@ class Arcenciel(ArcencielCommands):
             except Exception as error:
                 self.queued_images.pop(gen.id, None)
                 log.exception("Updating job")
-                error_message = f"The bot aborted the operation due to an unexpected error.\n`{type(error).__name__}: {error}`"
+                error_message = f"The bot aborted the operation due to an unexpected error.\n`{debug(error)}`"
                 asyncio.create_task(self.finalize_image_generation(gen, False, error_message))
 
 
@@ -342,12 +342,12 @@ class Arcenciel(ArcencielCommands):
             error_message = f":warning: The image couldn't be generated. ({error})"
         except (aiohttp.ContentTypeError, aiohttp.ClientConnectionError) as error:
             error_message = f":warning: The image couldn't be generated. ({error})"
-            log.warning("Queueing image", f"{type(error).__name__}: {error}")
+            log.warning("Queueing image", f"{debug(error)}")
         except aiohttp.ClientResponseError as error:
             error_message = f":warning: There was a problem generating the image! `{error.message}`"
             log.exception("Queueing image")
         except Exception as error:
-            error_message = f":warning: There was a problem generating the image! `{type(error).__name__}: {error}`"
+            error_message = f":warning: There was a problem generating the image! `{debug(error)}`"
             log.exception("Queueing image")
         else:
             return
@@ -401,12 +401,12 @@ class Arcenciel(ArcencielCommands):
             error_message = f":warning: Failed to retrieve image. ({error})"
         except (aiohttp.ContentTypeError, aiohttp.ClientConnectionError) as error:
             error_message = f":warning: Failed to retrieve image! Service is down temporarily."
-            log.warning(f"Finalizing image", f"{type(error).__name__}: {error}")
+            log.warning(f"Finalizing image", f"{debug(error)}")
         except aiohttp.ClientResponseError as error:
             error_message = f":warning: Failed to retrieve image! `{error.message}`"
             log.exception("Finalizing image")
         except Exception as error:
-            error_message = f":warning: Failed to retrieve image! `{type(error).__name__}: {error}`"
+            error_message = f":warning: Failed to retrieve image! `{debug(error)}`"
             log.exception("Finalizing image")
 
         if error_message:
