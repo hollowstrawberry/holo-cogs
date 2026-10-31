@@ -9,7 +9,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 from .misc_utils import gather_logged
-from .image_utils import crop_circle
+from .media_utils import crop_circle
 from .component_utils import resolve_components
 from agent.types import MessageableChannel, HasMessage
 from agent import constants

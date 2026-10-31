@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 from agent import constants
 
 log = logging.getLogger("agent.components")
-COMPONENT_CACHE: dict[tuple, list[discord.Component]] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
+COMPONENT_CACHE: dict[tuple, list[discord.Component]] = ExpiringDict(constants.CACHE_SIZE, 5 * 60)
 
 
 async def resolve_components(message: discord.Message) -> discord.Message:

@@ -1,17 +1,11 @@
-import os
-import struct
 import asyncio
-import mutagen
 import trafilatura
-from io import BytesIO
 from typing import Awaitable, Iterable, TypeVar
-from base64 import b64encode
 from logging import Logger
 from datetime import datetime
-from urllib.parse import urlparse
 
 from .string_utils import add_xml_group
-from agent.types import StructuredObject, HasLength
+from agent.types import StructuredObject
 from agent.constants import DATETIME_FORMATTING
 
 
@@ -106,48 +100,3 @@ def parse_arcenciel_model(model: dict, *, description_limit: int | None = None, 
         obj["description"] = obj["description"][:description_limit-3] + "..."
     add_xml_group(obj, versions_obj, "versions")
     return obj
-
-
-async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000) -> tuple[str, float]:
-    audio = mutagen.File(BytesIO(audio_bytes))
-    if not audio or not audio.info or not isinstance(audio.info, HasLength) or not isinstance(audio.info.length, (int, float)):
-        raise ValueError("Could not read audio metadata")
-
-    proc = await asyncio.create_subprocess_exec(
-        "ffmpeg", "-i", "-",
-        "-f", "s16le",
-        "-ac", "1",
-        "-ar", str(sample_rate),
-        "-loglevel", "quiet",
-        "-",
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.DEVNULL,
-    )
-    raw, _ = await proc.communicate(input=audio_bytes)
-    if proc.returncode != 0:
-        raise RuntimeError(f"ffmpeg failed with code {proc.returncode}")
-
-    num_samples = len(raw) // 2
-    samples = struct.unpack(f"<{num_samples}h", raw[: num_samples * 2])
-    abs_samples = [abs(s) for s in samples]
-
-    point_count = max(1, min(int(audio.info.length * 10), max_points))
-    points_per_bucket = max(1, len(abs_samples) // point_count)
-
-    buckets = []
-    total, count = 0, 0
-    for i, v in enumerate(abs_samples):
-        total += v
-        count += 1
-        if (i + 1) % points_per_bucket == 0:
-            buckets.append(total // count)
-            total, count = 0, 0
-    if count:
-        buckets.append(total // count)
-
-    highest = max(buckets) if buckets else 1
-    mult = 255 / highest if highest else 0
-    waveform_bytes = bytes(min(255, int(b * mult)) for b in buckets)
-
-    return b64encode(waveform_bytes).decode(), audio.info.length

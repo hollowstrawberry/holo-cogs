@@ -1,18 +1,21 @@
 import io
+import struct
 import asyncio
 import aiohttp
 import discord
+import mutagen
 from io import BytesIO
-from dataclasses import replace
-from tempfile import TemporaryDirectory
+from base64 import b64encode
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from dataclasses import replace
 from urllib.parse import parse_qs, urlsplit
-from PIL import Image, ImageDraw, UnidentifiedImageError
 from expiringdict import ExpiringDict
+from PIL import Image, ImageDraw, UnidentifiedImageError
 
 from .string_utils import undo_xml, get_filename
 from .component_utils import walk_components, component_media, media_kind
-from agent.types import ImageSource, ImageEntry
+from agent.types import HasLength, ImageSource, ImageEntry
 from agent.constants import (
     IMAGE_DOWNLOAD_MAXSIZE, IMAGE_DOWNLOAD_TIMEOUT, IMAGE_EXTENSIONS, MEDIA_HEADERS, URL_PATTERN,
     CACHE_SIZE, VIDEO_FRAME_RESOLUTION, VIDEO_FRAME_TIMEOUT,
@@ -150,14 +153,17 @@ async def fetch_media_source(source: ImageSource, session: aiohttp.ClientSession
         raise ValueError("Image exceeds the download limit")
     return bytes(data)
 
+
 def find_nearest_resolution(current: tuple[int, int], targets: list[tuple[int, int]]) -> tuple[int, int]:
     ratio = current[0] / current[1]
     best_match = min(targets, key=lambda res: abs((res[0] / res[1]) - ratio))
     return best_match
 
+
 def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
     scale = (pixels / (width * height)) ** 0.5
     return int(width * scale), int(height * scale)
+
 
 def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail_size: int | None = None) -> bytes | None:
     b = b if isinstance(b, BytesIO) else BytesIO(b)
@@ -184,6 +190,7 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail
     image.save(fp, format, quality=90)
     return fp.getvalue()
 
+
 def crop_circle(image_bytes: bytes) -> bytes:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
     mask = Image.new("L", img.size, 0)
@@ -192,3 +199,48 @@ def crop_circle(image_bytes: bytes) -> bytes:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000) -> tuple[str, float]:
+    audio = mutagen.File(BytesIO(audio_bytes))
+    if not audio or not audio.info or not isinstance(audio.info, HasLength) or not isinstance(audio.info.length, (int, float)):
+        raise ValueError("Could not read audio metadata")
+
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-i", "-",
+        "-f", "s16le",
+        "-ac", "1",
+        "-ar", str(sample_rate),
+        "-loglevel", "quiet",
+        "-",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    raw, _ = await proc.communicate(input=audio_bytes)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg failed with code {proc.returncode}")
+
+    num_samples = len(raw) // 2
+    samples = struct.unpack(f"<{num_samples}h", raw[: num_samples * 2])
+    abs_samples = [abs(s) for s in samples]
+
+    point_count = max(1, min(int(audio.info.length * 10), max_points))
+    points_per_bucket = max(1, len(abs_samples) // point_count)
+
+    buckets = []
+    total, count = 0, 0
+    for i, v in enumerate(abs_samples):
+        total += v
+        count += 1
+        if (i + 1) % points_per_bucket == 0:
+            buckets.append(total // count)
+            total, count = 0, 0
+    if count:
+        buckets.append(total // count)
+
+    highest = max(buckets) if buckets else 1
+    mult = 255 / highest if highest else 0
+    waveform_bytes = bytes(min(255, int(b * mult)) for b in buckets)
+
+    return b64encode(waveform_bytes).decode(), audio.info.length
