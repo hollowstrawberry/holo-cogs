@@ -21,11 +21,12 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
     if mode == "implicit":
         return messages
     clear_cache_breakpoints(messages)
-    breakpoints: set[AgentMessage] = set()
+    breakpoints: list[AgentMessage] = []
     if mode in ("multiple", "cumulative"):
-        breakpoints.add(messages[0])  # system prompt
+        breakpoints.append(messages[0])  # system prompt
     last = next((msg for msg in reversed(messages) if msg["role"] == "user"), messages[-1])
-    breakpoints.add(last)
+    if last not in breakpoints:
+        breakpoints.append(last)
     for message in breakpoints:
         contents: str | list[AgentContent] = message["content"]
         if isinstance(contents, str):
