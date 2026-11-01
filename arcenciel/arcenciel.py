@@ -39,10 +39,10 @@ class Arcenciel(ArcencielCommands):
         self.consume_queue.start()
         self.preview_task = asyncio.create_task(self.consume_previews())
         self.resource_cache = await self.config.resource_cache()
-    
+
     async def cog_load(self):
         asyncio.create_task(self.cog_load_when_ready())
-        
+
     async def cog_unload(self):
         self.consume_queue.stop()
         if self.preview_task:
@@ -63,16 +63,21 @@ class Arcenciel(ArcencielCommands):
                 async for preview in self.api.stream_previews():
                     retry_delay = 2
                     gen = self.queued_images.get(preview.get("jobId") or "")
-                    if (not gen or gen.cancelled or gen.preview_disabled or not gen.progress_v2_view
-                            or not is_nsfw(gen.channel)):
+                    if not gen or gen.cancelled or gen.preview_disabled or not gen.progress_v2_view or not is_nsfw(gen.channel):
                         continue
                     mime_type = preview.get("mimeType")
                     step = preview.get("step")
                     total_steps = preview.get("totalSteps")
                     encoded = preview.get("imageBase64")
-                    if (mime_type not in ("image/jpeg", "image/png") or type(step) is not int
-                            or type(total_steps) is not int or step < 1 or total_steps < step
-                            or not isinstance(encoded, str) or len(encoded) > 700_000):
+                    if (
+                        mime_type not in ("image/jpeg", "image/png")
+                        or type(step) is not int
+                        or type(total_steps) is not int
+                        or step < 1
+                        or total_steps < step
+                        or not isinstance(encoded, str)
+                        or len(encoded) > 700_000
+                    ):
                         continue
                     try:
                         image = base64.b64decode(encoded, validate=True)
@@ -115,7 +120,6 @@ class Arcenciel(ArcencielCommands):
                 error_message = f"The bot aborted the operation due to an unexpected error.\n`{debug(error)}`"
                 asyncio.create_task(self.finalize_image_generation(gen, False, error_message))
 
-
     async def update_job(self, job: dict[str, Any], gen: QueuedImageGen):
         assert isinstance(gen.context.channel, discord.abc.Messageable)
         now = datetime.now(UTC)
@@ -137,7 +141,7 @@ class Arcenciel(ArcencielCommands):
             if job["status"] == "failed":
                 error_message = job.get("error") or job.get("safety", {}).get("reason") or "Unknown error."
             asyncio.create_task(self.finalize_image_generation(gen, nsfw, error_message))
-            
+
         elif job["status"] in ["queued", "running"]:
             current_phase: str = job["progress"]["phase"]
             current_percent: int = job["progress"]["percent"]
@@ -145,15 +149,23 @@ class Arcenciel(ArcencielCommands):
             current_position: int = job["position"]
             show_preview = gen.progress_v2_view is not None and is_nsfw(gen.channel)
             preview_version = gen.preview_version
-            pending_preview = (gen.pending_preview if show_preview and not gen.preview_disabled
-                               and preview_version != gen.displayed_preview_version else None)
+            pending_preview = (
+                gen.pending_preview
+                if show_preview and not gen.preview_disabled and preview_version != gen.displayed_preview_version
+                else None
+            )
             clear_preview = gen.progress_v2_view is not None and not show_preview and gen.preview_filename is not None
             if (now - gen.last_updated).total_seconds() < constants.PROGRESS_UPDATE_INTERVAL:
                 return
-            if (abs(gen.last_eta - current_eta) < 1000 and gen.last_percent == current_percent
-                    and gen.last_position == current_position and not pending_preview and not clear_preview):
+            if (
+                abs(gen.last_eta - current_eta) < 1000
+                and gen.last_percent == current_percent
+                and gen.last_position == current_position
+                and not pending_preview
+                and not clear_preview
+            ):
                 return
-            
+
             phase_text = "Generating image..."
             if current_phase == "queued":
                 phase_text = "Image request received..."
@@ -184,14 +196,17 @@ class Arcenciel(ArcencielCommands):
                 image, mime_type, preview_step, preview_total_steps = pending_preview
                 extension = "jpg" if mime_type == "image/jpeg" else "png"
                 preview_file = discord.File(
-                    BytesIO(image), filename=f"preview_{gen.id}_{preview_version}.{extension}", spoiler=True,
+                    BytesIO(image),
+                    filename=f"preview_{gen.id}_{preview_version}.{extension}",
+                    spoiler=True,
                 )
                 preview_filename = preview_file.filename
             step_value = f"`{preview_step}/{preview_total_steps}`" if show_preview and preview_filename else None
 
             if gen.progress_v2_view:
-                gen.progress_v2_view.set_progress(status, progress_value, eta_value, step_value,
-                                                  preview_filename if show_preview else None)
+                gen.progress_v2_view.set_progress(
+                    status, progress_value, eta_value, step_value, preview_filename if show_preview else None
+                )
                 edit_kwargs = {"view": gen.progress_v2_view, "allowed_mentions": discord.AllowedMentions.none()}
             else:
                 embed = discord.Embed(color=await self.bot.get_embed_color(gen.context.channel))
@@ -254,9 +269,10 @@ class Arcenciel(ArcencielCommands):
     ) -> None:
         user = context.user if isinstance(context, discord.Interaction) else context.author
         channel = context.channel
-        assert self.api and context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
+        assert self.api and context.guild
+        assert isinstance(user, discord.Member) and isinstance(channel, discord.TextChannel | discord.Thread)
         assert payload or params
-        ready = False
+
         try:
             if not await self.config.guild(context.guild).enabled():
                 await send_response(context, content=":warning: The generator is not enabled for this server.")
@@ -269,18 +285,24 @@ class Arcenciel(ArcencielCommands):
             if await self.contains_blacklisted_word(safety_prompt(payload)):
                 await send_response(context, content=":warning: Blocked prompt.")
                 return
-            ready = True
         except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
+            if callback:
+                try:
+                    await callback
+                except:  # noqa
+                    log.exception("generate image callback")
             await send_response(context, content=f":warning: The image couldn't be prepared. ({error})")
             return
-        finally:
-            if not ready and callback is not None:
-                await callback
 
         gen = QueuedImageGen(
-            "", payload,
-            user, channel, context,
-            callback, message_content, None,
+            "",
+            payload,
+            user,
+            channel,
+            context,
+            callback,
+            message_content,
+            None,
             datetime.now(UTC),
         )
         loading = await self.config.loading_emoji()
@@ -307,12 +329,11 @@ class Arcenciel(ArcencielCommands):
         else:
             if gen.progress_v2_view:
                 await context.edit_original_response(
-                    embed=None, content=None, attachments=[], view=view,
-                    allowed_mentions=discord.AllowedMentions.none()
+                    embed=None, content=None, attachments=[], view=view, allowed_mentions=discord.AllowedMentions.none()
                 )
             else:
                 await context.edit_original_response(embed=embed, view=view)
-    
+
         try:
             if params and params.image:
                 path = await self.api.upload_image(params.image.data, params.image.filename or "image.png")
@@ -332,8 +353,7 @@ class Arcenciel(ArcencielCommands):
                 payload["attentionCouple"] = {
                     **attention,
                     "regions": [
-                        {**json_object(region), "maskPath": path}
-                        for region, path in zip(regions, mask_paths, strict=True)
+                        {**json_object(region), "maskPath": path} for region, path in zip(regions, mask_paths, strict=True)
                     ],
                 }
 
@@ -373,17 +393,16 @@ class Arcenciel(ArcencielCommands):
                 return message
         return await send_response(gen.context, **kwargs)
 
-
     async def finalize_image_generation(self, gen: QueuedImageGen, nsfw: bool, error_message: str | None):
         assert self.api and isinstance(gen.context, (commands.Context, discord.Interaction))
 
         if not self.api.session.closed:
             asyncio.create_task(self.api.close_request(gen.id))
-        
+
         if error_message:
             content = f":warning: Failed to generate image. {error_message}"
             return await gather_raise_all(gen.callback, self.send_generation_response(gen, content=content))
-        
+
         final_tasks = [gen.callback]
         try:
             image_bytes = await self.api.download_image(gen.id)
@@ -394,8 +413,9 @@ class Arcenciel(ArcencielCommands):
             view = ImageActions(self, metadata, gen.payload, gen.user, gen.channel, maxsize)
             content = f"-# {gen.message_content}" if gen.message_content else None
             # send it
-            message = await self.send_generation_response(gen, file=file, view=view, content=content,
-                                                          allowed_mentions=discord.AllowedMentions.none())
+            message = await self.send_generation_response(
+                gen, file=file, view=view, content=content, allowed_mentions=discord.AllowedMentions.none()
+            )
             view.message = message
             quota_progress = self.config.user(cast(discord.User, gen.user)).quota_progress
             await quota_progress.set(await quota_progress() + 1)
@@ -417,9 +437,8 @@ class Arcenciel(ArcencielCommands):
 
         if error_message:
             final_tasks.append(self.send_generation_response(gen, content=error_message))
-            
-        await gather_raise_all(*final_tasks)
 
+        await gather_raise_all(*final_tasks)
 
     async def check_quota(self, context: commands.Context | discord.Interaction) -> bool:
         member = context.user if isinstance(context, discord.Interaction) else context.author
@@ -449,11 +468,17 @@ class Arcenciel(ArcencielCommands):
             await send_response(context, embed=embed, ephemeral=True)
             return False
         if highest_quota <= 0:
-            embed.description = ":warning: You are not authorized to use the generator at this time. You may be interested in [our web generator](<https://arcenciel.io/generate>)."
+            embed.description = (
+                ":warning: You are not authorized to use the generator at this time. You may be interested in [our web"
+                " generator](<https://arcenciel.io/generate>)."
+            )
             await send_response(context, embed=embed, ephemeral=True)
             return False
         if quota_progress >= highest_quota:
-            embed.description = "🕒 You have met your generation quota. You can wait for it to refresh, or try [our web generator](<https://arcenciel.io/generate>)."
+            embed.description = (
+                "🕒 You have met your generation quota. You can wait for it to refresh, or try [our web"
+                " generator](<https://arcenciel.io/generate>)."
+            )
             remaining = constants.QUOTA_PERIOD - quota_elapsed
             remaining_str = humanize.precisedelta(remaining, suppress=["seconds"] if remaining > 3600 else [], format="%02d")
             embed.add_field(name="Time remaining", value=remaining_str)
@@ -461,12 +486,14 @@ class Arcenciel(ArcencielCommands):
             return False
         return True
 
-
     async def resolve_arcenciel_resources(self, metadata: ComfyMetadata) -> list[str]:
         assert self.api
         hyperlinks: set[str] = set()
         hints = metadata.resource_hint_strings()
-        files = [str(os.path.basename(filename.strip(' "'))) for filename in constants.RESOURCE_FILE_PATTERN.findall(metadata.raw or "")]
+        files = [
+            str(os.path.basename(filename.strip(' "')))
+            for filename in constants.RESOURCE_FILE_PATTERN.findall(metadata.raw or "")
+        ]
         for hint in set(hints + files):
             if hint not in self.resource_cache and hint in self.resource_not_found_cache:
                 continue
@@ -497,7 +524,9 @@ class Arcenciel(ArcencielCommands):
                 hyperlinks.add(link)
         return sorted(hyperlinks)
 
-    async def prepare_image_payload(self, context: commands.Context | discord.Interaction, params: ImageGenParams) -> dict[str, object]:
+    async def prepare_image_payload(
+        self, context: commands.Context | discord.Interaction, params: ImageGenParams
+    ) -> dict[str, object]:
         overrides: Mapping[str, object] | None = None
         member = context.user if isinstance(context, discord.Interaction) else context.author
         assert isinstance(member, discord.Member) and isinstance(context.channel, (discord.TextChannel, discord.Thread))
@@ -519,7 +548,7 @@ class Arcenciel(ArcencielCommands):
 
         default_negative_prompt: str = await self.config.negative_prompt()
         params.negative_prompt = extend_negative_prompt(default_negative_prompt, params.negative_prompt or "")
-                
+
         if params.agent_request or params.moss is not None:
             assert self.api
             options, catalog = await self.api.refresh_moss_profile()
@@ -527,9 +556,7 @@ class Arcenciel(ArcencielCommands):
             for lora in params.loras:
                 match = constants.LORA_PATTERN.match(lora)
                 moss_name, moss_weight = (match.group(2), float(match.group(3))) if match else (lora, 1.0)
-                moss_loras.append(
-                    {"name": moss_name.removesuffix(".safetensors") + ".safetensors", "weight": moss_weight}
-                )
+                moss_loras.append(MossLora(name=moss_name.removesuffix(".safetensors") + ".safetensors", weight=moss_weight))
             if params.agent_request:
                 default = agent_default
                 old_checkpoint = overrides.get("checkpoint") if overrides else None
@@ -555,7 +582,7 @@ class Arcenciel(ArcencielCommands):
             else:
                 name, weight = lora, 1.0
             filename = name.replace(".safetensors", "") + ".safetensors"
-            loras.append({ "name": filename, "weight": weight })
+            loras.append({"name": filename, "weight": weight})
 
         payload: dict[str, object] = {
             "mode": "img2img" if params.image else "txt2img",
@@ -590,12 +617,20 @@ class Arcenciel(ArcencielCommands):
                 "splitPercent": params.regions.split_percent,
                 "globalPromptWeight": 0.3,
                 "regions": [
-                    {"prompt": params.regions.prompt1, "weight": 1, "maskPath": None,},
-                    {"prompt": params.regions.prompt2, "weight": 1, "maskPath": None,},
+                    {
+                        "prompt": params.regions.prompt1,
+                        "weight": 1,
+                        "maskPath": None,
+                    },
+                    {
+                        "prompt": params.regions.prompt2,
+                        "weight": 1,
+                        "maskPath": None,
+                    },
                 ],
             }
 
         if await self.config.adetailer():
             payload["adetailer"] = deepcopy(constants.ADETAILER_ARGS)
-        
+
         return payload

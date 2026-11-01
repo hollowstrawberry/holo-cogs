@@ -19,8 +19,8 @@ VOICE_ERROR = "<error>An error occured and voice could not be used.</error>"
 
 
 class FinevoiceTool(ToolBase):
-    display_name: ClassVar  = "finevoice"
-    apis: ClassVar  = [("finevoice", "api_key")]
+    display_name: ClassVar = "finevoice"
+    apis: ClassVar = [("finevoice", "api_key")]
     settings: ClassVar = {
         "voice_emoji": "🗣️",
         "voice": "",
@@ -29,25 +29,25 @@ class FinevoiceTool(ToolBase):
         "voice_temperature": "0.9",
         "voice_timeout": "60",
     }
-    schema: ClassVar  = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="voice",
             description="Uses text-to-speech to send an audio in chat with your own voice.",
             parameters=Parameters(
                 properties={
-                    "text": {
-                        "type": "string"
-                    },
+                    "text": {"type": "string"},
                 },
                 required=["text"],
-            )))
+            ),
+        )
+    )
 
     async def run(self, arguments: dict) -> str | dict:
         api_key = (await self.ctx.bot.get_shared_api_tokens("finevoice")).get("api_key")
         if not api_key:
             log.error("finevoice api_key not found")
             return VOICE_ERROR
-        
+
         if not arguments.get("text"):
             log.warning("llm did not provide text for tts")
             return "<error>You didn't send a text to convert into audio.</error>"
@@ -66,10 +66,7 @@ class FinevoiceTool(ToolBase):
             "pitch": float(self.get_setting("voice_pitch")),
             "temperature": float(self.get_setting("voice_temperature")),
         }
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         timeout = aiohttp.ClientTimeout(self.get_setting_int("voice_timeout", 1, 1000) or 60)
 
         try:
@@ -79,7 +76,7 @@ class FinevoiceTool(ToolBase):
         except aiohttp.ClientError:
             log.exception("Failed to get finevoice response")
             return VOICE_ERROR
-        
+
         voice_result_url = data.get("url") or next(iter(data.get("urls", [])), None)
         if not voice_result_url:
             log.error(f"Finevoice response does not contain necessary 'url' field. Response data:\n{data}")
@@ -98,7 +95,7 @@ class FinevoiceTool(ToolBase):
         except Exception:
             log.exception("Generating audio waveform")
             return VOICE_ERROR
-            
+
         # undocumented discord api
         file = discord.File(io.BytesIO(audio_data))
         params = discord.http.handle_message_parameters(file=file)
@@ -116,7 +113,7 @@ class FinevoiceTool(ToolBase):
         }]
         params.multipart[0]["value"] = json.dumps(extra_params.payload)
         await self.ctx.channel._state.http.send_message(self.ctx.channel.id, params=params)
-        
+
         return {
             "noreply": True,
             "message": "A voice message was successfully sent in chat.",

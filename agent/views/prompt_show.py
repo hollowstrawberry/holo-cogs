@@ -22,20 +22,21 @@ class PromptView(discord.ui.View):
         self.message: discord.Message | None = None
         self.show_button = CallbackButton(self.show_prompt, "🔎", style=discord.ButtonStyle.gray)
         self.edit_button = CallbackButton(self.edit_prompt, "📝", style=discord.ButtonStyle.gray)
-        self.delete_button = CallbackButton(self.delete,    "✖️", style=discord.ButtonStyle.red)
+        self.delete_button = CallbackButton(self.delete, "✖️", style=discord.ButtonStyle.red)
         self.add_item(self.show_button)
         self.add_item(self.edit_button)
-        #self.add_item(self.delete_button)
+        # self.add_item(self.delete_button)
 
     async def show_prompt(self, interaction: discord.Interaction):
         embed = discord.Embed()
-        embed.description = f"🧠 `{self.name}` ```\n{self.prompt}"[:MAX_EMBED_DESCRIPTION - 4] + "\n```"
+        embed.description = f"🧠 `{self.name}` ```\n{self.prompt}"[: MAX_EMBED_DESCRIPTION - 4] + "\n```"
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def edit_prompt(self, interaction: discord.Interaction):
         if not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
         from agent.views.prompt_edit_modal import PromptEditModal
+
         modal = PromptEditModal(self.cog, self.name, self.prompt, self.edit_callback_wrapper)
         await interaction.response.send_modal(modal)
 

@@ -23,29 +23,21 @@ def spoiler_nsfw_image_links(text: str, image_ids: list[int]) -> str:
     if not image_ids:
         return text
 
-    def replace_markdown(match: re.Match[str]) -> str:
+    def repl_markdown(match: re.Match[str]) -> str:
         image_id = int(match.group(2))
         if image_id not in image_ids:
             return match.group(0)
         return f"{match.group(1)}: ||https://arcenciel.io/images/{image_id}||"
 
-    text = IMAGE_MARKDOWN_LINK.sub(replace_markdown, text)
-    text = IMAGE_ANGLE_LINK.sub(
-        lambda match: (
-            f"||https://arcenciel.io/images/{match.group(1)}||"
-            if int(match.group(1)) in image_ids
-            else match.group(0)
-        ),
-        text,
-    )
-    return IMAGE_URL.sub(
-        lambda match: (
-            f"||{match.group(0)}||"
-            if int(match.group(1)) in image_ids
-            else match.group(0)
-        ),
-        text,
-    )
+    def repl_angle(match: re.Match[str]) -> str:
+        return f"||https://arcenciel.io/images/{match.group(1)}||" if int(match.group(1)) in image_ids else match.group(0)
+
+    def repl_url(match: re.Match[str]) -> str:
+        return f"||{match.group(0)}||" if int(match.group(1)) in image_ids else match.group(0)
+
+    text = IMAGE_MARKDOWN_LINK.sub(repl_url, text)
+    text = IMAGE_ANGLE_LINK.sub(repl_angle, text)
+    return IMAGE_URL.sub(repl_url, text)
 
 
 class ArcencielImagesTool(ToolBase):
@@ -130,7 +122,9 @@ class ArcencielImagesTool(ToolBase):
             if user:
                 async with arcenciel.api.session.get(
                     f"{arcenciel.api.endpoint}/users/search",
-                    params={"q": user}, headers=self.headers, timeout=timeout,
+                    params={"q": user},
+                    headers=self.headers,
+                    timeout=timeout,
                 ) as response:
                     response.raise_for_status()
                     user_data: list[dict] = await response.json()
@@ -141,7 +135,9 @@ class ArcencielImagesTool(ToolBase):
 
             async with arcenciel.api.session.get(
                 f"{arcenciel.api.endpoint}/images/search",
-                params=params, headers=self.headers, timeout=timeout,
+                params=params,
+                headers=self.headers,
+                timeout=timeout,
             ) as response:
                 response.raise_for_status()
                 data: dict = await response.json()
@@ -153,7 +149,7 @@ class ArcencielImagesTool(ToolBase):
         images: list[dict] = data.get("data", [])
         if not images:
             return "No results"
-        
+
         results = []
         for image in images:
             if image.get("rating") not in ratings or image.get("status") != "PUBLISHED":
@@ -161,6 +157,7 @@ class ArcencielImagesTool(ToolBase):
             results.append(parse_arcenciel_image(image, prompt_limit=prompt_limit))
 
         image_ids: list[int] = [imgid for image in images if (imgid := (image["id"])) and imgid > 0]
+
         def spoiler_nsfw(text: str) -> str:
             return spoiler_nsfw_image_links(text, image_ids)
 
@@ -168,5 +165,5 @@ class ArcencielImagesTool(ToolBase):
         add_xml_group(result, results, "images")
         return {
             "result": result,
-            "cleanup": spoiler_nsfw
+            "cleanup": spoiler_nsfw,
         }

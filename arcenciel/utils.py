@@ -9,7 +9,15 @@ from rapidfuzz import fuzz
 from redbot.core import commands
 
 from arcenciel.types import SplitType
-from arcenciel.constants import MAX_MESSAGE_LENGTH, LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN
+from arcenciel.constants import (
+    MAX_MESSAGE_LENGTH,
+    LORA_PATTERN,
+    NEWLINE_SEPARATOR_PATTERN,
+    PIPE_SEPARATOR_PATTERN,
+    UUID_PREFIX_PATTERN,
+    NUMERIC_PREFIX_PATTERN,
+    LORA_PREFIX_PATTERN,
+)
 
 log = logging.getLogger("red.bz_cogs.arcenciel")
 
@@ -17,6 +25,7 @@ log = logging.getLogger("red.bz_cogs.arcenciel")
 def debug(obj: object):
     name = getattr(obj, "__qualname__", type(obj).__qualname__)
     return f"{name}: {obj}"
+
 
 async def send_response(context: commands.Context | discord.Interaction, **kwargs) -> discord.Message | None:
     if isinstance(context, discord.Interaction):
@@ -37,11 +46,13 @@ async def send_response(context: commands.Context | discord.Interaction, **kwarg
     else:
         return await context.send(**kwargs)
 
+
 async def gather_raise_all(*coroutines: Coroutine | None) -> None:
     real_coroutines = [coro for coro in coroutines if coro is not None]
     results = await asyncio.gather(*real_coroutines, return_exceptions=True)
     if errors := [res for res in results if isinstance(res, BaseException)]:
         raise BaseExceptionGroup("gather_raise_all", errors)
+
 
 def is_nsfw(channel: discord.abc.Messageable) -> bool:
     if isinstance(channel, discord.TextChannel):
@@ -51,23 +62,27 @@ def is_nsfw(channel: discord.abc.Messageable) -> bool:
     else:
         return False
 
+
 def make_batches(sequence: list, n: int) -> list[list]:
-    return [sequence[i:i + n] for i in range(0, len(sequence), n)]
-    
+    return [sequence[i : i + n] for i in range(0, len(sequence), n)]
+
+
 def scale_to_size(width: int, height: int, pixels: int) -> tuple[int, int]:
     scale = (pixels / (width * height)) ** 0.5
     return int(width * scale), int(height * scale)
+
 
 def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes:
     b = b if isinstance(b, BytesIO) else BytesIO(b)
     b.seek(0)
     image = Image.open(b)
-    if image.width*image.height > max_pixels:
+    if image.width * image.height > max_pixels:
         width, height = scale_to_size(image.width, image.height, max_pixels)
         image = image.resize((width, height), Image.Resampling.LANCZOS)
     fp = BytesIO()
     image.save(fp, "PNG")
     return fp.getvalue()
+
 
 def filter_names(options: dict, current: str, strict: bool = False) -> dict:
     results = {}
@@ -79,18 +94,21 @@ def filter_names(options: dict, current: str, strict: bool = False) -> dict:
         results[item] = options[item]
     return results
 
+
 def clean_tag(tag: str) -> str:
     tag = tag.lower().strip()
     if len(tag) > 3:
         return tag.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
     else:
         return tag
-    
+
+
 def clean_model(name: str) -> str:
     name = UUID_PREFIX_PATTERN.sub("", name)
     name = NUMERIC_PREFIX_PATTERN.sub("", name)
     name = LORA_PREFIX_PATTERN.sub("", name)
     return name
+
 
 def parse_prompts(payload: dict) -> None:
     payload["prompt"] = payload.get("prompt", "").strip()
@@ -102,9 +120,10 @@ def parse_prompts(payload: dict) -> None:
         payload.setdefault("loras", [])
         payload["prompt"] = payload["prompt"].replace(lora, "").replace(", ,", ",").strip()
         if name not in [other["name"] for other in payload["loras"]]:
-            payload["loras"].append({ "name": name, "weight": weight })
+            payload["loras"].append({"name": name, "weight": weight})
     for region in payload.get("attentionCouple", {}).get("regions", []):
         region["prompt"] = LORA_PATTERN.sub("", region["prompt"]).replace(", ,", ",").strip()
+
 
 def extend_negative_prompt(base_prompt: str, extra_prompt: str) -> str:
     """Adds unique comma-separated terms."""
@@ -115,8 +134,10 @@ def extend_negative_prompt(base_prompt: str, extra_prompt: str) -> str:
         return ", ".join([tag for tag in base_tags if tag])
     return base_prompt or extra_prompt
 
+
 def clamp(value: int, min_value: int, max_value: int) -> int:
     return max(min_value, min(max_value, value))
+
 
 def make_region_mask(width: int, height: int, rect: tuple[int, int, int, int]) -> bytes:
     # Same logic as Arc Web: black full image, target region transparent.
@@ -132,25 +153,21 @@ def make_region_mask(width: int, height: int, rect: tuple[int, int, int, int]) -
     img.save(buf, format="PNG")
     return buf.getvalue()
 
+
 def build_split_masks(width: int, height: int, split_percent: float, layout: str) -> list[tuple[str, bytes]]:
     if layout == SplitType.VERTICAL.value:
         split_y = clamp(round(height * (split_percent / 100.0)), 1, height - 1)
-        rects = [
-            (0, 0, width, split_y),               # region 1
-            (0, split_y, width, height - split_y) # region 2
-        ]
+        rects = [(0, 0, width, split_y), (0, split_y, width, height - split_y)]  # region 1  # region 2
     else:
         split_x = clamp(round(width * (split_percent / 100.0)), 1, width - 1)
-        rects = [
-            (0, 0, split_x, height),              # region 1
-            (split_x, 0, width - split_x, height) # region 2
-        ]
+        rects = [(0, 0, split_x, height), (split_x, 0, width - split_x, height)]  # region 1  # region 2
 
     out: list[tuple[str, bytes]] = []
     for i, rect in enumerate(rects, start=1):
         filename = f"attention-region-{i}-{width}x{height}.png"
         out.append((filename, make_region_mask(width, height, rect)))
     return out
+
 
 def edit_regional_prompts(shared_prompt: str, *prompts: str) -> list[str]:
     shared_prompt = shared_prompt.strip(" ,") + ", "
@@ -190,7 +207,7 @@ async def chunk_and_send(ctx: commands.Context, full_text: str, do_reply: bool):
         if in_code:
             # re-open fence with language
             current += f"```{code_lang}\n"
-    
+
     for line in lines:
         if m := re.match(r"^```(\w*)\s*$", line):
             if m.group(1):

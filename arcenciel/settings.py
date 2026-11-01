@@ -30,7 +30,8 @@ class ArcencielSettings(ArcencielBase):
             default = clean_model(await self.config.checkpoint() or "") or "automatic"
             return await ctx.send(
                 f"Personal checkpoint reset. Commands: {discord.utils.escape_markdown(default)}. "
-                "The agent uses its configured default.", allowed_mentions=discord.AllowedMentions.none(),
+                "The agent uses its configured default.",
+                allowed_mentions=discord.AllowedMentions.none(),
             )
 
         if not self.api:
@@ -48,8 +49,13 @@ class ArcencielSettings(ArcencielBase):
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         view = CheckpointSelectView(
-            self, user, entries, await self.config.user(user).checkpoint() or "",
-            await self.config.checkpoint() or "", await self.bot.get_embed_color(ctx.channel), query,
+            cog=self,
+            owner=user,
+            entries=entries,
+            current=await self.config.user(user).checkpoint() or "",
+            bot_default=await self.config.checkpoint() or "",
+            color=await self.bot.get_embed_color(ctx.channel),
+            query=query,
         )
         view.message = await ctx.send(embed=view.embed(), view=view, allowed_mentions=discord.AllowedMentions.none())
 
@@ -58,7 +64,7 @@ class ArcencielSettings(ArcencielBase):
     @checks.bot_has_permissions(embed_links=True, add_reactions=True)
     @checks.admin_or_permissions(manage_guild=True)
     async def arcenciel(self, _: commands.Context):
-        """ Manage AI Image cog settings. """
+        """Manage AI Image cog settings."""
 
     @arcenciel.command(name="enable")
     async def enable_cmd(self, ctx: commands.Context):
@@ -211,7 +217,7 @@ class ArcencielSettings(ArcencielBase):
         Set the default checkpoint / model used for generating images
         """
         assert ctx.guild
-        
+
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
         if not checkpoint or checkpoint not in ckpt_names:
             names = [f"`{name}`" for name in ckpt_names]
@@ -288,7 +294,7 @@ class ArcencielSettings(ArcencielBase):
         await self.update_autocomplete_cache()
         await ctx.message.add_reaction("✅")
         await ctx.message.remove_reaction("⏳", ctx.guild.me)  # type: ignore
-        
+
     @arcenciel.group(name="quota", aliases=["vip", "limit", "limits"])
     async def quota_cmd(self, _: commands.Context):
         """Manage image generation limits for various groups."""
@@ -298,9 +304,11 @@ class ArcencielSettings(ArcencielBase):
         """Lists all image generation limits."""
         assert ctx.guild
         role_configs: dict[int, dict] = await self.config.all_roles()
-        entries = [(role, config["quota"])
-                   for role_id, config in role_configs.items()
-                   if (role := ctx.guild.get_role(role_id)) and config.get("quota", 0) > 0]
+        entries = [
+            (role, config["quota"])
+            for role_id, config in role_configs.items()
+            if (role := ctx.guild.get_role(role_id)) and config.get("quota", 0) > 0
+        ]
 
         embed = discord.Embed(color=await self.bot.get_embed_color(ctx.channel), title="Generation Quotas")
         if not entries:

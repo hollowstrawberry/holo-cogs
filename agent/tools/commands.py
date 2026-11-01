@@ -14,7 +14,7 @@ class CommandsTool(ToolBase):
         "command_results": "10",
         "subcommand_results": "30",
         "command_help_chars": "1000",
-        "command_brief_chars": "120"
+        "command_brief_chars": "120",
     }
     schema: ClassVar = ToolCall(
         Function(
@@ -22,11 +22,9 @@ class CommandsTool(ToolBase):
             description="Search bot commands; exact names return usage.",
             parameters=Parameters(
                 properties={
-                    "query": {
-                        "type": "string"
-                    }
+                    "query": {"type": "string"},
                 },
-                required=["query"]
+                required=["query"],
             ),
         )
     )
@@ -43,7 +41,7 @@ class CommandsTool(ToolBase):
                 break
         if not query:
             return "Provide a command name or search term."
-        
+
         prefix = next((p for p in prefixes if p and not p.startswith("<@")), prefixes[0] if prefixes else "")
         context = copy(self.ctx)
         context.prefix = prefix

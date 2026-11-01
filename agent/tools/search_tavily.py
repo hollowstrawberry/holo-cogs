@@ -20,29 +20,32 @@ class TavilySearchTool(ToolBase):
     schema: ClassVar = ToolCall(
         Function(
             name="web_search",
-            description="Search for textual information beyond your base knowledge, such as: recent events, new technologies, real-time data, niche documentation. Uses tavily api.",
+            description=(
+                "Search for textual information beyond your base knowledge, such as: "
+                "recent events, new technologies, real-time data, niche documentation. Uses tavily api."
+            ),
             parameters=Parameters(
                 properties={
-                    "query": {
-                        "type": "string"
-                    },
+                    "query": {"type": "string"},
                 },
                 required=["query"],
-            )))
+            ),
+        )
+    )
 
     async def run(self, arguments: dict) -> dict | str:
         api_key = (await self.ctx.bot.get_shared_api_tokens("tavily")).get("api_key")
         if not api_key:
             log.error("Tried to do a web search but tavily api_key not found. Consider using one of the other search tools.")
             return "<error>An error occured while searching the web.</error>"
-        
+
         if self.ctx.bot_permissions.add_reactions:
             emoji = self.get_setting("search_emoji")
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
 
         client = AsyncTavilyClient(api_key)
         result = await client.search(
-            query = arguments["query"],
+            query=arguments["query"],
             search_depth="basic",
             include_answer="advanced",
             max_results=5,

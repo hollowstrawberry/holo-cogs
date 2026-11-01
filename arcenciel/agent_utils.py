@@ -49,6 +49,16 @@ def _family(base: str) -> str:
     return "illustrious" if base in ("illustrious", "noobai") else "moss" if base.startswith("moss") else base
 
 
+def _pick_base(caps: list[str]) -> str | None:
+    if "moss_sft" in caps:
+        return "moss_sft"
+    if "moss" in caps:
+        return "moss_base"
+    if "anima" in caps:
+        return "anima"
+    return None
+
+
 def _model_choice(entry: Mapping[str, object]) -> ModelChoice | None:
     name = entry.get("name")
     if not isinstance(name, str) or not name:
@@ -57,15 +67,7 @@ def _model_choice(entry: Mapping[str, object]) -> ModelChoice | None:
     if capabilities is not None and not is_strings(capabilities):
         raise ValueError("Invalid generator model capabilities.")
     caps = capabilities or []
-    base = (
-        "moss_sft"
-        if "moss_sft" in caps
-        else "moss_base"
-        if "moss" in caps
-        else "anima"
-        if "anima" in caps
-        else _base(entry.get("baseModel"))
-    )
+    base = _pick_base(caps) or _base(entry.get("baseModel"))
     family = _family(base)
     if family not in ("moss", "anima", "illustrious"):
         return None
@@ -93,9 +95,9 @@ def _matches(choice: ModelChoice, requested: str) -> bool:
 
 
 def _name_matches(name: str, query: str) -> bool:
-    return name.casefold() == query.casefold() or name.casefold().removesuffix(
+    return name.casefold() == query.casefold() or name.casefold().removesuffix(".safetensors") == query.casefold().removesuffix(
         ".safetensors"
-    ) == query.casefold().removesuffix(".safetensors")
+    )
 
 
 def choose_model(
@@ -236,12 +238,7 @@ def lora_family_hint(entries: object, query: str) -> str:
 
 
 def lora_weight(value: object) -> float:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or not 0 <= value <= 2
-    ):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 2:
         raise ValueError("LoRA weight must be between 0 and 2.")
     return float(value)
 
@@ -258,11 +255,7 @@ def anima_defaults(options: Mapping[str, object]) -> Mapping[str, object]:
 
 
 def build_standard_agent_payload(
-    params: ImageGenParams,
-    options: Mapping[str, object],
-    choice: ModelChoice,
-    nsfw: bool,
-    loras: list[MossLora]
+    params: ImageGenParams, options: Mapping[str, object], choice: ModelChoice, nsfw: bool, loras: list[MossLora]
 ) -> dict[str, object]:
     if choice.family == "moss":
         raise ValueError("MOSS must use its own generation profile.")

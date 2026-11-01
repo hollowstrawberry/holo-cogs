@@ -15,7 +15,7 @@ class ToolBase(ABC):
     imagegen: ClassVar[bool] = False
     required_cog: ClassVar[str | None] = None
     headers: ClassVar[dict] = {
-        "User-Agent": "holo-cogs/v1 (https://github.com/hollowstrawberry/holo-cogs);"
+        "User-Agent": "holo-cogs/v1 (https://github.com/hollowstrawberry/holo-cogs);",
     }
 
     def __init__(self, ctx: commands.Context, cog: AgentCogBase) -> None:
@@ -39,7 +39,7 @@ class ToolBase(ABC):
             return min
         if max is not None and val > max:
             return max
-        return val  
+        return val
 
     @classmethod
     def asdict(cls) -> dict[str, object]:

@@ -14,26 +14,31 @@ class GptImage(Protocol):
     @staticmethod
     async def normalize_images(data: list[bytes]) -> tuple[list[bytes], str]: ...
 
-    async def imagine(self, ctx: commands.Context, resolution: str, prompt: str, images: list[bytes], callback: Coroutine | None = None): ...
+    async def imagine(
+        self, ctx: commands.Context, resolution: str, prompt: str, images: list[bytes], callback: Coroutine | None = None
+    ): ...
 
 
 class GptImageToolBase(ToolBase):
     imagegen: ClassVar = True
 
     async def run(self, arguments: dict) -> dict | str:
-        assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
+        assert self.ctx.guild and isinstance(self.ctx.author, discord.Member)
+        assert isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
+
         gptimage = get_cog(self.cog.bot, GptImage)
         if not gptimage:
             return "<error>`gptimage` cog missing or outdated, please notify the bot owner</error>"
-        
+
         channel_mode = self.cog.config[self.ctx.guild].generation_channel_mode.value
         channels = self.cog.config[self.ctx.guild].generation_channels.value
-        if (
-            not self.ctx.permissions.manage_messages
-            and (channel_mode == "blacklist" and self.ctx.channel.id in channels
-                 or channel_mode == "whitelist" and self.ctx.channel.id not in channels)
+        if not self.ctx.permissions.manage_messages and (
+            channel_mode == "blacklist"
+            and self.ctx.channel.id in channels
+            or channel_mode == "whitelist"
+            and self.ctx.channel.id not in channels
         ):
-                return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
+            return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
 
         prompt: str = undo_xml(arguments.get("prompt", "")).strip()
         aspect_ratio: str = arguments.get("resolution", "").lower().strip()
@@ -48,12 +53,16 @@ class GptImageToolBase(ToolBase):
             return "<error>No prompt provided</error>"
         if len(existing) > 4:
             return "<error>At most four input images are supported</error>"
-        if not existing and "first image" in prompt or len(existing) < 2 and "second image" in prompt or len(existing) < 3 and "third image" in prompt:
+        if (
+            (not existing and "first image" in prompt)
+            or (len(existing) < 2 and "second image" in prompt)
+            or (len(existing) < 3 and "third image" in prompt)
+        ):
             return "<error>You didn't provide all the reference images</error>"
-    
+
         if base_image:
             prompt = f"Keep the image the same, except for the following changes: {prompt}"
-        #elif existing:
+        # elif existing:
         #    prompt += "\nMake an entirely new image, don't use the provided images as direct input."
 
         if aspect_ratio == "square":
@@ -95,17 +104,12 @@ class GptImageToolBase(ToolBase):
         async def callback():
             await asyncio.sleep(0)
             self.cog.currently_generating.discard(self.ctx.message.id)
-        self.cog.currently_generating.add(self.ctx.message.id)
-        
-        asyncio.create_task(
-            gptimage.imagine(self.ctx, resolution=resolution, prompt=prompt, images=images, callback=callback())
-        )
 
-        return {
-            "result": {
-                "message": "Image generation started successfully. The user will have to wait for it to finish."
-            }
-        }
+        self.cog.currently_generating.add(self.ctx.message.id)
+
+        asyncio.create_task(gptimage.imagine(self.ctx, resolution=resolution, prompt=prompt, images=images, callback=callback()))
+
+        return {"result": {"message": "Image generation started successfully. The user will have to wait for it to finish."}}
 
 
 class GptImageGenTool(GptImageToolBase):
@@ -118,27 +122,30 @@ class GptImageGenTool(GptImageToolBase):
                 properties={
                     "prompt": {
                         "type": "string",
-                        "description": 'A detailed prompt in natural language.' \
-                                       ' You must never describe a reference image ot its details or its filename,' \
-                                       ' instead simply put it in the `references` field and refer to it by order (eg "the first image").'
+                        "description": (
+                            "A detailed prompt in natural language. "
+                            "You must never describe a reference image ot its details or its filename, "
+                            'instead simply put it in the `references` field and refer to it by order (eg "the first image").'
+                        ),
                     },
                     "references": {
                         "type": "array",
                         "items": {"type": "string"},
                         "minItems": 0,
                         "maxItems": 4,
-                        "description": 'Reference images: attachment filenames or image URLs from the conversation.'
+                        "description": "Reference images: attachment filenames or image URLs from the conversation.",
                     },
                     "resolution": {
                         "type": "string",
                         "description": "Forces an aspect ratio for the image.",
-                        "enum": ["original", "square", "portrait", "landscape"]
+                        "enum": ["original", "square", "portrait", "landscape"],
                     },
-
                 },
                 required=["prompt"],
-            )))
-    
+            ),
+        )
+    )
+
 
 class GptImageEditTool(GptImageToolBase):
     display_name: ClassVar = "gptimage_edit"
@@ -150,21 +157,27 @@ class GptImageEditTool(GptImageToolBase):
                 properties={
                     "base_image": {
                         "type": "string",
-                        "description": 'Attachment filename or image URL from the conversation. Refer to this as "the first image".'
+                        "description": (
+                            'Attachment filename or image URL from the conversation. Refer to this as "the first image".'
+                        ),
                     },
                     "prompt": {
                         "type": "string",
-                        "description": 'A prompt AS SHORT AS POSSIBLE with ONLY the necessary changes to the first image.' \
-                                       ' You must never describe the details of the images or their filenames in the prompt,' \
-                                       ' instead you must put them in the `base_image` and `extra_references` fields and refer to them by their order.'
+                        "description": (
+                            "A prompt AS SHORT AS POSSIBLE with ONLY the necessary changes to the first image. You must never "
+                            "describe the details of the images or their filenames in the prompt, instead you must put them in "
+                            "the `base_image` and `extra_references` fields and refer to them by their order."
+                        ),
                     },
                     "extra_references": {
                         "type": "array",
                         "items": {"type": "string"},
                         "minItems": 0,
                         "maxItems": 3,
-                        "description": 'Additional attachment filenames or image URLs from the conversation, in reference order.',
+                        "description": "Additional attachment filenames or image URLs from the conversation, in reference order.",
                     },
                 },
                 required=["base_image", "prompt"],
-            )))
+            ),
+        )
+    )

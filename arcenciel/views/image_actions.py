@@ -39,12 +39,12 @@ class ImageActions(discord.ui.View):
         self.get_resources = cog.resolve_arcenciel_resources
         self.message: discord.Message | None = None
 
-        self.button_caption   = CallbackButton(self.get_caption,     "🔎")
-        self.button_reroll    = CallbackButton(self.reroll_image,    "🎲")
-        self.button_modify    = CallbackButton(self.modify_image,    "📝")
+        self.button_caption = CallbackButton(self.get_caption, "🔎")
+        self.button_reroll = CallbackButton(self.reroll_image, "🎲")
+        self.button_modify = CallbackButton(self.modify_image, "📝")
         self.button_variation = CallbackButton(self.variation_image, "♻️")
-        self.button_upscale   = CallbackButton(self.upscale_image,   "💎")
-        self.button_delete    = CallbackButton(self.delete_image,    "🗑️")
+        self.button_upscale = CallbackButton(self.upscale_image, "💎")
+        self.button_delete = CallbackButton(self.delete_image, "🗑️")
 
         self.add_item(self.button_caption)
         if not payload.get("upscaleProfiles", False):
@@ -60,11 +60,13 @@ class ImageActions(discord.ui.View):
         await interaction.response.defer(thinking=True, ephemeral=True)
         embed = await self.get_params_embed()
         if not embed:
-            return await interaction.followup.send(f'Parameters for this image:\n```json\n{self.metadata.raw}```', ephemeral=True)
+            return await interaction.followup.send(f"Parameters for this image:\n```json\n{self.metadata.raw}```", ephemeral=True)
         if self.moss_layout is not None and self.layout_source is None:
             attachment = self.message.attachments[0] if self.message and self.message.attachments else None
             self.layout_source = LayoutSource(
-                self.moss_layout, attachment=attachment, spoiler=attachment.is_spoiler() if attachment else True,
+                self.moss_layout,
+                attachment=attachment,
+                spoiler=attachment.is_spoiler() if attachment else True,
             )
         view = ImageInfoView(self.metadata.raw or "", self.layout_source)
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
@@ -81,16 +83,19 @@ class ImageActions(discord.ui.View):
 
     async def modify_image(self, interaction: discord.Interaction):
         from arcenciel.views.modify import ModifyModal
+
         modal = ModifyModal(self)
         await interaction.response.send_modal(modal)
 
     async def variation_image(self, interaction: discord.Interaction):
         from arcenciel.views.variation import VariationModal
+
         modal = VariationModal(self)
         await interaction.response.send_modal(modal)
 
     async def upscale_image(self, interaction: discord.Interaction):
         from arcenciel.views.hi_res import HiresModal
+
         if not self.cache.get("upscale"):
             return await interaction.response.send_message(
                 content=":warning: Upscaling is not available at this time. Please contact the bot owner.",
@@ -101,6 +106,7 @@ class ImageActions(discord.ui.View):
 
     async def delete_image(self, interaction: discord.Interaction):
         from arcenciel.views.delete import DeleteModal
+
         assert interaction.message
         if not (await self.check_if_can_delete(interaction)):
             return await interaction.response.send_message(
@@ -115,7 +121,7 @@ class ImageActions(discord.ui.View):
         params = self.metadata.as_dict()
         if not params:
             return None
-        
+
         embed = discord.Embed(title="Image Parameters", color=await self.bot.get_embed_color(self.channel))
         if self.moss_layout is not None:
             add_summary_fields(embed, params, self.moss_layout)
@@ -148,7 +154,7 @@ class ImageActions(discord.ui.View):
         is_requester = interaction.user.id == self.og_user.id
         is_privileged = interaction.permissions.manage_messages or await self.bot.is_owner(member)
         return is_requester or is_privileged
-    
+
     async def on_timeout(self):
         await super().on_timeout()
         if self.message:

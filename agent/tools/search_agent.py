@@ -19,15 +19,18 @@ class AgenticSearchTool(ToolBase):
     schema: ClassVar = ToolCall(
         Function(
             name="web_search",
-            description="Search for textual information beyond your base knowledge, such as: recent events, new technologies, real-time data, niche documentation.",
+            description=(
+                "Search for textual information beyond your base knowledge, such as: "
+                "recent events, new technologies, real-time data, niche documentation."
+            ),
             parameters=Parameters(
                 properties={
-                    "query": {
-                        "type": "string",
-                    },
+                    "query": {"type": "string"},
                 },
                 required=["query"],
-            )))
+            ),
+        )
+    )
 
     async def run(self, arguments: dict) -> str:
         assert self.ctx.guild and self.cog.openai_client and self.cog.openrouter_client
@@ -48,22 +51,22 @@ class AgenticSearchTool(ToolBase):
                     messages=[
                         {
                             "role": "system",
-                            "content": "Perform a web search based on the user's query and summarize the results. Don't search too deep.",
+                            "content": (
+                                "Perform a web search based on the user's query and summarize the results. Don't search too deep."
+                            ),
                         },
                         {
                             "role": "user",
                             "content": arguments["query"],
-                        }
+                        },
                     ],
                     stream=COMPLETION_STREAM_FLAG,
                     extra_body={
-                        **self.cog.openrouter_price_limits(model),
-                        "plugins": [
-                            {
-                                "id": "web",
-                                "max_results": 2,
-                            }
-                        ],
+                        **self.cog.extra_body(self.ctx.message.id, model),
+                        "plugins": [{
+                            "id": "web",
+                            "max_results": 2,
+                        }],
                     },
                     web_search_options={"search_context_size": "low"},
                     timeout=timeout,

@@ -53,9 +53,7 @@ class _GeneratingControls(discord.ui.view.BaseView):
         try:
             if isinstance(self, GeneratingV2View):
                 self.set_cancelled(embed.description)
-                await interaction.message.edit(
-                    view=self, attachments=[], allowed_mentions=discord.AllowedMentions.none()
-                )
+                await interaction.message.edit(view=self, attachments=[], allowed_mentions=discord.AllowedMentions.none())
             else:
                 await interaction.message.edit(content="", embed=embed, view=None)
             if self.gen.callback:
@@ -71,9 +69,7 @@ class _GeneratingControls(discord.ui.view.BaseView):
         if not member:
             return False
         is_requester = interaction.user.id == self.gen.user.id
-        is_privileged = (
-            interaction.permissions.manage_messages or await self.cog.bot.is_owner(member)
-        )
+        is_privileged = interaction.permissions.manage_messages or await self.cog.bot.is_owner(member)
         return is_requester or is_privileged
 
 
@@ -114,12 +110,10 @@ class GeneratingV2View(GeneratingV2ViewBase, _GeneratingControls):
         if details:
             self.container.add_item(discord.ui.TextDisplay("  ·  ".join(details)))
         if preview_filename:
-            self.container.add_item(discord.ui.MediaGallery(
-                discord.MediaGalleryItem(f"attachment://{preview_filename}", spoiler=True)
-            ))
-        self.container.add_item(discord.ui.TextDisplay(
-            f"-# {discord.utils.escape_markdown(self.gen.user.display_name)}"
-        ))
+            self.container.add_item(
+                discord.ui.MediaGallery(discord.MediaGalleryItem(f"attachment://{preview_filename}", spoiler=True))
+            )
+        self.container.add_item(discord.ui.TextDisplay(f"-# {discord.utils.escape_markdown(self.gen.user.display_name)}"))
         self.container.add_item(self.controls)
 
     def set_cancelled(self, status: str):

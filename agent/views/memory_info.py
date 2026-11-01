@@ -8,13 +8,7 @@ from agent.views.memory_edit_modal import MemoryEditModal
 
 
 class MemoryInfoView(discord.ui.View):
-    def __init__(
-        self,
-        cog: AgentCogBase,
-        name: str,
-        content: str,
-        edit_callback: Callable[[str], Awaitable]
-    ):
+    def __init__(self, cog: AgentCogBase, name: str, content: str, edit_callback: Callable[[str], Awaitable]):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.cog = cog
         self.name = name
@@ -28,11 +22,11 @@ class MemoryInfoView(discord.ui.View):
 
     @property
     def clean_content(self):
-        return BACKTICK_PATTERN.sub('`', self.content)
+        return BACKTICK_PATTERN.sub("`", self.content)
 
     async def show_info(self, interaction: discord.Interaction):
         embed = discord.Embed()
-        embed.description = f"🧠 `{self.name}` ```\n{self.content}"[:MAX_EMBED_DESCRIPTION - 4] + "\n```"
+        embed.description = f"🧠 `{self.name}` ```\n{self.content}"[: MAX_EMBED_DESCRIPTION - 4] + "\n```"
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def edit(self, interaction: discord.Interaction):

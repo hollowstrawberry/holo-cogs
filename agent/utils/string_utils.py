@@ -9,8 +9,10 @@ def debug(obj: object) -> str:
     name = getattr(obj, "__qualname__", type(obj).__qualname__)
     return f"{name}: {obj}"
 
+
 def get_filename(url: str) -> str:
     return os.path.basename(urlparse(url).path)
+
 
 def add_xml_group(obj: dict, group: list, group_name: str) -> None:
     single_name = group_name[:-1]
@@ -19,11 +21,14 @@ def add_xml_group(obj: dict, group: list, group_name: str) -> None:
     elif len(group) > 1:
         obj[group_name] = {single_name: group}
 
+
 def escape_xml(s: str) -> str:
     return s.replace("<", "&lt;").replace(">", "&gt;").replace("'", "&apos;").replace('"', "&quot;").replace("&", "&amp;")
 
+
 def undo_xml(s: str) -> str:
     return s.replace("&lt;", "<").replace("&gt;", ">").replace("&apos;", "'").replace("&quot;", '"').replace("&amp;", "&")
+
 
 def fix_truncated_xml(text: str) -> str:
     text = UNCLOSED_XML_TAG_PATTERN.sub("", text)
@@ -41,19 +46,25 @@ def fix_truncated_xml(text: str) -> str:
         text += f"</{tag}>"
     return text
 
+
 def make_omitted(chars: int = 0) -> str:
     """Placeholder string for truncated text."""
     return f"{EMPTY}INLINE_OMITTED{chars if chars > 0 else ''}{EMPTY}"
 
+
 def resolve_omitted(text: str) -> str:
     """Replace placeholders from make_omitted with an xml tag."""
+
     def repl(match: re.Match) -> str:
         return f'<omitted chars="{match.group(1)}" />' if match.group(1) else "<omitted />"
+
     return re.sub(rf"{EMPTY}INLINE_OMITTED(\d*){EMPTY}", repl, text)
+
 
 def omitted_length(chars: int = 0):
     """Length of a resolved tag from make_omitted."""
     return len(resolve_omitted(make_omitted(chars)))
+
 
 def truncate_with_omitted(text: str, max_length: int, keep_ends: bool = False) -> str:
     """Shortens text to about max_length characters, replacing the omitted part with a placeholder."""
@@ -70,6 +81,7 @@ def truncate_with_omitted(text: str, max_length: int, keep_ends: bool = False) -
         return f"{text[:kept // 2]}{omitted}{text[len(text) - kept // 2:]}"
     return text[:kept] + omitted
 
+
 def clean_booru_tag(tag: str) -> str:
     tag = tag.lower().strip()
     if len(tag) > 3:
@@ -77,10 +89,12 @@ def clean_booru_tag(tag: str) -> str:
     else:
         return tag
 
+
 def farenheit_to_celsius(match: re.Match) -> str:
     f = float(match.group(1))
-    c = (f - 32) * 5.0/9.0
+    c = (f - 32) * 5.0 / 9.0
     return f"{round(c)}°C/{round(f)}°F"
+
 
 def parse_prompt(prompt: str) -> str:
     """
@@ -90,4 +104,3 @@ def parse_prompt(prompt: str) -> str:
     """
     prompt = NEWLINE_SEPARATOR_PATTERN.sub(" || ", prompt)
     return prompt
-

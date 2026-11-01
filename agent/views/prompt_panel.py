@@ -21,8 +21,8 @@ class PromptSelect(discord.ui.Select):
                     description=f"{len(content)} characters",
                     emoji="📝",
                 )
-                for name, content in options[:MAX_OPTIONS].items()
-            ],
+                for name, content in options.items()
+            ][:MAX_OPTIONS],
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -34,6 +34,7 @@ class PromptSelect(discord.ui.Select):
     def edit_callback(self, name: str):
         async def callback(content: str):
             await self.panel.apply(name, content)
+
         return callback
 
 
@@ -58,21 +59,17 @@ class PromptPanelView(discord.ui.LayoutView):
     def build(self):
         self.clear_items()
         module_prompts = {name: content for name, content in self.prompts.items() if name in PERMANENT_PROMPT_TYPES}
-        custom_prompts = {name: content for name, content in self.prompts.items() if name not in PERMANENT_PROMPT_TYPES and content}
-        
+        custom_prompts = {
+            name: content for name, content in self.prompts.items() if name not in PERMANENT_PROMPT_TYPES and content
+        } or {"none": ""}
+
         container = discord.ui.Container(
             discord.ui.TextDisplay(f"## {self.title}\n-# {len(module_prompts)} modules, {len(custom_prompts)} custom keys"),
             discord.ui.Separator(),
             discord.ui.TextDisplay("**Modules**"),
-            discord.ui.ActionRow(
-                PromptSelect(self, module_prompts, "Open a module prompt...")
-            ),
-            *([
-                discord.ui.TextDisplay("**Custom keys**"),
-                discord.ui.ActionRow(
-                    PromptSelect(self, custom_prompts, "Open a prompt key...")
-                ),
-            ] if custom_prompts else []),
+            discord.ui.ActionRow(PromptSelect(self, module_prompts, "Open a module prompt...")),
+            discord.ui.TextDisplay("**Custom keys**"),
+            discord.ui.ActionRow(PromptSelect(self, custom_prompts, "Open a prompt key...")),
             discord.ui.Separator(),
             discord.ui.ActionRow(
                 CallbackButton(self.create_prompt, "➕", "New", discord.ButtonStyle.green),

@@ -11,6 +11,7 @@ class AgentCogBase(commands.Cog):
     """
     Abstract cog to prevent recursive imports
     """
+
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
@@ -22,14 +23,14 @@ class AgentCogBase(commands.Cog):
         self.currently_generating: set[int] = set()
         self.config = AgentCogConfig(Config.get_conf(None, identifier=19475820, cog_name="GptMemory"))
         self.config.register_all()
-    
+
     async def execute_captioner(self, ctx: commands.Context, image: AgentContent, result: CompletionResult) -> str:
         raise NotImplementedError()
-    
+
     def is_busy(self, message_id):
         return message_id in self.currently_responding or message_id in self.currently_generating
 
-    def openrouter_price_limits(self, model: str) -> dict[str, object]:
+    def extra_body(self, session_id: int | str, model: str) -> dict[str, object]:
         """Request-body limits in USD per million tokens, keyed by exact model slug."""
         if "$" in model or "/" not in model:
             return {}
@@ -41,4 +42,9 @@ class AgentCogBase(commands.Cog):
             )
             if model in field.value
         }
-        return {"provider": {"max_price": prices}} if prices else {}
+        if not prices:
+            return {}
+        return {
+            "session_id": str(session_id),
+            "provider": {"max_price": prices},
+        }

@@ -22,12 +22,12 @@ class AgentCogCommands(AgentCogBase):
     @staticmethod
     def prompt_fields(config: AgentCogGuildConfig) -> dict[str, ConfigField[str]]:
         return {
-            "recaller":      config.prompt_recaller,
-            "responder":     config.prompt_responder,
-            "memorizer":     config.prompt_memorizer,
+            "recaller": config.prompt_recaller,
+            "responder": config.prompt_responder,
+            "memorizer": config.prompt_memorizer,
             "autoresponder": config.prompt_autoresponder,
-            "captioner":     config.prompt_captioner,
-            "autoreacter":   config.prompt_autoreacter,
+            "captioner": config.prompt_captioner,
+            "autoreacter": config.prompt_autoreacter,
         }
 
     @commands.command(name="prompt")
@@ -72,9 +72,11 @@ class AgentCogCommands(AgentCogBase):
             if module not in config.prompt_keys.value:
                 await ctx.send(f"Prompt `{module}` not found.", delete_after=60)
                 return None
+
             async def edit_callback(pr: str):
                 config.prompt_keys.value[module] = pr
                 await config.prompt_keys.save()
+
             edit = edit_callback
             prompt = config.prompt_keys.value[module]
         return PromptView(self, module, prompt, edit)
@@ -82,6 +84,7 @@ class AgentCogCommands(AgentCogBase):
     async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptPanelView:
         assert ctx.guild
         config = self.config[ctx.guild]
+
         async def edit_callback(name: str, prompt: str):
             assert ctx.guild
             if field := self.prompt_fields(config).get(name):
@@ -89,9 +92,10 @@ class AgentCogCommands(AgentCogBase):
             else:
                 config.prompt_keys.value[name] = prompt
                 await config.prompt_keys.save()
+
         prompts = {
             **config.prompt_keys.value,
-            **{name: field.value for name, field in self.prompt_fields(config).items()}
+            **{name: field.value for name, field in self.prompt_fields(config).items()},
         }
         avatar_emote = await get_bot_avatar_emote(self.bot)
         return PromptPanelView(
@@ -101,7 +105,6 @@ class AgentCogCommands(AgentCogBase):
             f"{avatar_emote}  {ctx.me.display_name} Prompt Panel",
             await ctx.embed_color(),
         )
-
 
     @commands.command(name="forget")
     async def command_forget(self, ctx: commands.Context):
@@ -130,7 +133,6 @@ class AgentCogCommands(AgentCogBase):
             except discord.DiscordException:
                 pass
 
-
     @commands.command(name="mymemory")
     @commands.guild_only()
     async def command_mymemory(self, ctx: commands.Context):
@@ -157,11 +159,13 @@ class AgentCogCommands(AgentCogBase):
                 if matches:
                     name = matches[0]
             if name in memory:
+
                 async def edit_memory(content: str):
                     if not content:
                         await self.command_deletememory(ctx, name=name)
                     else:
                         await self.command_setmemory(ctx, name=name, content=content)
+
                 view = MemoryInfoView(self, name, memory[name], edit_memory)
                 view.message = await ctx.send(view=view)
         else:

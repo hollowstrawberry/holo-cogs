@@ -24,13 +24,13 @@ class AgentCogConfigCommands(AgentCogBase):
     @commands.guild_only()
     async def agentconfig(self, _: commands.Context):
         """Base command for configuring the GPT Memory cog."""
- 
+
     @agentconfig.command(name="config", aliases=["settings"])
     async def agentconfig_config(self, ctx: commands.Context):
         """View all settings."""
         assert ctx.guild
         config = self.config[ctx.guild]
- 
+
         tools = []
         imagegen = False
         tool_settings = []
@@ -46,7 +46,7 @@ class AgentCogConfigCommands(AgentCogBase):
                 tools.append(name)
                 tool_settings.extend(tool.settings.keys())
                 imagegen = imagegen or tool.imagegen
- 
+
         color = await ctx.embed_color()
 
         code = lambda s: f"`{s}`"
@@ -59,9 +59,9 @@ class AgentCogConfigCommands(AgentCogBase):
                 value=" ".join([f"<#{cid}>" for cid in ids]) or "*None*",
                 inline=False,
             )
- 
+
         embed1 = discord.Embed(title="🤖 Agent Settings", color=color)
-  
+
         channel_field("Channels", config.channel_mode.value, config.channels.value)
         channel_field("Auto Channels", config.auto_channel_mode.value, config.auto_channels.value)
         if imagegen:
@@ -79,11 +79,11 @@ class AgentCogConfigCommands(AgentCogBase):
         embed2.add_field(name="Recaller Effort", value=code(config.effort_recaller.value))
         embed2.add_field(name="Responder Effort", value=code(config.effort_responder.value))
         embed2.add_field(name="Memorizer Effort", value=code(config.effort_memorizer.value))
- 
+
         embed2.add_field(name="Captioner Model", value=code(config.model_captioner.value))
         embed2.add_field(name="Autoreacter Model", value=code(config.model_autoreacter.value))
         embed2.add_field(name="Cache Mode", value=code(config.cache_mode.value))
-        
+
         embed2.add_field(name="Use Captions", value=code(config.use_captions.value))
         embed2.add_field(name="Use Images in Recaller", value=code(config.use_images_recaller.value))
         embed2.add_field(name="Use Images in Memorizer", value=code(config.use_images_memorizer.value))
@@ -96,7 +96,7 @@ class AgentCogConfigCommands(AgentCogBase):
         embed2.add_field(name="Autoreacter Chance", value=code(chance(config.autoreacter_chance.value)))
         embed2.add_field(name="Autoreacter Chance (Images)", value=code(chance(config.autoreacter_chance_images.value)))
 
-        embed2.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes")) 
+        embed2.add_field(name="Autoresponder Cooldown", value=code(f"{config.autoresponder_cooldown_minutes.value} minutes"))
         embed2.add_field(name="Autoresponder Chance", value=code(chance(config.autoresponder_chance.value)))
 
         embed3 = discord.Embed(title="📊 Agent Limits", color=color)
@@ -123,15 +123,19 @@ class AgentCogConfigCommands(AgentCogBase):
         embed4.add_field(name="Response Timeout", value=code(f"{self.config.response_timeout.value} seconds"))
         embed4.add_field(name="Slow Response Timer", value=code(f"{self.config.slow_timer.value} seconds"))
         embed4.add_field(name="Extended Logging", value=code(self.config.extended_logging.value))
-        embed4.add_field(name="OpenRouter Input Price Limits", value=code(f"{len(self.config.openrouter_max_input_price.value)} models"))
-        embed4.add_field(name="OpenRouter Output Price Limits", value=code(f"{len(self.config.openrouter_max_output_price.value)} models"))
 
         embed4.add_field(name="No Response Emoji", value=self.config.noresponse_emoji.value)
         embed4.add_field(name="Slow Emoji", value=self.config.slow_emoji.value)
         embed4.add_field(name="Blocked Emoji", value=self.config.blocked_emoji.value)
- 
-        await ctx.send(embeds=[embed1, embed2, embed3, embed4])
 
+        embed4.add_field(
+            name="OpenRouter Input Price Limits", value=code(f"{len(self.config.openrouter_max_input_price.value)} models")
+        )
+        embed4.add_field(
+            name="OpenRouter Output Price Limits", value=code(f"{len(self.config.openrouter_max_output_price.value)} models")
+        )
+
+        await ctx.send(embeds=[embed1, embed2, embed3, embed4])
 
     @staticmethod
     async def bool_config_command(ctx: commands.Context, field: ConfigField[bool], value: bool | None):
@@ -154,7 +158,9 @@ class AgentCogConfigCommands(AgentCogBase):
         await ctx.reply(f"`[{field.name}:]` {percent*100:.2f}%", mention_author=False)
 
     @staticmethod
-    async def integer_config_command(ctx: commands.Context, field: ConfigField[int], min: int | None, max: int | None, value: int | None, unit: str = ""):
+    async def integer_config_command(
+        ctx: commands.Context, field: ConfigField[int], min: int | None, max: int | None, value: int | None, unit: str = ""
+    ):
         if value is None:
             value = field.value
         elif max is not None and value > max or min is not None and value < min:
@@ -170,7 +176,9 @@ class AgentCogConfigCommands(AgentCogBase):
         await ctx.reply(f"`[{field.name}:]` {value} {unit}", mention_author=False)
 
     @staticmethod
-    async def price_config_command(ctx: commands.Context, field: ConfigField[dict[str, float]], model: str | None, value: str | None):
+    async def price_config_command(
+        ctx: commands.Context, field: ConfigField[dict[str, float]], model: str | None, value: str | None
+    ):
         if model is None:
             lines = [f"`{name}`: ${price} / 1M tokens" for name, price in sorted(field.value.items())]
             for page in pagify("\n".join(lines) or "No price limits configured."):
@@ -204,20 +212,28 @@ class AgentCogConfigCommands(AgentCogBase):
             await ctx.tick()
 
     @staticmethod
-    async def channels_config_command(ctx: commands.Context, values_field: ConfigField[list[int]], mode_field: ConfigField[str], values: set[int] | None, mode: str | None):
+    async def channels_config_command(
+        ctx: commands.Context,
+        values_field: ConfigField[list[int]],
+        mode_field: ConfigField[str],
+        values: set[int] | None,
+        mode: str | None,
+    ):
         if mode in ("whitelist", "blacklist"):
             await mode_field.set(mode)
         if values is not None:
             await values_field.set(list(values))
-        await ctx.reply(f"`[{mode_field.name}:]` {mode_field.value}\n`[{values_field.name}]`\n>>> " + "\n".join([f"<#{cid}>" for cid in values_field.value]), mention_author=False)
-
-
+        await ctx.reply(
+            f"`[{mode_field.name}:]` {mode_field.value}\n`[{values_field.name}]`\n>>> "
+            + "\n".join([f"<#{cid}>" for cid in values_field.value]),
+            mention_author=False,
+        )
 
     @agentconfig.command(name="logging", aliases=["extended_logging"])
     async def agentconfig_logging(self, ctx: commands.Context, value: bool | None):
         """Toggles logging mode, for the developer."""
         await self.bool_config_command(ctx, self.config.extended_logging, value)
-    
+
     @agentconfig.command(name="allow_memorizer", aliases=["enable_memorizer"])
     async def agentconfig_allow_memorizer(self, ctx: commands.Context, value: bool | None):
         """Whether the memorizer will run at all, editing memories."""
@@ -272,7 +288,7 @@ class AgentCogConfigCommands(AgentCogBase):
         Omit arguments to list, omit value to view, or use off to remove. Zero is a zero-dollar cap.
         """
         await self.price_config_command(ctx, self.config.openrouter_max_output_price, model, value)
-    
+
     @agentconfig.command(name="autoresponder_chance")
     async def agentconfig_autoresponder_chance(self, ctx: commands.Context, percent: float | None):
         """The chance that the autoresponder will trigger, from 0.0 to 100.0."""
@@ -302,12 +318,12 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_timeout(self, ctx: commands.Context, value: int | None):
         """Sets how long a response can take before it's cancelled."""
         await self.integer_config_command(ctx, self.config.response_timeout, 10, 3600, value, "seconds")
-    
+
     @agentconfig.command(name="slow_timer")
     async def agentconfig_slow_timer(self, ctx: commands.Context, value: int | None):
         """Sets how long a response can take before reacting with slow_emoji."""
         await self.integer_config_command(ctx, self.config.slow_timer, 10, 3600, value, "seconds")
-    
+
     @agentconfig.command(name="slow_emoji")
     async def agentconfig_slow_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
         """Sets an emoji to react when the LLM takes too long."""
@@ -322,7 +338,6 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_blocked_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
         """Sets an emoji for when the LLM response gets blocked."""
         await self.emoji_config_command(ctx, self.config.blocked_emoji, emoji)
-
 
     @agentconfig.group(name="limits")
     async def agentconfig_limits(self, _: commands.Context):
@@ -388,10 +403,7 @@ class AgentCogConfigCommands(AgentCogBase):
         """Images will be resized to this resolution before being sent for captioning."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_caption_resolution, 128, 1024, value, "on each side")
 
-
-
     ChannelMode = Literal["whitelist", "blacklist"]
-
 
     @agentconfig.group(name="channels")
     async def agentconfig_channels(self, ctx: commands.Context):
@@ -404,25 +416,30 @@ class AgentCogConfigCommands(AgentCogBase):
         await self.channels_config_command(ctx, config.channels, config.channel_mode, None, None)
 
     @agentconfig_channels.command("set")
-    async def agentconfig_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_channels_set(
+        self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Sets a new whitelist or blacklist for LLM channels."""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.channels, config.channel_mode, {c.id for c in channels}, mode)
 
     @agentconfig_channels.command("add")
-    async def agentconfig_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_channels_remove(
+        self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Adds channels to the LLM whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set([c.id for c in channels] + config.channels.value)
         await self.channels_config_command(ctx, config.channels, config.channel_mode, channel_ids, None)
 
     @agentconfig_channels.command("remove")
-    async def agentconfig_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_channels_add(
+        self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Removes channels from the LLM whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set(config.channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.channels, config.channel_mode, channel_ids, None)
-
 
     @agentconfig.group(name="generation_channels")
     async def agentconfig_generation_channels(self, ctx: commands.Context):
@@ -435,25 +452,32 @@ class AgentCogConfigCommands(AgentCogBase):
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, None, None)
 
     @agentconfig_generation_channels.command("set")
-    async def agentconfig_generation_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_generation_channels_set(
+        self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Sets a new whitelist or blacklist for image generation channels."""
         config = self.config[ctx.guild]
-        await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, {c.id for c in channels}, mode)
+        await self.channels_config_command(
+            ctx, config.generation_channels, config.generation_channel_mode, {c.id for c in channels}, mode
+        )
 
     @agentconfig_generation_channels.command("add")
-    async def agentconfig_generation_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_generation_channels_remove(
+        self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Adds channels to the image generation whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set([c.id for c in channels] + config.generation_channels.value)
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, channel_ids, None)
 
     @agentconfig_generation_channels.command("remove")
-    async def agentconfig_generation_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_generation_channels_add(
+        self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Removes channels from the image generation whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set(config.generation_channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, channel_ids, None)
-
 
     @agentconfig.group(name="auto_channels")
     async def agentconfig_auto_channels(self, ctx: commands.Context):
@@ -466,26 +490,30 @@ class AgentCogConfigCommands(AgentCogBase):
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, None, None)
 
     @agentconfig_auto_channels.command("set")
-    async def agentconfig_auto_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_auto_channels_set(
+        self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Sets a new whitelist or blacklist for autoresponse channels."""
         config = self.config[ctx.guild]
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, {c.id for c in channels}, mode)
 
     @agentconfig_auto_channels.command("add")
-    async def agentconfig_auto_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_auto_channels_remove(
+        self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Adds channels to the autoresponse whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set([c.id for c in channels] + config.auto_channels.value)
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, channel_ids, None)
 
     @agentconfig_auto_channels.command("remove")
-    async def agentconfig_auto_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
+    async def agentconfig_auto_channels_add(
+        self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]
+    ):
         """Removes channels from the autoresponse whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
         channel_ids = set(config.auto_channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, channel_ids, None)
-
-
 
     @agentconfig.group(name="tool", aliases=["function", "functions", "tools"])
     async def agentconfig_functions(self, _: commands.Context):
@@ -566,7 +594,6 @@ class AgentCogConfigCommands(AgentCogBase):
         await self.config.tool_settings.save()
         await ctx.tick()
 
-
     ModelPromptTypes = Literal["recaller", "responder", "memorizer", "captioner", "autoreacter"]
 
     @agentconfig.command("model")
@@ -575,13 +602,13 @@ class AgentCogConfigCommands(AgentCogBase):
         """Views or changes the LLM model being used by different modules of this cog."""
         config = self.config[ctx.guild]
         fields = {
-            "recaller":    config.model_recaller,
-            "responder":   config.model_responder,
-            "memorizer":   config.model_memorizer,
-            "captioner":   config.model_captioner,
+            "recaller": config.model_recaller,
+            "responder": config.model_responder,
+            "memorizer": config.model_memorizer,
+            "captioner": config.model_captioner,
             "autoreacter": config.model_autoreacter,
         }
-        
+
         if not model or not model.strip():
             return await ctx.reply(f"Current model for the {module} is {fields[module].value}")
 
@@ -595,10 +622,12 @@ class AgentCogConfigCommands(AgentCogBase):
                 log.error(f"Failed to contact OpenRouter. {debug(error)}")
                 await ctx.reply("There was an error trying to contact OpenRouter, but the model will be changed anyway.")
             if not is_valid:
-                return await ctx.reply("That is not a valid OpenRouter model! You may browse models [here](<https://openrouter.ai/discover>).")
+                return await ctx.reply(
+                    "That is not a valid OpenRouter model! You may browse models [here](<https://openrouter.ai/discover>)."
+                )
         elif model.strip().lower() not in VISION_MODELS:
             return await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
-        
+
         await fields[module].set(model.strip().lower())
         await ctx.tick(message="Model changed.")
 
@@ -610,7 +639,7 @@ class AgentCogConfigCommands(AgentCogBase):
         """Views or changes the LLM reasoning effort used by different modules of this cog."""
         config = self.config[ctx.guild]
         fields = {
-            "recaller":  config.effort_recaller,
+            "recaller": config.effort_recaller,
             "responder": config.effort_responder,
             "memorizer": config.effort_memorizer,
         }

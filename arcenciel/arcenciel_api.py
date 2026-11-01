@@ -60,17 +60,13 @@ class ArcEnCielAPI:
 
     async def find_lora_entries(self, query: str) -> list[Mapping[str, object]]:
         if query.lower().endswith(".safetensors"):
-            async with self.session.get(
-                self.endpoint + "/generator/models/loras/resolve", params={"name": query}
-            ) as response:
+            async with self.session.get(self.endpoint + "/generator/models/loras/resolve", params={"name": query}) as response:
                 if response.status >= 400:
                     raise ImageGenError(await self._extract_error(response))
                 entries = parse_lora_entries(await response.json())
             if entries:
                 return entries
-        async with self.session.get(
-            self.endpoint + "/generator/models/loras", params={"q": query, "limit": 25}
-        ) as response:
+        async with self.session.get(self.endpoint + "/generator/models/loras", params={"q": query, "limit": 25}) as response:
             if response.status >= 400:
                 raise ImageGenError(await self._extract_error(response))
             return parse_lora_entries(await response.json())
@@ -115,7 +111,7 @@ class ArcEnCielAPI:
                 line_buffer.extend(chunk)
                 while (newline := line_buffer.find(b"\n")) >= 0:
                     raw_line = bytes(line_buffer[:newline])
-                    del line_buffer[:newline + 1]
+                    del line_buffer[: newline + 1]
                     if discard_line or len(raw_line) > 1024 * 1024:
                         event, data = "", []
                         discard_line = False
@@ -151,7 +147,7 @@ class ArcEnCielAPI:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
         return [lora["name"] for lora in r["entries"]]
-    
+
     async def download_image(self, job_id: str) -> bytes:
         url = f"{self.endpoint}/generator/jobs/{job_id}/outputs/0/download"
         async with self.session.get(url) as response:
@@ -159,7 +155,7 @@ class ArcEnCielAPI:
                 raise ImageGenError(await self._extract_error(response))
             b = await response.read()
         return b
-    
+
     async def upload_image(self, image: bytes, filename: str) -> str:
         url = self.endpoint + "/generator/uploads"
         data = aiohttp.FormData()
@@ -170,7 +166,7 @@ class ArcEnCielAPI:
                 raise ImageGenError(await self._extract_error(response))
             r = await response.json()
         return r["path"]
-    
+
     async def search_resource(self, query: str, *, hash_only: bool = False) -> list[dict]:
         if not query.strip():
             return []
@@ -186,7 +182,7 @@ class ArcEnCielAPI:
                 raise ImageGenError(await self._extract_error(response))
             data = await response.json()
         return data["data"]
-    
+
     async def interrogate(self, image: bytes, filename: str) -> list[str]:
         url = self.endpoint + "/generator/autotag/interrogate"
         data = aiohttp.FormData()

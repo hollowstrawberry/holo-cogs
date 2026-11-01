@@ -17,15 +17,20 @@ class WolframAlphaTool(ToolBase):
     schema: ClassVar = ToolCall(
         Function(
             name="ask_wolframalpha",
-            description="Asks Wolfram Alpha about math, exchange rates, or the weather. Do not use for price checks or other searches.",
+            description=(
+                "Asks Wolfram Alpha about math, exchange rates, or the weather. Do not use for price checks or other searches."
+            ),
             parameters=Parameters(
                 properties={
                     "query": {
                         "type": "string",
-                        "description": "A math operation, currency conversion, or weather question."
-                    }},
+                        "description": "A math operation, currency conversion, or weather question.",
+                    }
+                },
                 required=["query"],
-            )))
+            ),
+        )
+    )
 
     async def run(self, arguments: dict) -> dict | str:
         api_key = (await self.ctx.bot.get_shared_api_tokens("wolframalpha")).get("appid")

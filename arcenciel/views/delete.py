@@ -16,7 +16,6 @@ class DeleteModal(discord.ui.Modal):
         )
         self.add_item(self.silent_checkbox)
 
-
     async def on_submit(self, interaction: discord.Interaction):
         assert self.parent_interaction.message and isinstance(self.silent_checkbox.component, discord.ui.Checkbox)
         try:
@@ -28,17 +27,19 @@ class DeleteModal(discord.ui.Modal):
             )
 
         self.parent_view.stop()
+        og_user = self.parent_view.og_user
         silent = self.silent_checkbox.component.value
         prompt = self.parent_view.payload["prompt"]
-        if interaction.user.id == self.parent_view.og_user.id:
+        enclose = lambda s: s[:1997] + "```"
+        if interaction.user.id == og_user.id:
             await interaction.response.send_message(
-                f">>> {interaction.user.mention} deleted their requested image with prompt: ```\n{prompt}"[:1997] + "```",
+                enclose(f">>> {interaction.user.mention} deleted their requested image with prompt: ```\n{prompt}"),
                 allowed_mentions=discord.AllowedMentions.none(),
                 ephemeral=silent,
             )
         else:
             await interaction.response.send_message(
-                f">>> {interaction.user.mention} deleted an image requested by {self.parent_view.og_user.mention} with ```\n{prompt}"[:1997] + "```",
+                enclose(f">>> {interaction.user.mention} deleted an image requested by {og_user.mention} with ```\n{prompt}"),
                 allowed_mentions=discord.AllowedMentions.none(),
                 ephemeral=silent,
-            )        
+            )

@@ -31,7 +31,10 @@ class ArcencielImageTool(ToolBase):
     schema: ClassVar = ToolCall(
         Function(
             name="generate_image",
-            description="Generate with open models including MOSS, Anima, and Illustrious/NoobAI. May also revise a previous image. Only MOSS supports boxes.",
+            description=(
+                "Generate with open models including MOSS, Anima, and Illustrious/NoobAI. "
+                "May also revise a previous image. Only MOSS supports boxes."
+            ),
             parameters=Parameters(
                 properties={
                     "existing": {
@@ -44,15 +47,17 @@ class ArcencielImageTool(ToolBase):
                     },
                     "negative_prompt": {
                         "type": "string",
-                        "description": "Optional unwanted visual details."
+                        "description": "Optional unwanted visual details.",
                     },
                     "checkpoint": {
                         "type": "string",
-                        "description": "Supported values are moss/anima/illustrious/noobai or an exact checkpoint. Omit for default.",
+                        "description": (
+                            "Supported values are moss/anima/illustrious/noobai or an exact checkpoint. Omit for default."
+                        ),
                     },
                     "resolution": {
                         "type": "string",
-                        "enum": ["square", "portrait", "landscape", "ultrawide"]
+                        "enum": ["square", "portrait", "landscape", "ultrawide"],
                     },
                     "boxes": {
                         "type": "array",
@@ -61,7 +66,10 @@ class ArcencielImageTool(ToolBase):
                             "type": "object",
                             "additionalProperties": False,
                             "properties": {
-                                "label": {"type": "string", "enum": ["character", "object", "text"]},
+                                "label": {
+                                    "type": "string",
+                                    "enum": ["character", "object", "text"],
+                                },
                                 "caption": {
                                     "type": "string",
                                     "minLength": 1,
@@ -101,7 +109,8 @@ class ArcencielImageTool(ToolBase):
         return (False, None)
 
     async def run(self, arguments: dict[str, object]) -> dict[str, object] | str:
-        assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
+        assert self.ctx.guild and isinstance(self.ctx.author, discord.Member)
+        assert isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
 
         try:
             from arcenciel.arcenciel import Arcenciel
@@ -112,7 +121,7 @@ class ArcencielImageTool(ToolBase):
             from arcenciel.moss import layout_from_metadata
             from arcenciel.comfy import ComfyMetadataReader
         except ImportError:
-           return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
+            return "<error>`arcenciel` cog not installed, please notify the bot owner</error>"
         if not (arcenciel := get_cog(self.cog.bot, Arcenciel)):
             return "<error>`arcenciel` cog not installed or outdated, please notify the bot owner</error>"
         if not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
@@ -125,12 +134,12 @@ class ArcencielImageTool(ToolBase):
         checkpoint = str(arguments.get("checkpoint", "")).strip()
         if checkpoint.lower() in MODEL_FAMILIES:
             checkpoint = self.get_setting(f"checkpoint_{checkpoint.lower()}") or checkpoint.lower()
-        
+
         if not prompt.strip():
             return "<error>The prompt is missing.</error>"
         if len(prompt) > 32768:
             return "<error>The prompt is too long.</error>"
-        
+
         moss: dict[str, object] = {}
         if "boxes" in arguments and arguments["boxes"] != []:
             moss["layout"] = {
@@ -178,13 +187,13 @@ class ArcencielImageTool(ToolBase):
         for lora, name, weight in LORA_PATTERN.findall(prompt):
             prompt = prompt.replace(lora, "").strip()
             requested_loras.append((name, lora_weight(float(weight))))
-        
+
         if not requested_loras and sent_by_me:
             original_prompt = str(metadata.get("Prompt", ""))
             requested_loras.extend(
                 (name, lora_weight(float(weight))) for _, name, weight in LORA_PATTERN.findall(original_prompt)
             )
-                
+
         if len(requested_loras) > 4:
             return "<error>Provide at most four LoRAs.</error>"
 
@@ -193,9 +202,7 @@ class ArcencielImageTool(ToolBase):
 
         try:
             options, catalog = await arcenciel.api.refresh_moss_profile()
-            lora_candidates = [
-                (name, weight, await arcenciel.api.find_lora_entries(name)) for name, weight in requested_loras
-            ]
+            lora_candidates = [(name, weight, await arcenciel.api.find_lora_entries(name)) for name, weight in requested_loras]
             inherited = metadata.get("Checkpoint", None) if sent_by_me else None
             inherited = inherited if isinstance(inherited, str) else ""
             default = self.get_setting("checkpoint").strip()
@@ -217,13 +224,13 @@ class ArcencielImageTool(ToolBase):
                         for name, _, entries in lora_candidates:
                             choose_lora(entries, name, preferred)
                     except ValueError as error:
-                        warnings.append(
-                            f"Your personal checkpoint was not used: {error} Using normal model selection."
-                        )
+                        warnings.append(f"Your personal checkpoint was not used: {error} Using normal model selection.")
                     else:
                         default, inferred_family = preferred.name, ""
-            
-            choice = choose_model(options, catalog, family=inferred_family, checkpoint=checkpoint, inherited=inherited, default=default)
+
+            choice = choose_model(
+                options, catalog, family=inferred_family, checkpoint=checkpoint, inherited=inherited, default=default
+            )
             if choice.family != "moss" and moss:
                 raise ValueError("Regional Boxes are available only with MOSS.")
             if choice.family == "moss" and "boxes" not in arguments and sent_by_me:
@@ -236,7 +243,7 @@ class ArcencielImageTool(ToolBase):
             ]
         except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
             return f"<error>{error}</error>"
-        
+
         params = ImageGenParams(
             prompt=prompt,
             negative_prompt=undo_xml(negative_prompt) if negative_prompt is not None else None,
@@ -253,7 +260,7 @@ class ArcencielImageTool(ToolBase):
             payload = await arcenciel.prepare_image_payload(self.ctx, params)
         except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError) as error:
             return f"<error>{error}</error>"
-        
+
         async def callback() -> None:
             await asyncio.sleep(0)
             self.cog.currently_generating.discard(self.ctx.message.id)
@@ -261,10 +268,10 @@ class ArcencielImageTool(ToolBase):
         self.cog.currently_generating.add(self.ctx.message.id)
         message_content = f"Requested at {self.ctx.message.jump_url} by {self.ctx.author.mention}"
         asyncio.create_task(
-            arcenciel.generate_image(self.ctx, params=params, payload=payload, message_content=message_content, callback=callback())
+            arcenciel.generate_image(
+                self.ctx, params=params, payload=payload, message_content=message_content, callback=callback()
+            )
         )
-        result = {
-            "message": f"{choice.name} image generation started. Respond while it generates."
-        }
+        result = {"message": f"{choice.name} image generation started. Respond while it generates."}
         add_xml_group(result, warnings, "warnings")
         return {"result": result}

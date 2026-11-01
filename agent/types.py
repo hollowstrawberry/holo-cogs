@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 StructuredObject: TypeAlias = dict[str, Any]
 """Signifies a dict that will be unparsed into XML."""
 
-AgentValue: TypeAlias   = dict[str, str | dict[str, str]]
+AgentValue: TypeAlias = dict[str, str | dict[str, str]]
 AgentContent: TypeAlias = dict[str, (str | AgentValue)]
 AgentMessage: TypeAlias = dict[str, (str | list[AgentContent])]
 
@@ -121,13 +121,16 @@ class MemoryChangeResult:
 
 # LLM Structured Outputs
 
+
 class MemoryChange(BaseModel):
     action_type: Literal["create", "append", "modify", "delete"]
     memory_name: str
     memory_content: str
 
+
 class MemoryChangeList(BaseModel):
     memory_changes: list[MemoryChange]
+
 
 class MessageReaction(BaseModel):
     reason: str
@@ -136,17 +139,20 @@ class MessageReaction(BaseModel):
 
 # Function calling
 
+
 @dataclass(frozen=True)
 class Parameters:
     properties: dict
     required: list = field(default_factory=list)
     type: str = field(default="object", init=False)
 
+
 @dataclass(frozen=True)
 class Function:
     name: str
     description: str
     parameters: Parameters
+
 
 @dataclass(frozen=True)
 class ToolCall:
@@ -156,29 +162,37 @@ class ToolCall:
 
 # Protocols
 
+
 @runtime_checkable
 class LinkFixer(Protocol):
     """Cog from crab-cogs."""
+
     async def get_fixed_message(self, message: discord.Message) -> discord.Message | None: ...
+
 
 @runtime_checkable
 class ImageScanner(Protocol):
     """Cog from crab-cogs."""
+
     image_cache: dict[int, tuple[dict[int, object], dict[int, bytes]]]
 
     async def grab_metadata_dict(self, message: discord.Message) -> dict: ...
+
 
 @runtime_checkable
 class HasError(Protocol):
     error: object
 
+
 @runtime_checkable
 class HasCost(Protocol):
     cost: float
 
+
 @runtime_checkable
 class HasLength(Protocol):
     length: Any
+
 
 @runtime_checkable
 class HasMessage(Protocol):

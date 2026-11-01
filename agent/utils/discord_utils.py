@@ -8,7 +8,7 @@ from typing import TypeVar, Iterable, Awaitable, Callable
 from redbot.core import commands
 from redbot.core.bot import Red
 
-from .misc_utils import gather_logged
+from .misc_utils import gather_logged, collect
 from .media_utils import crop_circle
 from .component_utils import resolve_components
 from agent.types import MessageableChannel, HasMessage
@@ -24,7 +24,7 @@ class CallbackButton(discord.ui.Button):
         emoji: str | discord.Emoji | None = None,
         label: str | None = None,
         style: discord.ButtonStyle = discord.ButtonStyle.secondary,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(emoji=emoji, label=label, style=style, **kwargs)
         self._callback = callback
@@ -35,12 +35,14 @@ class CallbackButton(discord.ui.Button):
 
 T = TypeVar("T")
 
+
 def get_cog(bot: Red, cog_type: type[T]) -> T | None:
     """Grab the cog with the given type's name and type, if present."""
     cog = bot.get_cog(cog_type.__name__)
     if isinstance(cog, cog_type):
         return cog
     return None
+
 
 def is_nsfw(channel: discord.abc.Messageable) -> bool:
     if isinstance(channel, discord.TextChannel):
@@ -50,43 +52,48 @@ def is_nsfw(channel: discord.abc.Messageable) -> bool:
     else:
         return False
 
+
 def button_label(button: discord.Button) -> str:
     """The button's emoji and label if either or both are present."""
     emoji_name = button.emoji if isinstance(button.emoji, str | None) else f":{button.emoji.name}:"
     return " ".join([s for s in (emoji_name, button.label) if s])
+
 
 async def fixed_messages(messages: Iterable[discord.Message]) -> list[discord.Message]:
     """Adds missing information to discord messages."""
     results = await gather_logged(log, (resolve_components(message) for message in messages))
     return [new or old for new, old in zip(results, messages)]
 
+
 async def backread_with_quote(ctx: commands.Context, limit: int) -> list[discord.Message]:
     """Return the trigger message's quoted message, then the trigger message, then the rest of the chat history."""
-    quoted = None
+    messages: list[discord.Message] = []
     ref = ctx.message.reference
     if ref and ref.message_id and ref.channel_id == ctx.channel.id:
         try:
-            quoted = ref.cached_message or await ctx.channel.fetch_message(ref.message_id)
+            messages.append(ref.cached_message or await ctx.channel.fetch_message(ref.message_id))
         except discord.DiscordException:
             pass
-    messages = [
-        *([quoted] if quoted else []),
-        ctx.message,
-        *[message async for message in ctx.channel.history(limit=limit, before=ctx.message)]
-    ]
+    messages.append(ctx.message)
+    messages.extend(await collect(ctx.channel.history(limit=limit, before=ctx.message)))
     return await fixed_messages(messages)
+
 
 def parse_mentions(guild: discord.Guild, text: str) -> str:
     """Convert @name mentions into <@id> mentions (users/roles/channels)."""
+
     def repl(match: re.Match) -> str:
         prefix, name = match.groups()
         group = [*guild.members, *guild.roles] if prefix == "@" else guild.channels
         obj = discord.utils.find(lambda o: name == o.name, group)
         return obj.mention if obj else match.group(0)
+
     return constants.RESOLVED_MENTION_PATTERN.sub(repl, text)
+
 
 def resolve_mentions(bot: Red, guild: discord.Guild | None, text: str) -> str:
     """Convert <@id> mentions into @name mentions (users/roles/channels)."""
+
     def repl(match: re.Match) -> str:
         prefix, id = match.groups()
         if prefix == "@&":
@@ -98,10 +105,13 @@ def resolve_mentions(bot: Red, guild: discord.Guild | None, text: str) -> str:
         else:
             user = bot.get_user(int(id))
             return f"@{user.name}" if user else "@unknown"
+
     return constants.MENTION_PATTERN.sub(repl, text)
+
 
 def parse_emotes(bot: Red, text: str) -> str:
     """Convert any :name: emotes with no id and any <:name:id> emotes with the wrong name into <:name:id> emotes."""
+
     def repl(match: re.Match) -> str:
         _, name, eid = match.groups()
         emote = None
@@ -114,19 +124,24 @@ def parse_emotes(bot: Red, text: str) -> str:
         if "<" in match.group(0) and ">" in match.group(0):
             return ""
         return match.group(0)
+
     return constants.INCOMPLETE_EMOTE_PATTERN.sub(repl, text)
+
 
 def resolve_emotes(bot: Red, text: str) -> str:
     """Convert <:name:id> emotes into :name: emotes, gets the emote's true name from the id if possible."""
+
     def repl(match: re.Match) -> str:
         _, name, eid = match.groups()
         emote = bot.get_emoji(int(eid))
         return f":{emote.name if emote else name}:"
+
     return constants.EMOTE_PATTERN.sub(repl, text)
+
 
 async def command_allowed(ctx: commands.Context, command: commands.Command, *, visible_only: bool = False) -> bool:
     """Checks if the current user can use/see a specific command."""
-    assert(isinstance(ctx.bot, Red))
+    assert isinstance(ctx.bot, Red)
     check_ctx = copy(ctx)
     check_ctx.command = command
     if any(not item.is_enabled(ctx.guild) for item in (command, *command.parents)):
@@ -146,7 +161,9 @@ async def command_allowed(ctx: commands.Context, command: commands.Command, *, v
     except commands.CommandError:
         return False
 
+
 AVATAR_EMOTE: discord.Emoji | None = None
+
 
 async def get_bot_avatar_emote(bot: discord.Client) -> discord.Emoji:
     """Use the bot's avatar cropped into a circle as an application emoji."""
@@ -240,6 +257,7 @@ async def chunk_and_send(
 @contextlib.asynccontextmanager
 async def bot_is_typing(channel: MessageableChannel):
     """Like channel.typing but doesn't stop execution if typing fails."""
+
     async def keep_typing():
         while True:
             await asyncio.wait_for(channel._state.http.send_typing(channel.id), timeout=2.0)

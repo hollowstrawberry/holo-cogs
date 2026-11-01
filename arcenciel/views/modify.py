@@ -13,14 +13,12 @@ class ModifyModal(discord.ui.Modal):
         self.payload = deepcopy(parent_view.payload)
         self.params = self.parent_view.metadata.as_dict()
         self.generate_image = parent_view.generate_image
-        
+
         self.prompt_edit = discord.ui.Label(
             text="Prompt",
             component=discord.ui.TextInput(
                 style=discord.TextStyle.long,
-                default=self.payload["prompt"]
-                if "moss" in self.payload
-                else self.params.get("Prompt") or self.payload["prompt"],
+                default=self.payload["prompt"] if "moss" in self.payload else self.params.get("Prompt") or self.payload["prompt"],
                 min_length=4,
             ),
         )
@@ -30,7 +28,7 @@ class ModifyModal(discord.ui.Modal):
                 style=discord.TextStyle.long,
                 default=self.params.get("Negative Prompt") or self.payload["negativePrompt"],
                 min_length=0,
-            )
+            ),
         )
         self.seed_checkbox = discord.ui.Label(
             text="Reroll",
@@ -46,7 +44,7 @@ class ModifyModal(discord.ui.Modal):
         assert isinstance(self.prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.negative_prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.seed_checkbox.component, discord.ui.Checkbox)
-        
+
         prompt = self.prompt_edit.component.value
         negative_prompt = self.negative_prompt_edit.component.value
         original_prompt = self.payload["prompt"] if "moss" in self.payload else self.params["Prompt"]
@@ -54,19 +52,19 @@ class ModifyModal(discord.ui.Modal):
             "Negative Prompt", self.payload["negativePrompt"]
         )
         reroll = self.seed_checkbox.component.value
-        
+
         if not is_prompt_unchanged and self.payload.get("attentionCouple"):  # parse regional prompt
             prompt = PIPE_SEPARATOR_PATTERN.sub("\n", prompt)
             prompt = NEWLINE_SEPARATOR_PATTERN.sub("\n", prompt)
             regions = self.payload["attentionCouple"]["regions"]
             region_prompts = [p.strip() for p in prompt.split("\n")]
             if len(region_prompts) != len(regions):
-                content = ":warning: This image has regional prompts, but your edited prompt didn't result in the same number of regions."
+                content = ":warning: This image has regional prompts, but your edit didn't result in the same number of regions."
                 await interaction.response.send_message(content=content, ephemeral=True)
                 return
             for i, region_prompt in enumerate(region_prompts):
                 regions[i]["prompt"] = region_prompt
-        
+
         if not is_prompt_unchanged:
             self.payload["prompt"] = prompt
             self.payload["negativePrompt"] = negative_prompt
@@ -79,5 +77,9 @@ class ModifyModal(discord.ui.Modal):
             self.payload["extraSeedStrength"] = 0 if reroll else float(self.params.get("Extra Seed Strength", 0.0))
 
         await interaction.response.defer(thinking=True)
-        message_content = f"Reroll requested by {interaction.user.mention}" if is_prompt_unchanged else f"Change requested by {interaction.user.mention}"
+        message_content = (
+            f"Reroll requested by {interaction.user.mention}"
+            if is_prompt_unchanged
+            else f"Change requested by {interaction.user.mention}"
+        )
         await self.generate_image(interaction, payload=self.payload, message_content=message_content)

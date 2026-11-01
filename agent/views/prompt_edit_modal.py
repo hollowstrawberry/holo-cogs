@@ -27,22 +27,24 @@ class PromptEditModal(discord.ui.Modal):
                 style=discord.TextStyle.long,
                 default=prompt,
                 required=False,
-            )
+            ),
         )
         self.prompt_name_edit = discord.ui.Label(
             text="Prompt Key Name",
             component=discord.ui.TextInput(
                 style=discord.TextStyle.short,
                 min_length=3,
-            )
+            ),
         )
         if not name:
             self.add_item(self.prompt_name_edit)
         self.add_item(self.prompt_edit)
-        
+
     async def on_submit(self, interaction: discord.Interaction):
         if not await self.cog.bot.is_owner(interaction.user):
-            return await interaction.response.send_message("You can view the prompt, but only the bot owner can edit it.", ephemeral=True)
+            return await interaction.response.send_message(
+                "You can view the prompt, but only the bot owner can edit it.", ephemeral=True
+            )
         assert isinstance(self.prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.prompt_name_edit.component, discord.ui.TextInput)
         prompt = self.prompt_edit.component.value

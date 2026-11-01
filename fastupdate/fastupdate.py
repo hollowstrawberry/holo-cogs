@@ -19,10 +19,7 @@ class FastUpdate(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
         self.config: Config = Config.get_conf(self, 12367)
-        self.config.register_global(
-            failed_cogs=[],
-            allowed_repos=[]
-        )
+        self.config.register_global(failed_cogs=[], allowed_repos=[])
 
     async def save_failed_cogs(self, *, add: Iterable[str] | None = None, remove: Iterable[str] | None = None) -> None:
         if not add and not remove:
@@ -91,7 +88,7 @@ class FastUpdate(commands.Cog):
         now_loaded = get_result_set(load_result, "loaded_packages")
         missing = get_result_set(load_result, "notfound_packages", "invalid_pkg_names")
         failed_to_load = get_result_set(load_result, "failed_packages", "failed_with_reason_packages")
-        await self.save_failed_cogs(add=failed_to_load, remove = now_loaded | missing)
+        await self.save_failed_cogs(add=failed_to_load, remove=now_loaded | missing)
 
         # pretty embed
         def state_of(cog: str) -> str:
@@ -115,7 +112,6 @@ class FastUpdate(commands.Cog):
         if len(entries) > 25:
             embed.set_footer(text=f"+{len(entries) - 25} more not shown")
         await ctx.send(embed=embed)
-
 
     @commands.group(name="fastupdateset", aliases=["setfastupdate"])
     async def fastupdate_set(self, ctx: commands.Context):

@@ -25,17 +25,19 @@ class ScrapeTool(ToolBase):
             description="Opens a website URL and returns its text-based content.",
             parameters=Parameters(
                 properties={
-                    "url": {
-                        "type": "string",
-                    }
+                    "url": {"type": "string"},
                 },
                 required=["url"],
-            )))
+            ),
+        )
+    )
 
     headers: ClassVar = {
         "Cache-Control": "no-cache",
         "Referer": "https://www.google.com/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        ),
     }
 
     def __init__(self, *args, **kwargs):
@@ -53,7 +55,7 @@ class ScrapeTool(ToolBase):
         if self.ctx.bot_permissions.add_reactions:
             emoji = self.get_setting("scrape_emoji")
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
-        
+
         for pattern, method in self.custom_scrapers.items():
             if match := pattern.search(url):
                 return await method(match)
@@ -75,7 +77,7 @@ class ScrapeTool(ToolBase):
             log.warning(f"Opening {url}: {debug(error)}")
             return f"<error>Failed to open URL ({debug(error)})</error>"
         return content or "<error>The page is empty.</error>"
-    
+
     async def scrape_github_file(self, match: re.Match) -> str:
         user = match.group("user")
         repo = match.group("repo")
@@ -95,5 +97,5 @@ class ScrapeTool(ToolBase):
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {debug(error)}")
             return "<error>Failed to open URL</error>"
-        
+
         return {"model": parse_arcenciel_model(data)}

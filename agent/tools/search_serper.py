@@ -27,9 +27,12 @@ class SerperSearchTool(ToolBase):
                     "query": {
                         "type": "string",
                         "description": "The search query",
-                    }},
+                    }
+                },
                 required=["query"],
-            )))
+            ),
+        )
+    )
 
     async def run(self, arguments: dict) -> dict | str:
         api_key = (await self.ctx.bot.get_shared_api_tokens("serper")).get("api_key")
@@ -44,7 +47,7 @@ class SerperSearchTool(ToolBase):
         url = "https://google.serper.dev/search"
         query = arguments["query"]
         payload = json.dumps({"q": query})
-        headers = {'X-API-KEY': api_key, 'Content-Type': 'application/json'}
+        headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
         timeout = aiohttp.ClientTimeout(self.get_setting_int("search_timeout", 1, 1000) or 10)
         try:
             async with self.cog.session.post(url, data=payload, headers=headers, timeout=timeout) as response:

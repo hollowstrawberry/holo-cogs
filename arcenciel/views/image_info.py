@@ -14,7 +14,7 @@ class ImageInfoView(discord.ui.View):
         self.layout_source = layout_source
         if layout_source is not None:
             self.add_item(CallbackButton(self.view_layout, "📐", "View layout"))
-        self.button = CallbackButton(self.view_full_parameters, '🔧', 'View Full', discord.ButtonStyle.blurple)
+        self.button = CallbackButton(self.view_full_parameters, "🔧", "View Full", discord.ButtonStyle.blurple)
         self.add_item(self.button)
 
     async def view_layout(self, interaction: discord.Interaction) -> None:

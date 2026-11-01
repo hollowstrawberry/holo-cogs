@@ -123,7 +123,9 @@ class CheckpointSelectView(discord.ui.View):
         if 1 < len(bases) <= 24:
             self.base_select.options = [discord.SelectOption(label="All bases", value="all", default=not self.base)] + [
                 discord.SelectOption(
-                    label=base[:100], value=hashlib.sha256(base.encode()).hexdigest(), default=base == self.base,
+                    label=base[:100],
+                    value=hashlib.sha256(base.encode()).hexdigest(),
+                    default=base == self.base,
                 )
                 for base in bases
             ]
@@ -141,9 +143,7 @@ class CheckpointSelectView(discord.ui.View):
             )
             for index, item in enumerate(matches[start : start + self.PAGE_SIZE])
         ]
-        self.checkpoint_select.options = options or [
-            discord.SelectOption(label="No matching checkpoints", value="empty")
-        ]
+        self.checkpoint_select.options = options or [discord.SelectOption(label="No matching checkpoints", value="empty")]
         self.checkpoint_select.disabled = not options
         self.checkpoint_select.placeholder = "Choose your default checkpoint"
         self.add_item(self.checkpoint_select)
@@ -161,8 +161,7 @@ class CheckpointSelectView(discord.ui.View):
             value = f"{self.display_name(selected)} · {selected.base}" if selected else f"{self.current} (unavailable)"
         else:
             value = (
-                f"No personal override. Commands: {clean_model(self.bot_default) or 'automatic'}. "
-                "Agent: its configured default."
+                f"No personal override. Commands: {clean_model(self.bot_default) or 'automatic'}. Agent: its configured default."
             )
         embed.add_field(name="Current selection", value=discord.utils.escape_markdown(value)[:1024], inline=False)
         matches = self.filtered()
@@ -177,8 +176,7 @@ class CheckpointSelectView(discord.ui.View):
             embed.add_field(name="Search", value=discord.utils.escape_markdown(self.query)[:1024], inline=False)
         pages = max(1, (len(matches) + self.PAGE_SIZE - 1) // self.PAGE_SIZE)
         embed.set_footer(
-            text=f"{self.owner.display_name} · Page {self.page + 1}/{pages} · "
-            f"{len(matches)}/{len(self.entries)} checkpoints"
+            text=f"{self.owner.display_name} · Page {self.page + 1}/{pages} · {len(matches)}/{len(self.entries)} checkpoints"
         )
         return embed
 
@@ -228,7 +226,8 @@ class CheckpointSelectView(discord.ui.View):
                 self.entries = checkpoints_from_catalog(catalog)
             except (ValueError, ImageGenError, aiohttp.ClientError, TimeoutError):
                 await interaction.followup.send(
-                    "Could not refresh checkpoints. Your default was not changed; try again.", ephemeral=True,
+                    "Could not refresh checkpoints. Your default was not changed; try again.",
+                    ephemeral=True,
                 )
                 return
             if self.is_finished():
@@ -239,7 +238,8 @@ class CheckpointSelectView(discord.ui.View):
                 self.current = selected.name
             else:
                 await interaction.followup.send(
-                    "That checkpoint is no longer available. Please choose another.", ephemeral=True,
+                    "That checkpoint is no longer available. Please choose another.",
+                    ephemeral=True,
                 )
             self.rebuild()
             await interaction.edit_original_response(embed=self.embed(), view=self)

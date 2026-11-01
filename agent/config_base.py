@@ -6,14 +6,15 @@ from redbot.core import Config
 from redbot.core.bot import Red
 from redbot.core.config import Group
 
-
 T = TypeVar("T")
+
 
 class ConfigField(Generic[T]):
     """
     Represents a cached config value that may also be saved back to disk asynchronously.
     Before the parent config is loaded, the value will be the default value for this field.
     """
+
     def __init__(self, default: T):
         self._value = default
         self._group: Config | Group | None = None
@@ -59,7 +60,7 @@ class ConfigField(Generic[T]):
         if name in values:
             new_field._set_raw_value(values[name])
         return new_field
-    
+
     def _set_raw_value(self, value: T) -> None:
         if type(self._value) is datetime and isinstance(value, str):
             self._value = datetime.fromisoformat(value)
@@ -71,9 +72,10 @@ class CogConfigBase:
     """
     Base class for a group of config fields.
     """
+
     def __init__(self, values: dict[str, Any], group: Config | Group):
         self._init_fields(values, group)
-        
+
     def _init_fields(self, values: dict[str, Any], group: Config | Group):
         for name, field in vars(type(self)).items():
             if isinstance(field, ConfigField):
@@ -88,21 +90,19 @@ class CogConfigBase:
     @classmethod
     def defaults(cls) -> dict:
         """Returns a dictionary of the field names and field default values of this class."""
-        return {
-            name: field.raw_value
-            for name, field in vars(cls).items()
-            if isinstance(field, ConfigField)
-        }
+        return {name: field.raw_value for name, field in vars(cls).items() if isinstance(field, ConfigField)}
 
 
 GuildT = TypeVar("GuildT", bound=CogConfigBase)
 ChannelT = TypeVar("ChannelT", bound=CogConfigBase)
+
 
 class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
     """
     Represents a cached copy of all cog configuration,
     with dynamically-defined type-hinted fields that may also be saved back to disk asynchronously.
     """
+
     _guild_config: type[GuildT]
     _channel_config: type[ChannelT]
     guild: dict[int, GuildT]
@@ -122,8 +122,7 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
         self.channel = {
             channel_id: self._channel_config(values, self._config.channel(channel))
             for channel_id, values in (await self._config.all_channels()).items()
-            if (channel := bot.get_channel(channel_id))
-            and isinstance(channel, (discord.TextChannel, discord.Thread))
+            if (channel := bot.get_channel(channel_id)) and isinstance(channel, (discord.TextChannel, discord.Thread))
         }
 
     async def load_guild(self, guild: discord.Guild) -> GuildT:
@@ -131,7 +130,7 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
         if guild.id not in self.guild:
             self.guild[guild.id] = await self._guild_config.load(self._config.guild(guild))
         return self.guild[guild.id]
-    
+
     async def load_channel(self, channel: discord.abc.Messageable) -> ChannelT:
         """Loads a single channel config into memory."""
         if not isinstance(channel, (discord.abc.GuildChannel, discord.Thread)):
@@ -139,7 +138,7 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
         if channel.id not in self.channel:
             self.channel[channel.id] = await self._channel_config.load(self._config.channel(channel))
         return self.channel[channel.id]
-    
+
     def register_all(self):
         """Registers the default values of all config groups in Red's config manager."""
         self._config.register_global(**self.defaults())
@@ -157,5 +156,7 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
             return self.guild.get(key.id) or self.guild.setdefault(key.id, self._guild_config({}, self._config.guild(key)))
         if isinstance(key, discord.abc.Messageable):  # messageable is more useful for type checks
             assert isinstance(key, discord.abc.GuildChannel | discord.Thread)
-            return self.channel.get(key.id) or self.channel.setdefault(key.id, self._channel_config({}, self._config.channel(key)))
+            return self.channel.get(key.id) or self.channel.setdefault(
+                key.id, self._channel_config({}, self._config.channel(key))
+            )
         raise TypeError(f"Invalid key {key}")

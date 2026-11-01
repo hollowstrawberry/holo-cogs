@@ -17,8 +17,14 @@ from .string_utils import undo_xml, get_filename
 from .component_utils import walk_components, component_media, media_kind
 from agent.types import HasLength, ImageSource, ImageEntry
 from agent.constants import (
-    IMAGE_DOWNLOAD_MAXSIZE, IMAGE_DOWNLOAD_TIMEOUT, IMAGE_EXTENSIONS, MEDIA_HEADERS, URL_PATTERN,
-    CACHE_SIZE, VIDEO_FRAME_RESOLUTION, VIDEO_FRAME_TIMEOUT,
+    IMAGE_DOWNLOAD_MAXSIZE,
+    IMAGE_DOWNLOAD_TIMEOUT,
+    IMAGE_EXTENSIONS,
+    MEDIA_HEADERS,
+    URL_PATTERN,
+    CACHE_SIZE,
+    VIDEO_FRAME_RESOLUTION,
+    VIDEO_FRAME_TIMEOUT,
 )
 
 VIDEO_FRAMES: dict[int | str, ImageEntry] = ExpiringDict(CACHE_SIZE, 5 * 60)
@@ -42,10 +48,12 @@ def image_sources(message: discord.Message) -> list[ImageSource]:
     for component in components:
         for media, _ in component_media(component):
             if (kind := media_kind(media)) in ("image", "video"):
-                attachment = next((
-                    (i, att) for i, att in enumerate(message.attachments)
+                it = (
+                    (i, att)
+                    for i, att in enumerate(message.attachments)
                     if att.id == media.attachment_id or media.url == f"attachment://{att.filename}"
-                ), None)
+                )
+                attachment = next(it, None)
                 if attachment:
                     index, att = attachment
                     candidates.append(ImageSource(att.url, message.id, att, index, att.proxy_url, kind == "video"))
@@ -75,8 +83,9 @@ def image_sources(message: discord.Message) -> list[ImageSource]:
 def find_image_source(reference: str, messages: list[discord.Message], consumed: list[ImageSource]) -> ImageSource | None:
     reference = undo_xml(reference).strip().strip("<>")
     used = {url for source in consumed for url in (source.url, source.proxy_url) if url}
-    sources = [source for message in messages for source in image_sources(message)
-               if not used.intersection((source.url, source.proxy_url))]
+    sources = [
+        source for message in messages for source in image_sources(message) if used.isdisjoint((source.url, source.proxy_url))
+    ]
     for source in sources:
         if reference in (source.url, source.proxy_url):
             if reference == source.proxy_url and not source.attachment:
@@ -89,7 +98,9 @@ def find_image_source(reference: str, messages: list[discord.Message], consumed:
     return None
 
 
-async def resolve_image_source(source: ImageSource, session: aiohttp.ClientSession, max_bytes: int = IMAGE_DOWNLOAD_MAXSIZE) -> bytes:
+async def resolve_image_source(
+    source: ImageSource, session: aiohttp.ClientSession, max_bytes: int = IMAGE_DOWNLOAD_MAXSIZE
+) -> bytes:
     """Returns an image or a still frame from a video."""
     if not source.is_video:
         return await fetch_media_source(source, session, max_bytes)
@@ -114,12 +125,13 @@ async def video_frame(data: bytes) -> bytes:
         path = Path(directory) / "video"
         await asyncio.to_thread(path.write_bytes, data)
         process = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-nostdin", "-v", "error", "-threads", "1",
-            "-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,webm",
-            "-i", str(path), "-threads", "1", "-frames:v", "1", "-an", "-sn",
-            "-vf", f"scale='min({VIDEO_FRAME_RESOLUTION},iw)':'min({VIDEO_FRAME_RESOLUTION},ih)':force_original_aspect_ratio=decrease",
-            "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "3", "pipe:1",
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+            *("ffmpeg", "-nostdin", "-v", "error", "-threads", "1"),
+            *("-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,webm"),
+            *("-i", f"file:{path}", "-threads", "1", "-frames:v", "1", "-an", "-sn", "-vf"),
+            f"scale='min({VIDEO_FRAME_RESOLUTION},iw)':'min({VIDEO_FRAME_RESOLUTION},ih)':force_original_aspect_ratio=decrease",
+            *("-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "3", "pipe:1"),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
         )
         try:
             frame, _ = await asyncio.wait_for(process.communicate(), timeout=VIDEO_FRAME_TIMEOUT)
@@ -172,7 +184,7 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail
         image = Image.open(b)
     except (UnidentifiedImageError, OSError):
         return None
-    if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
+    if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
         image_rgba = image.convert("RGBA")
         background = Image.new("RGB", image.size, (0, 0, 0))
         background.paste(image_rgba, (0, 0), image_rgba.getchannel("A"))
@@ -180,7 +192,7 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int | None = None, thumbnail
     else:
         image = image.convert("RGB")
     format = "PNG"
-    if max_pixels and image.width*image.height > max_pixels:
+    if max_pixels and image.width * image.height > max_pixels:
         width, height = scale_to_size(image.width, image.height, max_pixels)
         image = image.resize((width, height), Image.Resampling.LANCZOS)
     if thumbnail_size:
@@ -207,12 +219,7 @@ async def generate_waveform(audio_bytes: bytes, max_points=256, sample_rate=8000
         raise ValueError("Could not read audio metadata")
 
     proc = await asyncio.create_subprocess_exec(
-        "ffmpeg", "-i", "-",
-        "-f", "s16le",
-        "-ac", "1",
-        "-ar", str(sample_rate),
-        "-loglevel", "quiet",
-        "-",
+        *("ffmpeg", "-i", "-", "-f", "s16le", "-ac", "1", "-ar", f"{sample_rate}", "-loglevel", "quiet", "-"),
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,

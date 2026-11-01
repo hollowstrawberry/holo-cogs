@@ -17,14 +17,15 @@ class MemoryChangeView(discord.ui.View):
     def memory_change_selector(self, change: MemoryChangeResult):
         async def memory_change_wrapper(interaction: discord.Interaction):
             await self.show_memory_change(interaction, change)
+
         return memory_change_wrapper
 
     async def show_memory_change(self, interaction: discord.Interaction, change: MemoryChangeResult):
         before = f"```\n{EMPTY}" if not change.before else f"```\n{BACKTICK_PATTERN.sub('`', change.before)}"
         after = f"```\n{EMPTY}" if not change.after else f"```\n{BACKTICK_PATTERN.sub('`', change.after)}"
         embed = discord.Embed()
-        embed.description = f"🚮 `{change.name}` {before}"[:MAX_EMBED_DESCRIPTION // 2 - 4] + "\n```"
-        embed.description += f"\n🆕 `{change.name}` {after}"[:MAX_EMBED_DESCRIPTION // 2 - 4] + "\n```"
+        embed.description = f"🚮 `{change.name}` {before}"[: MAX_EMBED_DESCRIPTION // 2 - 4] + "\n```"
+        embed.description += f"\n🆕 `{change.name}` {after}"[: MAX_EMBED_DESCRIPTION // 2 - 4] + "\n```"
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def on_timeout(self) -> None:

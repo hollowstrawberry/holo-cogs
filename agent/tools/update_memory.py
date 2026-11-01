@@ -7,8 +7,11 @@ class UpdateMemoryTool(ToolBase):
     schema = ToolCall(
         Function(
             name="update_memory",
-            description="Uses the current context to parse changes to your memory. Should only be used when specific criteria is met according to your system prompt.",
-            parameters=Parameters(properties={})
+            description=(
+                "Uses the current context to parse changes to your memory. "
+                "Should only be used when specific criteria is met according to your system prompt."
+            ),
+            parameters=Parameters(properties={}),
         )
     )
 
@@ -22,8 +25,4 @@ class UpdateMemoryTool(ToolBase):
                 "@name": change.name,
                 "#text": change.after,
             })
-        return {
-            "updated_memories": {
-                "memory": change_obj
-            }
-        }
+        return {"updated_memories": {"memory": change_obj},}

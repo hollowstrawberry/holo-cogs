@@ -4,7 +4,7 @@ from agent import constants
 from agent.types import CacheMode
 from agent.config_base import ConfigField, CogConfig, CogConfigBase
 
-
+# fmt: off
 class AgentCogGuildConfig(CogConfigBase):
     # General
     channel_mode:            ConfigField[str]            = ConfigField("whitelist")
@@ -32,7 +32,7 @@ class AgentCogGuildConfig(CogConfigBase):
     prompt_memorizer:        ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_MEMORIZER)
     prompt_captioner:        ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_CAPTIONER)
     prompt_autoreacter:      ConfigField[str] = ConfigField(constants.DEFAULT_PROMPT_AUTOREACTER)
-    # Limits 
+    # Limits  
     response_tokens:         ConfigField[int] = ConfigField(1000)
     backread_tokens:         ConfigField[int] = ConfigField(2000)
     backread_messages:       ConfigField[int] = ConfigField(10)

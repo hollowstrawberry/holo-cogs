@@ -28,16 +28,22 @@ LORA_INPUT_KEY_RE = re.compile(r"^lora_\d+$", re.IGNORECASE)
 RESOURCE_EXT_RE = re.compile(r"\.(?:safetensors|ckpt|pth|pt|bin)$", re.IGNORECASE)
 RESOURCE_HASH_RE = re.compile(r"\b(?:0x)?[0-9a-f]{10,64}\b", re.IGNORECASE)
 LORA_TAG_RE = re.compile(r"<lora:([^:>]+):", re.IGNORECASE)
-LABELLED_HASH_RE = re.compile(r"(?:^|[\s,;])(?:model|vae|lora|lycoris|checkpoint|hash|sha256)[^:\n]{0,24}:\s*(0x?[0-9a-f]{10,64})", re.IGNORECASE)
+LABELLED_HASH_RE = re.compile(
+    r"(?:^|[\s,;])(?:model|vae|lora|lycoris|checkpoint|hash|sha256)[^:\n]{0,24}:\s*(0x?[0-9a-f]{10,64})", re.IGNORECASE
+)
 BRACKET_HASH_RE = re.compile(r"\[([0-9a-f]{10,64})\]", re.IGNORECASE)
 UUID_TOKEN_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:[-_][a-z0-9._-]+)?$", re.IGNORECASE)
 STORAGE_PREFIX_RE = re.compile(r"^(?:generator|images|thumbnails|uploads|output|outputs|temp|tmp)/", re.IGNORECASE)
 UUID_PREFIX_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_ ]+", re.IGNORECASE)
 NUMERIC_PREFIX_RE = re.compile(r"^(?:\d{3,}[_-]){2,}")
-LORA_PREFIX_RE = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_',re.IGNORECASE)
+LORA_PREFIX_RE = re.compile(
+    r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_", re.IGNORECASE
+)
 AC_PROMPT_ID_RE = re.compile(r"^ac_prompt_(\d+)$", re.IGNORECASE)
 TRAILING_INDEX_RE = re.compile(r"(?:^|_)(\d+)$")
-PROMPT_NODE_FALLBACK_RE = re.compile(r"encode.*text|text.*encode|clip.*text|prompt|positive|text.*multiline|text.*concatenate", re.IGNORECASE)
+PROMPT_NODE_FALLBACK_RE = re.compile(
+    r"encode.*text|text.*encode|clip.*text|prompt|positive|text.*multiline|text.*concatenate", re.IGNORECASE
+)
 NEGATIVE_NODE_FALLBACK_RE = re.compile(r"negat|negp", re.IGNORECASE)
 
 TEXT_NOISE_VALUES = {
@@ -123,11 +129,13 @@ RESOURCE_KIND_BY_KEY = {
     "name": "resource",
 }
 
+
 def clean_model(name: str) -> str:
     name = UUID_PREFIX_RE.sub("", name)
     name = NUMERIC_PREFIX_RE.sub("", name)
     name = LORA_PREFIX_RE.sub("", name)
     return name
+
 
 @dataclass
 class ComfyLora:
@@ -221,7 +229,9 @@ class ComfyMetadata:
         return output
 
     def resource_hint_strings(self) -> list[str]:
-        return self.resource_hints.hashes + [cand.value for cand in self.resource_hints.candidates if RESOURCE_EXT_RE.search(cand.value)]
+        return self.resource_hints.hashes + [
+            cand.value for cand in self.resource_hints.candidates if RESOURCE_EXT_RE.search(cand.value)
+        ]
 
 
 @dataclass
@@ -347,15 +357,14 @@ class ComfyResourceHintExtractor:
         if key in seen:
             return
         seen.add(key)
-        hints.candidates.append(
-            ComfyResourceCandidate(
-                kind=kind, value=normalized, variants=cls.name_variants(normalized)
-            )
-        )
+        hints.candidates.append(ComfyResourceCandidate(kind=kind, value=normalized, variants=cls.name_variants(normalized)))
 
     @classmethod
     def _add_hash(
-        cls, hints: ComfyResourceHints, seen: set[str], value: str | None,
+        cls,
+        hints: ComfyResourceHints,
+        seen: set[str],
+        value: str | None,
     ) -> None:
         if not value:
             return
@@ -489,10 +498,7 @@ class ComfyResourceHintExtractor:
                 normalized = cls.normalize_name_candidate(nested)
                 if normalized:
                     if targeted_key and (
-                        RESOURCE_EXT_RE.search(normalized)
-                        or len(normalized) >= 6
-                        or "/" in normalized
-                        or "\\" in normalized
+                        RESOURCE_EXT_RE.search(normalized) or len(normalized) >= 6 or "/" in normalized or "\\" in normalized
                     ):
                         cls._add_candidate(hints, seen_names, key_kind, normalized)
 
@@ -663,11 +669,7 @@ class ComfyMetadataReader:
             parsed = json.loads(value)
             if isinstance(parsed, dict):
                 return parsed
-            if (
-                isinstance(parsed, list)
-                and parsed
-                and all(isinstance(item, dict) for item in parsed)
-            ):
+            if isinstance(parsed, list) and parsed and all(isinstance(item, dict) for item in parsed):
                 return {"nodes": parsed}
             return None
         except json.JSONDecodeError:
@@ -692,20 +694,12 @@ class ComfyMetadataReader:
             for raw in flow["nodes"]:
                 if not isinstance(raw, dict):
                     continue
-                node_type = ComfyMetadataReader.as_text(
-                    raw.get("type") or raw.get("class_type")
-                )
+                node_type = ComfyMetadataReader.as_text(raw.get("type") or raw.get("class_type"))
                 if not node_type:
                     continue
                 node_id = ComfyMetadataReader.as_text(raw.get("id")) or ""
-                inputs = (
-                    raw.get("inputs") if isinstance(raw.get("inputs"), dict) else {}
-                )
-                widgets = (
-                    raw.get("widgets_values")
-                    if isinstance(raw.get("widgets_values"), list)
-                    else []
-                )
+                inputs = raw.get("inputs") if isinstance(raw.get("inputs"), dict) else {}
+                widgets = raw.get("widgets_values") if isinstance(raw.get("widgets_values"), list) else []
                 nodes.append(Node(node_id, node_type, inputs or {}, widgets or []))
             return nodes
 
@@ -713,9 +707,7 @@ class ComfyMetadataReader:
         for key, value in flow.items():
             if not isinstance(value, dict):
                 continue
-            node_type = ComfyMetadataReader.as_text(
-                value.get("class_type") or value.get("type")
-            )
+            node_type = ComfyMetadataReader.as_text(value.get("class_type") or value.get("type"))
             if not node_type:
                 continue
             sort_key = int(key) if str(key).isdigit() else 10**9
@@ -724,14 +716,8 @@ class ComfyMetadataReader:
 
         nodes: list[Node] = []
         for _, key, value in sortable_entries:
-            inputs = (
-                value.get("inputs") if isinstance(value.get("inputs"), dict) else {}
-            )
-            widgets = (
-                value.get("widgets_values")
-                if isinstance(value.get("widgets_values"), list)
-                else []
-            )
+            inputs = value.get("inputs") if isinstance(value.get("inputs"), dict) else {}
+            widgets = value.get("widgets_values") if isinstance(value.get("widgets_values"), list) else []
             nodes.append(
                 Node(
                     key,
@@ -903,10 +889,7 @@ class ComfyMetadataReader:
             "error",
         )
         for field_name in fields:
-            if (
-                getattr(target, field_name) is None
-                and getattr(source, field_name) is not None
-            ):
+            if getattr(target, field_name) is None and getattr(source, field_name) is not None:
                 setattr(target, field_name, getattr(source, field_name))
         for lora in source.loras:
             ComfyMetadataReader.add_lora(target, lora.name, lora.weight)
@@ -919,9 +902,7 @@ class ComfyMetadataReader:
         if payload.get("on") is False:
             return None
 
-        name = cls.first_text(
-            payload.get("lora"), payload.get("lora_name"), payload.get("name")
-        )
+        name = cls.first_text(payload.get("lora"), payload.get("lora_name"), payload.get("name"))
         if not name:
             return None
 
@@ -950,28 +931,18 @@ class ComfyMetadataReader:
             meta.prompt = regional_prompt
 
         if not meta.prompt and text_candidates:
-            non_negative = [
-                text
-                for _, text, is_neg in text_candidates
-                if not is_neg and not cls.looks_negative(text)
-            ]
+            non_negative = [text for _, text, is_neg in text_candidates if not is_neg and not cls.looks_negative(text)]
             meta.prompt = non_negative[0] if non_negative else text_candidates[0][1]
 
         if not meta.negative_prompt and text_candidates:
-            negatives = [
-                text
-                for _, text, is_neg in text_candidates
-                if is_neg or cls.looks_negative(text)
-            ]
+            negatives = [text for _, text, is_neg in text_candidates if is_neg or cls.looks_negative(text)]
             if negatives:
                 meta.negative_prompt = negatives[0]
             elif len(text_candidates) > 1:
                 meta.negative_prompt = text_candidates[1][1]
 
     @classmethod
-    def build_regional_prompt(
-        cls, nodes: list[Node], text_candidates: list[tuple[str, str, bool]]
-    ) -> str | None:
+    def build_regional_prompt(cls, nodes: list[Node], text_candidates: list[tuple[str, str, bool]]) -> str | None:
         if not text_candidates:
             return None
 
@@ -1017,11 +988,7 @@ class ComfyMetadataReader:
         if len(region_by_index) < 2:
             return None
 
-        ordered = [
-            text.strip()
-            for _, text in sorted(region_by_index.items(), key=lambda item: item[0])
-            if text and text.strip()
-        ]
+        ordered = [text.strip() for _, text in sorted(region_by_index.items(), key=lambda item: item[0]) if text and text.strip()]
         if len(ordered) < 2:
             return None
 
@@ -1070,9 +1037,7 @@ class ComfyMetadataReader:
                 inputs.get("unet_name"),
             ),
         )
-        cls.set_if_missing(
-            meta, "vae", cls.first_text(inputs.get("vae_name"), inputs.get("vae"))
-        )
+        cls.set_if_missing(meta, "vae", cls.first_text(inputs.get("vae_name"), inputs.get("vae")))
         cls.set_if_missing(
             meta,
             "scheduler",
@@ -1112,19 +1077,11 @@ class ComfyMetadataReader:
                 cls.set_if_missing(meta, "upscaler", cls.as_text(node.widgets[0]))
 
         if "adetailer" in node_type_lower:
-            cls.set_if_missing(
-                meta, "adetailer_model", cls.as_text(inputs.get("model"))
-            )
-            cls.set_if_missing(
-                meta, "adetailer_denoise", cls.as_float(inputs.get("denoise"))
-            )
+            cls.set_if_missing(meta, "adetailer_model", cls.as_text(inputs.get("model")))
+            cls.set_if_missing(meta, "adetailer_denoise", cls.as_float(inputs.get("denoise")))
 
         for result_key, widget_index in cls.text_node_rules(node.node_type):
-            text_value = (
-                cls.as_text(node.widgets[widget_index])
-                if len(node.widgets) > widget_index
-                else None
-            )
+            text_value = cls.as_text(node.widgets[widget_index]) if len(node.widgets) > widget_index else None
             if text_value is None and widget_index == 0:
                 text_value = cls.as_text(inputs.get("text"))
             if text_value and cls.is_useful_text_candidate(text_value):
@@ -1134,9 +1091,7 @@ class ComfyMetadataReader:
                     cls.set_if_missing(meta, "negative_prompt", text_value)
 
         if "lora" in node_type_lower:
-            lora_name = cls.first_text(
-                inputs.get("lora_name"), inputs.get("lora"), inputs.get("name")
-            )
+            lora_name = cls.first_text(inputs.get("lora_name"), inputs.get("lora"), inputs.get("name"))
             if lora_name:
                 weight = cls.first_float(
                     inputs.get("strength_model"),
@@ -1195,37 +1150,15 @@ class ComfyMetadataReader:
                 if widget_seed is not None:
                     cls.set_if_missing(meta, "seed", widget_seed)
                 else:
-                    cls.set_if_missing(
-                        meta, "seed", cls.as_text(node.widgets[seed_widget_index])
-                    )
-            if (
-                steps_widget_index is not None
-                and meta.steps is None
-                and len(node.widgets) > steps_widget_index
-            ):
-                cls.set_if_missing(
-                    meta, "steps", cls.as_int(node.widgets[steps_widget_index])
-                )
+                    cls.set_if_missing(meta, "seed", cls.as_text(node.widgets[seed_widget_index]))
+            if steps_widget_index is not None and meta.steps is None and len(node.widgets) > steps_widget_index:
+                cls.set_if_missing(meta, "steps", cls.as_int(node.widgets[steps_widget_index]))
             if meta.cfg is None and len(node.widgets) > cfg_widget_index:
-                cls.set_if_missing(
-                    meta, "cfg", cls.as_float(node.widgets[cfg_widget_index])
-                )
-            if (
-                sampler_widget_index is not None
-                and meta.sampler is None
-                and len(node.widgets) > sampler_widget_index
-            ):
-                cls.set_if_missing(
-                    meta, "sampler", cls.as_text(node.widgets[sampler_widget_index])
-                )
-            if (
-                scheduler_widget_index is not None
-                and meta.scheduler is None
-                and len(node.widgets) > scheduler_widget_index
-            ):
-                cls.set_if_missing(
-                    meta, "scheduler", cls.as_text(node.widgets[scheduler_widget_index])
-                )
+                cls.set_if_missing(meta, "cfg", cls.as_float(node.widgets[cfg_widget_index]))
+            if sampler_widget_index is not None and meta.sampler is None and len(node.widgets) > sampler_widget_index:
+                cls.set_if_missing(meta, "sampler", cls.as_text(node.widgets[sampler_widget_index]))
+            if scheduler_widget_index is not None and meta.scheduler is None and len(node.widgets) > scheduler_widget_index:
+                cls.set_if_missing(meta, "scheduler", cls.as_text(node.widgets[scheduler_widget_index]))
 
             denoise = cls.first_float(
                 inputs.get("denoise"),
@@ -1233,11 +1166,7 @@ class ComfyMetadataReader:
             )
             if denoise is not None:
                 if meta.denoise is None:
-                    if (
-                        denoise < 0.999
-                        or node.id == "upscale_0_sampler"
-                        or "upscale" in node_type_lower
-                    ):
+                    if denoise < 0.999 or node.id == "upscale_0_sampler" or "upscale" in node_type_lower:
                         meta.denoise = denoise
                 elif meta.denoise >= 0.999 and denoise < 0.999:
                     meta.denoise = denoise

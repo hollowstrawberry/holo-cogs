@@ -16,39 +16,42 @@ log = logging.getLogger("agent.boorutags")
 
 class BooruTagsTool(ToolBase):
     display_name: ClassVar = "booru_tags"
-    settings: ClassVar = {
-        "boorutag_emoji": "🗒️"
-    }
+    settings: ClassVar = {"boorutag_emoji": "🗒️"}
     schema: ClassVar = ToolCall(
         Function(
             name="find_booru_tags",
-            description="Search a database of booru tags, such as those for clothing, composition, etc. Typically only useful for stable diffusion prompts.",
+            description=(
+                "Search a database of booru tags, such as those for clothing, composition, etc. "
+                "Typically only useful for stable diffusion prompts."
+            ),
             parameters=Parameters(
                 properties={
                     "query": {
                         "type": "string",
                         "description": "A short term to find string matches for individual booru tags or simple tag groups.",
-                    }},
+                    }
+                },
                 required=["query"],
-            )))
+            ),
+        )
+    )
 
     tag_groups: ClassVar[dict] = {}
     all_tags: ClassVar[list] = []
-    
+
     @classmethod
     def build_index(cls, data: dict[str, Any]):
         cls.tag_groups = {}
         for group_content in data.values():
             for subgroup_name, subgroup_content in group_content.items():
                 if isinstance(subgroup_content, dict):
-                    vals = [v if isinstance(v, (list, tuple)) else [v]
-                            for v in subgroup_content.values()]
+                    vals = [v if isinstance(v, (list, tuple)) else [v] for v in subgroup_content.values()]
                     merged = list(itertools.chain.from_iterable(vals))
                     cls.tag_groups[clean_booru_tag(subgroup_name)] = [clean_booru_tag(t) for t in merged if t is not None]
                 elif isinstance(subgroup_content, list):
                     cls.tag_groups[clean_booru_tag(subgroup_name)] = [clean_booru_tag(tag) for tag in subgroup_content]
-        cls.all_tags = list(itertools.chain.from_iterable(cls.tag_groups.values()))                
-        
+        cls.all_tags = list(itertools.chain.from_iterable(cls.tag_groups.values()))
+
     @classmethod
     def search_booru_tags(cls, query: str, fuzzy_threshold: int = 80) -> list[str]:
         query = clean_booru_tag(query)
@@ -57,7 +60,7 @@ class BooruTagsTool(ToolBase):
         for group, tags in cls.tag_groups.items():
             if query in group:
                 matches.update(tags)
-        
+
         fuzzy = process.extract(query, cls.all_tags, scorer=fuzz.WRatio, score_cutoff=fuzzy_threshold, limit=None)
         for tag, _, _ in fuzzy:
             matches.add(tag)

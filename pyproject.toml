@@ -1,3 +1,7 @@
+[tool.ruff]
+exclude = ["./arcenciel/moss_metadata/"]
+force-exclude = true
+
 [tool.ruff.lint]
 ignore = ["I001", "UP035", "SIM114", "SIM102", "BLE001"]
 
@@ -5,3 +9,7 @@ ignore = ["I001", "UP035", "SIM114", "SIM102", "BLE001"]
 possibly-missing-attribute = "warn"
 possibly-missing-import = "warn"
 possibly-unresolved-reference = "warn"
+
+[tool.black]
+unstable = true
+line-length = 130

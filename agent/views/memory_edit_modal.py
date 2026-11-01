@@ -25,14 +25,16 @@ class MemoryEditModal(discord.ui.Modal):
                 style=discord.TextStyle.long,
                 default=content,
                 required=False,
-            )
+            ),
         )
         self.add_item(self.content_edit)
-        
+
     async def on_submit(self, interaction: discord.Interaction):
         assert isinstance(interaction.user, discord.Member)
         if not interaction.user.guild_permissions.administrator and not await self.cog.bot.is_owner(interaction.user):
-            return await interaction.response.send_message("You can view the memory, but only an admin can edit it.", ephemeral=True)
+            return await interaction.response.send_message(
+                "You can view the memory, but only an admin can edit it.", ephemeral=True
+            )
         assert isinstance(self.content_edit.component, discord.ui.TextInput)
         content = self.content_edit.component.value
         await self.edit_callback(content)

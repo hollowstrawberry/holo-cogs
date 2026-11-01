@@ -8,17 +8,26 @@ from copy import copy
 from PIL.Image import UnidentifiedImageError
 from redbot.core import app_commands, checks, commands
 
-from arcenciel.types import ImageGenError, ImageGenParams, ImageRegionalParams, ImageToImageParams, MossBox, MossOptions, SplitType
+from arcenciel.types import (
+    ImageGenError,
+    ImageGenParams,
+    ImageRegionalParams,
+    ImageToImageParams,
+    MossBox,
+    MossOptions,
+    MossLayout,
+    SplitType,
+)
 from arcenciel.utils import clean_model, clean_tag, edit_regional_prompts, filter_names, normalize_image, debug
 from arcenciel.constants import EXCLUDE_TAGGER, LORA_PATTERN, MAX_UPLOAD_PIXELS, SUPPORTED_IMAGE_TYPES
 from arcenciel.settings import ArcencielSettings
 from arcenciel.moss import moss_models
 
-
 log = logging.getLogger("red.holo-cogs.arcenciel")
- 
+
+
 class ArcencielCommands(ArcencielSettings):
-    
+
     async def contains_blacklisted_word(self, prompt: str):
         blacklist_regex = await self.config.blacklist_regex()
         if blacklist_regex:
@@ -43,10 +52,11 @@ class ArcencielCommands(ArcencielSettings):
         if not choices:
             return []
         choices = filter_names(choices, current)
-        return [app_commands.Choice(name=display_name.replace(".safetensors", ""), value=name.replace(".safetensors", ""))
-                for display_name, name in choices.items()
-                if len(name.replace(".safetensors", "")) <= 100
-                ][:25]
+        return [
+            app_commands.Choice(name=display_name.replace(".safetensors", ""), value=name.replace(".safetensors", ""))
+            for display_name, name in choices.items()
+            if len(name.replace(".safetensors", "")) <= 100
+        ][:25]
 
     async def samplers_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
         choices = self.autocomplete_cache.get("samplers") or {}
@@ -59,17 +69,17 @@ class ArcencielCommands(ArcencielSettings):
     async def vae_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
         choices = self.autocomplete_cache.get("vae") or {}
         return await self.build_autocomplete_choices(current, choices)
-    
+
     async def loras_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
         if len(current) < 3:
             return []
         assert self.api
         results = await self.api.search_loras(current)
-        return [app_commands.Choice(name=clean_model(name.replace(".safetensors", "")), value=name.replace(".safetensors", ""))
-                for name in results
-                if len(name.replace(".safetensors", "")) <= 100
-                ][:25]
-    
+        return [
+            app_commands.Choice(name=clean_model(name.replace(".safetensors", "")), value=name.replace(".safetensors", ""))
+            for name in results
+            if len(name.replace(".safetensors", "")) <= 100
+        ][:25]
 
     _shared_parameter_descriptions: ClassVar = {
         "negative_prompt": "Undesired terms go here.",
@@ -95,7 +105,6 @@ class ArcencielCommands(ArcencielSettings):
         app_commands.Choice(name="Landscape", value="1216x832"),
         app_commands.Choice(name="Ultrawide", value="1536x640"),
     ]
-
 
     @checks.bot_has_permissions(attach_files=True)
     @checks.bot_in_a_guild()
@@ -126,12 +135,15 @@ class ArcencielCommands(ArcencielSettings):
                 prompt = pattern.sub("", prompt).strip(" ,")
                 width, height = size
                 break
-              
+
         if "|" in prompt:
             sep = "||" if "||" in prompt else "|"
             segments = [p.strip() for p in prompt.split(sep)]
             if len(segments) != 3:
-                content = f":warning: Your prompt contains regions divided by `{sep}`, but it's not in the format `shared {sep} left {sep} right`"
+                content = (
+                    f":warning: Your prompt contains regions divided by `{sep}`, "
+                    f"but it's not in the format `shared {sep} left {sep} right`"
+                )
                 if sep == "|":
                     content += "\nIf you need to use `|` in your prompt, use the /txt2img slash command instead."
                 return await ctx.send(content)
@@ -149,10 +161,12 @@ class ArcencielCommands(ArcencielSettings):
             regions=regions,
             loras=loras,
         )
-        message_content=f"Result of {ctx.message.jump_url} requested by {ctx.author.mention}"
+        message_content = f"Result of {ctx.message.jump_url} requested by {ctx.author.mention}"
         await self.generate_image(ctx, params=params, message_content=message_content)
 
-    async def moss_checkpoint_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    async def moss_checkpoint_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
         if not self.api:
             return []
         try:
@@ -202,15 +216,16 @@ class ArcencielCommands(ArcencielSettings):
         boxes: list[MossBox] = []
         top = 250 if title else 50
         if left:
-            boxes.append({"label": "character", "caption": left, "bbox": [top, 20, 950, 480]})
+            boxes.append(MossBox(label="character", caption=left, bbox=[top, 20, 950, 480]))
         if right:
-            boxes.append({"label": "character", "caption": right, "bbox": [top, 520, 950, 980]})
+            boxes.append(MossBox(label="character", caption=right, bbox=[top, 520, 950, 980]))
         if title:
-            boxes.append({"label": "text", "caption": "Large clear title", "text": title, "bbox": [30, 50, 210, 950]})
-        moss: MossOptions = (
-            {"layout": {"version": 1, "coordinateSpace": "normalized_1000", "canvas": "single", "items": boxes}}
-            if boxes
-            else {}
+            boxes.append(MossBox(label="text", caption="Large clear title", text=title, bbox=[30, 50, 210, 950]))
+        layout = MossLayout(
+            version=1,
+            coordinateSpace="normalized_1000",
+            canvas="single",
+            items=boxes,
         )
         params = ImageGenParams(
             prompt=prompt,
@@ -219,7 +234,7 @@ class ArcencielCommands(ArcencielSettings):
             height=height,
             checkpoint=checkpoint,
             seed=seed,
-            moss=moss,
+            moss=MossOptions(layout=layout) if boxes else {},
         )
         await self.generate_image(interaction, params=params)
 
@@ -275,12 +290,14 @@ class ArcencielCommands(ArcencielSettings):
         if "||" in prompt:
             segments = [p.strip() for p in prompt.split("||")]
             if len(segments) != 3:
-                content = ":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
+                content = (
+                    ":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
+                )
                 return await interaction.followup.send(content=content, ephemeral=True)
             segments = edit_regional_prompts(*segments)
             prompt = segments[0]
             regions = ImageRegionalParams(segments[1], segments[2], SplitType.HORIZONTAL.value, 50)
-            
+
         params = ImageGenParams(
             prompt=prompt,
             negative_prompt=negative_prompt,
@@ -297,7 +314,6 @@ class ArcencielCommands(ArcencielSettings):
         )
 
         await self.generate_image(interaction, params=params)
-
 
     @app_commands.command(name="txt2img-regions")
     @app_commands.guild_only()
@@ -374,7 +390,6 @@ class ArcencielCommands(ArcencielSettings):
 
         await self.generate_image(interaction, params=params)
 
-
     @app_commands.command(name="img2img")
     @app_commands.describe(
         image="The input image.",
@@ -390,20 +405,20 @@ class ArcencielCommands(ArcencielSettings):
     @app_commands.checks.bot_has_permissions(attach_files=True)
     @app_commands.guild_only()
     async def reimagine_app(
-            self,
-            interaction: discord.Interaction,
-            image: discord.Attachment,
-            denoising: app_commands.Range[float, 0, 1],
-            prompt: str,
-            negative_prompt: str | None = None,
-            checkpoint: str | None = None,
-            lora: str = "",
-            scale: app_commands.Range[float, 0.5, 2.0] = 1,
-            cfg: app_commands.Range[float, 2, 8] | None = None,
-            seed: app_commands.Range[int, -1, None] = -1,
-            subseed: app_commands.Range[int, -1, None] = -1,
-            variation: app_commands.Range[float, 0.0, 0.5] = 0,
-            vae: str | None = None,
+        self,
+        interaction: discord.Interaction,
+        image: discord.Attachment,
+        denoising: app_commands.Range[float, 0, 1],
+        prompt: str,
+        negative_prompt: str | None = None,
+        checkpoint: str | None = None,
+        lora: str = "",
+        scale: app_commands.Range[float, 0.5, 2.0] = 1,
+        cfg: app_commands.Range[float, 2, 8] | None = None,
+        seed: app_commands.Range[int, -1, None] = -1,
+        subseed: app_commands.Range[int, -1, None] = -1,
+        variation: app_commands.Range[float, 0.0, 0.5] = 0,
+        vae: str | None = None,
     ):
         """
         Convert an image using Stable Diffusion
@@ -419,13 +434,14 @@ class ArcencielCommands(ArcencielSettings):
             return await interaction.followup.send("The file you uploaded is not a valid image.", ephemeral=True)
 
         assert image.width and image.height
-        maxsize = (await self.config.max_img2img())**2
-        size = image.width*image.height*scale*scale
+        maxsize = (await self.config.max_img2img()) ** 2
+        size = image.width * image.height * scale * scale
         if size > maxsize:
             return await interaction.followup.send(
                 f"Max img2img size is {int(maxsize**0.5)}² pixels. "
                 f"Your image {'after resizing would be' if scale != 0 else 'is'} {int(size**0.5)}² pixels, which is too big.",
-                ephemeral=True)
+                ephemeral=True,
+            )
 
         image_name = image.filename.rsplit(".", 1)[0] + ".png"
         try:
@@ -453,13 +469,12 @@ class ArcencielCommands(ArcencielSettings):
             loras=[lora] if lora else [],
             subseed=subseed,
             subseed_strength=variation,
-            height=round(image.height*scale),
-            width=round(image.width*scale),
+            height=round(image.height * scale),
+            width=round(image.width * scale),
             image=img2img_params,
         )
 
         await self.generate_image(interaction, params=params)
-
 
     @commands.command(name="autotag")
     async def autotag_cmd(self, ctx: commands.Context):
@@ -478,10 +493,9 @@ class ArcencielCommands(ArcencielSettings):
         assert ctx.guild and image.content_type
         if all(ext not in image.content_type for ext in SUPPORTED_IMAGE_TYPES):
             return await ctx.reply("The file you uploaded is not a valid image.")
-        
+
         async with ctx.typing():
             await self.autotag(ctx, image)
-
 
     @app_commands.command(name="autotag")
     @app_commands.describe(image="The image to generate tags for")
@@ -498,10 +512,9 @@ class ArcencielCommands(ArcencielSettings):
         assert ctx.guild and image.content_type
         if all(ext not in image.content_type for ext in SUPPORTED_IMAGE_TYPES):
             return await interaction.followup.send("The file you uploaded is not a valid image.", ephemeral=True)
-                
+
         await interaction.response.defer(thinking=True)
         await self.autotag(ctx, image)
-        
 
     async def autotag(self, ctx: commands.Context, attachment: discord.Attachment):
         assert self.api
@@ -522,6 +535,6 @@ class ArcencielCommands(ArcencielSettings):
             embed = discord.Embed(title="Autotagger Result", color=await self.bot.get_embed_color(ctx))
             if "sensitive" not in tags and "explicit" not in tags:
                 embed.set_thumbnail(url=attachment.url)
-            cleaned_tags = ', '.join([clean_tag(tag) for tag in tags if tag not in EXCLUDE_TAGGER])
+            cleaned_tags = ", ".join([clean_tag(tag) for tag in tags if tag not in EXCLUDE_TAGGER])
             embed.description = f"`{cleaned_tags}`"
             await ctx.reply(embed=embed, allowed_mentions=discord.AllowedMentions.none())

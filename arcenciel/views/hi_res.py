@@ -18,58 +18,65 @@ class HiresModal(discord.ui.Modal):
         self.payload = deepcopy(parent_view.payload)
         self.generate_image = parent_view.generate_image
 
-        upscalers        = sorted(set(parent_view.cache["upscale"]))
+        upscalers = sorted(set(parent_view.cache["upscale"]))
         default_upscaler = DEFAULT_UPSCALER if DEFAULT_UPSCALER in upscalers else upscalers[-1]
-        maxscale         = ((maxsize*maxsize) / (self.payload["width"] * self.payload["height"])) ** 0.5
-        scales           = [s for s in [1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0] if s <= maxscale]
-        default_scale    = scales[-1]
-        denoise_steps    = list(chain(range(0, 7, 1), range(8, 21, 2), range(25, 81, 5)))
+        maxscale = ((maxsize * maxsize) / (self.payload["width"] * self.payload["height"])) ** 0.5
+        scales = [s for s in [1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0] if s <= maxscale]
+        default_scale = scales[-1]
+        denoise_steps = list(chain(range(0, 7, 1), range(8, 21, 2), range(25, 81, 5)))
+
+        upscaler_options = [
+            discord.SelectOption(label=name.rsplit(".", 1)[0], value=name, default=name == default_upscaler)
+            for name in upscalers[:25]
+        ]
+        scale_options = [
+            discord.RadioGroupOption(
+                label=f"x{num:.2f}",
+                value=f"{num:.2f}",
+                default=num == default_scale,
+            )
+            for num in scales
+        ]
+        denoising_options = [
+            discord.SelectOption(
+                label=f"{num}%",
+                value=f"{num / 100:.2f}",
+                default=num == DEFAULT_DENOISE,
+            )
+            for num in denoise_steps[1:]
+        ]
+        adetailer_options = [
+            discord.SelectOption(
+                label="Disabled" if num == 0 else f"{num}%",
+                value=f"{num / 100:.2f}",
+                default=num == DEFAULT_ADETAILER_DENOISE,
+            )
+            for num in denoise_steps[:-1]
+        ]
 
         self.upscaler_select = discord.ui.Label(
             text="Upscaler",
-            component=discord.ui.Select(options=[
-                discord.SelectOption(label=name.rsplit(".", 1)[0], value=name, default=name==default_upscaler)
-                for name in upscalers[:25]
-            ])
+            component=discord.ui.Select(options=upscaler_options),
         )
         self.scale_radio = discord.ui.Label(
             text="Scale",
-            component=discord.ui.RadioGroup(options=[
-                discord.RadioGroupOption(
-                    label=f"x{num:.2f}",
-                    value=f"{num:.2f}",
-                    default=num==default_scale,
-                ) for num in scales
-            ])
+            component=discord.ui.RadioGroup(options=scale_options),
         )
         self.denoising_select = discord.ui.Label(
             text="Denoise",
             description="How much the image will change.",
-            component=discord.ui.Select(options=[
-                discord.SelectOption(
-                    label=f"{num}%",
-                    value=f"{num / 100:.2f}",
-                    default=num==DEFAULT_DENOISE,
-                ) for num in denoise_steps[1:]
-            ])
+            component=discord.ui.Select(options=denoising_options),
         )
         self.adetailer_denoising_select = discord.ui.Label(
             text="ADetailer Denoise",
             description="How much the face will change.",
-            component=discord.ui.Select(options=[
-                discord.SelectOption(
-                    label="Disabled" if num == 0 else f"{num}%",
-                    value=f"{num / 100:.2f}",
-                    default=num==DEFAULT_ADETAILER_DENOISE,
-                ) for num in denoise_steps[:-1]
-            ])
+            component=discord.ui.Select(options=adetailer_options),
         )
 
         self.add_item(self.scale_radio)
         self.add_item(self.upscaler_select)
         self.add_item(self.denoising_select)
         self.add_item(self.adetailer_denoising_select)
-
 
     async def on_submit(self, interaction: discord.Interaction):
         assert self.parent_interaction.message
@@ -84,12 +91,10 @@ class HiresModal(discord.ui.Modal):
         adetailer_denoising = float(self.adetailer_denoising_select.component.values[0])
 
         self.payload["scaleFactor"] = scale
-        self.payload["upscaleProfiles"] = [
-            {
-                "modelName": upscaler,
-                "denoise": denoise,
-            }
-        ]
+        self.payload["upscaleProfiles"] = [{
+            "modelName": upscaler,
+            "denoise": denoise,
+        }]
 
         params = self.parent_view.metadata.as_dict()
         self.payload["seed"] = int(params["Seed"])
@@ -104,7 +109,9 @@ class HiresModal(discord.ui.Modal):
         self.parent_button.disabled = True
         await self.parent_interaction.message.edit(view=self.parent_view)
         message_content = f"Upscale requested by {interaction.user.mention}"
-        await self.generate_image(interaction, payload=self.payload, callback=self.edit_callback(), message_content=message_content)
+        await self.generate_image(
+            interaction, payload=self.payload, callback=self.edit_callback(), message_content=message_content
+        )
 
     async def edit_callback(self):
         await asyncio.sleep(0.1)

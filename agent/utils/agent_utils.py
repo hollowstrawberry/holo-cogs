@@ -16,6 +16,7 @@ def is_bot_command(message: AgentMessage, prefixes: list[str]):
         content = next((text for cnt in content if (text := cnt.get("text"))), "")
     return any(f"<content>{prefix}" in content for prefix in prefixes)
 
+
 def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[AgentMessage]:
     """Copies the message list and applies cache breakpoints if applicable."""
     messages = deepcopy(messages)
@@ -38,6 +39,7 @@ def prepare_messages(messages: list[AgentMessage], mode: CacheMode) -> list[Agen
                 break
     return messages
 
+
 def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:
     for msg in messages:
         if not isinstance(msg, Mapping):
@@ -47,6 +49,7 @@ def clear_cache_breakpoints(messages: list[AgentMessage]) -> None:
             for cnt in msg["content"]:
                 cnt.pop("cache_control", None)
 
+
 def make_text_content(content: str, cache=False) -> AgentContent:
     return {
         "type": "text",
@@ -54,15 +57,17 @@ def make_text_content(content: str, cache=False) -> AgentContent:
         **({"cache_control": CACHE_CONTROL} if cache else {}),
     }
 
+
 def make_image_content(b: bytes | BytesIO, low_detail: bool = False) -> AgentContent:
     b = b.read() if isinstance(b, BytesIO) else b
     return {
         "type": "image_url",
         "image_url": {
             "url": f"data:image/png;base64,{b64encode(b).decode()}",
-            **({"detail": "low"} if low_detail else {}),     
-        }
+            **({"detail": "low"} if low_detail else {}),
+        },
     }
+
 
 def make_caption_content(src: ImageSource, caption: str) -> AgentContent:
     caption_obj = {
@@ -74,14 +79,16 @@ def make_caption_content(src: ImageSource, caption: str) -> AgentContent:
     }
     return make_text_content(xmltodict.unparse(caption_obj, full_document=False))
 
+
 def make_video_placeholder_content(url: str):
     obj = {
         "video_frame": {
             "@url": url,
-            "@audio": "false"
+            "@audio": "false",
         }
     }
     return make_text_content(xmltodict.unparse(obj, full_document=False))
+
 
 def build_image_contents(msg: ContextMessage, max_quality: ImageQuality, use_captions: bool) -> list[AgentContent]:
     contents: list[AgentContent] = []
@@ -99,6 +106,7 @@ def build_image_contents(msg: ContextMessage, max_quality: ImageQuality, use_cap
             contents.append(make_image_content(slot.entry.image_low, low_detail=True))
     return contents
 
+
 def text_content_only(messages: list[AgentMessage]) -> list[AgentMessage]:
     """Strips any non-text contents from the chat history."""
     temp_messages = deepcopy(messages)
@@ -106,6 +114,7 @@ def text_content_only(messages: list[AgentMessage]) -> list[AgentMessage]:
         if not isinstance(msg["content"], str):
             msg["content"] = [cnt for cnt in msg["content"] if cnt.get("type") == "text"]
     return temp_messages
+
 
 def adjusted_effort(model: str, effort: str) -> str | Omit:
     """Transforms an effort value into a value that is valid for the given model."""
@@ -120,14 +129,17 @@ def adjusted_effort(model: str, effort: str) -> str | Omit:
         return "none"
     return effort
 
+
 def image_tokens(model: str) -> tuple[int, int]:
     for pattern, low, high in IMAGE_TOKEN_COUNT:
         if pattern.match(model):
             return low, high
     return IMAGE_TOKEN_COUNT[-1][1:]
 
+
 def clean_model(model: str) -> str:
     return model.replace("$", "")  # identifies openwebui model
+
 
 async def is_valid_openrouter_model(session: aiohttp.ClientSession, model: str) -> bool:
     if model.count("/") != 1:

@@ -33,10 +33,12 @@ class ArcencielTool(ToolBase):
                     "user": {
                         "type": "string",
                         "description": "Name of a user to search. If included, only models by this user will be shown.",
-                    }
+                    },
                 },
                 required=[],
-            )))
+            ),
+        )
+    )
 
     async def run(self, arguments: dict) -> dict | str:
         try:
@@ -69,7 +71,9 @@ class ArcencielTool(ToolBase):
             if user:
                 async with arcenciel.api.session.get(
                     f"{arcenciel.api.endpoint}/users/search",
-                    params={"q": user}, headers=self.headers, timeout=timeout,
+                    params={"q": user},
+                    headers=self.headers,
+                    timeout=timeout,
                 ) as response:
                     response.raise_for_status()
                     user_data: list[dict] = await response.json()
@@ -80,7 +84,9 @@ class ArcencielTool(ToolBase):
 
             async with arcenciel.api.session.get(
                 f"{arcenciel.api.endpoint}/models/search",
-                params=params, headers=self.headers, timeout=timeout,
+                params=params,
+                headers=self.headers,
+                timeout=timeout,
             ) as response:
                 response.raise_for_status()
                 data: dict = await response.json()
@@ -98,7 +104,7 @@ class ArcencielTool(ToolBase):
             if not result.get("versions"):
                 continue
             results.append(parse_arcenciel_model(result, description_limit=description_limit, trigger_limit=trigger_limit))
-        
+
         result = {}
         add_xml_group(result, results, "models")
         return {"result": result}

@@ -7,9 +7,9 @@ ENDPOINT = "https://arcenciel.io/api"
 VIEW_TIMEOUT = 15 * 60
 JOB_TIMEOUT = 10 * 60
 PROGRESS_UPDATE_INTERVAL = 5
-MAX_UPLOAD_PIXELS = 2048*2048
+MAX_UPLOAD_PIXELS = 2048 * 2048
 MAX_MESSAGE_LENGTH = 2000
-QUOTA_PERIOD = 24*60*60
+QUOTA_PERIOD = 24 * 60 * 60
 QUOTA_VIP_THRESHOLD = 100
 
 DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=UTC)
@@ -24,7 +24,9 @@ RESOURCE_HASH_PATTERN = re.compile(r"\b(?:0x)?[0-9a-f]{10,64}\b", re.IGNORECASE)
 
 UUID_PREFIX_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[-_ ]+", re.IGNORECASE)
 NUMERIC_PREFIX_PATTERN = re.compile(r"^(?:\d{3,}[_-]){2,}")
-LORA_PREFIX_PATTERN = re.compile(r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_',re.IGNORECASE)
+LORA_PREFIX_PATTERN = re.compile(
+    r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+(?:_[0-9]+)?)_", re.IGNORECASE
+)
 
 NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
 PIPE_SEPARATOR_PATTERN = re.compile(r"\s*\|\|\s*")
@@ -50,8 +52,16 @@ ADETAILER_ARGS = {
 
 PARAMS_BLACKLIST = [
     "Template",
-    "ADetailer confidence", "ADetailer mask", "ADetailer dilate", "ADetailer denoising", "ADetailer steps",
-    "ADetailer inpaint", "ADetailer version", "ADetailer prompt", "ADetailer use", "ADetailer checkpoint",
+    "ADetailer confidence",
+    "ADetailer mask",
+    "ADetailer dilate",
+    "ADetailer denoising",
+    "ADetailer steps",
+    "ADetailer inpaint",
+    "ADetailer version",
+    "ADetailer prompt",
+    "ADetailer use",
+    "ADetailer checkpoint",
 ]
 
 EXCLUDE_TAGGER = ["general", "sensitive", "questionable", "explicit"]

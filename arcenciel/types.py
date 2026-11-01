@@ -1,4 +1,3 @@
-
 import discord
 from abc import ABC
 from enum import Enum
@@ -20,7 +19,7 @@ class CallbackButton(discord.ui.Button):
         emoji: str | discord.Emoji | None = None,
         label: str | None = None,
         style: discord.ButtonStyle = discord.ButtonStyle.secondary,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(emoji=emoji, label=label, style=style, **kwargs)
         self._callback = callback
@@ -35,12 +34,19 @@ class SplitType(Enum):
 
 
 class GeneratingV2ViewBase(discord.ui.LayoutView, ABC):
-    def set_progress(self, status: str, progress: str | None = None, eta: str | None = None, step: str | None = None, preview_filename: str | None = None):
+    def set_progress(
+        self,
+        status: str,
+        progress: str | None = None,
+        eta: str | None = None,
+        step: str | None = None,
+        preview_filename: str | None = None,
+    ):
         raise NotImplementedError
 
 
 @runtime_checkable
-class ImageScanner(Protocol): # crab-cogs
+class ImageScanner(Protocol):  # crab-cogs
     scan_channels: set[int]
     image_cache: dict[int, tuple[dict[int, object], dict[int, bytes]]]
 
@@ -69,12 +75,14 @@ class QueuedImageGen:
     preview_disabled: bool = False
     progress_v2_view: GeneratingV2ViewBase | None = None
 
+
 @dataclass
 class ImageToImageParams:
     data: bytes
     filename: str
     denoising: float
     scale: float
+
 
 @dataclass
 class ImageRegionalParams:
@@ -83,26 +91,27 @@ class ImageRegionalParams:
     split_type: str
     split_percent: int
 
+
 @dataclass
 class ImageGenParams:
     prompt: str
     negative_prompt: str | None = None
-    style: str | None           = None
-    width: int | None           = None
-    height: int | None          = None
-    cfg: float | None           = None
-    sampler: str | None         = None
-    scheduler: str | None       = None
-    steps: int | None           = None
-    seed: int                   = -1
-    variation: int              = 0
-    variation_seed: int         = -1
-    checkpoint: str | None      = None
-    vae: str | None             = None
-    loras: list[str]            = field(default_factory=list)
-    subseed: int                = -1
-    subseed_strength: float     = 0.0
-    agent_request: bool         = False
+    style: str | None = None
+    width: int | None = None
+    height: int | None = None
+    cfg: float | None = None
+    sampler: str | None = None
+    scheduler: str | None = None
+    steps: int | None = None
+    seed: int = -1
+    variation: int = 0
+    variation_seed: int = -1
+    checkpoint: str | None = None
+    vae: str | None = None
+    loras: list[str] = field(default_factory=list)
+    subseed: int = -1
+    subseed_strength: float = 0.0
+    agent_request: bool = False
     image: ImageToImageParams | None = None
     regions: ImageRegionalParams | None = None
     # Raw options are validated into MossOptions before they reach the API.

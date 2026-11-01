@@ -26,16 +26,17 @@ class VariationModal(discord.ui.Modal):
         self.variation_select = discord.ui.Label(
             text="Strength",
             description="How strong the change should be compared to the original image.",
-            component=discord.ui.Select(options=[
-                discord.SelectOption(label=f"{num}%", value=str(num), default=num==default_strength_percent)
-                for num in range(1, 26)
-            ]),
+            component=discord.ui.Select(
+                options=[
+                    discord.SelectOption(label=f"{num}%", value=str(num), default=num == default_strength_percent)
+                    for num in range(1, 26)
+                ]
+            ),
         )
 
         self.add_item(self.variation_select)
         if previous_strength > 0:
             self.add_item(self.subseed_checkbox)
-
 
     async def on_submit(self, interaction: discord.Interaction):
         assert isinstance(self.subseed_checkbox.component, discord.ui.Checkbox)

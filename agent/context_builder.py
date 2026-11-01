@@ -14,8 +14,15 @@ from agent import utils, constants
 from agent.base import AgentCogBase
 from agent.config import AgentCogGuildConfig
 from agent.types import (
-    ImageQuality, ImageSlot, ImageSource, ImageEntry, ImageScanner,
-    StructuredObject, AgentMessage, ContextMessage, CompletionResult
+    ImageQuality,
+    ImageSlot,
+    ImageSource,
+    ImageEntry,
+    ImageScanner,
+    StructuredObject,
+    AgentMessage,
+    ContextMessage,
+    CompletionResult,
 )
 
 log = logging.getLogger("agent.context")
@@ -30,12 +37,13 @@ class AgentChatContext:
         """Returns the built chat context with images limited to a certain quality level."""
         return [
             {
-                "role": "user", 
+                "role": "user",
                 "content": [
                     utils.make_text_content(msg.text),
                     *utils.build_image_contents(msg, max_quality, self.use_captions),
-                ]
-            } for msg in reversed(self._messages)
+                ],
+            }
+            for msg in reversed(self._messages)
         ]
 
 
@@ -46,8 +54,8 @@ class ContextBuilder:
         self.session = cog.session
         self.execute_captioner = cog.execute_captioner
         self.is_busy = cog.is_busy
-        self.image_cache: dict[tuple, ImageEntry]      = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
-        self.text_cache: dict[int, str]                = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
+        self.image_cache: dict[tuple, ImageEntry] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
+        self.text_cache: dict[int, str] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
         self.message_cache: dict[int, discord.Message] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
 
     async def build_context(
@@ -106,7 +114,6 @@ class ContextBuilderPipeline:
         self.report(messages)
         return AgentChatContext(messages, self.config.use_captions.value)
 
-
     # Fetching
 
     async def resolve_quotes(self) -> dict[int, discord.Message]:
@@ -122,19 +129,16 @@ class ContextBuilderPipeline:
         found = dict(zip(replies, fetched))
         return {message_id: quote for message_id, quote_id in quote_ids.items() if (quote := found[quote_id])}
 
-
     async def fetch_quote(self, backmsg: discord.Message, quote_id: int) -> discord.Message | None:
         cached = backmsg.reference.cached_message if backmsg.reference else None
         quote = self.in_context.get(quote_id) or cached or await self.builder.fetch_message(backmsg.channel, quote_id)
         return await utils.resolve_components(quote) if quote else None
-
 
     async def resolve_generated(self) -> dict[int, dict[str, str]]:
         """Returns the metadata of the generated image of each message."""
         messages = {message.id: message for message in [*self.backread, *self.quotes.values()]}
         found = await utils.gather_logged(log, (self.detect_generated(message) for message in messages.values()))
         return {message_id: generated for message_id, generated in zip(messages, found) if generated}
-
 
     async def detect_generated(self, message: discord.Message) -> dict[str, str] | None:
         if message.author != self.ctx.me or len(message.attachments) != 1:
@@ -145,31 +149,28 @@ class ContextBuilderPipeline:
             return await self.imagescanner.grab_metadata_dict(message)
         return None
 
-
     # Parsing
 
     async def parse_messages(self) -> list[ContextMessage]:
         parsed = await utils.gather_logged(log, (self.parse_message(backmsg) for backmsg in self.backread))
         return [msg or self.failed_message(backmsg) for msg, backmsg in zip(parsed, self.backread)]
 
-
     async def parse_message(self, backmsg: discord.Message) -> ContextMessage:
         obj, inlines = await self.parse_discord_message(backmsg, exhaustive=True, recursive=True)
         return self.make_message(backmsg, obj, inlines)
-
 
     def failed_message(self, backmsg: discord.Message) -> ContextMessage:
         obj = {**self.message_header(backmsg), "error": "Failed to process this message"}
         return self.make_message(backmsg, {"chat_message": obj}, {})
 
-
-    def make_message(self, backmsg: discord.Message, obj: StructuredObject, inlines: dict[str, StructuredObject]) -> ContextMessage:
+    def make_message(
+        self, backmsg: discord.Message, obj: StructuredObject, inlines: dict[str, StructuredObject]
+    ) -> ContextMessage:
         text = xmltodict.unparse(obj, full_document=False)
         for before, after_obj in inlines.items():
             text = text.replace(utils.escape_xml(before), xmltodict.unparse(after_obj, full_document=False))
         text = utils.resolve_omitted(text)
         return ContextMessage(backmsg, text, len(self.encoding.encode(text)))
-
 
     # Planning
 
@@ -188,22 +189,18 @@ class ContextBuilderPipeline:
                 placed.add(shown.id)
                 msg.slots.extend(ImageSlot(src, next(tiers)) for src in self.image_sources(shown))
 
-
     def image_sources(self, message: discord.Message) -> list[ImageSource]:
         if (generated := self.generated.get(message.id)) and generated.get("Prompt"):
             return []  # the prompt is sent instead
-        return utils.image_sources(message)[:constants.MAX_IMAGES_PER_MESSAGE]
-
+        return utils.image_sources(message)[: constants.MAX_IMAGES_PER_MESSAGE]
 
     def tokens(self, msg: ContextMessage) -> int:
         return msg.text_tokens + sum(self.image_tokens[slot.quality] for slot in msg.slots)
-
 
     def trim(self, messages: list[ContextMessage]) -> list[ContextMessage]:
         """Keeps messages until the token budget runs out, including the one that crosses it."""
         used_before = accumulate((self.tokens(msg) for msg in messages), initial=0)
         return [msg for msg, used in zip(messages, used_before) if used < self.config.backread_tokens.value]
-
 
     # Result
 
@@ -213,7 +210,6 @@ class ContextBuilderPipeline:
         self.result.images = tiers[ImageQuality.FULL]
         self.result.images_low = tiers[ImageQuality.LOW]
         self.result.tokens.backread = sum(self.tokens(msg) for msg in messages)
-
 
     # Images
 
@@ -226,10 +222,9 @@ class ContextBuilderPipeline:
             else:
                 slot.quality = ImageQuality.NONE
 
-
     async def resolve_image(self, slot: ImageSlot) -> ImageEntry:
-        full_pixels = self.config.max_image_resolution.value ** 2
-        low_pixels = self.config.max_caption_resolution.value ** 2
+        full_pixels = self.config.max_image_resolution.value**2
+        low_pixels = self.config.max_caption_resolution.value**2
         entry = self.builder.image_cache.setdefault((slot.src.key, full_pixels, low_pixels), ImageEntry())
         async with entry.lock:
             entry.image_full = entry.image_full or await self.fetch_image(slot.src, full_pixels)
@@ -243,7 +238,6 @@ class ContextBuilderPipeline:
                     log.warning(f"failed to make caption for {slot.src.url}: {utils.debug(error)}")
         return entry
 
-
     async def fetch_image(self, src: ImageSource, max_pixels: int) -> bytes | None:
         try:
             image = self.scanned_image(src) or await utils.resolve_image_source(src, self.builder.session)
@@ -252,12 +246,10 @@ class ContextBuilderPipeline:
             log.warning(f"failed to get image data for {src.url}: {utils.debug(error)}")
             return None
 
-
     def scanned_image(self, src: ImageSource) -> bytes | None:
         if self.imagescanner and src.attachment:
             return self.imagescanner.image_cache.get(src.message_id, ({}, {}))[1].get(src.att_index)
         return None
-
 
     # Messages
 
@@ -270,11 +262,9 @@ class ContextBuilderPipeline:
             obj["@nickname"] = message.author.nick
         return obj
 
-
     def clean_content(self, text: str) -> str:
         text = utils.resolve_emotes(self.builder.bot, text)
         return utils.resolve_mentions(self.builder.bot, self.ctx.guild, text)
-
 
     async def parse_discord_message(
         self,
@@ -304,7 +294,9 @@ class ContextBuilderPipeline:
             }
         # quote
         if recursive and (quote := self.quotes.get(message.id)):
-            quote_obj, quote_inlines = await self.parse_discord_message(quote, exhaustive=quote.id not in self.in_context, recursive=False)
+            quote_obj, quote_inlines = await self.parse_discord_message(
+                quote, exhaustive=quote.id not in self.in_context, recursive=False
+            )
             obj["quote"] = quote_obj
             inlines.update(quote_inlines)
         # text
@@ -316,7 +308,7 @@ class ContextBuilderPipeline:
             utils.add_xml_group(obj, attachments, "attachments")
         if stickers := [{"#text": sticker.name} for sticker in message.stickers]:
             utils.add_xml_group(obj, stickers, "stickers")
-        if (embeds := self.embed_objs(message, obj.get("content", ""), exhaustive)):
+        if embeds := self.embed_objs(message, obj.get("content", ""), exhaustive):
             utils.add_xml_group(obj, embeds, "embeds")
         if components := self.component_objs(message, exhaustive):
             utils.add_xml_group(obj, components, "components")
@@ -331,7 +323,6 @@ class ContextBuilderPipeline:
         # done
         return {"chat_message": obj}, inlines
 
-
     async def parse_text(
         self,
         message: discord.Message,
@@ -341,7 +332,9 @@ class ContextBuilderPipeline:
         """Returns the text fields of a message, and the inline objects that replace its message links."""
         assert message.guild
         if message.is_system():
-            return {"action": "Joined the server" if message.type == discord.MessageType.new_member else message.system_content}, {}
+            return {
+                "action": "Joined the server" if message.type == discord.MessageType.new_member else message.system_content
+            }, {}
         if not message.content:
             return {}, {}
         content = message.content
@@ -366,13 +359,14 @@ class ContextBuilderPipeline:
                 guild = self.builder.bot.get_guild(guild_id)
                 channel = guild.get_channel_or_thread(channel_id) if guild else None
                 if linked := await self.builder.fetch_message(channel, message_id):
-                    linked_obj, linked_inlines = await self.parse_discord_message(linked, exhaustive=linked.id not in self.in_context, recursive=False)
+                    linked_obj, linked_inlines = await self.parse_discord_message(
+                        linked, exhaustive=linked.id not in self.in_context, recursive=False
+                    )
                     fields["linked_message"] = {**link_obj, **linked_obj}
                     inlines.update(linked_inlines)
         if not exhaustive:
             content = utils.truncate_with_omitted(content, self.config.max_quote.value)
         return {**fields, "content": content}, inlines
-
 
     async def attachment_objs(self, message: discord.Message, exhaustive: bool) -> list[StructuredObject]:
         remaining = self.config.max_text_file.value
@@ -386,7 +380,6 @@ class ContextBuilderPipeline:
             attachments.append(obj)
         return attachments
 
-
     def embed_objs(self, message: discord.Message, content: str, exhaustive: bool) -> list[StructuredObject]:
         embeds = []
         for embed in message.embeds:
@@ -397,17 +390,20 @@ class ContextBuilderPipeline:
                 obj["title"] = self.clean_content(embed.title)
             if embed.description:
                 obj["description"] = self.clean_content(embed.description)
-            if embed.url and embed.url[:self.config.max_quote.value] not in content:
+            if embed.url and embed.url[: self.config.max_quote.value] not in content:
                 obj["url"] = embed.url
             if embed.image and embed.image.url:
                 obj["image"] = embed.image.url
             if embed.thumbnail and embed.thumbnail.url:
                 obj["thumbnail"] = embed.thumbnail.url
             if embed.fields and exhaustive:
-                fields = [{
-                    "@name": self.clean_content(field.name or ""),
-                    "#text": self.clean_content(field.value or "")
-                } for field in embed.fields]
+                fields = [
+                    {
+                        "@name": self.clean_content(field.name or ""),
+                        "#text": self.clean_content(field.value or ""),
+                    }
+                    for field in embed.fields
+                ]
                 utils.add_xml_group(obj, fields, "fields")
             if embed.footer:
                 obj["footer"] = embed.footer.text
@@ -415,13 +411,12 @@ class ContextBuilderPipeline:
                 embeds.append(obj)
         return embeds
 
-
     def button_objs(self, message: discord.Message) -> list[StructuredObject]:
         return [
             {"#text": utils.button_label(button)}
-            for button in utils.walk_components(message.components) if isinstance(button, discord.Button)
+            for button in utils.walk_components(message.components)
+            if isinstance(button, discord.Button)
         ]
-
 
     def component_objs(self, message: discord.Message, exhaustive: bool) -> list[StructuredObject]:
         objects: list[StructuredObject] = []
@@ -443,30 +438,34 @@ class ContextBuilderPipeline:
                 objects.append(obj)
         return objects
 
-
     def poll_obj(self, poll: discord.Poll, exhaustive: bool) -> StructuredObject:
         obj = {
             "@finished": str(poll.is_finalised()).lower(),
-            "question": poll.question
+            "question": poll.question,
         }
         if exhaustive:
-            answers = [{
-                "@votes": str(answer.vote_count),
-                "#text": answer.text
-            } for answer in poll.answers]
+            answers = [
+                {
+                    "@votes": str(answer.vote_count),
+                    "#text": answer.text,
+                }
+                for answer in poll.answers
+            ]
             utils.add_xml_group(obj, answers, "answers")
         elif poll.victor_answer:
             obj["winner"] = poll.victor_answer.text
         return obj
 
-
     def reaction_objs(self, message: discord.Message) -> list[StructuredObject]:
-        return [{
-            "@count": str(reaction.count),
-            "@me": str(reaction.me).lower(),
-            "#text": reaction.emoji if isinstance(reaction.emoji, str) else f":{reaction.emoji.name}:",
-        } for reaction in message.reactions[:5] if reaction.emoji != "🔎"]
-
+        return [
+            {
+                "@count": str(reaction.count),
+                "@me": str(reaction.me).lower(),
+                "#text": reaction.emoji if isinstance(reaction.emoji, str) else f":{reaction.emoji.name}:",
+            }
+            for reaction in message.reactions[:5]
+            if reaction.emoji != "🔎"
+        ]
 
     async def read_text_file(self, attachment: discord.Attachment) -> str | None:
         file_content = self.builder.text_cache.get(attachment.id)

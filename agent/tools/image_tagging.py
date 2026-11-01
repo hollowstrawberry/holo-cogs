@@ -5,8 +5,14 @@ from typing import ClassVar
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 from agent.utils import (
-    get_cog, get_filename, backread_with_quote, clean_booru_tag, debug,
-    normalize_image, find_image_source, resolve_image_source, 
+    get_cog,
+    get_filename,
+    backread_with_quote,
+    clean_booru_tag,
+    debug,
+    normalize_image,
+    find_image_source,
+    resolve_image_source,
 )
 
 log = logging.getLogger("agent.imagetagger")
@@ -15,22 +21,25 @@ log = logging.getLogger("agent.imagetagger")
 class ImageTaggingTool(ToolBase):
     display_name: ClassVar = "image_tagging"
     required_cog: ClassVar = "Arcenciel"
-    settings: ClassVar = {
-        "tagging_emoji": "🖼️"
-    }
+    settings: ClassVar = {"tagging_emoji": "🖼️"}
     schema: ClassVar = ToolCall(
         Function(
             name="infer_booru_tags",
-            description="Determine the booru tags that would match a user-provided image. Typically only useful for stable diffusion prompts.",
+            description=(
+                "Determine the booru tags that would match a user-provided image. "
+                "Typically only useful for stable diffusion prompts."
+            ),
             parameters=Parameters(
                 properties={
                     "image": {
                         "type": "string",
-                        "description": "Attachment filename or image URL from the conversation."
+                        "description": "Attachment filename or image URL from the conversation.",
                     },
                 },
                 required=["image"],
-            )))
+            ),
+        )
+    )
 
     async def run(self, arguments: dict) -> str | dict:
         assert self.ctx.guild
@@ -50,7 +59,7 @@ class ImageTaggingTool(ToolBase):
         if self.ctx.bot_permissions.add_reactions:
             emoji = self.get_setting("tagging_emoji")
             asyncio.create_task(self.ctx.message.add_reaction(emoji))
-        
+
         messages = await backread_with_quote(self.ctx, self.cog.config[self.ctx.guild].backread_messages.value)
         image_source = find_image_source(reference, messages, [])
         if not image_source:
@@ -60,7 +69,7 @@ class ImageTaggingTool(ToolBase):
                     "hint": "Use an attachment filename or image URL from the conversation.",
                 }
             }
-            
+
         try:
             image_bytes = await resolve_image_source(image_source, self.cog.session)
             max_resolution = self.cog.config[self.ctx.guild].max_image_resolution.value

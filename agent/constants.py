@@ -4,7 +4,7 @@ from discord.utils import DISCORD_EPOCH
 
 from agent.types import AgentValue, AgentMessage
 
-EMPTY = "ᅠ" # U+1160
+EMPTY = "ᅠ"  # U+1160
 DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=UTC)
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
@@ -19,7 +19,7 @@ IMAGE_DOWNLOAD_TIMEOUT = 10
 VIDEO_FRAME_RESOLUTION = 1024
 VIDEO_FRAME_TIMEOUT = 10
 TEXT_DOWNLOAD_MAXSIZE = 5 * 1024 * 1024
-CACHE_AGE = 24*60*60
+CACHE_AGE = 24 * 60 * 60
 CACHE_SIZE = 100
 TOKEN_ENCODING = "o200k_base"
 
@@ -40,12 +40,17 @@ BACKTICK_PATTERN = re.compile(r"```+")
 NEWLINE_SEPARATOR_PATTERN = re.compile(r",? *\n[\n\s]*")
 PIPE_SEPARATOR_PATTERN = re.compile(r"\s*\|\|\s*")
 
-GITHUB_FILE_URL_PATTERN = re.compile(r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)")
 ARCENCIEL_MODEL_URL_PATTERN = re.compile(r"(https?://)?arcenciel.io/models/(?P<id>\d+)")
-DISCORD_MESSAGE_LINK_PATTERN = re.compile(r"(?:https?://)?discord.com/channels/(?P<guild_id>\d+)/(?P<channel_id>\d+)/(?P<message_id>\d+)")
+GITHUB_FILE_URL_PATTERN = re.compile(
+    r"(https?://)?github.com/(?P<user>[^/]+)/(?P<repo>[^/]+)/blob/(?P<branch>[^/]+)/(?P<path>.+)"
+)
+DISCORD_MESSAGE_LINK_PATTERN = re.compile(
+    r"(?:https?://)?discord.com/channels/(?P<guild_id>\d+)/(?P<channel_id>\d+)/(?P<message_id>\d+)"
+)
 
 TONES = r"(pause?|happy|angry|sad|soft|excited|laugh|whisper|yell|scream|cry|sobb?|moan|sigh|sing|clear(s|ing)?.throat)(ing)?"
 
+#fmt: off
 RESPONSE_CLEANUP_PATTERNS = [
     #("Opening XML",       re.compile(r"^\s*<chat_message(?: [^>]+)?>\s*<content>\s*", re.DOTALL | re.IGNORECASE), ""),
     ("Quote",             re.compile(r"\s*<quote>.*?</quote>\s*", re.DOTALL | re.IGNORECASE), r""),
@@ -66,8 +71,9 @@ RESPONSE_CLEANUP_PATTERNS = [
     ("Tone modifier",     re.compile(rf" +\[{TONES}\] +", re.IGNORECASE), "\n"),
     ("Tone modifier 2",   re.compile(rf" *\[{TONES}\] *", re.IGNORECASE), ""),
 ]
+# fmt: on
 
-MEDIA_HEADERS =  {
+MEDIA_HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
     "Accept": "image/*;q=0.9",
 }
@@ -124,9 +130,7 @@ IMAGE_TOKEN_COUNT = (  # model family, low detail, high detail
     (re.compile(".*"), 256, 1024),
 )
 
-CACHE_CONTROL: AgentValue = {
-    "type": "ephemeral"
-}
+CACHE_CONTROL: AgentValue = {"type": "ephemeral"}
 
 FAKE_TOOL_CALL: list[AgentMessage] = [
     {
@@ -137,13 +141,15 @@ FAKE_TOOL_CALL: list[AgentMessage] = [
             "type": "function",
             "function": {
                 "name": "retrieve_data",
-                "arguments": "{}"
-            }
-        }]
+                "arguments": "{}",
+            },
+        }],
     },
     {
         "role": "tool",
-        "content": "<error>Tool calls have been disabled. Let the user know whether you were able to complete the task or not.</error>",
+        "content": (
+            "<error>Tool calls have been disabled. Let the user know whether you were able to complete the task or not.</error>"
+        ),
         "tool_call_id": "retrieve_data_cmV0cmlldmVfZGF0YQ",
     },
 ]
