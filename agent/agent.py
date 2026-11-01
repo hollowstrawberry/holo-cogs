@@ -386,6 +386,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             botnickname=ctx.me.nick or ctx.me.name,
             servername=ctx.guild.name,
             channelname=ctx.channel.name,
+            nsfwchannel=str(utils.is_nsfw(ctx.channel)).lower(),
             currentdatetime=datetime.now().strftime(constants.DATETIME_FORMATTING),
             memories=recalled_memories_str,
         )
