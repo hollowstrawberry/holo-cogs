@@ -23,16 +23,18 @@ def preview(text: str, limit: int) -> str:
 class PromptSelect(discord.ui.Select):
     def __init__(self, panel: "PromptPanelView", options: dict[str, str], placeholder: str):
         self.panel = panel
-        self.placeholder = placeholder
-        self.options = [
-            discord.SelectOption(
-                label=name,
-                value=name,
-                description=f"{len(content)} characters",
-                emoji="📝"
-            )
-            for name, content in options.items()
-        ]
+        super().__init__(
+            placeholder=placeholder,
+            options=[
+                discord.SelectOption(
+                    label=name,
+                    value=name,
+                    description=f"{len(content)} characters",
+                    emoji="📝",
+                )
+                for name, content in options.items()
+            ],
+        )
 
     async def callback(self, interaction: discord.Interaction):
         name = self.values[0]
