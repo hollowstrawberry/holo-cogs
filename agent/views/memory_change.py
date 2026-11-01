@@ -1,6 +1,7 @@
 import discord
 
 from agent.types import MemoryChangeResult
+from agent.utils import CallbackButton
 from agent.constants import VIEW_TIMEOUT, EMPTY, MAX_EMBED_DESCRIPTION, BACKTICK_PATTERN
 
 
@@ -10,9 +11,8 @@ class MemoryChangeView(discord.ui.View):
         self.standalone = standalone
         self.message: discord.Message | None = None
         for change in memory_changes[:25]:
-            button = discord.ui.Button(emoji="💭", label=change.name, style=discord.ButtonStyle.gray)
-            button.callback = self.memory_change_selector(change)
-            self.add_item(button)
+            callback = self.memory_change_selector(change)
+            self.add_item(CallbackButton(callback, "💭", change.name, discord.ButtonStyle.gray))
 
     def memory_change_selector(self, change: MemoryChangeResult):
         async def memory_change_wrapper(interaction: discord.Interaction):

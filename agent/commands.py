@@ -1,6 +1,7 @@
 import io
 import discord
 from difflib import get_close_matches
+from discord.abc import GuildChannel
 from redbot.core import commands
 
 from agent.base import AgentCogBase
@@ -76,7 +77,7 @@ class AgentCogCommands(AgentCogBase):
                 await config.prompt_keys.save()
             edit = edit_callback
             prompt = config.prompt_keys.value[module]
-        return PromptView(module, prompt, edit, self.bot.is_owner)
+        return PromptView(self, module, prompt, edit)
 
     async def prompt_cmd_edit(self, ctx: commands.Context) -> PromptPanelView:
         assert ctx.guild
@@ -94,9 +95,9 @@ class AgentCogCommands(AgentCogBase):
         }
         avatar_emote = await get_bot_avatar_emote(self.bot)
         return PromptPanelView(
+            self,
             prompts,
             edit_callback,
-            self.bot.is_owner,
             f"{avatar_emote}  {ctx.me.display_name} Prompt Panel",
             await ctx.embed_color(),
         )
@@ -115,7 +116,7 @@ class AgentCogCommands(AgentCogBase):
         await self.config[ctx.channel].start.set(DISCORD_EPOCH_DATETIME)
         await ctx.tick(message="✅")
         # remove the previous [p]forget, this is not perfect but it's not important anyway
-        assert ctx.guild
+        assert ctx.guild and isinstance(ctx.channel, GuildChannel)
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
             limit = self.config[ctx.guild].backread_messages.value
             async for message in ctx.channel.history(limit=limit, before=ctx.message, oldest_first=False):
@@ -142,7 +143,7 @@ class AgentCogCommands(AgentCogBase):
         """View all memories or a specific memory, for the bot LLM."""
         if isinstance(name, discord.Member):
             name = name.name
-        assert ctx.guild
+        assert ctx.guild and isinstance(ctx.channel, GuildChannel)
         memory = self.config[ctx.guild].memory.value
         if not name:
             if memory:
@@ -161,7 +162,7 @@ class AgentCogCommands(AgentCogBase):
                         await self.command_deletememory(ctx, name=name)
                     else:
                         await self.command_setmemory(ctx, name=name, content=content)
-                view = MemoryInfoView(name, memory[name], edit_memory, self.bot.is_owner)
+                view = MemoryInfoView(self, name, memory[name], edit_memory)
                 view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
@@ -183,7 +184,7 @@ class AgentCogCommands(AgentCogBase):
             view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
-        assert ctx.guild
+        assert ctx.guild and isinstance(ctx.channel, GuildChannel)
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
             try:
                 await ctx.message.delete()
@@ -206,7 +207,7 @@ class AgentCogCommands(AgentCogBase):
         await memory.save()
         view = MemoryChangeView([MemoryChangeResult(name, before, content)], standalone=True)
         view.message = await ctx.send(view=view)
-        assert ctx.guild
+        assert ctx.guild and isinstance(ctx.channel, GuildChannel)
         if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
             try:
                 await ctx.message.delete()

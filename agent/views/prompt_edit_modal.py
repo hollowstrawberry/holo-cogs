@@ -3,21 +3,22 @@ import tiktoken
 from typing import Awaitable, Callable
 
 from agent import constants
+from agent.base import AgentCogBase
 
 
 class PromptEditModal(discord.ui.Modal):
     def __init__(
         self,
+        cog: AgentCogBase,
         name: str | None,
         prompt: str,
-        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
         edit_callback: Callable[[str], Awaitable] | None = None,
         create_callback: Callable[[str, str], Awaitable] | None = None,
     ):
         super().__init__(title="Prompt Editing")
+        self.cog = cog
         self.name = name
         self.prompt = prompt
-        self.check_owner = check_owner
         self.edit_callback = edit_callback
         self.create_callback = create_callback
         self.prompt_edit = discord.ui.Label(
@@ -40,16 +41,14 @@ class PromptEditModal(discord.ui.Modal):
         self.add_item(self.prompt_edit)
         
     async def on_submit(self, interaction: discord.Interaction):
-        if not await self.check_owner(interaction.user):
+        if not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("You can view the prompt, but only the bot owner can edit it.", ephemeral=True)
         assert isinstance(self.prompt_edit.component, discord.ui.TextInput)
         assert isinstance(self.prompt_name_edit.component, discord.ui.TextInput)
         prompt = self.prompt_edit.component.value
-        if self.name:
-            assert self.edit_callback
+        if self.name and self.edit_callback:
             await self.edit_callback(prompt)
-        else:
-            assert self.create_callback
+        elif self.create_callback:
             name = self.prompt_name_edit.component.value.replace("`", "").strip()
             if not name:
                 return await interaction.response.send_message("Invalid key name.", ephemeral=True)

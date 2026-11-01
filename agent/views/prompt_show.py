@@ -1,31 +1,30 @@
 import discord
 from typing import Awaitable, Callable
 
+from agent.base import AgentCogBase
+from agent.utils import CallbackButton
 from agent.constants import VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
 
 
 class PromptView(discord.ui.View):
     def __init__(
         self,
+        cog: AgentCogBase,
         name: str,
         prompt: str,
         edit_callback: Callable[[str], Awaitable],
-        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
     ):
         super().__init__(timeout=VIEW_TIMEOUT)
+        self.cog = cog
         self.name = name
         self.prompt = prompt
         self.edit_callback = edit_callback
-        self.check_owner = check_owner
         self.message: discord.Message | None = None
-        self.show_button = discord.ui.Button(emoji="🔎", style=discord.ButtonStyle.gray)
-        self.show_button.callback = self.show_prompt
+        self.show_button = CallbackButton(self.show_prompt, "🔎", style=discord.ButtonStyle.gray)
+        self.edit_button = CallbackButton(self.edit_prompt, "📝", style=discord.ButtonStyle.gray)
+        self.delete_button = CallbackButton(self.delete,    "✖️", style=discord.ButtonStyle.red)
         self.add_item(self.show_button)
-        self.edit_button = discord.ui.Button(emoji="📝", style=discord.ButtonStyle.gray)
-        self.edit_button.callback = self.edit_prompt
         self.add_item(self.edit_button)
-        self.delete_button = discord.ui.Button(emoji="✖️", style=discord.ButtonStyle.red)
-        self.delete_button.callback = self.delete
         #self.add_item(self.delete_button)
 
     async def show_prompt(self, interaction: discord.Interaction):
@@ -34,15 +33,15 @@ class PromptView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def edit_prompt(self, interaction: discord.Interaction):
-        if not await self.check_owner(interaction.user):
+        if not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
         from agent.views.prompt_edit_modal import PromptEditModal
-        modal = PromptEditModal(self.name, self.prompt, self.check_owner, self.edit_callback_wrapper)
+        modal = PromptEditModal(self.cog, self.name, self.prompt, self.edit_callback_wrapper)
         await interaction.response.send_modal(modal)
 
     async def delete(self, interaction: discord.Interaction):
         assert interaction.message
-        if not interaction.permissions.manage_messages and not await self.check_owner(interaction.user):
+        if not interaction.permissions.manage_messages and not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("You don't have permission to delete this.", ephemeral=True)
         await interaction.message.delete()
 

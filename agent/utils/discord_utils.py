@@ -4,7 +4,7 @@ import asyncio
 import discord
 import contextlib
 from copy import copy
-from typing import Iterable, Type, TypeVar
+from typing import TypeVar, Iterable, Awaitable, Callable, Type
 from redbot.core import commands
 from redbot.core.bot import Red
 
@@ -14,7 +14,24 @@ from .component_utils import resolve_components
 from agent.types import MessageableChannel, HasMessage
 from agent import constants
 
-log = logging.Logger("agent.utils")
+log = logging.getLogger("agent.utils")
+
+
+class CallbackButton(discord.ui.Button):
+    def __init__(
+        self,
+        callback: Callable[[discord.Interaction], Awaitable],
+        emoji: str | discord.Emoji | None = None,
+        label: str | None = None,
+        style: discord.ButtonStyle = discord.ButtonStyle.secondary,
+        **kwargs
+    ):
+        super().__init__(emoji=emoji, label=label, style=style, **kwargs)
+        self._callback = callback
+
+    async def callback(self, interaction: discord.Interaction):
+        await self._callback(interaction)
+
 
 T = TypeVar("T")
 
@@ -35,7 +52,7 @@ def is_nsfw(channel: discord.abc.Messageable) -> bool:
 
 def button_label(button: discord.Button) -> str:
     """The button's emoji and label if either or both are present."""
-    emoji_name = button.emoji if not button.emoji or isinstance(button.emoji, str) else f":{button.emoji.name}:"
+    emoji_name = button.emoji if isinstance(button.emoji, str | None) else f":{button.emoji.name}:"
     return " ".join([s for s in (emoji_name, button.label) if s])
 
 async def fixed_messages(messages: Iterable[discord.Message]) -> list[discord.Message]:
@@ -137,7 +154,7 @@ async def get_bot_avatar_emote(bot: discord.Client) -> discord.Emoji:
     NAME = "bot_avatar"
     if not AVATAR_EMOTE:
         emojis = await bot.fetch_application_emojis()
-        AVATAR_EMOTE = discord.utils.find(lambda a: a.name == NAME, emojis)
+        AVATAR_EMOTE = discord.utils.find(lambda a: a and a.name == NAME, emojis)
     if not AVATAR_EMOTE:
         assert bot.user
         data = await bot.user.display_avatar.replace(size=128, format="png").read()
@@ -149,9 +166,9 @@ async def get_bot_avatar_emote(bot: discord.Client) -> discord.Emoji:
 async def chunk_and_send(
     ctx: commands.Context,
     full_text: str,
-    embed: discord.Embed = None,
-    view: discord.ui.View = None,
-    files: list[discord.File] = None,
+    embed: discord.Embed | None = None,
+    view: discord.ui.View | None = None,
+    files: list[discord.File] | None = None,
     do_reply: bool = False,
 ) -> None:
     """

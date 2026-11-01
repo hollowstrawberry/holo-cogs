@@ -2,6 +2,7 @@ import io
 import json
 import discord
 
+from arcenciel.types import CallbackButton
 from arcenciel.constants import VIEW_TIMEOUT
 from arcenciel.moss_metadata.view import LayoutSource, send_layout
 
@@ -12,11 +13,8 @@ class ImageInfoView(discord.ui.View):
         self.raw_metadata = raw_metadata
         self.layout_source = layout_source
         if layout_source is not None:
-            button = discord.ui.Button(label="View layout", emoji="📐")
-            button.callback = self.view_layout
-            self.add_item(button)
-        self.button = discord.ui.Button(emoji='🔧', label='View Full', style=discord.ButtonStyle.blurple)
-        self.button.callback = self.view_full_parameters
+            self.add_item(CallbackButton(self.view_layout, "📐", "View layout"))
+        self.button = CallbackButton(self.view_full_parameters, '🔧', 'View Full', discord.ButtonStyle.blurple)
         self.add_item(self.button)
 
     async def view_layout(self, interaction: discord.Interaction) -> None:

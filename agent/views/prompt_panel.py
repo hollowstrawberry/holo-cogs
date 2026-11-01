@@ -1,6 +1,8 @@
 import discord
 from typing import Awaitable, Callable
 
+from agent.base import AgentCogBase
+from agent.utils import CallbackButton
 from agent.constants import VIEW_TIMEOUT, PERMANENT_PROMPT_TYPES
 from agent.views.prompt_edit_modal import PromptEditModal
 
@@ -18,51 +20,49 @@ def preview(text: str, limit: int) -> str:
     return f"`{flat}`"
 
 
+class PromptSelect(discord.ui.Select):
+    def __init__(self, panel: "PromptPanelView", options: dict[str, str], placeholder: str):
+        self.panel = panel
+        self.placeholder = placeholder
+        self.options = [
+            discord.SelectOption(
+                label=name,
+                value=name,
+                description=f"{len(content)} characters",
+                emoji="📝"
+            )
+            for name, content in options.items()
+        ]
+
+    async def callback(self, interaction: discord.Interaction):
+        name = self.values[0]
+        modal = PromptEditModal(self.panel.cog, name, self.panel.prompts.get(name, ""), self.edit_callback(name))
+        await interaction.response.send_modal(modal)
+        await self.panel.refresh(interaction.message)
+
+    def edit_callback(self, name: str):
+        async def callback(content: str):
+            await self.panel.apply(name, content)
+        return callback
+
+
 class PromptPanelView(discord.ui.LayoutView):
     def __init__(
         self,
+        cog: AgentCogBase,
         prompts: dict[str, str],
         edit_callback: Callable[[str, str], Awaitable],
-        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
         title: str,
         color: discord.Color,
     ):
         super().__init__(timeout=VIEW_TIMEOUT)
+        self.cog = cog
         self.prompts = prompts
         self.edit_callback = edit_callback
-        self.check_owner = check_owner
         self.title = title
         self.message: discord.Message | None = None
         self.color = color
         self.build()
-
-    def make_prompt_select(self, options: dict[str, str], placeholder: str) -> discord.ui.Select:
-        select = discord.ui.Select(
-            placeholder=placeholder,
-            options=[
-                discord.SelectOption(
-                    label=name,
-                    value=name,
-                    description=f"{len(content)} characters",
-                    emoji="📝"
-                )
-                for name, content in options.items()
-            ],
-        )
-
-        async def on_select(interaction: discord.Interaction):
-            name = select.values[0]
-            modal = PromptEditModal(name, self.prompts.get(name, ""), self.check_owner, edit_callback=self.edit_callback_for(name))
-            await interaction.response.send_modal(modal)
-            await self.refresh(interaction.message)
-
-        select.callback = on_select
-        return select
-
-    def make_button(self, emoji: str, label: str, style: discord.ButtonStyle, callback: Callable):
-        button = discord.ui.Button(emoji=emoji, label=label, style=style)
-        button.callback = callback
-        return button
 
     def build(self):
         self.clear_items()
@@ -74,18 +74,18 @@ class PromptPanelView(discord.ui.LayoutView):
             discord.ui.Separator(),
             discord.ui.TextDisplay("**Modules**"),
             discord.ui.ActionRow(
-                self.make_prompt_select(module_prompts, "Open a module prompt...")
+                PromptSelect(self, module_prompts, "Open a module prompt...")
             ),
             *([
                 discord.ui.TextDisplay(f"**Custom keys**"),
                 discord.ui.ActionRow(
-                    self.make_prompt_select(custom_prompts, "Open a prompt key...")
+                    PromptSelect(self, custom_prompts, "Open a prompt key...")
                 ),
             ] if custom_prompts else []),
             discord.ui.Separator(),
             discord.ui.ActionRow(
-                self.make_button("➕", "New", discord.ButtonStyle.green, self.create_prompt),
-                self.make_button("✖️", "Close", discord.ButtonStyle.red, self.delete),
+                CallbackButton(self.create_prompt, "➕", "New", discord.ButtonStyle.green),
+                CallbackButton(self.delete, "✖️", "Close", discord.ButtonStyle.red),
             ),
             accent_color=self.color,
         )
@@ -102,20 +102,15 @@ class PromptPanelView(discord.ui.LayoutView):
         await self.edit_callback(name, content)
         await self.refresh()
 
-    def edit_callback_for(self, name: str):
-        async def callback(content: str):
-            await self.apply(name, content)
-        return callback
-
     async def create_prompt(self, interaction: discord.Interaction):
-        if not await self.check_owner(interaction.user):
+        if not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("Only the bot owner can edit prompts.", ephemeral=True)
-        modal = PromptEditModal(None, "", self.check_owner, create_callback=self.apply)
+        modal = PromptEditModal(self.cog, name=None, prompt="", create_callback=self.apply)
         await interaction.response.send_modal(modal)
 
     async def delete(self, interaction: discord.Interaction):
         assert interaction.message
-        if not interaction.permissions.manage_messages and not await self.check_owner(interaction.user):
+        if not interaction.permissions.manage_messages and not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("You don't have permission to remove this.", ephemeral=True)
         await interaction.message.delete()
 

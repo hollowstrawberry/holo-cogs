@@ -1,5 +1,6 @@
 import discord
 
+from agent.utils import CallbackButton
 from agent.constants import VIEW_TIMEOUT, MAX_EMBED_DESCRIPTION
 
 
@@ -8,8 +9,7 @@ class MemoryListView(discord.ui.View):
         super().__init__(timeout=VIEW_TIMEOUT)
         self.memories = memories
         self.message: discord.Message | None = None
-        self.button = discord.ui.Button(emoji="🧠", label="Memories...", style=discord.ButtonStyle.gray)
-        self.button.callback = self.show_info
+        self.button = CallbackButton(self.show_info, "🧠", "Memories...", discord.ButtonStyle.gray)
         self.add_item(self.button)
 
     async def show_info(self, interaction: discord.Interaction):

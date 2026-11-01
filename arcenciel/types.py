@@ -2,7 +2,7 @@
 import discord
 from abc import ABC
 from enum import Enum
-from typing import Literal, NotRequired, TypedDict, Protocol, runtime_checkable
+from typing import Literal, NotRequired, TypedDict, Protocol, runtime_checkable, Awaitable, Callable
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections.abc import Coroutine, Mapping
@@ -11,6 +11,22 @@ from redbot.core import commands
 
 class ImageGenError(Exception):
     pass
+
+
+class CallbackButton(discord.ui.Button):
+    def __init__(
+        self,
+        callback: Callable[[discord.Interaction], Awaitable],
+        emoji: str | discord.Emoji | None = None,
+        label: str | None = None,
+        style: discord.ButtonStyle = discord.ButtonStyle.secondary,
+        **kwargs
+    ):
+        super().__init__(emoji=emoji, label=label, style=style, **kwargs)
+        self._callback = callback
+
+    async def callback(self, interaction: discord.Interaction):
+        await self._callback(interaction)
 
 
 class SplitType(Enum):

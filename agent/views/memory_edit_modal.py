@@ -3,21 +3,22 @@ import tiktoken
 from typing import Awaitable, Callable
 
 from agent import constants
+from agent.base import AgentCogBase
 
 
 class MemoryEditModal(discord.ui.Modal):
     def __init__(
         self,
+        cog: AgentCogBase,
         name: str,
         content: str,
         edit_callback: Callable[[str], Awaitable],
-        check_owner: Callable[[discord.User | discord.Member], Awaitable[bool]],
     ):
         super().__init__(title="Edit Memory")
+        self.cog = cog
         self.name = name
         self.content = content
         self.edit_callback = edit_callback
-        self.check_owner = check_owner
         self.content_edit = discord.ui.Label(
             text=name,
             component=discord.ui.TextInput(
@@ -30,7 +31,7 @@ class MemoryEditModal(discord.ui.Modal):
         
     async def on_submit(self, interaction: discord.Interaction):
         assert isinstance(interaction.user, discord.Member)
-        if not interaction.user.guild_permissions.administrator and not self.check_owner(interaction.user):
+        if not interaction.user.guild_permissions.administrator and not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("You can view the memory, but only an admin can edit it.", ephemeral=True)
         assert isinstance(self.content_edit.component, discord.ui.TextInput)
         content = self.content_edit.component.value
