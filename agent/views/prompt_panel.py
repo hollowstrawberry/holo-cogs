@@ -6,18 +6,7 @@ from agent.utils import CallbackButton
 from agent.constants import VIEW_TIMEOUT, PERMANENT_PROMPT_TYPES
 from agent.views.prompt_edit_modal import PromptEditModal
 
-SELECT_MAX_OPTIONS = 25
-PREVIEW_LENGTH = 48
-TEXT_BUDGET = 3500
-
-
-def preview(text: str, limit: int) -> str:
-    flat = " ".join(text.split()).replace("`", "'")
-    if not flat:
-        return "*empty*"
-    if len(flat) > limit:
-        flat = flat[: limit - 1].rstrip() + "…"
-    return f"`{flat}`"
+MAX_OPTIONS = 25
 
 
 class PromptSelect(discord.ui.Select):
@@ -32,7 +21,7 @@ class PromptSelect(discord.ui.Select):
                     description=f"{len(content)} characters",
                     emoji="📝",
                 )
-                for name, content in options.items()
+                for name, content in options[:MAX_OPTIONS].items()
             ],
         )
 
