@@ -4,6 +4,7 @@ from agent import constants
 from agent.types import CacheMode
 from agent.config_base import ConfigField, CogConfig, CogConfigBase
 
+
 # fmt: off
 class AgentCogGuildConfig(CogConfigBase):
     # General

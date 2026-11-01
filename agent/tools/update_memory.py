@@ -25,4 +25,6 @@ class UpdateMemoryTool(ToolBase):
                 "@name": change.name,
                 "#text": change.after,
             })
-        return {"updated_memories": {"memory": change_obj},}
+        return {
+            "updated_memories": {"memory": change_obj},
+        }
