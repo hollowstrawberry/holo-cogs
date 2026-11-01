@@ -1,11 +1,11 @@
 import re
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from discord.utils import DISCORD_EPOCH
 
 from agent.types import AgentValue, AgentMessage
 
 EMPTY = "ᅠ" # U+1160
-DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezone.utc)
+DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=UTC)
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
 DATETIME_FORMATTING = "%Y-%m-%d %H:%M:%S %Z%z"
 PERMANENT_PROMPT_TYPES = ("responder", "autoresponder", "autoreacter", "recaller", "captioner", "memorizer")

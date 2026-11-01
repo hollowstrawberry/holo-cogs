@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from discord.utils import DISCORD_EPOCH
 
 ENDPOINT = "https://arcenciel.io/api"
@@ -12,7 +12,7 @@ MAX_MESSAGE_LENGTH = 2000
 QUOTA_PERIOD = 24*60*60
 QUOTA_VIP_THRESHOLD = 100
 
-DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=timezone.utc)
+DISCORD_EPOCH_DATETIME = datetime.fromtimestamp(DISCORD_EPOCH / 1000, tz=UTC)
 
 SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg"]
 

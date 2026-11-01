@@ -1,0 +1,7 @@
+[tool.ruff.lint]
+ignore = ["I001", "UP035", "SIM114", "SIM102", "BLE001"]
+
+[tool.ty.rules]
+possibly-missing-attribute = "warn"
+possibly-missing-import = "warn"
+possibly-unresolved-reference = "warn"

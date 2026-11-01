@@ -23,36 +23,36 @@ class ArcencielBase(commands.Cog):
         self.resource_cache: dict[str, str] = {}
         self.resource_not_found_cache: dict[str, bool] = ExpiringDict(max_len=100, max_age_seconds=24*60*60)
 
-        self.config = Config.get_conf(None, identifier=75567113, cog_name="AImage")
-        self.config.register_global(**{
-            "resource_cache": {},
-            "nsfw": True,
-            "loading_emoji": "⏳",
-            "arcenciel_emoji": "🌐",
-            "blacklist_regex": "",
-            "negative_prompt": "worst quality, low quality",
-            "cfg": 5,
-            "sampling_steps": 24,
-            "sampler": "euler_ancestral",
-            "checkpoint": None,
-            "vae": None,
-            "adetailer": False,
-            "width": 1024,
-            "height": 1024,
-            "max_img2img": 2048,
-            "scheduler": "normal",
-        })
-        self.config.register_guild(**{
-            "enabled": False,
-        })
-        self.config.register_user(**{
-            "quota_start": DISCORD_EPOCH_DATETIME.isoformat(),
-            "quota_progress": 0,
-            "checkpoint": "",
-        })
-        self.config.register_role(**{
-            "quota": 0,
-        })
+        self.config: Config = Config.get_conf(None, identifier=75567113, cog_name="AImage")
+        self.config.register_global(
+            resource_cache={},
+            nsfw=True,
+            loading_emoji="⏳",
+            arcenciel_emoji="🌐",
+            blacklist_regex="",
+            negative_prompt="worst quality, low quality",
+            cfg=5,
+            sampling_steps=24,
+            sampler="euler_ancestral",
+            checkpoint=None,
+            vae=None,
+            adetailer=False,
+            width=1024,
+            height=1024,
+            max_img2img=2048,
+            scheduler="normal"
+        )
+        self.config.register_guild(
+            enabled=False
+        )
+        self.config.register_user(
+            quota_start=DISCORD_EPOCH_DATETIME.isoformat(),
+            quota_progress=0,
+            checkpoint=""
+        )
+        self.config.register_role(
+            quota=0
+        )
 
     async def cache_set(self, hint: str, hyperlink: str | None) -> None:
         if hyperlink is None:

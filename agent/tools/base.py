@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
+from typing import ClassVar
 from dataclasses import asdict
-
 from redbot.core import commands
 
 from agent.base import AgentCogBase
@@ -8,13 +8,13 @@ from agent.types import StructuredObject, ToolCall
 
 
 class ToolBase(ABC):
-    display_name: str
-    schema: ToolCall
-    apis: list[tuple[str, str]] = []  # [(service_name, key),]
-    settings: dict[str, str] = {}  # key and default value
-    imagegen: bool = False
-    required_cog: str | None = None
-    headers = {
+    display_name: ClassVar[str]
+    schema: ClassVar[ToolCall]
+    apis: ClassVar[list[tuple[str, str]]] = []  # [(service_name, key),]
+    settings: ClassVar[dict[str, str]] = {}  # key and default value
+    imagegen: ClassVar[bool] = False
+    required_cog: ClassVar[str | None] = None
+    headers: ClassVar[dict] = {
         "User-Agent": "holo-cogs/v1 (https://github.com/hollowstrawberry/holo-cogs);"
     }
 

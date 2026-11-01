@@ -1,3 +1,4 @@
+from typing import ClassVar
 import re
 import logging
 import asyncio
@@ -31,7 +32,7 @@ class ArcencielCommands(ArcencielSettings):
         fake_message.content = prefix + command_name
         command = self.bot.get_command(command_name)
         assert command
-        fake_context: commands.Context = await self.bot.get_context(fake_message)  # noqa
+        fake_context: commands.Context = await self.bot.get_context(fake_message)
         try:
             can = await command.can_run(fake_context, check_all_parents=True, change_permission_state=False)
         except commands.CommandError:
@@ -70,7 +71,7 @@ class ArcencielCommands(ArcencielSettings):
                 ][:25]
     
 
-    _shared_parameter_descriptions = {
+    _shared_parameter_descriptions: ClassVar = {
         "negative_prompt": "Undesired terms go here.",
         "cfg": "Sets the intensity of the prompt, 5 is common.",
         "seed": "Random number that generates the image, -1 for random.",
@@ -81,14 +82,14 @@ class ArcencielCommands(ArcencielSettings):
         "variation": "Also known as subseed strength, makes variations on a set seed.",
     }
 
-    _resolution_shorthands = {
+    _resolution_shorthands: ClassVar = {
         re.compile(r"(^|\s*,\s*)(vertical)(?=$|\s*,\s*)", re.IGNORECASE): (832, 1216),
         re.compile(r"(^|\s*,\s*)(horizontal)(?=$|\s*,\s*)", re.IGNORECASE): (1216, 832),
         re.compile(r"(^|\s*,\s*)(square)(?=$|\s*,\s*)", re.IGNORECASE): (1024, 1024),
         re.compile(r"(^|\s*,\s*)(ultrawide|widescreen)(?=$|\s*,\s*)", re.IGNORECASE): (1536, 640),
     }
 
-    _resolution_choices = [
+    _resolution_choices: ClassVar = [
         app_commands.Choice(name="Square", value="1024x1024"),
         app_commands.Choice(name="Portrait", value="832x1216"),
         app_commands.Choice(name="Landscape", value="1216x832"),
@@ -241,22 +242,22 @@ class ArcencielCommands(ArcencielSettings):
         self,
         interaction: discord.Interaction,
         prompt: str,
-        negative_prompt: str = None,
+        negative_prompt: str | None = None,
         resolution: str = "832x1216",
-        checkpoint: str = None,
+        checkpoint: str | None = None,
         lora: str = "",
-        cfg: app_commands.Range[float, 2, 8] = None,
+        cfg: app_commands.Range[float, 2, 8] | None = None,
         seed: app_commands.Range[int, -1, None] = -1,
         subseed: app_commands.Range[int, -1, None] = -1,
         variation: app_commands.Range[float, 0.0, 0.5] = 0,
-        vae: str = None,
+        vae: str | None = None,
     ):
         """
         Generate an image using Stable Diffusion
         """
         await interaction.response.defer(thinking=True)
 
-        ctx: commands.Context = await self.bot.get_context(interaction)  # noqa
+        ctx: commands.Context = await self.bot.get_context(interaction)
         if not await self.can_run_command(ctx, "txt2img"):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
@@ -266,15 +267,15 @@ class ArcencielCommands(ArcencielSettings):
             prompt = "masterpiece, best quality, " + prompt
 
         loras = [lora] if lora else []
-        for lora, _, _ in LORA_PATTERN.findall(prompt):
-            prompt = prompt.replace(lora, "").strip()
-            loras.append(lora)
+        for lr, _, _ in LORA_PATTERN.findall(prompt):
+            prompt = prompt.replace(lr, "").strip()
+            loras.append(lr)
 
         regions = None
         if "||" in prompt:
             segments = [p.strip() for p in prompt.split("||")]
             if len(segments) != 3:
-                content = f":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
+                content = ":warning: Your prompt contains regions divided by `||`, but it's not in the format `shared || left || right`"
                 return await interaction.followup.send(content=content, ephemeral=True)
             segments = edit_regional_prompts(*segments)
             prompt = segments[0]
@@ -332,23 +333,23 @@ class ArcencielCommands(ArcencielSettings):
         prompt1: str,
         prompt2: str,
         split_percent: app_commands.Range[int, 10, 90] = 50,
-        negative_prompt: str = None,
+        negative_prompt: str | None = None,
         resolution: str = "1024x1024",
-        checkpoint: str = None,
+        checkpoint: str | None = None,
         lora: str = "",
         lora2: str = "",
-        cfg: app_commands.Range[float, 2, 8] = None,
+        cfg: app_commands.Range[float, 2, 8] | None = None,
         seed: app_commands.Range[int, -1, None] = -1,
         subseed: app_commands.Range[int, -1, None] = -1,
         variation: app_commands.Range[float, 0.0, 0.5] = 0,
-        vae: str = None,
+        vae: str | None = None,
     ):
         """
         Generate an image with regional prompts using Stable Diffusion
         """
         await interaction.response.defer(thinking=True)
 
-        ctx: commands.Context = await self.bot.get_context(interaction)  # noqa
+        ctx: commands.Context = await self.bot.get_context(interaction)
         if not await self.can_run_command(ctx, "txt2img"):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
@@ -394,15 +395,15 @@ class ArcencielCommands(ArcencielSettings):
             image: discord.Attachment,
             denoising: app_commands.Range[float, 0, 1],
             prompt: str,
-            negative_prompt: str = None,
-            checkpoint: str = None,
+            negative_prompt: str | None = None,
+            checkpoint: str | None = None,
             lora: str = "",
             scale: app_commands.Range[float, 0.5, 2.0] = 1,
-            cfg: app_commands.Range[float, 2, 8] = None,
+            cfg: app_commands.Range[float, 2, 8] | None = None,
             seed: app_commands.Range[int, -1, None] = -1,
             subseed: app_commands.Range[int, -1, None] = -1,
             variation: app_commands.Range[float, 0.0, 0.5] = 0,
-            vae: str = None,
+            vae: str | None = None,
     ):
         """
         Convert an image using Stable Diffusion
@@ -426,15 +427,15 @@ class ArcencielCommands(ArcencielSettings):
                 f"Your image {'after resizing would be' if scale != 0 else 'is'} {int(size**0.5)}² pixels, which is too big.",
                 ephemeral=True)
 
+        image_name = image.filename.rsplit(".", 1)[0] + ".png"
         try:
-            image_name = image.filename.rsplit(".", 1)[0] + ".png"
             image_bytes = await asyncio.to_thread(normalize_image, await image.read(), maxsize)
         except UnidentifiedImageError:
             log.warning(f"Invalid image {image_name}")
             return await interaction.followup.send("The file you uploaded is corrupted or invalid.", ephemeral=True)
         except Exception as error:
             log.exception("img2img")
-            await ctx.reply(f":warning: There was a problem with the image. `{debug(error)}`")
+            return await ctx.reply(f":warning: There was a problem with the image. `{debug(error)}`")
 
         img2img_params = ImageToImageParams(
             image_bytes,
@@ -490,7 +491,7 @@ class ArcencielCommands(ArcencielSettings):
         """
         Generate booru tags for an image
         """
-        ctx: commands.Context = await self.bot.get_context(interaction)  # noqa
+        ctx: commands.Context = await self.bot.get_context(interaction)
         if not await self.can_run_command(ctx, "autotag"):
             return await interaction.followup.send("You don't have permission to do this here.", ephemeral=True)
 
@@ -504,13 +505,13 @@ class ArcencielCommands(ArcencielSettings):
 
     async def autotag(self, ctx: commands.Context, attachment: discord.Attachment):
         assert self.api
+        image_name = attachment.filename.rsplit(".", 1)[0] + ".png"
         try:
-            image_name = attachment.filename.rsplit(".", 1)[0] + ".png"
             image_bytes = await asyncio.to_thread(normalize_image, await attachment.read(), MAX_UPLOAD_PIXELS)
             tags = await self.api.interrogate(image_bytes, image_name)
         except UnidentifiedImageError:
             log.warning(f"Invalid image {image_name}")
-            await ctx.reply(f":warning: The image you uploaded is corrupted or invalid.")
+            await ctx.reply(":warning: The image you uploaded is corrupted or invalid.")
         except aiohttp.ClientResponseError as error:
             log.exception("Autotagger")
             await ctx.reply(f":warning: Failed to tag the image! `{error.message}`")

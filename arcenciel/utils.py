@@ -9,13 +9,13 @@ from rapidfuzz import fuzz
 from redbot.core import commands
 
 from arcenciel.types import SplitType
-from arcenciel.constants import MAX_MESSAGE_LENGTH, LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN, LORA_PATTERN
+from arcenciel.constants import MAX_MESSAGE_LENGTH, LORA_PATTERN, NEWLINE_SEPARATOR_PATTERN, PIPE_SEPARATOR_PATTERN, UUID_PREFIX_PATTERN, NUMERIC_PREFIX_PATTERN, LORA_PREFIX_PATTERN
 
 log = logging.getLogger("red.bz_cogs.arcenciel")
 
 
 def debug(obj: object):
-    name = getattr(obj, "__qualname__") if hasattr(obj, "__qualname__") else type(obj).__qualname__
+    name = getattr(obj, "__qualname__", type(obj).__qualname__)
     return f"{name}: {obj}"
 
 async def send_response(context: commands.Context | discord.Interaction, **kwargs) -> discord.Message | None:
@@ -71,7 +71,7 @@ def normalize_image(b: bytes | BytesIO, max_pixels: int) -> bytes:
 
 def filter_names(options: dict, current: str, strict: bool = False) -> dict:
     results = {}
-    ratios = [(item, fuzz.partial_ratio(current.lower(), item.lower())) for item in options.keys()]
+    ratios = [(item, fuzz.partial_ratio(current.lower(), item.lower())) for item in options]
     sorted_options = sorted(ratios, key=lambda x: x[1], reverse=True)
     for item, ratio in sorted_options:
         if strict and ratio < 75:

@@ -2,8 +2,9 @@ import re
 import logging
 import asyncio
 import aiohttp
+from typing import ClassVar
 
-from agent.utils import add_xml_group, parse_arcenciel_image, get_cog, is_nsfw
+from agent.utils import add_xml_group, parse_arcenciel_image, get_cog, is_nsfw, debug
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
 
@@ -48,15 +49,15 @@ def spoiler_nsfw_image_links(text: str, image_ids: list[int]) -> str:
 
 
 class ArcencielImagesTool(ToolBase):
-    display_name = "arcenciel_images"
-    required_cog="Arcenciel"
-    settings = {
+    display_name: ClassVar = "arcenciel_images"
+    required_cog: ClassVar = "Arcenciel"
+    settings: ClassVar = {
         "arcenciel_emoji": "📁",
         "arcenciel_timeout": "10",
         "arcenciel_image_results": "5",
         "arcenciel_prompt_chars": "2000",
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="search_images_arcenciel",
             description="Search published image posts on Arc en Ciel. Use this for images, not models or LoRAs.",
@@ -145,7 +146,7 @@ class ArcencielImagesTool(ToolBase):
                 response.raise_for_status()
                 data: dict = await response.json()
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+        except (aiohttp.ClientError, TimeoutError) as error:
             log.warning(f"Trying to contact Arc en Ciel: {debug(error)}")
             return "<error>Failed to contact Arc en Ciel</error>"
 

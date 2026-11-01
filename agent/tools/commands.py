@@ -1,5 +1,6 @@
 import re
 from copy import copy
+from typing import ClassVar
 from redbot.core import commands
 
 from agent.utils import add_xml_group, command_allowed
@@ -8,14 +9,14 @@ from agent.tools.base import ToolBase
 
 
 class CommandsTool(ToolBase):
-    display_name = "commands"
-    settings = {
+    display_name: ClassVar = "commands"
+    settings: ClassVar = {
         "command_results": "10",
         "subcommand_results": "30",
         "command_help_chars": "1000",
         "command_brief_chars": "120"
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="commands",
             description="Search bot commands; exact names return usage.",

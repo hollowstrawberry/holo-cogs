@@ -4,6 +4,7 @@ from copy import deepcopy
 from redbot.core.bot import Red
 
 from arcenciel.base import ArcencielBase
+from arcenciel.types import CallbackButton
 from arcenciel.comfy import ComfyMetadata
 from arcenciel.constants import VIEW_TIMEOUT
 from arcenciel.views.image_info import ImageInfoView
@@ -38,18 +39,12 @@ class ImageActions(discord.ui.View):
         self.get_resources = cog.resolve_arcenciel_resources
         self.message: discord.Message | None = None
 
-        self.button_caption = discord.ui.Button(emoji='🔎')
-        self.button_caption.callback = self.get_caption
-        self.button_reroll = discord.ui.Button(emoji="🎲")
-        self.button_reroll.callback = self.reroll_image
-        self.button_modify = discord.ui.Button(emoji="📝")
-        self.button_modify.callback = self.modify_image
-        self.button_variation = discord.ui.Button(emoji='♻️')
-        self.button_variation.callback = self.variation_image
-        self.button_upscale = discord.ui.Button(emoji='💎')
-        self.button_upscale.callback = self.upscale_image
-        self.button_delete = discord.ui.Button(emoji='🗑️')
-        self.button_delete.callback = self.delete_image
+        self.button_caption   = CallbackButton(self.get_caption,     "🔎")
+        self.button_reroll    = CallbackButton(self.reroll_image,    "🎲")
+        self.button_modify    = CallbackButton(self.modify_image,    "📝")
+        self.button_variation = CallbackButton(self.variation_image, "♻️")
+        self.button_upscale   = CallbackButton(self.upscale_image,   "💎")
+        self.button_delete    = CallbackButton(self.delete_image,    "🗑️")
 
         self.add_item(self.button_caption)
         if not payload.get("upscaleProfiles", False):
@@ -130,7 +125,7 @@ class ImageActions(discord.ui.View):
                 embed.description = "\n".join(f"{emote} {res}" for res in resources)[:1500]
             return embed
 
-        for key in params.keys():
+        for key in params:
             if len(str(params[key])) > 1000:
                 params[key] = str(params[key])[:997] + "..."
             elif isinstance(params[key], float):
@@ -151,7 +146,7 @@ class ImageActions(discord.ui.View):
         if not member:
             return False
         is_requester = interaction.user.id == self.og_user.id
-        is_privileged = interaction.channel.permissions_for(member).manage_messages or await self.bot.is_owner(member)
+        is_privileged = interaction.permissions.manage_messages or await self.bot.is_owner(member)
         return is_requester or is_privileged
     
     async def on_timeout(self):

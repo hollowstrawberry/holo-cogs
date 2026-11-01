@@ -77,7 +77,7 @@ class PromptPanelView(discord.ui.LayoutView):
                 PromptSelect(self, module_prompts, "Open a module prompt...")
             ),
             *([
-                discord.ui.TextDisplay(f"**Custom keys**"),
+                discord.ui.TextDisplay("**Custom keys**"),
                 discord.ui.ActionRow(
                     PromptSelect(self, custom_prompts, "Open a prompt key...")
                 ),

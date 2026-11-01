@@ -1,6 +1,7 @@
 import asyncio
 import discord
 from copy import deepcopy
+from itertools import chain
 
 from arcenciel.constants import ADETAILER_ARGS, DEFAULT_UPSCALER, DEFAULT_DENOISE, DEFAULT_ADETAILER_DENOISE
 from arcenciel.views.image_actions import ImageActions
@@ -17,12 +18,12 @@ class HiresModal(discord.ui.Modal):
         self.payload = deepcopy(parent_view.payload)
         self.generate_image = parent_view.generate_image
 
-        upscalers = sorted(set(parent_view.cache["upscale"]))
+        upscalers        = sorted(set(parent_view.cache["upscale"]))
         default_upscaler = DEFAULT_UPSCALER if DEFAULT_UPSCALER in upscalers else upscalers[-1]
-        maxscale = ((maxsize*maxsize) / (self.payload["width"]*self.payload["height"]))**0.5
-        scales = [s for s in [1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0] if s <= maxscale]
-        default_scale = scales[-1]
-        denoise_steps = list(range(0, 7)) + list(range(8, 21, 2)) + list(range(25, 81, 5))
+        maxscale         = ((maxsize*maxsize) / (self.payload["width"] * self.payload["height"])) ** 0.5
+        scales           = [s for s in [1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0] if s <= maxscale]
+        default_scale    = scales[-1]
+        denoise_steps    = list(chain(range(0, 7, 1), range(8, 21, 2), range(25, 81, 5)))
 
         self.upscaler_select = discord.ui.Label(
             text="Upscaler",

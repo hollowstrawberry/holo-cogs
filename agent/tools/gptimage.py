@@ -1,7 +1,7 @@
 import asyncio
 import aiohttp
 import discord
-from typing import Coroutine, Protocol, runtime_checkable
+from typing import Coroutine, ClassVar, Protocol, runtime_checkable
 from redbot.core import commands
 
 from agent.utils import undo_xml, get_cog, backread_with_quote, find_image_source, resolve_image_source
@@ -18,7 +18,7 @@ class GptImage(Protocol):
 
 
 class GptImageToolBase(ToolBase):
-    imagegen = True
+    imagegen: ClassVar = True
 
     async def run(self, arguments: dict) -> dict | str:
         assert self.ctx.guild and isinstance(self.ctx.author, discord.Member) and isinstance(self.ctx.channel, (discord.TextChannel, discord.Thread))
@@ -28,9 +28,11 @@ class GptImageToolBase(ToolBase):
         
         channel_mode = self.cog.config[self.ctx.guild].generation_channel_mode.value
         channels = self.cog.config[self.ctx.guild].generation_channels.value
-        if channel_mode == "blacklist" and self.ctx.channel.id in channels \
-                or channel_mode == "whitelist" and self.ctx.channel.id not in channels:
-            if not self.ctx.channel.permissions_for(self.ctx.author).manage_messages:
+        if (
+            not self.ctx.permissions.manage_messages
+            and (channel_mode == "blacklist" and self.ctx.channel.id in channels
+                 or channel_mode == "whitelist" and self.ctx.channel.id not in channels)
+        ):
                 return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
 
         prompt: str = undo_xml(arguments.get("prompt", "")).strip()
@@ -83,7 +85,7 @@ class GptImageToolBase(ToolBase):
             try:
                 data = [await resolve_image_source(source, self.cog.session) for source in sources]
                 images, original_resolution = await gptimage.normalize_images(data)
-            except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError):
+            except (aiohttp.ClientError, TimeoutError, OSError, ValueError):
                 return "<error>Could not read an input image. It may be unavailable, invalid or too large.</error>"
             if base_image:
                 resolution = original_resolution
@@ -107,8 +109,8 @@ class GptImageToolBase(ToolBase):
 
 
 class GptImageGenTool(GptImageToolBase):
-    display_name="gptimage_gen"
-    schema = ToolCall(
+    display_name: ClassVar = "gptimage_gen"
+    schema: ClassVar = ToolCall(
         Function(
             name="generate_image_gpt",
             description="Generate an image with GPT, suitable for general/generic content.",
@@ -139,8 +141,8 @@ class GptImageGenTool(GptImageToolBase):
     
 
 class GptImageEditTool(GptImageToolBase):
-    display_name="gptimage_edit"
-    schema = ToolCall(
+    display_name: ClassVar = "gptimage_edit"
+    schema: ClassVar = ToolCall(
         Function(
             name="edit_image",
             description="Edits an image with GPT, suitable for general/generic content.",

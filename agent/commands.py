@@ -117,7 +117,7 @@ class AgentCogCommands(AgentCogBase):
         await ctx.tick(message="✅")
         # remove the previous [p]forget, this is not perfect but it's not important anyway
         assert ctx.guild and isinstance(ctx.channel, GuildChannel)
-        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+        if ctx.bot_permissions.manage_messages:
             limit = self.config[ctx.guild].backread_messages.value
             async for message in ctx.channel.history(limit=limit, before=ctx.message, oldest_first=False):
                 if message.content == ctx.message.content.replace("unforget", "forget"):
@@ -166,7 +166,7 @@ class AgentCogCommands(AgentCogBase):
                 view.message = await ctx.send(view=view)
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
-        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+        if ctx.bot_permissions.manage_messages:
             try:
                 await ctx.message.delete()
             except discord.DiscordException:
@@ -185,7 +185,7 @@ class AgentCogCommands(AgentCogBase):
         else:
             await ctx.send(f"No memory of `{name}`", delete_after=60)
         assert ctx.guild and isinstance(ctx.channel, GuildChannel)
-        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+        if ctx.bot_permissions.manage_messages:
             try:
                 await ctx.message.delete()
             except discord.DiscordException:
@@ -208,7 +208,7 @@ class AgentCogCommands(AgentCogBase):
         view = MemoryChangeView([MemoryChangeResult(name, before, content)], standalone=True)
         view.message = await ctx.send(view=view)
         assert ctx.guild and isinstance(ctx.channel, GuildChannel)
-        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
+        if ctx.bot_permissions.manage_messages:
             try:
                 await ctx.message.delete()
             except discord.DiscordException:

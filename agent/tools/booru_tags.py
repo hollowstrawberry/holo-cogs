@@ -3,7 +3,7 @@ import logging
 import asyncio
 import aiofiles
 import itertools
-from typing import Any
+from typing import Any, ClassVar
 from rapidfuzz import process, fuzz
 from redbot.core.data_manager import bundled_data_path
 
@@ -15,11 +15,11 @@ log = logging.getLogger("agent.boorutags")
 
 
 class BooruTagsTool(ToolBase):
-    display_name = "booru_tags"
-    settings = {
+    display_name: ClassVar = "booru_tags"
+    settings: ClassVar = {
         "boorutag_emoji": "🗒️"
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="find_booru_tags",
             description="Search a database of booru tags, such as those for clothing, composition, etc. Typically only useful for stable diffusion prompts.",
@@ -32,13 +32,13 @@ class BooruTagsTool(ToolBase):
                 required=["query"],
             )))
 
-    tag_groups: dict = {}
-    all_tags: list = []
+    tag_groups: ClassVar[dict] = {}
+    all_tags: ClassVar[list] = []
     
     @classmethod
     def build_index(cls, data: dict[str, Any]):
         cls.tag_groups = {}
-        for _, group_content in data.items():
+        for group_content in data.values():
             for subgroup_name, subgroup_content in group_content.items():
                 if isinstance(subgroup_content, dict):
                     vals = [v if isinstance(v, (list, tuple)) else [v]

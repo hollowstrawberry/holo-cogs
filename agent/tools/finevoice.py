@@ -5,6 +5,7 @@ import asyncio
 import aiohttp
 import discord
 import discord.http
+from typing import ClassVar
 
 from agent.utils import generate_waveform
 from agent.types import ToolCall, Function, Parameters
@@ -18,9 +19,9 @@ VOICE_ERROR = "<error>An error occured and voice could not be used.</error>"
 
 
 class FinevoiceTool(ToolBase):
-    display_name = "finevoice"
-    apis = [("finevoice", "api_key")]
-    settings = {
+    display_name: ClassVar  = "finevoice"
+    apis: ClassVar  = [("finevoice", "api_key")]
+    settings: ClassVar = {
         "voice_emoji": "🗣️",
         "voice": "",
         "voice_speed": "1.0",
@@ -28,7 +29,7 @@ class FinevoiceTool(ToolBase):
         "voice_temperature": "0.9",
         "voice_timeout": "60",
     }
-    schema = ToolCall(
+    schema: ClassVar  = ToolCall(
         Function(
             name="voice",
             description="Uses text-to-speech to send an audio in chat with your own voice.",

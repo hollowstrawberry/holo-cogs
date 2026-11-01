@@ -1,5 +1,6 @@
 import logging
 import asyncio
+from typing import ClassVar
 
 from agent.types import ToolCall, Function, Parameters
 from agent.tools.base import ToolBase
@@ -12,12 +13,12 @@ log = logging.getLogger("agent.imagetagger")
 
 
 class ImageTaggingTool(ToolBase):
-    display_name = "image_tagging"
-    required_cog="Arcenciel"
-    settings = {
+    display_name: ClassVar = "image_tagging"
+    required_cog: ClassVar = "Arcenciel"
+    settings: ClassVar = {
         "tagging_emoji": "🖼️"
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="infer_booru_tags",
             description="Determine the booru tags that would match a user-provided image. Typically only useful for stable diffusion prompts.",
@@ -65,7 +66,7 @@ class ImageTaggingTool(ToolBase):
             max_resolution = self.cog.config[self.ctx.guild].max_image_resolution.value
             fp = await asyncio.to_thread(normalize_image, image_bytes, max_resolution**2)
             if not fp:
-                return f"<error>The image appears to be corrupted or invalid</error>"
+                return "<error>The image appears to be corrupted or invalid</error>"
             filename = get_filename(image_source.url or reference).rsplit(".", 1)[0] + ".png"
             tags = await arcenciel.api.interrogate(fp, filename)
             return f"`{', '.join([clean_booru_tag(tag) for tag in tags])}`"

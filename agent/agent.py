@@ -9,7 +9,7 @@ from copy import copy
 from typing import Callable
 from random import random
 from difflib import get_close_matches
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionMessageFunctionToolCall
 from redbot.core import commands
@@ -24,7 +24,7 @@ from agent.context_builder import ContextBuilder, AgentChatContext
 from agent.config_commands import AgentCogConfigCommands
 from agent.types import (
     CompletionResult, AgentContent, AgentMessage, ImageQuality, HasError, LinkFixer,
-    MemoryChangeList, MemoryChangeResult, MessageReaction, ReactionResult, 
+    MemoryChangeList, MemoryChangeResult, MessageReaction, ReactionResult,
 )
 
 log = logging.getLogger("agent")
@@ -147,7 +147,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         if any(message.content.startswith(prefix) for prefix in prefixes):
             return
         
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         config = await self.config.load_guild(ctx.guild)
         channel_config = await self.config.load_channel(ctx.channel)
 
@@ -248,7 +248,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             await asyncio.sleep(1)
             try:
                 message = await ctx.channel.fetch_message(message.id)
-            except Exception as error:
+            except discord.DiscordException as error:
                 log.warning(f"wait_for_embed {utils.debug(error)}")
                 break
         message = await utils.resolve_components(message)
@@ -271,7 +271,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         async with utils.bot_is_typing(ctx.channel):
             backread = await self.fetch_message_history(ctx)
             messages = await self.context_builder.build_context(ctx, backread, config, result, self.encoding)
-            participants = list(set([ctx.guild.get_member(msg.author.id) or msg.author for msg in backread]))
+            participants = list({ctx.guild.get_member(msg.author.id) or msg.author for msg in backread})
             recalled_memories = await self.execute_recaller(ctx, participants, messages, memory_names, result)
             recalled_memories_str = self.build_memory_string(memory_names, recalled_memories, ctx, participants)
             if not auto and config.allow_memorizer.value:
@@ -330,10 +330,10 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         messages.insert(0, system_prompt)
 
         model, effort = config.model_recaller.value, config.effort_recaller.value
-        response = await self.get_client(model).chat.completions.create(
+        response: ChatCompletion = await self.get_client(model).chat.completions.create(  # type: ignore
             model=utils.clean_model(model),
-            reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
-            messages=messages,  # type: ignore
+            reasoning_effort=utils.adjusted_effort(model, effort),
+            messages=messages,
             stream=constants.COMPLETION_STREAM_FLAG,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
@@ -423,19 +423,19 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         files: list[discord.File] = []
         cleanups: list[Callable[[str], str]] = []
         do_reply = True
-        depths = range(config.max_tool_depth.value)
+        depths = range(max(1, config.max_tool_depth.value))
         for depth in depths:
             can_use_tools = depth < depths.stop - 1
             if not can_use_tools and depth > 0:
                 messages.extend(constants.FAKE_TOOL_CALL)
                 
             started = time.perf_counter()
-            response: ChatCompletion = await self.get_client(model).chat.completions.create(
+            response: ChatCompletion = await self.get_client(model).chat.completions.create(  # type: ignore
                 model=utils.clean_model(model),
-                reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),  # type: ignore
-                messages=messages,  # type: ignore
+                reasoning_effort=utils.adjusted_effort(model, config.effort_responder.value),
+                messages=messages,
                 max_completion_tokens=config.response_tokens.value,
-                tools=tools_schema,  # type: ignore
+                tools=tools_schema,
                 tool_choice="auto" if can_use_tools else "none",
                 stream=constants.COMPLETION_STREAM_FLAG,
                 extra_body=None if "/" not in model else {
@@ -443,8 +443,8 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
                     **self.openrouter_price_limits(model),
                 },
             )
-            if response is None:
-                log.error(f"OpenAI SDK returned NoneType")
+            if not response:
+                log.error("Empty responder completion")
                 return
 
             if self.config.extended_logging.value:
@@ -537,7 +537,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if response.choices[0].message.content:
                 break
 
-        completion = response.choices[0].message.content or ""
+        completion = response.choices[0].message.content or ""  # type: ignore
         if completion:
             raw_completion = completion
             if self.config.extended_logging.value:
@@ -729,7 +729,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
             if error.code == 400:
                 log.warning(f"Invalid autoreacter emote: {emote}")
             else:
-                raise error
+                raise
         else:
             result.emote = emote
         if self.config.extended_logging.value:
@@ -753,10 +753,10 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         ]
         model = config.model_captioner.value
         effort = "none"
-        response = await self.get_client(model).chat.completions.create(
+        response: ChatCompletion = await self.get_client(model).chat.completions.create(  # type: ignore
             model=utils.clean_model(model),
-            reasoning_effort=utils.adjusted_effort(model, effort),  # type: ignore
-            messages=messages,  # type: ignore
+            reasoning_effort=utils.adjusted_effort(model, effort),
+            messages=messages,
             stream=constants.COMPLETION_STREAM_FLAG,
             extra_body=None if "/" not in model else {
                 "session_id": str(ctx.message.id),
@@ -795,7 +795,7 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
 
     def build_memory_string(self, memory_names: list[str], recalled_memories: dict[str, str], ctx: commands.Context, participants: list[discord.Member | discord.User]) -> str:
-        assert ctx.guild
+        assert ctx.guild and isinstance(ctx.channel, discord.abc.GuildChannel)
         recalled_memories_obj = {
             "memories": {
                 "memory": []

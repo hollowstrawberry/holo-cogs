@@ -1,6 +1,7 @@
 import logging
 import asyncio
-from openai import NotGiven
+from typing import ClassVar
+from openai import Omit
 
 from agent.types import ToolCall, Function, Parameters
 from agent.constants import COMPLETION_STREAM_FLAG
@@ -10,12 +11,12 @@ log = logging.getLogger("agent.searchweb")
 
 
 class AgenticSearchTool(ToolBase):
-    display_name = "agent_search"
-    settings = {
+    display_name: ClassVar = "agent_search"
+    settings: ClassVar = {
         "search_emoji": "🌐",
         "search_timeout": "10",
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="web_search",
             description="Search for textual information beyond your base knowledge, such as: recent events, new technologies, real-time data, niche documentation.",
@@ -74,8 +75,8 @@ class AgenticSearchTool(ToolBase):
             else:
                 response = await self.cog.openai_client.responses.create(
                     model=model,
-                    reasoning=NotGiven() if "gpt-4" in model else {"effort": "low"},  # type: ignore
-                    tools=[{"type": "web_search"}],  # type: ignore
+                    reasoning=Omit() if "gpt-4" in model else {"effort": "low"},
+                    tools=[{"type": "web_search"}],
                     input=arguments["query"],
                     timeout=timeout,
                 )

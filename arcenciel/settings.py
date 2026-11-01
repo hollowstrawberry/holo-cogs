@@ -2,8 +2,8 @@ import logging
 import aiohttp
 import discord
 import humanize
-from typing import Literal
-from datetime import datetime, timezone
+from typing import Literal, cast
+from datetime import datetime, UTC
 from redbot.core import checks, commands
 
 from arcenciel.base import ArcencielBase
@@ -24,8 +24,9 @@ class ArcencielSettings(ArcencielBase):
         Browse or search checkpoints and set your personal image generation default.
         """
         query = (checkpoint or "").strip()
+        user = cast(discord.User, ctx.author)
         if query.lower() in ("clear", "reset", "default", "none"):
-            await self.config.user(ctx.author).checkpoint.set("")
+            await self.config.user(user).checkpoint.set("")
             default = clean_model(await self.config.checkpoint() or "") or "automatic"
             return await ctx.send(
                 f"Personal checkpoint reset. Commands: {discord.utils.escape_markdown(default)}. "
@@ -41,24 +42,23 @@ class ArcencielSettings(ArcencielBase):
             return await ctx.send("Could not load checkpoints. Your default was not changed; try again later.")
         selected = exact_checkpoint(entries, query) if query else None
         if selected:
-            await self.config.user(ctx.author).checkpoint.set(selected.name)
+            await self.config.user(user).checkpoint.set(selected.name)
             return await ctx.send(
                 f"✅ Default checkpoint: {discord.utils.escape_markdown(selected.name)} · {selected.base}",
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         view = CheckpointSelectView(
-            self, ctx.author, entries, await self.config.user(ctx.author).checkpoint() or "",
+            self, user, entries, await self.config.user(user).checkpoint() or "",
             await self.config.checkpoint() or "", await self.bot.get_embed_color(ctx.channel), query,
         )
         view.message = await ctx.send(embed=view.embed(), view=view, allowed_mentions=discord.AllowedMentions.none())
 
-    @commands.group(name="arcenciel", aliases=["arc", "aec"])  # type: ignore
+    @commands.group(name="arcenciel", aliases=["arc", "aec"])
     @commands.guild_only()
     @checks.bot_has_permissions(embed_links=True, add_reactions=True)
     @checks.admin_or_permissions(manage_guild=True)
     async def arcenciel(self, _: commands.Context):
         """ Manage AI Image cog settings. """
-        pass
 
     @arcenciel.command(name="enable")
     async def enable_cmd(self, ctx: commands.Context):
@@ -149,9 +149,9 @@ class ArcencielSettings(ArcencielBase):
         assert ctx.guild
 
         sampler_names = self.autocomplete_cache.get("samplers") or {}
-        if not sampler or sampler not in sampler_names.keys():
-            names = [f"`{name}`" for name in sampler_names.keys()]
-            return await ctx.send(f":warning: Sampler must be one of: " + ", ".join(names))
+        if not sampler or sampler not in sampler_names:
+            names = [f"`{name}`" for name in sampler_names]
+            return await ctx.send(":warning: Sampler must be one of: " + ", ".join(names))
 
         await self.config.sampler.set(sampler_names[sampler])
         await ctx.tick(message="✅ Default sampler updated.")
@@ -164,9 +164,9 @@ class ArcencielSettings(ArcencielBase):
         assert ctx.guild
 
         sch_names = self.autocomplete_cache.get("schedulers") or {}
-        if not scheduler or scheduler not in sch_names.keys():
-            names = [f"`{name}`" for name in sch_names.keys()]
-            return await ctx.send(f":warning: Scheduler must be one of: " + ", ".join(names))
+        if not scheduler or scheduler not in sch_names:
+            names = [f"`{name}`" for name in sch_names]
+            return await ctx.send(":warning: Scheduler must be one of: " + ", ".join(names))
 
         await self.config.scheduler.set(sch_names[scheduler])
         await ctx.tick(message="✅ Default scheduler updated.")
@@ -213,10 +213,10 @@ class ArcencielSettings(ArcencielBase):
         assert ctx.guild
         
         ckpt_names = self.autocomplete_cache.get("checkpoints") or {}
-        if not checkpoint or checkpoint not in ckpt_names.keys():
-            names = [f"`{name}`" for name in ckpt_names.keys()]
+        if not checkpoint or checkpoint not in ckpt_names:
+            names = [f"`{name}`" for name in ckpt_names]
             batches = make_batches(names, 10)
-            content = f":warning: Checkpoint must be one of:\n" + ",\n".join([", ".join(batch) for batch in batches])
+            content = ":warning: Checkpoint must be one of:\n" + ",\n".join([", ".join(batch) for batch in batches])
             return await chunk_and_send(ctx, content, do_reply=True)
 
         await self.config.checkpoint.set(ckpt_names[checkpoint])
@@ -230,9 +230,9 @@ class ArcencielSettings(ArcencielBase):
         assert ctx.guild
 
         vae_names = self.autocomplete_cache.get("vae") or {}
-        if not vae or vae not in vae_names.keys():
-            names = [f"`{name}`" for name in vae_names.keys()]
-            return await ctx.send(f":warning: Vae must be one of: " + ", ".join(names))
+        if not vae or vae not in vae_names:
+            names = [f"`{name}`" for name in vae_names]
+            return await ctx.send(":warning: Vae must be one of: " + ", ".join(names))
 
         await self.config.vae.set(vae_names[vae])
         await ctx.tick(message="✅ Default VAE updated.")
@@ -287,22 +287,17 @@ class ArcencielSettings(ArcencielBase):
         await ctx.message.add_reaction("⏳")
         await self.update_autocomplete_cache()
         await ctx.message.add_reaction("✅")
-        await ctx.message.remove_reaction("⏳", ctx.guild.me)
+        await ctx.message.remove_reaction("⏳", ctx.guild.me)  # type: ignore
         
     @arcenciel.group(name="quota", aliases=["vip", "limit", "limits"])
     async def quota_cmd(self, _: commands.Context):
-        """
-        Manage image generation limits for various groups
-        """
-        pass
+        """Manage image generation limits for various groups."""
 
     @quota_cmd.command(name="list", aliases=["show", "roles", "limit", "limits", "all"])
     async def quota_list_cmd(self, ctx: commands.Context):
-        """
-        Lists all image generation limits
-        """
+        """Lists all image generation limits."""
         assert ctx.guild
-        role_configs = await self.config.all_roles()
+        role_configs: dict[int, dict] = await self.config.all_roles()
         entries = [(role, config["quota"])
                    for role_id, config in role_configs.items()
                    if (role := ctx.guild.get_role(role_id)) and config.get("quota", 0) > 0]
@@ -340,25 +335,26 @@ class ArcencielSettings(ArcencielBase):
         await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     @quota_cmd.command(name="check", aliases=["user"])
-    async def quota_check_cmd(self, ctx: commands.Context, user: discord.Member):
+    async def quota_check_cmd(self, ctx: commands.Context, member: discord.Member):
         """
         Check the current progress and limit of a user's quota
         """
         assert ctx.guild
+        user = cast(discord.User, member)
         role_configs = await self.config.all_roles()
         role_quotas: dict[int, int] = {role_id: config["quota"] for role_id, config in role_configs.items()}
 
         embed = discord.Embed(color=await self.bot.get_embed_color(ctx.channel))
-        embed.set_author(name=str(user), icon_url=user.display_avatar.url)
+        embed.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        highest_quota = max([role_quotas.get(role.id, 0) for role in user.roles], default=0)
+        highest_quota = max([role_quotas.get(role.id, 0) for role in member.roles], default=0)
         if highest_quota <= 0:
-            embed.description = f"{user.mention} is not currently authorized to use the generator."
+            embed.description = f"{member.mention} is not currently authorized to use the generator."
             return await ctx.send(embed=embed)
 
         quota_progress: int = await self.config.user(user).quota_progress()
         quota_start = datetime.fromisoformat(await self.config.user(user).quota_start())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         quota_elapsed = (now - quota_start).total_seconds()
         if quota_elapsed > QUOTA_PERIOD:
             quota_progress = 0
@@ -373,10 +369,8 @@ class ArcencielSettings(ArcencielBase):
 
     @quota_cmd.command(name="reset", aliases=["clear"])
     async def quota_reset_cmd(self, ctx: commands.Context, user: discord.User):
-        """
-        Reset a user's image generation quota progress
-        """
-        now = datetime.now(timezone.utc)
+        """Reset a user's image generation quota progress."""
+        now = datetime.now(UTC)
         await self.config.user(user).quota_progress.set(0)
         await self.config.user(user).quota_start.set(now.isoformat())
 

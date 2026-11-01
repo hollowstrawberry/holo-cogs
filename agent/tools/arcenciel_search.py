@@ -1,6 +1,7 @@
 import logging
 import asyncio
 import aiohttp
+from typing import ClassVar
 
 from agent.utils import parse_arcenciel_model, add_xml_group, get_cog, debug
 from agent.types import ToolCall, Function, Parameters
@@ -10,16 +11,16 @@ log = logging.getLogger("agent.arcenciel_search")
 
 
 class ArcencielTool(ToolBase):
-    display_name = "arcenciel_search"
-    required_cog="Arcenciel"
-    settings = {
+    display_name: ClassVar = "arcenciel_search"
+    required_cog: ClassVar = "Arcenciel"
+    settings: ClassVar = {
         "arcenciel_emoji": "📁",
         "arcenciel_timeout": "10",
         "arcenciel_model_results": "5",
         "arcenciel_model_description_chars": "1000",
         "arcenciel_model_trigger_chars": "1000",
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="search_models_arcenciel",
             description="Searches stable diffusion models and loras on Arc en Ciel.",
@@ -84,7 +85,7 @@ class ArcencielTool(ToolBase):
                 response.raise_for_status()
                 data: dict = await response.json()
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+        except (aiohttp.ClientError, TimeoutError) as error:
             log.warning(f"Trying to contact Arc en Ciel: {debug(error)}")
             return "<error>Failed to contact Arc en Ciel</error>"
 

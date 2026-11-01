@@ -1,7 +1,7 @@
 import re
 import discord
-from typing import Protocol, runtime_checkable
-from datetime import date, datetime, timezone
+from typing import ClassVar, Protocol, runtime_checkable 
+from datetime import date, datetime, UTC
 from redbot.core import Config
 
 from agent.utils import get_cog
@@ -19,10 +19,10 @@ class Birthday(Protocol): # Vex-Cogs
 
 
 class BirthdayTool(ToolBase):
-    display_name = "birthday"
-    direct_only = True
-    required_cog = Birthday.__name__
-    schema = ToolCall(
+    display_name: ClassVar = "birthday"
+    direct_only: ClassVar = True
+    required_cog: ClassVar = Birthday.__name__
+    schema: ClassVar = ToolCall(
         Function(
             name="set_birthday",
             description="Set the requester's birthday in this server.",
@@ -46,7 +46,7 @@ class BirthdayTool(ToolBase):
         username = str(arguments.get("username", "")).strip()
         value = str(arguments.get("date", "")).strip()
         if not username:
-            return f"<error>You must provide the username of the user you are responding to.</error>"
+            return "<error>You must provide the username of the user you are responding to.</error>"
         if username != self.ctx.author.name:
             return f"<error>You are responding to {self.ctx.author.name} but trying to set the birthday for {username}. The user must ask you directly.</error"
         try:
@@ -63,8 +63,8 @@ class BirthdayTool(ToolBase):
         year = parsed.year if len(value) == 10 else None
         if year is not None and year < MINIMUM_YEAR:
             return f"<error>Birthday cannot be earlier than the year {MINIMUM_YEAR}.</error>"
-        elif year is not None and parsed > datetime.now(timezone.utc).date():
-            return f"<error>Birthday cannot be in the future.</error>" 
+        elif year is not None and parsed > datetime.now(UTC).date():
+            return "<error>Birthday cannot be in the future.</error>" 
 
         await cog.config.member_from_ids(self.ctx.guild.id, self.ctx.author.id).birthday.set({
             "year": year,

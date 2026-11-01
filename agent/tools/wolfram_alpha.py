@@ -1,5 +1,6 @@
 import logging
 import aiohttp
+from typing import ClassVar
 from xml.etree import ElementTree
 
 from agent.utils import farenheit_to_celsius, debug
@@ -11,9 +12,9 @@ log = logging.getLogger("agent.wolframalpha")
 
 
 class WolframAlphaTool(ToolBase):
-    display_name="wolfram_alpha"
-    apis = [("wolframalpha", "appid")]
-    schema = ToolCall(
+    display_name: ClassVar = "wolfram_alpha"
+    apis: ClassVar = [("wolframalpha", "appid")]
+    schema: ClassVar = ToolCall(
         Function(
             name="ask_wolframalpha",
             description="Asks Wolfram Alpha about math, exchange rates, or the weather. Do not use for price checks or other searches.",

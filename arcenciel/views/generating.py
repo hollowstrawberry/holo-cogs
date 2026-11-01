@@ -2,7 +2,7 @@ import asyncio
 import discord
 
 from arcenciel.base import ArcencielBase
-from arcenciel.types import ImageGenError, QueuedImageGen, GeneratingV2ViewBase
+from arcenciel.types import ImageGenError, QueuedImageGen, GeneratingV2ViewBase, CallbackButton
 from arcenciel.constants import VIEW_TIMEOUT
 
 
@@ -10,10 +10,8 @@ class _GeneratingControls(discord.ui.view.BaseView):
     def _setup_controls(self, cog: ArcencielBase, gen: QueuedImageGen):
         self.cog = cog
         self.gen = gen
-        self.button_inspect = discord.ui.Button(emoji='🔎')
-        self.button_cancel = discord.ui.Button(emoji="🛑")
-        self.button_inspect.callback = self.inspect
-        self.button_cancel.callback = self.cancel
+        self.button_inspect = CallbackButton(self.inspect, "🔎")
+        self.button_cancel = CallbackButton(self.cancel, "🛑")
 
     async def inspect(self, interaction: discord.Interaction):
         embed = discord.Embed(color=await self.cog.bot.get_embed_color(self.gen.channel))
@@ -74,7 +72,7 @@ class _GeneratingControls(discord.ui.view.BaseView):
             return False
         is_requester = interaction.user.id == self.gen.user.id
         is_privileged = (
-            interaction.channel.permissions_for(member).manage_messages or await self.cog.bot.is_owner(member)
+            interaction.permissions.manage_messages or await self.cog.bot.is_owner(member)
         )
         return is_requester or is_privileged
 

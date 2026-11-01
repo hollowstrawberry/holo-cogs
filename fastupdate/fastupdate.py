@@ -18,11 +18,11 @@ class FastUpdate(commands.Cog):
 
     def __init__(self, bot: Red):
         self.bot = bot
-        self.config = Config.get_conf(self, 12367)
-        self.config.register_global(**{
-            "failed_cogs": [],
-            "allowed_repos": []
-        })
+        self.config: Config = Config.get_conf(self, 12367)
+        self.config.register_global(
+            failed_cogs=[],
+            allowed_repos=[]
+        )
 
     async def save_failed_cogs(self, *, add: Iterable[str] | None = None, remove: Iterable[str] | None = None) -> None:
         if not add and not remove:
@@ -69,7 +69,7 @@ class FastUpdate(commands.Cog):
             if cogs_to_update:
                 install_success, install_fail = await downloader._install_cogs(cogs_to_update)
                 await downloader._save_to_installed(install_success)
-                successful_updates = set(cog.name for cog in install_success)
+                successful_updates = {cog.name for cog in install_success}
                 failed_updates = sorted(cog.name for cog in install_fail)
 
         previously_failed: set[str] = set(await self.config.failed_cogs())
@@ -129,7 +129,7 @@ class FastUpdate(commands.Cog):
     async def fastupdate_repos_list(self, ctx: commands.Context):
         """Show all the allowed repos."""
         allowed_repos: list[str] = await self.config.allowed_repos()
-        await ctx.send(f"Allowed repos for update command: " + (f"`{' '.join(allowed_repos)}`" if allowed_repos else "*(None)*"))
+        await ctx.send("Allowed repos for update command: " + (f"`{' '.join(allowed_repos)}`" if allowed_repos else "*(None)*"))
 
     @fastupdate_repos.command("add")
     async def fastupdate_repos_add(self, ctx: commands.Context, *repos: str):

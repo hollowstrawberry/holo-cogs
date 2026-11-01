@@ -2,6 +2,7 @@ import logging
 import asyncio
 import aiohttp
 import discord
+from typing import ClassVar, cast
 
 from agent.utils import add_xml_group, undo_xml, get_cog, backread_with_quote
 from agent.types import Function, Parameters, ToolCall, ImageScanner
@@ -17,18 +18,17 @@ def dimensions(value: str) -> tuple[int, int]:
 
 
 class ArcencielImageTool(ToolBase):
-    display_name = "arcenciel_image"
-    required_cog="Arcenciel"
-    settings = {
+    display_name: ClassVar = "arcenciel_image"
+    required_cog: ClassVar = "Arcenciel"
+    settings: ClassVar = {
         "checkpoint": "moss",
         "checkpoint_moss": "",
         "checkpoint_anima": "",
         "checkpoint_illustrious": "",
         "checkpoint_noobai": "",
-
     }
-    imagegen = True
-    schema = ToolCall(
+    imagegen: ClassVar = True
+    schema: ClassVar = ToolCall(
         Function(
             name="generate_image",
             description="Generate with open models including MOSS, Anima, and Illustrious/NoobAI. May also revise a previous image. Only MOSS supports boxes.",
@@ -156,9 +156,8 @@ class ArcencielImageTool(ToolBase):
                     metadata = ComfyMetadataReader.from_bytes(await attachment.read()).as_dict()
             except (discord.HTTPException, OSError, ValueError):
                 warnings.append("Image metadata is unavailable; using a fresh image recipe.")
-            if not metadata:
-                if scanner := get_cog(self.cog.bot, ImageScanner):
-                    metadata = await scanner.grab_metadata_dict(message)
+            if not metadata and (scanner := get_cog(self.cog.bot, ImageScanner)):
+                metadata = await scanner.grab_metadata_dict(message)
         elif existing:
             warnings.append("The original bot image was not found; a new image will be made.")
 
@@ -207,7 +206,7 @@ class ArcencielImageTool(ToolBase):
                 raise ValueError("The requested LoRAs target different model families. Choose a checkpoint explicitly.")
             inferred_family = next(iter(hints), "") if not (checkpoint or inherited) else ""
             if not (checkpoint or inherited):
-                personal: str = await arcenciel.config.user(self.ctx.author).checkpoint() or ""
+                personal: str = await arcenciel.config.user(cast(discord.User, self.ctx.author)).checkpoint() or ""
                 if personal:
                     try:
                         if personal not in available_models(catalog):

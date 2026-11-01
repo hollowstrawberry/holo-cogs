@@ -13,6 +13,7 @@ T = TypeVar("T")
 
 async def gather_logged(log: Logger, tasks: Iterable[Awaitable[T]]) -> list[T | None]:
     """Like asyncio.gather, but every failure is logged and its result becomes None."""
+    tasks = list(tasks)
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for task, res in zip(tasks, results):
         if isinstance(res, BaseException):

@@ -1,5 +1,5 @@
-from typing import Protocol, runtime_checkable
-from datetime import datetime, timezone
+from typing import ClassVar, Protocol, runtime_checkable
+from datetime import datetime, UTC
 
 from agent.utils import get_cog
 from agent.types import Function, Parameters, ToolCall
@@ -17,10 +17,10 @@ class RemindMe(Protocol): # PCXCogs
 
 
 class ReminderTool(ToolBase):
-    display_name = "reminder"
-    direct_only = True
-    required_cog = RemindMe.__name__
-    schema = ToolCall(
+    display_name: ClassVar = "reminder"
+    direct_only: ClassVar = True
+    required_cog: ClassVar = RemindMe.__name__
+    schema: ClassVar = ToolCall(
         Function(
             name="set_reminder",
             description="DM the requester after a delay in seconds.",
@@ -46,18 +46,18 @@ class ReminderTool(ToolBase):
         text = str(arguments.get("text", "")).strip()
         seconds = arguments.get("seconds")
         if not username:
-            return f"<error>You must provide the username of the user you are responding to.</error>"
+            return "<error>You must provide the username of the user you are responding to.</error>"
         if username != self.ctx.author.name:
             return f"<error>You are responding to {self.ctx.author.name} but trying to set the birthday for {username}. The user must ask you directly.</error"
         if not text:
-            return f"<error>Invalid argument, missing reminder text.</error>"
+            return "<error>Invalid argument, missing reminder text.</error>"
         if not isinstance(seconds, int) or seconds < MINIMUM_SECONDS:
             return f"<error>Invalid argument, seconds must be an integer higher than {MINIMUM_SECONDS - 1}.</error>"
         
-        created = int(datetime.now(timezone.utc).timestamp())
+        created = int(datetime.now(UTC).timestamp())
         expires = created + seconds
         try:
-            dt = datetime.fromtimestamp(expires, timezone.utc)
+            dt = datetime.fromtimestamp(expires, UTC)
         except (OverflowError, ValueError, OSError):
             return "<error>Reminder time is too large.</error>"
         

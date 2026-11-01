@@ -3,7 +3,7 @@ import logging
 import asyncio
 import aiohttp
 import trafilatura
-from typing import Awaitable, Callable, OrderedDict
+from typing import ClassVar
 
 from agent.utils import parse_arcenciel_model, debug
 from agent.types import ToolCall, Function, Parameters
@@ -14,12 +14,12 @@ log = logging.getLogger("agent.scrape")
 
 
 class ScrapeTool(ToolBase):
-    display_name = "scrape"
-    settings = {
+    display_name: ClassVar = "scrape"
+    settings: ClassVar = {
         "scrape_emoji": "🔗",
         "scrape_timeout": "10",
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="open_url",
             description="Opens a website URL and returns its text-based content.",
@@ -32,7 +32,7 @@ class ScrapeTool(ToolBase):
                 required=["url"],
             )))
 
-    headers = {
+    headers: ClassVar = {
         "Cache-Control": "no-cache",
         "Referer": "https://www.google.com/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
@@ -40,10 +40,10 @@ class ScrapeTool(ToolBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.custom_scrapers: dict[re.Pattern, Callable[[re.Match], Awaitable[str | dict]]] = OrderedDict({
+        self.custom_scrapers = {
             GITHUB_FILE_URL_PATTERN: self.scrape_github_file,
             ARCENCIEL_MODEL_URL_PATTERN: self.scrape_arcenciel_model,
-        })
+        }
 
     async def run(self, arguments: dict) -> dict | str:
         url = arguments.get("url")
@@ -69,7 +69,7 @@ class ScrapeTool(ToolBase):
                     return f"<error>Contents of {url} is not text</error>"
                 text = await response.text()
                 content = trafilatura.extract(text) or text
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return "<error>Timed out.</error>"
         except aiohttp.ClientError as error:
             log.warning(f"Opening {url}: {debug(error)}")

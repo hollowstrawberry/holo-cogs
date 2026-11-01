@@ -2,6 +2,7 @@ import json
 import logging
 import asyncio
 import aiohttp
+from typing import ClassVar
 
 from agent.utils import add_xml_group, debug
 from agent.types import ToolCall, Function, Parameters
@@ -11,13 +12,13 @@ log = logging.getLogger("agent.searchgoogle")
 
 
 class SerperSearchTool(ToolBase):
-    display_name = "serper_search"
-    apis = [("serper", "api_key")]
-    settings = {
+    display_name: ClassVar = "serper_search"
+    apis: ClassVar = [("serper", "api_key")]
+    settings: ClassVar = {
         "search_emoji": "🌐",
         "search_timeout": "10",
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="search_google",
             description="Googles a query for any unknown information or for updates on old information. Uses serper api.",

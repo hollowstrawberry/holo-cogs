@@ -2,21 +2,21 @@ import math
 import asyncio
 import discord
 from enum import IntEnum
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, TypeAlias, Any, Literal, Protocol, runtime_checkable
 from pydantic import BaseModel
 from dataclasses import dataclass, field
 
-StructuredObject = dict[str, Any]
+StructuredObject: TypeAlias = dict[str, Any]
 """Signifies a dict that will be unparsed into XML."""
 
-AgentValue = dict[str, str | dict[str, str]]
-AgentContent = dict[str, (str | AgentValue)]
-AgentMessage = dict[str, (str | list[AgentContent])]
+AgentValue: TypeAlias   = dict[str, str | dict[str, str]]
+AgentContent: TypeAlias = dict[str, (str | AgentValue)]
+AgentMessage: TypeAlias = dict[str, (str | list[AgentContent])]
 
-CacheMode = Literal["implicit", "fixed", "multiple", "cumulative"]
+CacheMode: TypeAlias = Literal["implicit", "fixed", "multiple", "cumulative"]
 
 if TYPE_CHECKING:
-    MessageableChannel = discord.abc.MessageableChannel
+    MessageableChannel: TypeAlias = discord.abc.MessageableChannel
 else:  # I hate future imports
     MessageableChannel = discord.abc.Messageable
 

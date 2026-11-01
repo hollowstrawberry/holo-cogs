@@ -4,7 +4,7 @@ import asyncio
 import discord
 import contextlib
 from copy import copy
-from typing import TypeVar, Iterable, Awaitable, Callable, Type
+from typing import TypeVar, Iterable, Awaitable, Callable
 from redbot.core import commands
 from redbot.core.bot import Red
 
@@ -35,7 +35,7 @@ class CallbackButton(discord.ui.Button):
 
 T = TypeVar("T")
 
-def get_cog(bot: Red, cog_type: Type[T]) -> T | None:
+def get_cog(bot: Red, cog_type: type[T]) -> T | None:
     """Grab the cog with the given type's name and type, if present."""
     cog = bot.get_cog(cog_type.__name__)
     if isinstance(cog, cog_type):

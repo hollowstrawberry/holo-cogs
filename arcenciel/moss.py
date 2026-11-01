@@ -31,7 +31,7 @@ def json_object(value: object) -> Mapping[str, object]:
 
 def positive_int(value: object, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
-        raise ValueError(f"Invalid MOSS {field} setting.")
+        raise TypeError(f"Invalid MOSS {field} setting.")
     try:
         result = int(value)
         if result <= 0 or float(value) != result:
@@ -43,7 +43,7 @@ def positive_int(value: object, field: str) -> int:
 
 def positive_float(value: object, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
-        raise ValueError(f"Invalid MOSS {field} setting.")
+        raise TypeError(f"Invalid MOSS {field} setting.")
     try:
         result = float(value)
         if not math.isfinite(result) or result <= 0:

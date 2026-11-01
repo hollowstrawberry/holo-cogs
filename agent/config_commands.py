@@ -1,4 +1,5 @@
 import logging
+import aiohttp
 import discord
 from math import isfinite
 from typing import Literal
@@ -18,12 +19,11 @@ log = logging.getLogger("agent.utils")
 
 class AgentCogConfigCommands(AgentCogBase):
 
-    @commands.group(name="agent", aliases=["llm", "gpt"])  # type: ignore
+    @commands.group(name="agent", aliases=["llm", "gpt"])
     @commands.is_owner()
     @commands.guild_only()
     async def agentconfig(self, _: commands.Context):
         """Base command for configuring the GPT Memory cog."""
-        pass
  
     @agentconfig.command(name="config", aliases=["settings"])
     async def agentconfig_config(self, ctx: commands.Context):
@@ -327,7 +327,6 @@ class AgentCogConfigCommands(AgentCogBase):
     @agentconfig.group(name="limits")
     async def agentconfig_limits(self, _: commands.Context):
         """Base command for limits intended as cost-saving measures."""
-        pass
 
     @agentconfig_limits.command(name="response_tokens")
     async def agentconfig_response_tokens(self, ctx: commands.Context, value: int | None):
@@ -408,7 +407,7 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Sets a new whitelist or blacklist for LLM channels."""
         config = self.config[ctx.guild]
-        await self.channels_config_command(ctx, config.channels, config.channel_mode, set(c.id for c in channels), mode)
+        await self.channels_config_command(ctx, config.channels, config.channel_mode, {c.id for c in channels}, mode)
 
     @agentconfig_channels.command("add")
     async def agentconfig_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
@@ -421,7 +420,7 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Removes channels from the LLM whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
-        channel_ids = set(config.channels.value) - set(c.id for c in channels)
+        channel_ids = set(config.channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.channels, config.channel_mode, channel_ids, None)
 
 
@@ -439,7 +438,7 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_generation_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Sets a new whitelist or blacklist for image generation channels."""
         config = self.config[ctx.guild]
-        await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, set(c.id for c in channels), mode)
+        await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, {c.id for c in channels}, mode)
 
     @agentconfig_generation_channels.command("add")
     async def agentconfig_generation_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
@@ -452,7 +451,7 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_generation_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Removes channels from the image generation whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
-        channel_ids = set(config.generation_channels.value) - set(c.id for c in channels)
+        channel_ids = set(config.generation_channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, channel_ids, None)
 
 
@@ -470,7 +469,7 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_auto_channels_set(self, ctx: commands.Context, mode: ChannelMode, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Sets a new whitelist or blacklist for autoresponse channels."""
         config = self.config[ctx.guild]
-        await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, set(c.id for c in channels), mode)
+        await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, {c.id for c in channels}, mode)
 
     @agentconfig_auto_channels.command("add")
     async def agentconfig_auto_channels_remove(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
@@ -483,7 +482,7 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_auto_channels_add(self, ctx: commands.Context, channels: commands.Greedy[discord.TextChannel | discord.Thread]):
         """Removes channels from the autoresponse whitelist or blacklist depending on the current setting."""
         config = self.config[ctx.guild]
-        channel_ids = set(config.auto_channels.value) - set(c.id for c in channels)
+        channel_ids = set(config.auto_channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, channel_ids, None)
 
 
@@ -491,7 +490,6 @@ class AgentCogConfigCommands(AgentCogBase):
     @agentconfig.group(name="tool", aliases=["function", "functions", "tools"])
     async def agentconfig_functions(self, _: commands.Context):
         """List or toggle function calls used by the responder."""
-        pass
 
     @agentconfig_functions.command(name="list")
     async def agentconfig_functions_list(self, ctx: commands.Context):
@@ -525,7 +523,7 @@ class AgentCogConfigCommands(AgentCogBase):
             result.append(f"`{tool_name}`: enabled")
         await enabled_tools.save()
         if fail:
-            result.append(f"\nValid values are: " + ", ".join([f"`{name}`" for name in all_tool_names]))
+            result.append("\nValid values are: " + ", ".join([f"`{name}`" for name in all_tool_names]))
         await ctx.send("\n".join(result))
 
     @agentconfig_functions.command(name="disable")
@@ -545,7 +543,7 @@ class AgentCogConfigCommands(AgentCogBase):
             result.append(f"`{tool_name}`: disabled")
         await enabled_tools.save()
         if fail:
-            result.append(f"\nValid values are: " + ", ".join([f"`{name}`" for name in all_tool_names]))
+            result.append("\nValid values are: " + ", ".join([f"`{name}`" for name in all_tool_names]))
         await ctx.send("\n".join(result))
 
     @agentconfig_functions.command(name="setting", aliases=["settings"])
@@ -592,7 +590,8 @@ class AgentCogConfigCommands(AgentCogBase):
         elif "/" in model:
             try:
                 is_valid = await is_valid_openrouter_model(self.session, model)
-            except Exception as error:
+            except aiohttp.ClientError as error:
+                is_valid = True
                 log.error(f"Failed to contact OpenRouter. {debug(error)}")
                 await ctx.reply("There was an error trying to contact OpenRouter, but the model will be changed anyway.")
             if not is_valid:

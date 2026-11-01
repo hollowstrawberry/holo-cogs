@@ -78,7 +78,7 @@ class CheckpointSelectView(discord.ui.View):
     def __init__(
         self,
         cog: ArcencielBase,
-        owner: discord.User | discord.Member,
+        owner: discord.User,
         entries: list[Checkpoint],
         current: str,
         bot_default: str,

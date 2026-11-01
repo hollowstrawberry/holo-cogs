@@ -1,5 +1,6 @@
 import logging
 import asyncio
+from typing import ClassVar
 from tavily import AsyncTavilyClient
 
 from agent.utils import add_xml_group
@@ -10,13 +11,13 @@ log = logging.getLogger("agent.searchweb")
 
 
 class TavilySearchTool(ToolBase):
-    display_name = "tavily_search"
-    apis = [("tavily", "api_key")]
-    settings = {
+    display_name: ClassVar = "tavily_search"
+    apis: ClassVar = [("tavily", "api_key")]
+    settings: ClassVar = {
         "search_emoji": "🌐",
         "search_timeout": "10",
     }
-    schema = ToolCall(
+    schema: ClassVar = ToolCall(
         Function(
             name="web_search",
             description="Search for textual information beyond your base knowledge, such as: recent events, new technologies, real-time data, niche documentation. Uses tavily api.",

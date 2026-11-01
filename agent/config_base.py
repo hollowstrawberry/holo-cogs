@@ -135,7 +135,7 @@ class CogConfig(CogConfigBase, Generic[GuildT, ChannelT]):
     async def load_channel(self, channel: discord.abc.Messageable) -> ChannelT:
         """Loads a single channel config into memory."""
         if not isinstance(channel, (discord.abc.GuildChannel, discord.Thread)):
-            raise ValueError("Invalid channel for config")
+            raise TypeError("Invalid channel for config")
         if channel.id not in self.channel:
             self.channel[channel.id] = await self._channel_config.load(self._config.channel(channel))
         return self.channel[channel.id]

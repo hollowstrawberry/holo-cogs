@@ -8,8 +8,8 @@ import humanize
 import binascii
 from io import BytesIO
 from copy import deepcopy
-from typing import Any, Coroutine
-from datetime import datetime, timedelta, timezone
+from typing import Any, Coroutine, cast
+from datetime import datetime, timedelta, UTC
 from collections.abc import Mapping
 from discord.ext import tasks
 from redbot.core import commands
@@ -97,7 +97,7 @@ class Arcenciel(ArcencielCommands):
         if not self.queued_images or not self.api.session:
             return
         if self.api.session.closed:
-            error_message = f":warning: The generator restarted, please try again."
+            error_message = ":warning: The generator restarted, please try again."
             for gen_id, gen in list(self.queued_images.items()):
                 self.queued_images.pop(gen_id, None)
                 asyncio.create_task(self.finalize_image_generation(gen, False, error_message))
@@ -118,8 +118,8 @@ class Arcenciel(ArcencielCommands):
 
     async def update_job(self, job: dict[str, Any], gen: QueuedImageGen):
         assert isinstance(gen.context.channel, discord.abc.Messageable)
-        now = datetime.now(timezone.utc)
-        created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(timezone.utc)
+        now = datetime.now(UTC)
+        created = datetime.fromtimestamp(job["createdAt"] / 1000).astimezone(UTC)
         user = gen.context.author if isinstance(gen.context, commands.Context) else gen.context.user
         assert isinstance(user, discord.Member)
 
@@ -239,7 +239,7 @@ class Arcenciel(ArcencielCommands):
                     gen.preview_total_steps = 0
                     gen.pending_preview = None
 
-            gen.last_updated = datetime.now(timezone.utc)
+            gen.last_updated = datetime.now(UTC)
             gen.last_percent = current_percent
             gen.last_eta = current_eta
             gen.last_position = current_position
@@ -281,7 +281,7 @@ class Arcenciel(ArcencielCommands):
             "", payload,
             user, channel, context,
             callback, message_content, None,
-            datetime.now(timezone.utc),
+            datetime.now(UTC),
         )
         loading = await self.config.loading_emoji()
         color = await self.bot.get_embed_color(channel)
@@ -289,21 +289,27 @@ class Arcenciel(ArcencielCommands):
             view = GeneratingV2View(self, gen, color)
             gen.progress_v2_view = view
             view.set_progress(f"{loading} Image request sent...")
+            embed = None
         else:
             view = GeneratingView(self, gen)
             embed = discord.Embed(description=f"{loading} Image request sent...", color=color)
             embed.set_footer(text=user.display_name, icon_url=user.display_avatar.url)
         if isinstance(context, commands.Context):
             if isinstance(view, discord.ui.LayoutView):
-                gen.progress_message = await context.reply(view=view, mention_author=False,
-                                                           allowed_mentions=discord.AllowedMentions.none())
-            else:
+                gen.progress_message = await context.reply(
+                    view=view, mention_author=False, allowed_mentions=discord.AllowedMentions.none()
+                )
+            elif embed:
                 gen.progress_message = await context.reply(embed=embed, view=view, mention_author=False)
+            else:
+                gen.progress_message = await context.reply(view=view, mention_author=False)
             gen.callback = gather_raise_all(callback, gen.progress_message.delete())
         else:
             if gen.progress_v2_view:
-                await context.edit_original_response(embed=None, content=None, attachments=[], view=view,
-                                                     allowed_mentions=discord.AllowedMentions.none())
+                await context.edit_original_response(
+                    embed=None, content=None, attachments=[], view=view,
+                    allowed_mentions=discord.AllowedMentions.none()
+                )
             else:
                 await context.edit_original_response(embed=embed, view=view)
     
@@ -342,7 +348,7 @@ class Arcenciel(ArcencielCommands):
             error_message = f":warning: The image couldn't be generated. ({error})"
         except (aiohttp.ContentTypeError, aiohttp.ClientConnectionError) as error:
             error_message = f":warning: The image couldn't be generated. ({error})"
-            log.warning("Queueing image", f"{debug(error)}")
+            log.warning(f"Queueing image: {debug(error)}")
         except aiohttp.ClientResponseError as error:
             error_message = f":warning: There was a problem generating the image! `{error.message}`"
             log.exception("Queueing image")
@@ -391,7 +397,7 @@ class Arcenciel(ArcencielCommands):
             message = await self.send_generation_response(gen, file=file, view=view, content=content,
                                                           allowed_mentions=discord.AllowedMentions.none())
             view.message = message
-            quota_progress = self.config.user(gen.user).quota_progress
+            quota_progress = self.config.user(cast(discord.User, gen.user)).quota_progress
             await quota_progress.set(await quota_progress() + 1)
             imagescanner = self.bot.get_cog(ImageScanner.__name__)
             if message and isinstance(imagescanner, ImageScanner) and gen.channel.id in imagescanner.scan_channels:
@@ -400,8 +406,8 @@ class Arcenciel(ArcencielCommands):
         except ImageGenError as error:
             error_message = f":warning: Failed to retrieve image. ({error})"
         except (aiohttp.ContentTypeError, aiohttp.ClientConnectionError) as error:
-            error_message = f":warning: Failed to retrieve image! Service is down temporarily."
-            log.warning(f"Finalizing image", f"{debug(error)}")
+            error_message = ":warning: Failed to retrieve image! Service is down temporarily."
+            log.warning(f"Finalizing image {debug(error)}")
         except aiohttp.ClientResponseError as error:
             error_message = f":warning: Failed to retrieve image! `{error.message}`"
             log.exception("Finalizing image")
@@ -416,18 +422,19 @@ class Arcenciel(ArcencielCommands):
 
 
     async def check_quota(self, context: commands.Context | discord.Interaction) -> bool:
-        user = context.user if isinstance(context, discord.Interaction) else context.author
+        member = context.user if isinstance(context, discord.Interaction) else context.author
+        user = cast(discord.User, member)
         channel = context.channel
-        assert context.guild and isinstance(user, discord.Member) and isinstance(channel, discord.abc.Messageable)
+        assert context.guild and isinstance(member, discord.Member) and isinstance(channel, discord.abc.Messageable)
 
         role_configs = await self.config.all_roles()
         role_quotas: dict[int, int] = {key: config["quota"] for key, config in role_configs.items()}
         quota_start = datetime.fromisoformat(await self.config.user(user).quota_start())
         quota_progress: int = await self.config.user(user).quota_progress()
         has_ongoing_gen = any(gen.user == user for gen in self.queued_images.values())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         quota_elapsed = (now - quota_start).total_seconds()
-        role_ids = [role.id for role in user.roles]
+        role_ids = [role.id for role in member.roles]
         highest_quota = max([role_quotas.get(rid, 0) for rid in role_ids], default=0)
 
         if quota_elapsed > constants.QUOTA_PERIOD:
@@ -488,7 +495,7 @@ class Arcenciel(ArcencielCommands):
                 link = f"`{choice['type']}` [{choice['title']}](https://arcenciel.io/models/{choice['id']})"
                 await self.cache_set(hint, link)
                 hyperlinks.add(link)
-        return sorted(list(hyperlinks))
+        return sorted(hyperlinks)
 
     async def prepare_image_payload(self, context: commands.Context | discord.Interaction, params: ImageGenParams) -> dict[str, object]:
         overrides: Mapping[str, object] | None = None
@@ -534,7 +541,12 @@ class Arcenciel(ArcencielCommands):
                     return build_standard_agent_payload(params, options, choice, nsfw, moss_loras)
             return dict(build_moss_payload(params, options, catalog, nsfw, moss_loras, overrides))
 
-        checkpoint = params.checkpoint or await self.config.user(member).checkpoint() or await self.config.checkpoint() or ""
+        checkpoint = (
+            params.checkpoint
+            or await self.config.user(cast(discord.User, member)).checkpoint()
+            or await self.config.checkpoint()
+            or ""
+        )
         vae = params.vae or await self.config.vae()
         loras: list[dict[str, object]] = []
         for lora in params.loras:

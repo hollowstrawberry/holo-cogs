@@ -379,9 +379,7 @@ class ComfyResourceHintExtractor:
             return True
         if UUID_TOKEN_RE.fullmatch(base_without_ext):
             return True
-        if kind == "resource" and not has_extension:
-            return True
-        return False
+        return kind == "resource" and not has_extension
 
     @classmethod
     def _kind_from_key(cls, key: str, *, default_kind: str = "resource") -> str:
@@ -943,8 +941,8 @@ class ComfyMetadataReader:
         for node in nodes:
             try:
                 cls.parse_single_node(node, meta, text_candidates)
-            except Exception:
-                # Keep metadata extraction resilient even when one node has exotic structure.
+            except:  # noqa: E722, S112
+                # node might have exotic structure but we don't care
                 continue
 
         regional_prompt = cls.build_regional_prompt(nodes, text_candidates)
