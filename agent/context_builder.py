@@ -4,7 +4,7 @@ import discord
 import tiktoken
 import xmltodict
 from typing import Sequence
-from itertools import accumulate, chain, repeat, zip_longest
+from itertools import accumulate, zip_longest
 from collections import Counter
 from dataclasses import dataclass
 from expiringdict import ExpiringDict
@@ -56,7 +56,7 @@ class ContextBuilder:
         self.is_busy = cog.is_busy
         self.image_cache: dict[tuple, ImageEntry] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
         self.text_cache: dict[int, str] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
-        self.message_cache: dict[int, discord.Message] = ExpiringDict(constants.CACHE_SIZE, constants.CACHE_AGE)
+        self.message_cache: dict[int, discord.Message] = ExpiringDict(constants.CACHE_SIZE, 5 * 60)
 
     async def build_context(
         self,
@@ -97,14 +97,16 @@ class ContextBuilderPipeline:
         self.result = result
         self.encoding = encoding
         self.imagescanner = utils.get_cog(builder.bot, ImageScanner)
-        self.in_context = {backmsg.id: backmsg for backmsg in backread}
+        self.in_context: dict[int, discord.Message] = {}
         self.quotes: dict[int, discord.Message] = {}
-        self.generated: dict[int, dict[str, str]] = {}
+        self.generated: dict[int, dict[str, object]] = {}
         low, high = utils.image_tokens(config.model_responder.value)
         self.image_tokens = {ImageQuality.NONE: 0, ImageQuality.LOW: low, ImageQuality.FULL: high}
+        self.image_budget = {ImageQuality.FULL: self.config.max_images.value, ImageQuality.LOW: self.config.max_images_low.value}
 
     async def build(self) -> AgentChatContext:
         self.backread = await utils.fixed_messages(self.backread)
+        self.in_context = {backmsg.id: backmsg for backmsg in self.backread}
         self.quotes = await self.resolve_quotes()
         self.generated = await self.resolve_generated()
         messages = await self.parse_messages()
@@ -131,16 +133,15 @@ class ContextBuilderPipeline:
 
     async def fetch_quote(self, backmsg: discord.Message, quote_id: int) -> discord.Message | None:
         cached = backmsg.reference.cached_message if backmsg.reference else None
-        quote = self.in_context.get(quote_id) or cached or await self.builder.fetch_message(backmsg.channel, quote_id)
-        return await utils.resolve_components(quote) if quote else None
+        return self.in_context.get(quote_id) or cached or await self.builder.fetch_message(backmsg.channel, quote_id)
 
-    async def resolve_generated(self) -> dict[int, dict[str, str]]:
+    async def resolve_generated(self) -> dict[int, dict[str, object]]:
         """Returns the metadata of the generated image of each message."""
         messages = {message.id: message for message in [*self.backread, *self.quotes.values()]}
-        found = await utils.gather_logged(log, (self.detect_generated(message) for message in messages.values()))
+        found = await utils.gather_logged(log, (self.fetch_generated(message) for message in messages.values()))
         return {message_id: generated for message_id, generated in zip(messages, found) if generated}
 
-    async def detect_generated(self, message: discord.Message) -> dict[str, str] | None:
+    async def fetch_generated(self, message: discord.Message) -> dict[str, object] | None:
         if message.author != self.ctx.me or len(message.attachments) != 1:
             return None
         if "gptimage" in message.attachments[0].filename:
@@ -174,25 +175,29 @@ class ContextBuilderPipeline:
 
     # Planning
 
+    def consume_budget(self, cap: ImageQuality) -> ImageQuality:
+        for quality in (ImageQuality.FULL, ImageQuality.LOW):
+            if quality <= cap and self.image_budget[quality] > 0:
+                self.image_budget[quality] -= 1
+                return quality
+        return ImageQuality.NONE
+
     def plan_images(self, messages: list[ContextMessage]) -> None:
         """
         Decides the quality tier of each image according to configured budgets, newest first.
         An image is listed in the newest message that shows it, either by itself or by quoting it.
         """
-        budget_full, budget_low = self.config.max_images.value, self.config.max_images_low.value
-        tiers = chain(repeat(ImageQuality.FULL, budget_full), repeat(ImageQuality.LOW, budget_low), repeat(ImageQuality.NONE))
         placed: set[int] = set()
         for msg in messages:
             for shown in (msg.message, self.quotes.get(msg.message.id)):
                 if not shown or shown.id in placed:
                     continue
                 placed.add(shown.id)
+                generated = bool(self.generated.get(shown.id, {}).get("Prompt"))
                 for src in utils.image_sources(shown)[: constants.MAX_IMAGES_PER_MESSAGE]:
-                    tier = next(tiers)
-                    if (generated := self.generated.get(shown.id)) and generated.get("Prompt"):
-                        tier = ImageQuality(max(0, tier - 1))  # lower quality for generated images
-                    if tier > 0:
-                        msg.slots.append(ImageSlot(src, tier))
+                    max_quality = ImageQuality.LOW if generated else ImageQuality.FULL
+                    if quality := self.consume_budget(max_quality):
+                        msg.slots.append(ImageSlot(src, quality))
 
     def tokens(self, msg: ContextMessage) -> int:
         return msg.text_tokens + sum(self.image_tokens[slot.quality] for slot in msg.slots)
@@ -278,7 +283,7 @@ class ContextBuilderPipeline:
         """
         assert message.guild
         generated = self.generated.get(message.id) or {}
-        prompt = generated.get("Prompt")
+        prompt = str(generated.get("Prompt", ""))
         recursive = recursive and not generated  # a generated image doesn't need the messages around it
         inlines: dict[str, StructuredObject] = {}
         obj = self.message_header(message)
@@ -425,16 +430,18 @@ class ContextBuilderPipeline:
             if isinstance(component, discord.TextDisplay):
                 text = self.clean_content(component.content)
                 if remaining > 0:
-                    objects.append({"text": utils.truncate_with_omitted(text, remaining)})
-                    remaining -= len(text)
+                    truncated = utils.truncate_with_omitted(text, remaining)
+                    objects.append({"text": truncated})
+                    remaining -= len(truncated)
             elif isinstance(component, discord.Button) and component.url:
                 objects.append({"link": component.url})
             for media, description in utils.component_media(component):
                 kind = utils.media_kind(media)
                 obj: StructuredObject = {kind: media.url}
                 if description and remaining > 0:
-                    obj["description"] = utils.truncate_with_omitted(self.clean_content(description), remaining)
-                    remaining -= len(description)
+                    truncated = utils.truncate_with_omitted(self.clean_content(description), remaining)
+                    obj["description"] = truncated
+                    remaining -= len(truncated)
                 objects.append(obj)
         return objects
 
