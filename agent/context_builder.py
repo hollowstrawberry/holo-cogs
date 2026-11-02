@@ -189,7 +189,7 @@ class ContextBuilderPipeline:
                 placed.add(shown.id)
                 for src in utils.image_sources(shown)[: constants.MAX_IMAGES_PER_MESSAGE]:
                     tier = next(tiers)
-                    if (generated := self.generated.get(message.id)) and generated.get("Prompt"):
+                    if (generated := self.generated.get(shown.id)) and generated.get("Prompt"):
                         tier = ImageQuality(max(0, tier - 1))  # lower quality for generated images
                     if tier > 0:
                         msg.slots.append(ImageSlot(src, tier))
