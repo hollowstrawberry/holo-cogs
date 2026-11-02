@@ -187,12 +187,12 @@ class ContextBuilderPipeline:
                 if not shown or shown.id in placed:
                     continue
                 placed.add(shown.id)
-                msg.slots.extend(ImageSlot(src, next(tiers)) for src in self.image_sources(shown))
-
-    def image_sources(self, message: discord.Message) -> list[ImageSource]:
-        if (generated := self.generated.get(message.id)) and generated.get("Prompt"):
-            return []  # the prompt is sent instead
-        return utils.image_sources(message)[: constants.MAX_IMAGES_PER_MESSAGE]
+                for src in utils.image_sources(shown)[: constants.MAX_IMAGES_PER_MESSAGE]:
+                    tier = next(tiers)
+                    if (generated := self.generated.get(shown.id)) and generated.get("Prompt"):
+                        tier = ImageQuality(max(0, tier - 1))  # lower quality for generated images
+                    if tier > 0:
+                        msg.slots.append(ImageSlot(src, tier))
 
     def tokens(self, msg: ContextMessage) -> int:
         return msg.text_tokens + sum(self.image_tokens[slot.quality] for slot in msg.slots)
