@@ -39,7 +39,7 @@ class ArcencielImageTool(ToolBase):
                 properties={
                     "existing": {
                         "type": "string",
-                        "description": "Bot image filename: reuse seed, size and MOSS layout.",
+                        "description": "Bot image filename. Will reuse seed, checkpoint, size, and MOSS layout.",
                     },
                     "prompt": {
                         "type": "string",
@@ -52,7 +52,8 @@ class ArcencielImageTool(ToolBase):
                     "checkpoint": {
                         "type": "string",
                         "description": (
-                            "Supported values are moss/anima/illustrious/noobai or an exact checkpoint. Omit for default."
+                            "Supported values are moss/anima/illustrious/noobai or an exact checkpoint. "
+                            "Omit to reuse or default."
                         ),
                     },
                     "resolution": {
