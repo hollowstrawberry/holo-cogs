@@ -14,6 +14,7 @@ AgentContent: TypeAlias = dict[str, (str | AgentValue)]
 AgentMessage: TypeAlias = dict[str, (str | list[AgentContent])]
 
 CacheMode: TypeAlias = Literal["implicit", "fixed", "multiple", "cumulative"]
+ChannelMode: TypeAlias = Literal["whitelist", "blacklist"]
 
 if TYPE_CHECKING:
     MessageableChannel: TypeAlias = discord.abc.MessageableChannel

@@ -5,13 +5,12 @@ from math import isfinite
 from typing import Literal
 from functools import reduce
 from redbot.core import commands
-from redbot.core.utils.chat_formatting import pagify
 
 from agent.base import AgentCogBase
-from agent.types import CacheMode
-from agent.utils import is_valid_openrouter_model, debug
+from agent.types import CacheMode, ChannelMode
+from agent.utils import is_valid_openrouter_model, debug, chunk_and_send
 from agent.config_base import ConfigField
-from agent.constants import EFFORT_VALUES, VISION_MODELS
+from agent.constants import EFFORT_VALUES, VISION_MODELS, OPENROUTER_INVALID_MODEL_MESSAGE
 from agent.tools.base import get_all_tools
 
 log = logging.getLogger("agent.utils")
@@ -137,6 +136,8 @@ class AgentCogConfigCommands(AgentCogBase):
 
         await ctx.send(embeds=[embed1, embed2, embed3, embed4])
 
+    # Templates
+
     @staticmethod
     async def bool_config_command(ctx: commands.Context, field: ConfigField[bool], value: bool | None):
         if value is None:
@@ -176,32 +177,6 @@ class AgentCogConfigCommands(AgentCogBase):
         await ctx.reply(f"`[{field.name}:]` {value} {unit}", mention_author=False)
 
     @staticmethod
-    async def price_config_command(
-        ctx: commands.Context, field: ConfigField[dict[str, float]], model: str | None, value: str | None
-    ):
-        if model is None:
-            lines = [f"`{name}`: ${price} / 1M tokens" for name, price in sorted(field.value.items())]
-            for page in pagify("\n".join(lines) or "No price limits configured."):
-                await ctx.reply(page, mention_author=False)
-            return
-        if model.count("/") != 1 or not all(model.split("/")) or "$" in model:
-            return await ctx.reply("Use the exact OpenRouter model slug: author/model.", mention_author=False)
-        if value is not None:
-            if value.lower() == "off":
-                field.value.pop(model, None)
-            else:
-                try:
-                    price = float(value)
-                except ValueError:
-                    price = float("nan")
-                if not isfinite(price) or price < 0:
-                    return await ctx.reply("Use a finite price of 0 or greater, or off.", mention_author=False)
-                field.value[model] = price
-            await field.save()
-        price_text = f"${field.value[model]} / 1M tokens" if model in field.value else "off"
-        await ctx.reply(f"`[{field.name}:]` `{model}`: {price_text}", mention_author=False)
-
-    @staticmethod
     async def emoji_config_command(ctx: commands.Context, field: ConfigField[str], emote: discord.Emoji):
         try:
             await ctx.react_quietly(emote)
@@ -215,11 +190,11 @@ class AgentCogConfigCommands(AgentCogBase):
     async def channels_config_command(
         ctx: commands.Context,
         values_field: ConfigField[list[int]],
-        mode_field: ConfigField[str],
+        mode_field: ConfigField[ChannelMode],
         values: set[int] | None,
-        mode: str | None,
+        mode: ChannelMode | None,
     ):
-        if mode in ("whitelist", "blacklist"):
+        if mode is not None:
             await mode_field.set(mode)
         if values is not None:
             await values_field.set(list(values))
@@ -228,6 +203,36 @@ class AgentCogConfigCommands(AgentCogBase):
             + "\n".join([f"<#{cid}>" for cid in values_field.value]),
             mention_author=False,
         )
+
+    async def price_config_command(
+        self, ctx: commands.Context, field: ConfigField[dict[str, float]], model: str | None, value: float | str | None
+    ):
+        if model is None:
+            lines = [f"`{name}`: ${price} / 1M tokens" for name, price in sorted(field.value.items())]
+            return await chunk_and_send(ctx, "\n".join(lines) or "No price limits configured.")
+        if "/" not in model or "$" in model:
+            return await ctx.reply("Use the exact OpenRouter model slug: author/model.")
+
+        if value in ("off", "none", "disable", "remove", "delete"):
+            field.value.pop(model, None)
+        elif value is not None:
+            if not isinstance(value, float) or not isfinite(value) or value < 0:
+                return await ctx.reply('The cost must be 0 or greater, or "none".')
+            try:
+                is_valid = await is_valid_openrouter_model(self.session, model)
+            except aiohttp.ClientError as error:
+                is_valid = True
+                log.error(f"Failed to contact OpenRouter. {debug(error)}")
+                await ctx.reply("There was an error trying to contact OpenRouter, but the value will be changed anyway.")
+            if not is_valid:
+                return await ctx.reply(OPENROUTER_INVALID_MODEL_MESSAGE)
+            field.value[model] = value
+
+        await field.save()
+        price_text = f"${field.value[model]:.3f} / 1M tokens" if model in field.value else "off"
+        await ctx.reply(f"`[{field.name}:]` `{model}`: {price_text}", mention_author=False)
+
+    # Config values
 
     @agentconfig.command(name="logging", aliases=["extended_logging"])
     async def agentconfig_logging(self, ctx: commands.Context, value: bool | None):
@@ -264,29 +269,14 @@ class AgentCogConfigCommands(AgentCogBase):
         """Whether to send images to the memorizer."""
         await self.bool_config_command(ctx, self.config[ctx.guild].use_images_memorizer, value)
 
-    @agentconfig.command(name="cache_mode")
-    async def agentconfig_cache_mode(self, ctx: commands.Context, mode: CacheMode | None):
-        """OpenRouter: implicit caching or a fixed boundary after the initial context."""
-        assert ctx.guild
-        field = self.config[ctx.guild].cache_mode
-        if mode is not None:
-            await field.set(mode)
-        await ctx.reply(f"`[cache_mode:]` {field.value}", mention_author=False)
-
     @agentconfig.command(name="max_input_price")
-    async def agentconfig_max_input_price(self, ctx: commands.Context, model: str | None, value: str | None):
-        """Global OpenRouter input price cap for an exact model, in USD/1M tokens.
-
-        Omit arguments to list, omit value to view, or use off to remove. Zero is a zero-dollar cap.
-        """
+    async def agentconfig_max_input_price(self, ctx: commands.Context, model: str | None, value: float | str | None):
+        """Global OpenRouter input price cap for an exact model, in USD/1M tokens, or "none"."""
         await self.price_config_command(ctx, self.config.openrouter_max_input_price, model, value)
 
     @agentconfig.command(name="max_output_price")
-    async def agentconfig_max_output_price(self, ctx: commands.Context, model: str | None, value: str | None):
-        """Global OpenRouter output price cap for an exact model, in USD/1M tokens.
-
-        Omit arguments to list, omit value to view, or use off to remove. Zero is a zero-dollar cap.
-        """
+    async def agentconfig_max_output_price(self, ctx: commands.Context, model: str | None, value: float | str | None):
+        """Global OpenRouter output price cap for an exact model, in USD/1M tokens, or "none"."""
         await self.price_config_command(ctx, self.config.openrouter_max_output_price, model, value)
 
     @agentconfig.command(name="autoresponder_chance")
@@ -338,6 +328,17 @@ class AgentCogConfigCommands(AgentCogBase):
     async def agentconfig_blocked_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
         """Sets an emoji for when the LLM response gets blocked."""
         await self.emoji_config_command(ctx, self.config.blocked_emoji, emoji)
+
+    @agentconfig.command(name="cache_mode")
+    async def agentconfig_cache_mode(self, ctx: commands.Context, mode: CacheMode | None):
+        """OpenRouter: implicit caching or a fixed boundary after the initial context."""
+        assert ctx.guild
+        field = self.config[ctx.guild].cache_mode
+        if mode is not None:
+            await field.set(mode)
+        await ctx.reply(f"`[cache_mode:]` {field.value}", mention_author=False)
+
+    # Limits
 
     @agentconfig.group(name="limits")
     async def agentconfig_limits(self, _: commands.Context):
@@ -403,7 +404,7 @@ class AgentCogConfigCommands(AgentCogBase):
         """Images will be resized to this resolution before being sent for captioning."""
         await self.integer_config_command(ctx, self.config[ctx.guild].max_caption_resolution, 128, 1024, value, "on each side")
 
-    ChannelMode = Literal["whitelist", "blacklist"]
+    # Channels
 
     @agentconfig.group(name="channels")
     async def agentconfig_channels(self, ctx: commands.Context):
@@ -440,6 +441,8 @@ class AgentCogConfigCommands(AgentCogBase):
         config = self.config[ctx.guild]
         channel_ids = set(config.channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.channels, config.channel_mode, channel_ids, None)
+
+    # Generation Channels
 
     @agentconfig.group(name="generation_channels")
     async def agentconfig_generation_channels(self, ctx: commands.Context):
@@ -479,6 +482,8 @@ class AgentCogConfigCommands(AgentCogBase):
         channel_ids = set(config.generation_channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.generation_channels, config.generation_channel_mode, channel_ids, None)
 
+    # Auto Channels
+
     @agentconfig.group(name="auto_channels")
     async def agentconfig_auto_channels(self, ctx: commands.Context):
         """Shows or sets the channels the LLM can respond automatically in."""
@@ -514,6 +519,8 @@ class AgentCogConfigCommands(AgentCogBase):
         config = self.config[ctx.guild]
         channel_ids = set(config.auto_channels.value) - {c.id for c in channels}
         await self.channels_config_command(ctx, config.auto_channels, config.auto_channel_mode, channel_ids, None)
+
+    # Tools
 
     @agentconfig.group(name="tool", aliases=["function", "functions", "tools"])
     async def agentconfig_functions(self, _: commands.Context):
@@ -594,6 +601,8 @@ class AgentCogConfigCommands(AgentCogBase):
         await self.config.tool_settings.save()
         await ctx.tick()
 
+    # Models
+
     ModelPromptTypes = Literal["recaller", "responder", "memorizer", "captioner", "autoreacter"]
 
     @agentconfig.command("model")
@@ -622,11 +631,9 @@ class AgentCogConfigCommands(AgentCogBase):
                 log.error(f"Failed to contact OpenRouter. {debug(error)}")
                 await ctx.reply("There was an error trying to contact OpenRouter, but the model will be changed anyway.")
             if not is_valid:
-                return await ctx.reply(
-                    "That is not a valid OpenRouter model! You may browse models [here](<https://openrouter.ai/discover>)."
-                )
+                return await ctx.reply(OPENROUTER_INVALID_MODEL_MESSAGE)
         elif model.strip().lower() not in VISION_MODELS:
-            return await ctx.reply("Invalid model!\nValid models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
+            return await ctx.reply("Invalid model!\nValid OpenAI models are " + ",".join([f"`{m}`" for m in VISION_MODELS]))
 
         await fields[module].set(model.strip().lower())
         await ctx.tick(message="Model changed.")
@@ -650,6 +657,8 @@ class AgentCogConfigCommands(AgentCogBase):
         else:
             await fields[module].set(effort.strip().lower())
             await ctx.tick(message="Reasoning effort changed")
+
+    # Etc
 
     @agentconfig.command("status")
     @commands.is_owner()

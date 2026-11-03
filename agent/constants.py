@@ -216,3 +216,5 @@ Your identity is {botname}, a digital assistant in the {servername} Discord serv
 You must provide an emoji that will be sent as a reaction to the latest message.\
 Pick the emoji that is most fitting.\
 """
+
+OPENROUTER_INVALID_MODEL_MESSAGE = "That is not a valid OpenRouter model! You may browse models [here](<https://openrouter.ai/discover>)."

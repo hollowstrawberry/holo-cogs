@@ -1,23 +1,23 @@
 from datetime import datetime
 
 from agent import constants
-from agent.types import CacheMode
+from agent.types import CacheMode, ChannelMode
 from agent.config_base import ConfigField, CogConfig, CogConfigBase
 
 
 # fmt: off
 class AgentCogGuildConfig(CogConfigBase):
     # General
-    channel_mode:            ConfigField[str]            = ConfigField("whitelist")
+    channel_mode:            ConfigField[ChannelMode]    = ConfigField("whitelist")
     channels:                ConfigField[list[int]]      = ConfigField([])
-    generation_channel_mode: ConfigField[str]            = ConfigField("blacklist")
+    generation_channel_mode: ConfigField[ChannelMode]    = ConfigField("blacklist")
     generation_channels:     ConfigField[list[int]]      = ConfigField([])
-    auto_channel_mode:       ConfigField[str]            = ConfigField("whitelist")
+    auto_channel_mode:       ConfigField[ChannelMode]    = ConfigField("whitelist")
     auto_channels:           ConfigField[list[int]]      = ConfigField([])
     memory:                  ConfigField[dict[str, str]] = ConfigField({})
     prompt_keys:             ConfigField[dict[str, str]] = ConfigField({})
     enabled_functions:       ConfigField[list[str]]      = ConfigField(["update_memory", "agent_search", "scrape"])       
-    cache_mode:              ConfigField[CacheMode]      = ConfigField("fixed")
+    cache_mode:              ConfigField[CacheMode]      = ConfigField("cumulative")
     # LLM parameters
     model_recaller:          ConfigField[str] = ConfigField("gpt-6-luna")
     model_responder:         ConfigField[str] = ConfigField("gpt-6-luna")
