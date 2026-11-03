@@ -175,10 +175,12 @@ class ContextBuilderPipeline:
 
     # Planning
 
-    def consume_budget(self, cap: ImageQuality) -> ImageQuality:
+    def consume_budget(self, is_generated: bool) -> ImageQuality:
         for quality in (ImageQuality.FULL, ImageQuality.LOW):
-            if quality <= cap and self.image_budget[quality] > 0:
+            if self.image_budget[quality] > 0:
                 self.image_budget[quality] -= 1
+                if is_generated:  # consume budget but high becomes low and low becomes none
+                    return ImageQuality(max(0, quality - 1))
                 return quality
         return ImageQuality.NONE
 
@@ -195,8 +197,7 @@ class ContextBuilderPipeline:
                 placed.add(shown.id)
                 generated = bool(self.generated.get(shown.id, {}).get("Prompt"))
                 for src in utils.image_sources(shown)[: constants.MAX_IMAGES_PER_MESSAGE]:
-                    max_quality = ImageQuality.LOW if generated else ImageQuality.FULL
-                    if quality := self.consume_budget(max_quality):
+                    if quality := self.consume_budget(generated):
                         msg.slots.append(ImageSlot(src, quality))
 
     def tokens(self, msg: ContextMessage) -> int:
