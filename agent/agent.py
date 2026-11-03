@@ -155,9 +155,9 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
 
         # autoresponse or autoreaction
         if self.bot.user not in ctx.message.mentions:
-            if config.auto_channel_mode.value == "blacklist" and ctx.channel.id in config.auto_channels.value:
-                return
-            if config.auto_channel_mode.value == "whitelist" and ctx.channel.id not in config.auto_channels.value:
+            if (config.auto_channel_mode.value == "blacklist" and ctx.channel.id in config.auto_channels.value) or (
+                config.auto_channel_mode.value == "whitelist" and ctx.channel.id not in config.auto_channels.value
+            ):
                 return
             last_response = channel_config.last_response.value
             if (
@@ -221,9 +221,9 @@ class AgentCog(AgentCogCommands, AgentCogConfigCommands):
         if not ctx.guild or ctx.author.bot:
             return False
         config = await self.config.load_guild(ctx.guild)
-        if config.channel_mode.value == "blacklist" and ctx.channel.id in config.channels.value:
-            return False
-        elif config.channel_mode.value == "whitelist" and ctx.channel.id not in config.channels.value:
+        if (config.channel_mode.value == "blacklist" and ctx.channel.id in config.channels.value) or (
+            config.channel_mode.value == "whitelist" and ctx.channel.id not in config.channels.value
+        ):
             return False
         if await self.bot.cog_disabled_in_guild(self, ctx.guild):
             return False

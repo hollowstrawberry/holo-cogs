@@ -33,10 +33,8 @@ class GptImageToolBase(ToolBase):
         channel_mode = self.cog.config[self.ctx.guild].generation_channel_mode.value
         channels = self.cog.config[self.ctx.guild].generation_channels.value
         if not self.ctx.permissions.manage_messages and (
-            channel_mode == "blacklist"
-            and self.ctx.channel.id in channels
-            or channel_mode == "whitelist"
-            and self.ctx.channel.id not in channels
+            (channel_mode == "blacklist" and self.ctx.channel.id in channels)
+            or (channel_mode == "whitelist" and self.ctx.channel.id not in channels)
         ):
             return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
 

@@ -52,8 +52,7 @@ class ArcencielImageTool(ToolBase):
                     "checkpoint": {
                         "type": "string",
                         "description": (
-                            "Supported values are moss/anima/illustrious/noobai or an exact checkpoint. "
-                            "Omit to reuse or default."
+                            "Supported values are moss/anima/illustrious/noobai or an exact checkpoint. Omit to reuse or default."
                         ),
                     },
                     "resolution": {
@@ -127,6 +126,14 @@ class ArcencielImageTool(ToolBase):
             return "<error>`arcenciel` cog not installed or outdated, please notify the bot owner</error>"
         if not arcenciel.api or not arcenciel.api.session.headers.get("x-api-key"):
             return "<error>`arcenciel` cog not configured, please notify the bot owner</error>"
+
+        channel_mode = self.cog.config[self.ctx.guild].generation_channel_mode.value
+        channels = self.cog.config[self.ctx.guild].generation_channels.value
+        if not self.ctx.permissions.manage_messages and (
+            (channel_mode == "blacklist" and self.ctx.channel.id in channels)
+            or (channel_mode == "whitelist" and self.ctx.channel.id not in channels)
+        ):
+            return "<error>Image generation is not allowed in this channel unless the user is a moderator</error>"
 
         prompt = undo_xml(str(arguments.get("prompt", "")))
         negative_prompt = str(arguments.get("negative_prompt", ""))
